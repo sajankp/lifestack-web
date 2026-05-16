@@ -49,7 +49,7 @@ jobs:
 
           if [ "${HAS_TEST_SCRIPT}" = "yes" ]; then
             echo "Test script detected. Running tests with coverage."
-            npm run test -- --coverage --coverageReporters=text --coverageReporters=lcov --coverageThreshold="{\"global\":{\"lines\":${COVERAGE_THRESHOLD}}}"
+            npm run test -- --coverage --coverage.reporter=text --coverage.reporter=lcov --coverage.thresholds.lines=${COVERAGE_THRESHOLD}
             exit 0
           fi
 

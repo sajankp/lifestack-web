@@ -46,13 +46,25 @@ const attemptRefresh = (): Promise<void> => {
   refreshPromise = api
     .post('/auth/refresh')
     .then(() => {
-      sessionExtendedCallbacks.forEach((cb) => cb());
+      [...sessionExtendedCallbacks].forEach((cb) => {
+        try {
+          cb();
+        } catch (e) {
+          console.error('Session extended callback failed:', e);
+        }
+      });
     })
     .catch((err: AxiosError) => {
       // Only force logout on definitive auth failures (401/403).
       // Network errors let the original request fail naturally.
       if (err.response?.status === 401 || err.response?.status === 403) {
-        unauthorizedCallbacks.forEach((cb) => cb());
+        [...unauthorizedCallbacks].forEach((cb) => {
+          try {
+            cb();
+          } catch (e) {
+            console.error('Unauthorized callback failed:', e);
+          }
+        });
       }
       throw err;
     })
