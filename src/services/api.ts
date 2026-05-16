@@ -80,11 +80,12 @@ const attemptRefresh = (): Promise<void> => {
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const original = error.config as InternalAxiosRequestConfig & { _retried?: boolean };
+    const original = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined;
 
     // Only intercept 401s — and never retry the refresh call itself to avoid loops.
     if (
       error.response?.status === 401 &&
+      original &&
       !original._retried &&
       !original.url?.endsWith('/auth/refresh')
     ) {
