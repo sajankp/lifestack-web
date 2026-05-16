@@ -1,5 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { spendingService } from '../services/spending';
 import type { TransactionCreate, TransactionType, BudgetCreate, BudgetUpdate, Budget } from '../types/spending';
 import { 
@@ -16,6 +19,27 @@ import {
 } from 'lucide-react';
 import { Pagination } from '../components/Pagination';
 import { DropdownSelect } from '../components/DropdownSelect';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+
+const budgetFormSchema = z.object({
+  categoryId: z.string().min(1, 'Select a category'),
+  month: z.string().regex(/^\d{4}-\d{2}$/, 'Select a valid month'),
+  amount: z
+    .string()
+    .min(1, 'Enter a budget amount')
+    .refine((value) => !Number.isNaN(Number(value)) && Number(value) > 0, 'Budget must be greater than 0'),
+});
+
+type BudgetFormValues = z.infer<typeof budgetFormSchema>;
+
+const getCurrentMonthValue = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const monthStartToMonthValue = (monthStart: string) => monthStart.slice(0, 7);
 
 export const SpendingPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -31,14 +55,6 @@ export const SpendingPage: React.FC = () => {
 
   // Budget Modal
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
-  const [budgetAmount, setBudgetAmount] = useState('');
-  const [budgetCategoryId, setBudgetCategoryId] = useState('');
-  const [budgetMonth, setBudgetMonth] = useState(() => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    return `${year}-${month}-01`;
-  });
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
 
   const [txOffset, setTxOffset] = useState(0);
@@ -54,6 +70,20 @@ export const SpendingPage: React.FC = () => {
     value: category.public_id,
     label: category.name,
   })) ?? [], [categories]);
+  const {
+    control: budgetControl,
+    register: registerBudgetField,
+    handleSubmit: handleBudgetSubmit,
+    reset: resetBudgetForm,
+    formState: { errors: budgetErrors },
+  } = useForm<BudgetFormValues>({
+    resolver: zodResolver(budgetFormSchema),
+    defaultValues: {
+      categoryId: '',
+      month: getCurrentMonthValue(),
+      amount: '',
+    },
+  });
 
   const { data: transactionsResponse, isLoading: isTxLoading } = useQuery({
     queryKey: ['transactions', txOffset],
@@ -91,9 +121,7 @@ export const SpendingPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['budgets'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      setIsBudgetModalOpen(false);
-      setBudgetAmount('');
-      setEditingBudgetId(null);
+      closeBudgetModal();
     }
   });
 
@@ -102,9 +130,7 @@ export const SpendingPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['budgets'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      setIsBudgetModalOpen(false);
-      setBudgetAmount('');
-      setEditingBudgetId(null);
+      closeBudgetModal();
     }
   });
 
@@ -121,23 +147,29 @@ export const SpendingPage: React.FC = () => {
     });
   };
 
-  const handleSaveBudget = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!budgetAmount || !budgetCategoryId || !budgetMonth) return;
-    
+  const closeBudgetModal = () => {
+    setIsBudgetModalOpen(false);
+    setEditingBudgetId(null);
+    resetBudgetForm({
+      categoryId: '',
+      month: getCurrentMonthValue(),
+      amount: '',
+    });
+  };
+
+  const handleSaveBudget = (values: BudgetFormValues) => {
     // Normalize to the first of the month as required by the backend
-    const [year, month] = budgetMonth.split('-');
-    const monthStart = `${year}-${month}-01`;
-    
+    const monthStart = `${values.month}-01`;
+
     if (editingBudgetId) {
       updateBudgetMutation.mutate({
         id: editingBudgetId,
-        data: { amount: parseFloat(budgetAmount) }
+        data: { amount: parseFloat(values.amount) }
       });
     } else {
       createBudgetMutation.mutate({
-        category_id: budgetCategoryId,
-        amount: parseFloat(budgetAmount),
+        category_id: values.categoryId,
+        amount: parseFloat(values.amount),
         month_start: monthStart
       });
     }
@@ -145,21 +177,21 @@ export const SpendingPage: React.FC = () => {
 
   const openBudgetModalForNew = () => {
     setEditingBudgetId(null);
-    setBudgetAmount('');
-    setBudgetCategoryId('');
-    // Ensure we start at the first of the month
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    setBudgetMonth(`${year}-${month}-01`);
+    resetBudgetForm({
+      categoryId: '',
+      month: getCurrentMonthValue(),
+      amount: '',
+    });
     setIsBudgetModalOpen(true);
   };
 
   const openBudgetModalForEdit = (b: Budget) => {
     setEditingBudgetId(b.public_id);
-    setBudgetCategoryId(b.category_id);
-    setBudgetMonth(b.month_start);
-    setBudgetAmount(b.amount.toString());
+    resetBudgetForm({
+      categoryId: b.category_id,
+      month: monthStartToMonthValue(b.month_start),
+      amount: b.amount.toString(),
+    });
     setIsBudgetModalOpen(true);
   };
 
@@ -549,21 +581,21 @@ export const SpendingPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
           <div 
             className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" 
-            onClick={() => setIsBudgetModalOpen(false)}
+            onClick={closeBudgetModal}
           />
           
           <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
               <h3 className="text-lg font-semibold text-white">{editingBudgetId ? 'Edit Budget' : 'Set Budget'}</h3>
               <button 
-                onClick={() => setIsBudgetModalOpen(false)}
+                onClick={closeBudgetModal}
                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <form onSubmit={handleSaveBudget} className="p-6">
+            <form onSubmit={handleBudgetSubmit(handleSaveBudget)} className="p-6">
               {(createBudgetMutation.isError || updateBudgetMutation.isError) && (
                 <div className="mb-4 rounded-xl relative border bg-red-500/10 border-red-500/50 p-3 text-sm text-red-500 font-medium">
                   <p>
@@ -577,65 +609,81 @@ export const SpendingPage: React.FC = () => {
               <div className="space-y-5">
                 {/* Category */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Category</label>
-                  <DropdownSelect
-                    value={budgetCategoryId}
-                    onChange={setBudgetCategoryId}
-                    options={categoryOptions}
-                    placeholder="Select category"
-                    disabled={!!editingBudgetId}
+                  <Label className="mb-2 block">Category</Label>
+                  <Controller
+                    control={budgetControl}
+                    name="categoryId"
+                    render={({ field }) => (
+                      <DropdownSelect
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={categoryOptions}
+                        placeholder="Select category"
+                        disabled={!!editingBudgetId}
+                      />
+                    )}
                   />
+                  {budgetErrors.categoryId ? (
+                    <p className="mt-2 text-sm text-rose-400">{budgetErrors.categoryId.message}</p>
+                  ) : null}
                 </div>
 
-                {/* Date / Month */}
+                {/* Budget Month */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Month Start (YYYY-MM-DD)</label>
-                  <input
-                    type="date"
+                  <Label htmlFor="budget-month" className="mb-2 block">Budget Month</Label>
+                  <Input
+                    id="budget-month"
+                    type="month"
                     required
                     disabled={!!editingBudgetId} // Cannot change month when editing
-                    value={budgetMonth}
-                    onChange={(e) => setBudgetMonth(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+                    {...registerBudgetField('month')}
                   />
-                  <p className="mt-1 text-xs text-slate-500">Usually set to the 1st of the month.</p>
+                  {budgetErrors.month ? (
+                    <p className="mt-2 text-sm text-rose-400">{budgetErrors.month.message}</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-slate-500">We store this as the 1st day of the selected month.</p>
+                  )}
                 </div>
 
                 {/* Amount */}
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Budget Limit</label>
+                  <Label htmlFor="budget-amount" className="mb-2 block">Budget Limit</Label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
-                    <input
+                    <Input
+                      id="budget-amount"
                       type="number"
                       step="0.01"
                       min="0.01"
                       required
-                      value={budgetAmount}
-                      onChange={(e) => setBudgetAmount(e.target.value)}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950/50 py-3 pl-8 pr-4 text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="pl-8"
                       placeholder="0.00"
+                      {...registerBudgetField('amount')}
                     />
                   </div>
+                  {budgetErrors.amount ? (
+                    <p className="mt-2 text-sm text-rose-400">{budgetErrors.amount.message}</p>
+                  ) : null}
                 </div>
 
               </div>
 
               <div className="mt-8 flex gap-3">
-                <button
+                <Button
                   type="button"
-                  onClick={() => setIsBudgetModalOpen(false)}
-                  className="flex-1 rounded-xl bg-slate-800 px-4 py-3 font-medium text-slate-300 transition-colors hover:bg-slate-700"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={closeBudgetModal}
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  disabled={createBudgetMutation.isPending || updateBudgetMutation.isPending || !budgetAmount || !budgetCategoryId || !budgetMonth}
-                  className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-500 hover:shadow-blue-500/40 disabled:opacity-50"
+                  className="flex-1"
+                  disabled={createBudgetMutation.isPending || updateBudgetMutation.isPending}
                 >
                   {(createBudgetMutation.isPending || updateBudgetMutation.isPending) ? 'Saving...' : 'Save Budget'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
