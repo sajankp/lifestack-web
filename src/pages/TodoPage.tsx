@@ -21,6 +21,7 @@ export const TodoPage: React.FC = () => {
     mutationFn: (newTodo: TodoCreate) => todoService.createTodo(newTodo),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setNewTodoTitle('');
     }
   });
@@ -29,6 +30,7 @@ export const TodoPage: React.FC = () => {
     mutationFn: (todo: Todo) => todoService.updateTodo(todo.public_id, { completed: !todo.completed }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     }
   });
 
@@ -36,6 +38,7 @@ export const TodoPage: React.FC = () => {
     mutationFn: (id: string) => todoService.deleteTodo(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     }
   });
 

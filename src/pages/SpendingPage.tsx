@@ -65,6 +65,7 @@ export const SpendingPage: React.FC = () => {
     mutationFn: (newTx: TransactionCreate) => spendingService.createTransaction(newTx),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setIsModalOpen(false);
       setAmount('');
       setDescription('');
@@ -75,6 +76,7 @@ export const SpendingPage: React.FC = () => {
     mutationFn: (id: string) => spendingService.deleteTransaction(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     }
   });
 
@@ -82,6 +84,7 @@ export const SpendingPage: React.FC = () => {
     mutationFn: (newBudget: BudgetCreate) => spendingService.createBudget(newBudget),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['budgets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setIsBudgetModalOpen(false);
       setBudgetAmount('');
       setEditingBudgetId(null);
@@ -92,6 +95,7 @@ export const SpendingPage: React.FC = () => {
     mutationFn: ({ id, data }: { id: string, data: BudgetUpdate }) => spendingService.updateBudget(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['budgets'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setIsBudgetModalOpen(false);
       setBudgetAmount('');
       setEditingBudgetId(null);
