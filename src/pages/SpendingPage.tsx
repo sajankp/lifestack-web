@@ -124,6 +124,10 @@ export const SpendingPage: React.FC = () => {
     e.preventDefault();
     if (!budgetAmount || !budgetCategoryId || !budgetMonth) return;
     
+    // Normalize to the first of the month as required by the backend
+    const [year, month] = budgetMonth.split('-');
+    const monthStart = `${year}-${month}-01`;
+    
     if (editingBudgetId) {
       updateBudgetMutation.mutate({
         id: editingBudgetId,
@@ -133,9 +137,20 @@ export const SpendingPage: React.FC = () => {
       createBudgetMutation.mutate({
         category_id: budgetCategoryId,
         amount: parseFloat(budgetAmount),
-        month_start: budgetMonth
+        month_start: monthStart
       });
     }
+  };
+
+  const openBudgetModalForNew = () => {
+    setEditingBudgetId(null);
+    setBudgetAmount('');
+    setBudgetCategoryId('');
+    // Ensure we start at the first of the month
+    const d = new Date();
+    d.setDate(1);
+    setBudgetMonth(d.toISOString().split('T')[0]);
+    setIsBudgetModalOpen(true);
   };
 
   const openBudgetModalForEdit = (b: Budget) => {
@@ -176,12 +191,7 @@ export const SpendingPage: React.FC = () => {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => {
-              setEditingBudgetId(null);
-              setBudgetAmount('');
-              setBudgetCategoryId('');
-              setIsBudgetModalOpen(true);
-            }}
+            onClick={openBudgetModalForNew}
             className="group relative flex items-center gap-2 overflow-hidden rounded-xl bg-slate-800 px-6 py-3 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 border border-slate-700/50"
           >
             <Target className="h-5 w-5" />
@@ -426,7 +436,7 @@ export const SpendingPage: React.FC = () => {
             onClick={() => setIsModalOpen(false)}
           />
           
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
               <h3 className="text-lg font-semibold text-white">New Transaction</h3>
               <button 
@@ -540,7 +550,7 @@ export const SpendingPage: React.FC = () => {
             onClick={() => setIsBudgetModalOpen(false)}
           />
           
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
               <h3 className="text-lg font-semibold text-white">{editingBudgetId ? 'Edit Budget' : 'Set Budget'}</h3>
               <button 
@@ -552,10 +562,14 @@ export const SpendingPage: React.FC = () => {
             </div>
             
             <form onSubmit={handleSaveBudget} className="p-6">
-              {createBudgetMutation.isError && (
+              {(createBudgetMutation.isError || updateBudgetMutation.isError) && (
                 <div className="mb-4 rounded-xl relative border bg-red-500/10 border-red-500/50 p-3 text-sm text-red-500 font-medium">
-                  {/* Provide friendly fallback message for creation errors like duplicates */}
-                  <p>Failed to create or update budget. You may already have a budget for this category and month.</p>
+                  <p>
+                    {createBudgetMutation.isError 
+                      ? "Failed to create budget. You may already have a budget for this category and month."
+                      : "Failed to update budget. Please try again."
+                    }
+                  </p>
                 </div>
               )}
               <div className="space-y-5">
