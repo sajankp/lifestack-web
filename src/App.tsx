@@ -7,6 +7,7 @@ import { TodoPage } from './pages/TodoPage';
 import { SpendingPage } from './pages/SpendingPage';
 import { useAuthStore } from './store/authStore';
 import { authService } from './services/auth';
+import { onUnauthorized } from './services/api';
 
 import { Link } from 'react-router-dom';
 
@@ -78,6 +79,15 @@ function App() {
       cancelled = true;
     };
   }, [clearSession, setSession]);
+
+  // When the refresh interceptor gives up (refresh token expired / revoked),
+  // it fires the onUnauthorized event. We clear the session here so the
+  // router redirects to /login without any component needing to catch 401s.
+  useEffect(() => {
+    return onUnauthorized(() => {
+      clearSession();
+    });
+  }, [clearSession]);
 
   if (isBootstrapping && !isAuthResolved) {
     return <div className="flex min-h-screen items-center justify-center bg-slate-900 text-slate-300">Loading...</div>;
