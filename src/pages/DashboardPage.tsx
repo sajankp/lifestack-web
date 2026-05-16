@@ -21,13 +21,18 @@ export const DashboardPage: React.FC = () => {
   };
 
   const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-US', {
+    new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
     }).format(amount);
 
-  const generatedAt = data ? new Date(data.system.generated_at).toLocaleString() : null;
+  const generatedAt = data
+    ? new Date(data.system.generated_at).toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      })
+    : null;
   const budgetRemaining =
     data?.spending.month_budget != null ? data.spending.month_budget - data.spending.month_spent : null;
 

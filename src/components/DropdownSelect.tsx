@@ -135,6 +135,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={`${id}-listbox`}
+        aria-activedescendant={isOpen ? `${id}-option-${activeIndex}` : undefined}
         className="w-full rounded-xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-left text-slate-100 transition focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         onClick={() => {
           if (!isOpen) {
@@ -163,6 +164,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
             return (
               <button
                 key={option.value}
+                id={`${id}-option-${index}`}
                 data-option-index={index}
                 type="button"
                 role="option"

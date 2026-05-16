@@ -35,8 +35,9 @@ export const SpendingPage: React.FC = () => {
   const [budgetCategoryId, setBudgetCategoryId] = useState('');
   const [budgetMonth, setBudgetMonth] = useState(() => {
     const d = new Date();
-    d.setDate(1);
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}-01`;
   });
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
 
@@ -49,10 +50,10 @@ export const SpendingPage: React.FC = () => {
     queryFn: () => spendingService.getCategories(200, 0)
   });
   const categories = categoriesResponse?.items;
-  const categoryOptions = categories?.map((category) => ({
+  const categoryOptions = useMemo(() => categories?.map((category) => ({
     value: category.public_id,
     label: category.name,
-  })) ?? [];
+  })) ?? [], [categories]);
 
   const { data: transactionsResponse, isLoading: isTxLoading } = useQuery({
     queryKey: ['transactions', txOffset],
@@ -148,8 +149,9 @@ export const SpendingPage: React.FC = () => {
     setBudgetCategoryId('');
     // Ensure we start at the first of the month
     const d = new Date();
-    d.setDate(1);
-    setBudgetMonth(d.toISOString().split('T')[0]);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    setBudgetMonth(`${year}-${month}-01`);
     setIsBudgetModalOpen(true);
   };
 
