@@ -5,6 +5,13 @@ import { authService } from '../services/auth';
 import { dashboardService } from '../services/dashboard';
 import { RefreshCw, AlertCircle, Clock3, CircleAlert, PiggyBank, Wallet, BriefcaseBusiness } from 'lucide-react';
 
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+  }).format(amount);
+
 export const DashboardPage: React.FC = () => {
   const clearSession = useAuthStore((state) => state.clearSession);
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -19,13 +26,6 @@ export const DashboardPage: React.FC = () => {
       clearSession();
     }
   };
-
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-    }).format(amount);
 
   const generatedAt = data
     ? new Date(data.system.generated_at).toLocaleString(undefined, {

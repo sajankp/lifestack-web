@@ -73,11 +73,11 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       if (!isOpen) {
-        const nextIndex = selectedIndex >= 0 ? Math.min(selectedIndex + 1, options.length - 1) : 0;
+        const nextIndex = options.length > 0 ? (selectedIndex >= 0 ? Math.min(selectedIndex + 1, options.length - 1) : 0) : 0;
         setActiveIndex(nextIndex);
         setIsOpen(true);
       } else {
-        setActiveIndex((prev) => Math.min(prev + 1, options.length - 1));
+        setActiveIndex((prev) => (options.length > 0 ? Math.min(prev + 1, options.length - 1) : 0));
       }
       return;
     }
@@ -85,7 +85,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
     if (event.key === 'ArrowUp') {
       event.preventDefault();
       if (!isOpen) {
-        const nextIndex = selectedIndex >= 0 ? Math.max(selectedIndex - 1, 0) : Math.max(options.length - 1, 0);
+        const nextIndex = options.length > 0 ? (selectedIndex >= 0 ? Math.max(selectedIndex - 1, 0) : Math.max(options.length - 1, 0)) : 0;
         setActiveIndex(nextIndex);
         setIsOpen(true);
       } else {
@@ -104,7 +104,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
     if (event.key === 'End') {
       event.preventDefault();
       if (!isOpen) setIsOpen(true);
-      setActiveIndex(options.length - 1);
+      setActiveIndex(Math.max(0, options.length - 1));
       return;
     }
 
