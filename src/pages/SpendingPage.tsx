@@ -12,10 +12,10 @@ import {
   Calendar,
   X,
   Target,
-  Edit2,
-  ChevronDown
+  Edit2
 } from 'lucide-react';
 import { Pagination } from '../components/Pagination';
+import { DropdownSelect } from '../components/DropdownSelect';
 
 export const SpendingPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -49,6 +49,10 @@ export const SpendingPage: React.FC = () => {
     queryFn: () => spendingService.getCategories(200, 0)
   });
   const categories = categoriesResponse?.items;
+  const categoryOptions = categories?.map((category) => ({
+    value: category.public_id,
+    label: category.name,
+  })) ?? [];
 
   const { data: transactionsResponse, isLoading: isTxLoading } = useQuery({
     queryKey: ['transactions', txOffset],
@@ -474,22 +478,12 @@ export const SpendingPage: React.FC = () => {
                 {/* Category */}
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-300">Category</label>
-                  <div className="relative">
-                    <select
-                      required
-                      value={categoryId}
-                      onChange={(e) => setCategoryId(e.target.value)}
-                      className="w-full appearance-none rounded-xl border border-slate-700 bg-slate-950/50 px-4 py-3 pr-12 text-slate-100 [color-scheme:dark] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      <option value="" disabled className="text-slate-500">Select category</option>
-                      {categories?.map((c) => (
-                        <option key={c.public_id} value={c.public_id} className="text-slate-900">
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                  </div>
+                  <DropdownSelect
+                    value={categoryId}
+                    onChange={setCategoryId}
+                    options={categoryOptions}
+                    placeholder="Select category"
+                  />
                 </div>
 
                 {/* Date */}
@@ -568,23 +562,13 @@ export const SpendingPage: React.FC = () => {
                 {/* Category */}
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-300">Category</label>
-                  <div className="relative">
-                    <select
-                      required
-                      disabled={!!editingBudgetId} // Cannot change category when editing
-                      value={budgetCategoryId}
-                      onChange={(e) => setBudgetCategoryId(e.target.value)}
-                      className="w-full appearance-none rounded-xl border border-slate-700 bg-slate-950/50 px-4 py-3 pr-12 text-slate-100 [color-scheme:dark] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
-                    >
-                      <option value="" disabled className="text-slate-500">Select category</option>
-                      {categories?.map((c) => (
-                        <option key={c.public_id} value={c.public_id} className="text-slate-900">
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-                  </div>
+                  <DropdownSelect
+                    value={budgetCategoryId}
+                    onChange={setBudgetCategoryId}
+                    options={categoryOptions}
+                    placeholder="Select category"
+                    disabled={!!editingBudgetId}
+                  />
                 </div>
 
                 {/* Date / Month */}
