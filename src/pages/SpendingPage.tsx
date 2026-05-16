@@ -70,6 +70,7 @@ export const SpendingPage: React.FC = () => {
     value: category.public_id,
     label: category.name,
   })) ?? [], [categories]);
+
   const {
     control: budgetControl,
     register: registerBudgetField,
