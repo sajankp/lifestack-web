@@ -60,3 +60,5 @@ jobs:
 
           echo "Coverage enforcement active: add a test script and coverage setup (minimum ${COVERAGE_THRESHOLD}% lines)."
           exit 1
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://api.lifestack.app' }}
