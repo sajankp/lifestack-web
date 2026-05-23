@@ -23,13 +23,13 @@ export interface DashboardSummary {
     active_guardrail_todo_count: number;
   };
   spending: {
-    month_spent: number;
-    month_budget: number | null;
+    month_spent: number | string;
+    month_budget: number | string | null;
     top_overspent_categories: DashboardOverspentCategory[];
   };
   investing: {
-    portfolio_value: number;
-    daily_change: number | null;
+    portfolio_value: number | string;
+    daily_change: number | string | null;
     holdings_count: number;
   };
   system: {

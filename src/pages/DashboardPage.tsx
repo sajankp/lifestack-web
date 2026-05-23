@@ -5,12 +5,18 @@ import { authService } from '../services/auth';
 import { dashboardService } from '../services/dashboard';
 import { RefreshCw, AlertCircle, Clock3, CircleAlert, PiggyBank, Wallet, BriefcaseBusiness } from 'lucide-react';
 
-const formatCurrency = (amount: number) =>
+const toNumber = (value: number | string | null | undefined): number => {
+  if (value == null) return 0;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const formatCurrency = (amount: number | string | null | undefined) =>
   new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
-  }).format(amount);
+  }).format(toNumber(amount));
 
 export const DashboardPage: React.FC = () => {
   const clearSession = useAuthStore((state) => state.clearSession);
@@ -34,7 +40,9 @@ export const DashboardPage: React.FC = () => {
       })
     : null;
   const budgetRemaining =
-    data?.spending.month_budget != null ? data.spending.month_budget - data.spending.month_spent : null;
+    data?.spending.month_budget != null
+      ? toNumber(data.spending.month_budget) - toNumber(data.spending.month_spent)
+      : null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
