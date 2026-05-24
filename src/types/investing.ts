@@ -47,9 +47,11 @@ export interface CashBalanceUpdate {
 }
 
 export interface InvestingSummary {
-  portfolio_value: number | string;
+  portfolio_value: number | string | null;
   holdings_count: number;
-  cash_total: number | string;
+  cash_total: number | string | null;
   currency_breakdown: Record<string, number | string>;
   daily_change: number | string | null;
+  reporting_currency: string | null;
+  valuation_status: string;
 }
