@@ -48,11 +48,12 @@ The Spending UI is the frontend component of the Lifestack Spending module. It p
 - `POST /v1/spending/categories`
 - `DELETE /v1/spending/categories/{public_id}`
 - `GET /v1/spending/transactions`
+- `GET /v1/spending/transactions/summary`
 - `POST /v1/spending/transactions`
 - `GET /v1/spending/transactions/{public_id}`
 - `PATCH /v1/spending/transactions/{public_id}`
 - `DELETE /v1/spending/transactions/{public_id}`
-- `GET /v1/spending/budgets`
+- `GET /v1/spending/budgets?month_start=YYYY-MM-01`
 - `POST /v1/spending/budgets`
 - `PATCH /v1/spending/budgets/{public_id}`
 

@@ -1,10 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { spendingService } from '../services/spending';
-import type { TransactionCreate, TransactionType, BudgetCreate, BudgetUpdate, Budget } from '../types/spending';
+import type {
+  Budget,
+  BudgetCreate,
+  BudgetUpdate,
+  Transaction,
+  TransactionCreate,
+  TransactionType,
+  TransactionUpdate,
+} from '../types/spending';
 import { 
   Wallet, 
   ArrowUpCircle, 
@@ -15,7 +23,9 @@ import {
   Calendar,
   X,
   Target,
-  Edit2
+  Edit2,
+  Filter,
+  Brush,
 } from 'lucide-react';
 import { Pagination } from '../components/Pagination';
 import { DropdownSelect } from '../components/DropdownSelect';
@@ -41,14 +51,31 @@ const getCurrentMonthValue = () => {
 
 const monthStartToMonthValue = (monthStart: string) => monthStart.slice(0, 7);
 
+const monthValueToDateRange = (monthValue: string) => {
+  const [yearStr, monthStr] = monthValue.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+  return {
+    fromDate: start.toISOString(),
+    toDate: end.toISOString(),
+    monthStart: `${monthValue}-01`,
+    label: start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+  };
+};
+
 export const SpendingPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<TransactionType>('expense');
   const [categoryId, setCategoryId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthValue());
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('');
 
   // Tabs
   const [activeTab, setActiveTab] = useState<'transactions' | 'budgets'>('transactions');
@@ -56,20 +83,33 @@ export const SpendingPage: React.FC = () => {
   // Budget Modal
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryColor, setCategoryColor] = useState('#60a5fa');
+  const [categoryIcon, setCategoryIcon] = useState('');
 
   const [txOffset, setTxOffset] = useState(0);
   const [budgetOffset, setBudgetOffset] = useState(0);
   const limit = 50;
+  const monthRange = useMemo(() => monthValueToDateRange(selectedMonth), [selectedMonth]);
 
   const { data: categoriesResponse, isLoading: isCatsLoading } = useQuery({
     queryKey: ['categories'],
     queryFn: () => spendingService.getCategories(200, 0)
   });
   const categories = categoriesResponse?.items;
+  const customCategories = useMemo(
+    () => categories?.filter((category) => !category.is_system) ?? [],
+    [categories]
+  );
   const categoryOptions = useMemo(() => categories?.map((category) => ({
     value: category.public_id,
     label: category.name,
   })) ?? [], [categories]);
+  const categoryFilterOptions = useMemo(
+    () => [{ value: '', label: 'All categories' }, ...categoryOptions],
+    [categoryOptions]
+  );
 
   const {
     control: budgetControl,
@@ -87,25 +127,49 @@ export const SpendingPage: React.FC = () => {
   });
 
   const { data: transactionsResponse, isLoading: isTxLoading } = useQuery({
-    queryKey: ['transactions', txOffset],
-    queryFn: () => spendingService.getTransactions(limit, txOffset)
+    queryKey: ['transactions', txOffset, selectedMonth, selectedCategoryFilter],
+    queryFn: () => spendingService.getTransactions(limit, txOffset, {
+      categoryId: selectedCategoryFilter || undefined,
+      fromDate: monthRange.fromDate,
+      toDate: monthRange.toDate,
+    })
   });
   const transactions = transactionsResponse?.items;
 
-  const { data: budgetsResponse, isLoading: isBudgetsLoading } = useQuery({
-    queryKey: ['budgets', budgetOffset],
-    queryFn: () => spendingService.getBudgets(limit, budgetOffset)
+  const { data: summaryResponse, isLoading: isSummaryLoading } = useQuery({
+    queryKey: ['transactions-summary', selectedMonth],
+    queryFn: () => spendingService.getTransactionSummary({
+      fromDate: monthRange.fromDate,
+      toDate: monthRange.toDate,
+    })
   });
-  const budgets = budgetsResponse?.items;
+
+  const { data: budgetsResponse, isLoading: isBudgetsLoading } = useQuery({
+    queryKey: ['budgets', budgetOffset, selectedMonth],
+    queryFn: () => spendingService.getBudgets(limit, budgetOffset, monthRange.monthStart)
+  });
+  const budgets = useMemo(
+    () => budgetsResponse?.items.filter((budget) => monthStartToMonthValue(budget.month_start) === selectedMonth) ?? [],
+    [budgetsResponse, selectedMonth]
+  );
 
   const createMutation = useMutation({
     mutationFn: (newTx: TransactionCreate) => spendingService.createTransaction(newTx),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions-summary'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      setIsModalOpen(false);
-      setAmount('');
-      setDescription('');
+      closeTransactionModal();
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: TransactionUpdate }) => spendingService.updateTransaction(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      closeTransactionModal();
     }
   });
 
@@ -113,8 +177,32 @@ export const SpendingPage: React.FC = () => {
     mutationFn: (id: string) => spendingService.deleteTransaction(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions-summary'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     }
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: (data: { name: string; color?: string | null; icon?: string | null }) =>
+      spendingService.createCategory(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      setCategoryName('');
+      setCategoryColor('#60a5fa');
+      setCategoryIcon('');
+      setIsCategoryModalOpen(false);
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (id: string) => spendingService.deleteCategory(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
   });
 
   const createBudgetMutation = useMutation({
@@ -135,17 +223,26 @@ export const SpendingPage: React.FC = () => {
     }
   });
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || !categoryId || !type || !date) return;
-    
-    createMutation.mutate({
+    const payload: TransactionCreate = {
       amount: parseFloat(amount),
       category_id: categoryId,
       type,
       occurred_at: new Date(date).toISOString(),
       description: description || null
-    });
+    };
+
+    if (editingTransaction) {
+      updateMutation.mutate({
+        id: editingTransaction.public_id,
+        data: payload,
+      });
+      return;
+    }
+
+    createMutation.mutate(payload);
   };
 
   const closeBudgetModal = () => {
@@ -153,9 +250,50 @@ export const SpendingPage: React.FC = () => {
     setEditingBudgetId(null);
     resetBudgetForm({
       categoryId: '',
-      month: getCurrentMonthValue(),
+      month: selectedMonth,
       amount: '',
     });
+  };
+
+  const openTransactionModalForNew = () => {
+    setEditingTransaction(null);
+    setAmount('');
+    setDescription('');
+    setType('expense');
+    setCategoryId('');
+    setDate(new Date().toISOString().split('T')[0]);
+    setIsModalOpen(true);
+  };
+
+  const openCategoryModal = () => {
+    setIsCategoryModalOpen(true);
+  };
+
+  const openTransactionModalForEdit = (tx: Transaction) => {
+    setEditingTransaction(tx);
+    setAmount(tx.amount.toString());
+    setDescription(tx.description ?? '');
+    setType(tx.type);
+    setCategoryId(tx.category_id);
+    setDate(new Date(tx.occurred_at).toISOString().split('T')[0]);
+    setIsModalOpen(true);
+  };
+
+  const closeTransactionModal = () => {
+    setIsModalOpen(false);
+    setEditingTransaction(null);
+    setAmount('');
+    setDescription('');
+    setType('expense');
+    setCategoryId('');
+    setDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const closeCategoryModal = () => {
+    setIsCategoryModalOpen(false);
+    setCategoryName('');
+    setCategoryColor('#60a5fa');
+    setCategoryIcon('');
   };
 
   const handleSaveBudget = (values: BudgetFormValues) => {
@@ -180,7 +318,7 @@ export const SpendingPage: React.FC = () => {
     setEditingBudgetId(null);
     resetBudgetForm({
       categoryId: '',
-      month: getCurrentMonthValue(),
+      month: selectedMonth,
       amount: '',
     });
     setIsBudgetModalOpen(true);
@@ -203,28 +341,40 @@ export const SpendingPage: React.FC = () => {
 
   // Summaries
   const summary = useMemo(() => {
-    if (!transactions) return { income: 0, expense: 0, net: 0 };
-    const result = transactions.reduce((acc, tx) => {
-      const amt = parseFloat(tx.amount.toString());
-      if (tx.type === 'income') acc.income += amt;
-      else acc.expense += amt;
-      return acc;
-    }, { income: 0, expense: 0, net: 0 });
-    
-    result.net = result.income - result.expense;
-    return result;
-  }, [transactions]);
+    const income = Number(summaryResponse?.income_total ?? 0);
+    const expense = Number(summaryResponse?.expense_total ?? 0);
+    return {
+      income,
+      expense,
+      net: Number(summaryResponse?.net_total ?? income - expense),
+    };
+  }, [summaryResponse]);
 
-  const isLoading = isCatsLoading || isTxLoading || isBudgetsLoading;
+  const spentByCategory = useMemo(() => {
+    return new Map(
+      (summaryResponse?.category_totals ?? []).map((entry) => [entry.category_id, Number(entry.total)])
+    );
+  }, [summaryResponse]);
+
+  const isLoading = isCatsLoading || isTxLoading || isBudgetsLoading || isSummaryLoading;
 
   return (
     <div className="mx-auto max-w-5xl p-8 animate-in fade-in duration-500">
       <header className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white drop-shadow-sm">Spending Overview</h1>
-          <p className="mt-2 text-slate-400">Track your finances across the workspace.</p>
+          <p className="mt-2 text-slate-400">
+            Track your finances across the workspace for {monthRange.label}.
+          </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={openCategoryModal}
+            className="group relative flex items-center gap-2 overflow-hidden rounded-xl bg-slate-900 px-6 py-3 font-semibold text-slate-200 shadow-lg transition-all hover:bg-slate-800 active:scale-95 border border-slate-700/50"
+          >
+            <Brush className="h-5 w-5" />
+            <span>Manage Categories</span>
+          </button>
           <button
             onClick={openBudgetModalForNew}
             className="group relative flex items-center gap-2 overflow-hidden rounded-xl bg-slate-800 px-6 py-3 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 border border-slate-700/50"
@@ -233,7 +383,7 @@ export const SpendingPage: React.FC = () => {
             <span>Set Budget</span>
           </button>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={openTransactionModalForNew}
             className="group relative flex items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 px-6 py-3 font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-105 hover:shadow-blue-500/40 active:scale-95"
           >
             <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
@@ -242,6 +392,57 @@ export const SpendingPage: React.FC = () => {
           </button>
         </div>
       </header>
+
+      <div className="mb-6 rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4 backdrop-blur-xl">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-400">
+              <Filter className="h-4 w-4" />
+              Filters
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="spending-month" className="mb-2 block">Month</Label>
+                <Input
+                  id="spending-month"
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    setSelectedMonth(e.target.value);
+                    setTxOffset(0);
+                    setBudgetOffset(0);
+                  }}
+                />
+              </div>
+              <div>
+                <Label className="mb-2 block">Category</Label>
+                <DropdownSelect
+                  value={selectedCategoryFilter}
+                  onChange={(value) => {
+                    setSelectedCategoryFilter(value);
+                    setTxOffset(0);
+                  }}
+                  options={categoryFilterOptions}
+                  placeholder="All categories"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setSelectedMonth(getCurrentMonthValue());
+                setSelectedCategoryFilter('');
+                setTxOffset(0);
+                setBudgetOffset(0);
+              }}
+              className="rounded-xl border border-slate-700 px-4 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
+            >
+              Reset filters
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Summary Cards */}
       <div className="mb-10 grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -306,7 +507,7 @@ export const SpendingPage: React.FC = () => {
         </div>
       ) : activeTab === 'transactions' ? (
         <div className="space-y-4 animate-in fade-in duration-300">
-          <h3 className="text-xl font-semibold text-white">Recent Transactions</h3>
+          <h3 className="text-xl font-semibold text-white">Transactions in {monthRange.label}</h3>
           {transactions?.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-800/30 p-12 text-center">
               <div className="mb-4 rounded-full bg-slate-800 p-4">
@@ -361,8 +562,15 @@ export const SpendingPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <button
+                            onClick={() => openTransactionModalForEdit(tx)}
+                            className="inline-flex rounded-lg p-2 text-slate-500 opacity-0 transition-all hover:bg-blue-500/10 hover:text-blue-400 group-hover:opacity-100"
+                            title="Edit transaction"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => deleteMutation.mutate(tx.public_id)}
-                            className="inline-flex rounded-lg p-2 text-slate-500 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+                            className="ml-2 inline-flex rounded-lg p-2 text-slate-500 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
                             title="Delete transaction"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -386,7 +594,7 @@ export const SpendingPage: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-4 animate-in fade-in duration-300">
-          <h3 className="text-xl font-semibold text-white">Category Budgets</h3>
+          <h3 className="text-xl font-semibold text-white">Category Budgets for {monthRange.label}</h3>
           {budgets?.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-800/30 p-12 text-center">
               <div className="mb-4 rounded-full bg-slate-800 p-4">
@@ -399,13 +607,7 @@ export const SpendingPage: React.FC = () => {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {budgets?.map((b) => {
                 const catTheme = getCategoryTheme(b.category_id);
-                // Calculate total spent for this category (for the budget month roughly)
-                const monthPrefix = b.month_start.substring(0, 7); // YYYY-MM
-                const spent = transactions?.filter(t => 
-                  t.category_id === b.category_id && 
-                  t.type === 'expense' &&
-                  t.occurred_at.startsWith(monthPrefix)
-                ).reduce((acc, t) => acc + parseFloat(t.amount.toString()), 0) || 0;
+                const spent = spentByCategory.get(b.category_id) ?? 0;
                 
                 const bAmount = parseFloat(b.amount.toString());
                 const progress = Math.min(100, Math.max(0, (spent / bAmount) * 100));
@@ -432,7 +634,7 @@ export const SpendingPage: React.FC = () => {
                     
                     <div className="mb-1 flex items-end justify-between">
                       <div>
-                        <p className="text-xs text-slate-400">Spent ({monthPrefix})</p>
+                        <p className="text-xs text-slate-400">Spent ({monthStartToMonthValue(b.month_start)})</p>
                         <p className="text-lg font-bold text-white">${spent.toFixed(2)}</p>
                       </div>
                       <div className="text-right">
@@ -468,21 +670,23 @@ export const SpendingPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
           <div 
             className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" 
-            onClick={() => setIsModalOpen(false)}
+            onClick={closeTransactionModal}
           />
           
           <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-              <h3 className="text-lg font-semibold text-white">New Transaction</h3>
+              <h3 className="text-lg font-semibold text-white">
+                {editingTransaction ? 'Edit Transaction' : 'New Transaction'}
+              </h3>
               <button 
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeTransactionModal}
                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <form onSubmit={handleCreate} className="p-6">
+            <form onSubmit={handleSaveTransaction} className="p-6">
               <div className="space-y-5">
                 {/* Type Selection */}
                 <div className="flex gap-2 rounded-xl bg-slate-800/50 p-1 border border-slate-700/50">
@@ -559,17 +763,17 @@ export const SpendingPage: React.FC = () => {
               <div className="mt-8 flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={closeTransactionModal}
                   className="flex-1 rounded-xl bg-slate-800 px-4 py-3 font-medium text-slate-300 transition-colors hover:bg-slate-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={createMutation.isPending || !amount || !categoryId || !type || !date}
+                  disabled={(createMutation.isPending || updateMutation.isPending) || !amount || !categoryId || !type || !date}
                   className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-500 hover:shadow-blue-500/40 disabled:opacity-50"
                 >
-                  {createMutation.isPending ? 'Saving...' : 'Save Transaction'}
+                  {(createMutation.isPending || updateMutation.isPending) ? 'Saving...' : 'Save Transaction'}
                 </button>
               </div>
             </form>
@@ -687,6 +891,133 @@ export const SpendingPage: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+            onClick={closeCategoryModal}
+          />
+
+          <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+              <h3 className="text-lg font-semibold text-white">Manage Categories</h3>
+              <button
+                onClick={closeCategoryModal}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6 p-6">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!categoryName.trim()) return;
+                  createCategoryMutation.mutate({
+                    name: categoryName.trim(),
+                    color: categoryColor || null,
+                    icon: categoryIcon || null,
+                  });
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <Label className="mb-2 block">Name</Label>
+                  <Input
+                    value={categoryName}
+                    onChange={(e) => setCategoryName(e.target.value)}
+                    placeholder="e.g. Groceries"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label className="mb-2 block">Color</Label>
+                    <Input
+                      type="color"
+                      value={categoryColor}
+                      onChange={(e) => setCategoryColor(e.target.value)}
+                      className="h-11 p-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="mb-2 block">Icon</Label>
+                    <Input
+                      value={categoryIcon}
+                      onChange={(e) => setCategoryIcon(e.target.value)}
+                      placeholder="🧾"
+                      maxLength={4}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={closeCategoryModal}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1"
+                    disabled={createCategoryMutation.isPending || !categoryName.trim()}
+                  >
+                    {createCategoryMutation.isPending ? 'Creating...' : 'Create Category'}
+                  </Button>
+                </div>
+              </form>
+
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Custom categories
+                  </h4>
+                  <p className="text-xs text-slate-500">{customCategories.length} total</p>
+                </div>
+                <div className="space-y-2">
+                  {customCategories.length === 0 ? (
+                    <p className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-sm text-slate-400">
+                      No custom categories yet.
+                    </p>
+                  ) : (
+                    customCategories.map((category) => (
+                      <div
+                        key={category.public_id}
+                        className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm"
+                            style={{ backgroundColor: `${category.color ?? '#64748b'}33`, color: category.color ?? '#94a3b8' }}
+                          >
+                            {category.icon || <Tag className="h-4 w-4" />}
+                          </span>
+                          <div>
+                            <p className="font-medium text-white">{category.name}</p>
+                            <p className="text-xs text-slate-500">{category.color ?? 'No color set'}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => deleteCategoryMutation.mutate(category.public_id)}
+                          disabled={deleteCategoryMutation.isPending}
+                          className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
+                          title="Delete category"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
