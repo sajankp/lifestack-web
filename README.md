@@ -1,130 +1,139 @@
-# React + TypeScript + Vite
+# Lifestack Web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> The web client for a private personal operating system.
 
-Currently, two official plugins are available:
+Lifestack Web is the frontend for the Lifestack product vision: one place to manage actions, money, health, documents, and memory without scattering data across disconnected apps.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The web app is where the personal operating system becomes visible and usable day to day. It is responsible for turning the platform's shared data model into a calm, high-clarity interface for capture, review, and decision-making.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Product Principles
 
-## Expanding the ESLint configuration
+- Own your data end to end. The UI should make personal data understandable, portable, and easy to inspect.
+- Capture should be easier than forgetting. Common actions should be fast, lightweight, and available from the surfaces people reach first.
+- AI is an interface, not the foundation. The frontend should expose assistant workflows that act through real product features and structured state.
+- Every module should strengthen the same operating loop. Tasks, money, health, documents, and memory should feel like one system, not adjacent tabs.
+- Start personal, then expand. The app should become truly useful for one person or one household before broader platform concerns dominate the product.
+- Add complexity only when it earns its keep. New UI primitives, flows, and platform layers should follow genuine user need.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Product Direction
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Lifestack Web follows the same staged roadmap as the core platform:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Stage 1: Personal OS Foundation
+- Dashboard, todo, spending, and investing flows
+- Shared authentication and protected routes
+- Core review-and-action experience for one user or one household
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Stage 2: Capture Layer
+- Faster entry points for todo, spending, and journal capture
+- Voice-first and mobile-friendly input paths
+- Lower-friction daily interactions
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Stage 3: AI Assistant Interface
+- Voice and chat actions on top of existing features
+- Assistant flows grounded in structured product data
+- Summaries, logging, and task creation through AI adapters
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### Stage 4: Mobile Companion
+- Shared design language across web and mobile
+- Faster capture, notifications, camera flows, and sync
+- Personal-device-first use cases handled outside the desktop browser
 
-## Lifestack Frontend Notes
+### Stage 5: Health Module
+- UI for vitals, labs, medications, symptoms, sleep, and workouts
+- Shared dashboard views and follow-up workflows
 
-### Investing module behavior
-- Investing forms now use backend-managed finance references:
-  - `GET /v1/finance/accounts`
-  - `GET /v1/finance/currencies`
-- Holdings and cash creation should use selector-driven values from those endpoints (not free-text currency/account inputs).
-- Investing summary supports valuation-state semantics:
-  - `single_currency_native`
-  - `multi_currency_unconverted`
-  - `conversion_required`
-  - `converted_available`
-- When conversion is unavailable, totals may be `null`; UI should display `N/A` and show `valuation_status` plus `reporting_currency`.
+### Stage 6: Document Intelligence
+- Upload, review, and confirm extracted data from receipts, statements, reports, and forms
+- Source-linked document views tied to normalized records
 
-### Look-through analytics (Spec 012)
-- Frontend now supports:
-  - `GET /v1/investing/instruments`
-  - `POST /v1/investing/instruments`
-  - `POST /v1/investing/instruments/{instrument_id}/constituents`
-  - `GET /v1/investing/analytics/exposure?as_of=YYYY-MM-DD`
-  - `GET /v1/investing/analytics/overlap?as_of=YYYY-MM-DD`
-- Investing page includes a `Look-through Analytics` tab with:
-  - instrument creation
-  - constituent seeding (manual bootstrap for now)
-  - exposure table and overlap summary
-- Analytics responses may be partial; UI surfaces `analysis_status`, coverage, and warnings.
+### Stage 7: Memory and Second Brain
+- Journal, notes, timeline, and context views
+- Cross-domain retrieval and review surfaces
 
-### Dashboard budget remaining
-- The dashboard `Budget remaining` card is computed from:
-  - `spending.month_budget - spending.month_spent`
-- `month_budget` is sourced from monthly budgets for the current month. If no monthly budget exists, UI should show `N/A`.
+### Stage 8: SaaS
+- Multi-user and multi-workspace collaboration surfaces
+- Roles, admin, billing, and expanded platform controls when product maturity justifies them
 
-### Tests
-- Run unit/integration tests:
+---
+
+## Current Scope
+
+Today the web app focuses on the personal OS foundation:
+
+- Dashboard
+- Todo management
+- Spending tracking
+- Investing tracking
+- Authentication and session handling
+
+The current implementation is intentionally centered on a single-user personal workflow before expanding into later-stage domains.
+
+---
+
+## Architecture Summary
+
+- React 19 + TypeScript + Vite
+- React Router for navigation
+- Zustand for auth/session state
+- TanStack Query for server state
+- Shared UI components for consistent module experiences
+
+The frontend mirrors backend module boundaries rather than inventing a separate product model. As the product grows, new surfaces should still feel like one coherent operating system.
+
+---
+
+## Design Direction
+
+Lifestack Web should feel:
+
+- calm enough for repeated daily use
+- structured enough to scan quickly
+- rich enough to hold multiple life domains without feeling scattered
+- ready for assistant-driven capture and summaries without becoming chat-first
+
+The UI goal is not just "good CRUD." It is to help users notice what matters, decide what to do next, and act with minimal friction.
+
+---
+
+## Frontend Responsibilities
+
+- Render the shared dashboard and module workflows clearly
+- Keep authentication, routing, and session transitions predictable
+- Support capture, review, and editing flows across domains
+- Surface partial, missing, and derived data honestly
+- Prepare the product for future mobile, voice, and AI-assisted interactions
+
+---
+
+## Testing
+
+- Unit/integration tests:
   - `npm test -- --run`
-- Key page-level tests:
-  - `src/pages/InvestingPage.test.tsx`
-  - `src/pages/DashboardPage.test.tsx`
-- Browser E2E (Playwright):
+- Coverage:
+  - `npm run test:coverage`
+- Browser E2E:
   - `npm run test:e2e`
-  - E2E spec: `e2e/investing-lookthrough.spec.ts`
 
-### Coverage vs E2E
-- CI coverage enforcement currently uses `vitest` line coverage thresholds.
-- Playwright E2E tests improve behavioral confidence but do not automatically increase the Vitest/Istanbul coverage numbers used by the coverage gate.
-- Keep both tracks healthy:
-  - unit/integration (`vitest`) for coverage thresholds
-  - E2E (`playwright`) for user-flow validation
+The current browser E2E suite focuses on frontend behavior. A true full-stack end-to-end harness across frontend, backend, and database is still a later integration step.
 
-### E2E Strategy (Scope Item)
-- Current frontend Playwright tests mock API responses for fast UI regression checks.
-- A true full-stack FE+BE+DB E2E suite is recommended as a dedicated integration repo because FE and BE are separate repositories.
-- Proposed future setup:
-  - integration repo with compose orchestration for frontend + backend + postgres
-  - real API contracts (no route mocks)
-  - seeded deterministic test data and cross-repo CI gate
+---
+
+## Running Locally
+
+```bash
+npm install
+npm run dev
+```
+
+The frontend expects the backend API to be available separately.
+
+---
+
+## Relationship to the API
+
+This repo is the frontend companion to [`lifestack-api`](https://github.com/sajankp/lifestack-api), which owns the core domain services, workflows, and data model.
