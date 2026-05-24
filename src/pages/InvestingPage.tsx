@@ -23,6 +23,16 @@ const formatCurrency = (value: string | number, currency: string = 'USD') =>
     minimumFractionDigits: 2,
   }).format(toNumber(value));
 
+const formatDateInput = (d: Date): string => {
+  const tzOffsetMs = d.getTimezoneOffset() * 60_000;
+  return new Date(d.getTime() - tzOffsetMs).toISOString().slice(0, 10);
+};
+
+const formatDateTimeLocalInput = (d: Date): string => {
+  const tzOffsetMs = d.getTimezoneOffset() * 60_000;
+  return new Date(d.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+};
+
 const statusLabel = (status: string | undefined): string => {
   switch (status) {
     case 'empty':
@@ -43,7 +53,7 @@ const statusLabel = (status: string | undefined): string => {
 export const InvestingPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<'holdings' | 'cash' | 'analytics'>('holdings');
-  const [analyticsAsOf, setAnalyticsAsOf] = useState(new Date().toISOString().slice(0, 10));
+  const [analyticsAsOf, setAnalyticsAsOf] = useState(formatDateInput(new Date()));
 
   const [holdingForm, setHoldingForm] = useState({
     symbol: '',
@@ -57,7 +67,7 @@ export const InvestingPage: React.FC = () => {
     account_name: '',
     balance: '',
     currency: 'USD',
-    as_of: new Date().toISOString().slice(0, 16),
+    as_of: formatDateTimeLocalInput(new Date()),
   });
 
   const [newAccountName, setNewAccountName] = useState('');
@@ -69,6 +79,7 @@ export const InvestingPage: React.FC = () => {
   });
   const [selectedInstrumentId, setSelectedInstrumentId] = useState('');
   const [constituentRowsText, setConstituentRowsText] = useState('AAPL,0.60\nMSFT,0.40');
+  const [constituentError, setConstituentError] = useState('');
 
   const { data: holdingsRes, isLoading: holdingsLoading } = useQuery({
     queryKey: ['investing', 'holdings'],
@@ -154,7 +165,7 @@ export const InvestingPage: React.FC = () => {
         account_name: cashForm.account_name,
         balance: '',
         currency: cashForm.currency,
-        as_of: new Date().toISOString().slice(0, 16),
+        as_of: formatDateTimeLocalInput(new Date()),
       });
       refresh();
     },
@@ -193,10 +204,16 @@ export const InvestingPage: React.FC = () => {
     },
   });
 
-  const totalBookCost = useMemo(
-    () => holdings.reduce((acc, item) => acc + toNumber(item.quantity) * toNumber(item.avg_cost), 0),
-    [holdings],
-  );
+  const holdingsByCurrency = useMemo(() => {
+    return holdings.reduce<Record<string, number>>((acc, item) => {
+      const currency = item.currency?.toUpperCase() || 'USD';
+      const value = toNumber(item.quantity) * toNumber(item.avg_cost);
+      acc[currency] = (acc[currency] ?? 0) + value;
+      return acc;
+    }, {});
+  }, [holdings]);
+  const holdingCurrencies = Object.keys(holdingsByCurrency);
+  const totalBookCost = holdingCurrencies.length === 1 ? holdingsByCurrency[holdingCurrencies[0]] : null;
 
   const onCreateHolding = (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,20 +252,34 @@ export const InvestingPage: React.FC = () => {
   const onUpsertConstituents = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedInstrumentId) return;
-    const parsed = constituentRowsText
+    setConstituentError('');
+    const parsed: Array<{ company_name: string; company_ticker: string; weight: string }> = [];
+    const lines = constituentRowsText
       .split('\n')
       .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const [ticker, weight] = line.split(',').map((v) => v.trim());
-        return {
-          company_name: ticker,
-          company_ticker: ticker,
-          weight: Number(weight || '0').toFixed(8),
-        };
-      })
-      .filter((row) => Number(row.weight) > 0);
-    if (!parsed.length) return;
+      .filter(Boolean);
+    if (!lines.length) {
+      setConstituentError('Add at least one constituent row in format: TICKER,0.25');
+      return;
+    }
+    for (const line of lines) {
+      const [tickerRaw, weightRaw] = line.split(',').map((v) => v.trim());
+      const ticker = (tickerRaw || '').toUpperCase();
+      const weightNumber = Number(weightRaw);
+      const tickerOk = /^[A-Z0-9.-]{1,20}$/.test(ticker);
+      const weightOk = Number.isFinite(weightNumber) && weightNumber > 0 && weightNumber <= 1;
+      if (!tickerOk || !weightOk) {
+        setConstituentError(
+          `Invalid row "${line}". Use TICKER,WEIGHT with weight between 0 and 1.`,
+        );
+        return;
+      }
+      parsed.push({
+        company_name: ticker,
+        company_ticker: ticker,
+        weight: weightNumber.toFixed(8),
+      });
+    }
 
     upsertConstituentsMutation.mutate({
       as_of_date: analyticsAsOf,
@@ -390,7 +421,11 @@ export const InvestingPage: React.FC = () => {
                 <tfoot>
                   <tr className="border-t border-slate-700/50 bg-slate-900/40">
                     <td className="px-4 py-3 text-slate-400" colSpan={3}>Total book cost</td>
-                    <td className="px-4 py-3 font-semibold text-white">{formatCurrency(totalBookCost)}</td>
+                    <td className="px-4 py-3 font-semibold text-white">
+                      {totalBookCost != null
+                        ? formatCurrency(totalBookCost, holdingCurrencies[0] ?? 'USD')
+                        : 'N/A (multi-currency)'}
+                    </td>
                     <td />
                   </tr>
                 </tfoot>
@@ -536,6 +571,7 @@ export const InvestingPage: React.FC = () => {
               value={constituentRowsText}
               onChange={(e) => setConstituentRowsText(e.target.value)}
             />
+            {constituentError ? <p className="text-xs text-rose-300">{constituentError}</p> : null}
             <button className="w-full rounded-lg border border-slate-600 px-4 py-2 font-semibold text-slate-100 hover:bg-slate-700/50">
               Upsert constituents
             </button>
