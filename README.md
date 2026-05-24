@@ -71,3 +71,29 @@ export default defineConfig([
   },
 ])
 ```
+
+## Lifestack Frontend Notes
+
+### Investing module behavior
+- Investing forms now use backend-managed finance references:
+  - `GET /v1/finance/accounts`
+  - `GET /v1/finance/currencies`
+- Holdings and cash creation should use selector-driven values from those endpoints (not free-text currency/account inputs).
+- Investing summary supports valuation-state semantics:
+  - `single_currency_native`
+  - `multi_currency_unconverted`
+  - `conversion_required`
+  - `converted_available`
+- When conversion is unavailable, totals may be `null`; UI should display `N/A` and show `valuation_status` plus `reporting_currency`.
+
+### Dashboard budget remaining
+- The dashboard `Budget remaining` card is computed from:
+  - `spending.month_budget - spending.month_spent`
+- `month_budget` is sourced from monthly budgets for the current month. If no monthly budget exists, UI should show `N/A`.
+
+### Tests
+- Run unit/integration tests:
+  - `npm test -- --run`
+- Key page-level tests:
+  - `src/pages/InvestingPage.test.tsx`
+  - `src/pages/DashboardPage.test.tsx`
