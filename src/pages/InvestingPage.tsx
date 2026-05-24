@@ -475,7 +475,7 @@ export const InvestingPage: React.FC = () => {
                     <tr key={c.public_id}>
                       <td className="px-4 py-3 text-white">{c.account_name}</td>
                       <td className="px-4 py-3">{formatCurrency(c.balance, c.currency)}</td>
-                      <td className="px-4 py-3">{new Date(c.as_of).toLocaleString()}</td>
+                      <td className="px-4 py-3">{Number.isNaN(new Date(c.as_of).getTime()) ? "N/A" : new Date(c.as_of).toLocaleString()}</td>
                       <td className="px-4 py-3 text-right">
                         <button onClick={() => deleteCashMutation.mutate(c.public_id)} className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10">
                           <Trash2 className="h-4 w-4" />
@@ -542,7 +542,7 @@ export const InvestingPage: React.FC = () => {
               <option value="etf">ETF</option>
               <option value="mutual_fund">Mutual Fund</option>
             </select>
-            <button className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-500">
+            <button disabled={createInstrumentMutation.isPending} className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60">
               Create instrument
             </button>
             <p className="text-xs text-slate-400">
@@ -572,7 +572,7 @@ export const InvestingPage: React.FC = () => {
               onChange={(e) => setConstituentRowsText(e.target.value)}
             />
             {constituentError ? <p className="text-xs text-rose-300">{constituentError}</p> : null}
-            <button className="w-full rounded-lg border border-slate-600 px-4 py-2 font-semibold text-slate-100 hover:bg-slate-700/50">
+            <button disabled={upsertConstituentsMutation.isPending} className="w-full rounded-lg border border-slate-600 px-4 py-2 font-semibold text-slate-100 hover:bg-slate-700/50 disabled:cursor-not-allowed disabled:opacity-60">
               Upsert constituents
             </button>
           </form>
