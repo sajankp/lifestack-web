@@ -136,8 +136,6 @@ function App() {
             </ProtectedRoute>
           } 
         />
-
-
         <Route 
           path="/investing" 
           element={

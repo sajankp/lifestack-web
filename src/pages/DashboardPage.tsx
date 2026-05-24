@@ -4,19 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/auth';
 import { dashboardService } from '../services/dashboard';
 import { RefreshCw, AlertCircle, Clock3, CircleAlert, PiggyBank, Wallet, BriefcaseBusiness } from 'lucide-react';
-
-const toNumber = (value: number | string | null | undefined): number => {
-  if (value == null) return 0;
-  const n = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(n) ? n : 0;
-};
-
-const formatCurrency = (amount: number | string | null | undefined) =>
-  new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(toNumber(amount));
+import { formatCurrency, toNumber } from '../utils/numberFormat';
 
 export const DashboardPage: React.FC = () => {
   const clearSession = useAuthStore((state) => state.clearSession);

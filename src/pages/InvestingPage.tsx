@@ -3,25 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BarChart3, Landmark, Layers, Plus, Trash2, WalletCards } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { investingService } from '../services/investing';
+import { formatCurrency, toNumber } from '../utils/numberFormat';
 import type {
   CashBalanceCreate,
   HoldingCreate,
   InstrumentConstituentUpsert,
   InstrumentCreate,
 } from '../types/investing';
-
-const toNumber = (value: string | number | null | undefined): number => {
-  if (value == null) return 0;
-  const n = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(n) ? n : 0;
-};
-
-const formatCurrency = (value: string | number, currency: string = 'USD') =>
-  new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(toNumber(value));
 
 const formatDateInput = (d: Date): string => {
   const tzOffsetMs = d.getTimezoneOffset() * 60_000;
@@ -182,8 +170,8 @@ export const InvestingPage: React.FC = () => {
   const accounts = accountsRes?.items ?? [];
   const accountOptions = accounts.map((account) => account.name);
   const currencyOptions = currencies.map((currency) => currency.code);
-  const selectedHoldingAccount = holdingForm.account_name || accountOptions[0] || '';
-  const selectedCashAccount = cashForm.account_name || accountOptions[0] || '';
+  const selectedHoldingAccount = holdingForm.account_name;
+  const selectedCashAccount = cashForm.account_name;
   const selectedHoldingCurrency =
     currencyOptions.includes(holdingForm.currency) ? holdingForm.currency : (currencyOptions[0] ?? 'USD');
   const selectedCashCurrency =
