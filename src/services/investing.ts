@@ -4,10 +4,16 @@ import type {
   CashBalance,
   CashBalanceCreate,
   CashBalanceUpdate,
+  ExposureAnalytics,
   Holding,
   HoldingCreate,
   HoldingUpdate,
+  Instrument,
+  InstrumentConstituent,
+  InstrumentConstituentUpsert,
+  InstrumentCreate,
   InvestingSummary,
+  OverlapAnalytics,
 } from '../types/investing';
 
 export const investingService = {
@@ -54,6 +60,44 @@ export const investingService = {
 
   getSummary: async (): Promise<InvestingSummary> => {
     const response = await api.get('/investing/summary');
+    return response.data;
+  },
+
+  getInstruments: async (): Promise<Instrument[]> => {
+    const response = await api.get('/investing/instruments');
+    return response.data;
+  },
+
+  createInstrument: async (data: InstrumentCreate): Promise<Instrument> => {
+    const response = await api.post('/investing/instruments', data);
+    return response.data;
+  },
+
+  getInstrumentConstituents: async (
+    instrumentId: string,
+    asOf: string,
+  ): Promise<InstrumentConstituent[]> => {
+    const response = await api.get(`/investing/instruments/${instrumentId}/constituents`, {
+      params: { as_of: asOf },
+    });
+    return response.data;
+  },
+
+  upsertInstrumentConstituents: async (
+    instrumentId: string,
+    data: InstrumentConstituentUpsert,
+  ): Promise<InstrumentConstituent[]> => {
+    const response = await api.post(`/investing/instruments/${instrumentId}/constituents`, data);
+    return response.data;
+  },
+
+  getExposureAnalytics: async (asOf: string): Promise<ExposureAnalytics> => {
+    const response = await api.get('/investing/analytics/exposure', { params: { as_of: asOf } });
+    return response.data;
+  },
+
+  getOverlapAnalytics: async (asOf: string): Promise<OverlapAnalytics> => {
+    const response = await api.get('/investing/analytics/overlap', { params: { as_of: asOf } });
     return response.data;
   },
 };

@@ -86,6 +86,19 @@ export default defineConfig([
   - `converted_available`
 - When conversion is unavailable, totals may be `null`; UI should display `N/A` and show `valuation_status` plus `reporting_currency`.
 
+### Look-through analytics (Spec 012)
+- Frontend now supports:
+  - `GET /v1/investing/instruments`
+  - `POST /v1/investing/instruments`
+  - `POST /v1/investing/instruments/{instrument_id}/constituents`
+  - `GET /v1/investing/analytics/exposure?as_of=YYYY-MM-DD`
+  - `GET /v1/investing/analytics/overlap?as_of=YYYY-MM-DD`
+- Investing page includes a `Look-through Analytics` tab with:
+  - instrument creation
+  - constituent seeding (manual bootstrap for now)
+  - exposure table and overlap summary
+- Analytics responses may be partial; UI surfaces `analysis_status`, coverage, and warnings.
+
 ### Dashboard budget remaining
 - The dashboard `Budget remaining` card is computed from:
   - `spending.month_budget - spending.month_spent`
@@ -97,3 +110,14 @@ export default defineConfig([
 - Key page-level tests:
   - `src/pages/InvestingPage.test.tsx`
   - `src/pages/DashboardPage.test.tsx`
+- Browser E2E (Playwright):
+  - `npm run test:e2e`
+  - E2E spec: `e2e/investing-lookthrough.spec.ts`
+
+### E2E Strategy (Scope Item)
+- Current frontend Playwright tests mock API responses for fast UI regression checks.
+- A true full-stack FE+BE+DB E2E suite is recommended as a dedicated integration repo because FE and BE are separate repositories.
+- Proposed future setup:
+  - integration repo with compose orchestration for frontend + backend + postgres
+  - real API contracts (no route mocks)
+  - seeded deterministic test data and cross-repo CI gate

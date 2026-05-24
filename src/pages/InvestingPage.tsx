@@ -1,9 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Landmark, Plus, Trash2, WalletCards } from 'lucide-react';
+import { BarChart3, Landmark, Layers, Plus, Trash2, WalletCards } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { investingService } from '../services/investing';
-import type { CashBalanceCreate, HoldingCreate } from '../types/investing';
+import type {
+  CashBalanceCreate,
+  HoldingCreate,
+  InstrumentConstituentUpsert,
+  InstrumentCreate,
+} from '../types/investing';
 
 const toNumber = (value: string | number | null | undefined): number => {
   if (value == null) return 0;
@@ -37,7 +42,8 @@ const statusLabel = (status: string | undefined): string => {
 
 export const InvestingPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'holdings' | 'cash'>('holdings');
+  const [tab, setTab] = useState<'holdings' | 'cash' | 'analytics'>('holdings');
+  const [analyticsAsOf, setAnalyticsAsOf] = useState(new Date().toISOString().slice(0, 10));
 
   const [holdingForm, setHoldingForm] = useState({
     symbol: '',
@@ -56,6 +62,13 @@ export const InvestingPage: React.FC = () => {
 
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<'bank' | 'brokerage' | 'wallet'>('brokerage');
+  const [instrumentForm, setInstrumentForm] = useState<InstrumentCreate>({
+    symbol: '',
+    name: '',
+    instrument_type: 'etf',
+  });
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState('');
+  const [constituentRowsText, setConstituentRowsText] = useState('AAPL,0.60\nMSFT,0.40');
 
   const { data: holdingsRes, isLoading: holdingsLoading } = useQuery({
     queryKey: ['investing', 'holdings'],
@@ -70,6 +83,20 @@ export const InvestingPage: React.FC = () => {
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ['investing', 'summary'],
     queryFn: () => investingService.getSummary(),
+  });
+  const { data: instruments = [], isLoading: instrumentsLoading } = useQuery({
+    queryKey: ['investing', 'instruments'],
+    queryFn: () => investingService.getInstruments(),
+  });
+  const { data: exposure, isLoading: exposureLoading } = useQuery({
+    queryKey: ['investing', 'analytics', 'exposure', analyticsAsOf],
+    queryFn: () => investingService.getExposureAnalytics(analyticsAsOf),
+    enabled: tab === 'analytics',
+  });
+  const { data: overlap, isLoading: overlapLoading } = useQuery({
+    queryKey: ['investing', 'analytics', 'overlap', analyticsAsOf],
+    queryFn: () => investingService.getOverlapAnalytics(analyticsAsOf),
+    enabled: tab === 'analytics',
   });
 
   const { data: currencies = [] } = useQuery({
@@ -94,6 +121,25 @@ export const InvestingPage: React.FC = () => {
       setHoldingForm((prev) => ({ ...prev, symbol: '', quantity: '', avg_cost: '' }));
       refresh();
     },
+  });
+  const createInstrumentMutation = useMutation({
+    mutationFn: (payload: InstrumentCreate) => investingService.createInstrument(payload),
+    onSuccess: (created) => {
+      setInstrumentForm({
+        symbol: '',
+        name: '',
+        instrument_type: created.instrument_type,
+      });
+      setSelectedInstrumentId(created.public_id);
+      refresh();
+    },
+  });
+  const upsertConstituentsMutation = useMutation({
+    mutationFn: async (payload: InstrumentConstituentUpsert) => {
+      if (!selectedInstrumentId) return [];
+      return investingService.upsertInstrumentConstituents(selectedInstrumentId, payload);
+    },
+    onSuccess: refresh,
   });
 
   const deleteHoldingMutation = useMutation({
@@ -176,6 +222,41 @@ export const InvestingPage: React.FC = () => {
       as_of: new Date(cashForm.as_of).toISOString(),
     });
   };
+  const onCreateInstrument = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!instrumentForm.symbol.trim() || !instrumentForm.name.trim()) return;
+    createInstrumentMutation.mutate({
+      symbol: instrumentForm.symbol.trim().toUpperCase(),
+      name: instrumentForm.name.trim(),
+      instrument_type: instrumentForm.instrument_type,
+    });
+  };
+
+  const onUpsertConstituents = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedInstrumentId) return;
+    const parsed = constituentRowsText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [ticker, weight] = line.split(',').map((v) => v.trim());
+        return {
+          company_name: ticker,
+          company_ticker: ticker,
+          weight: Number(weight || '0').toFixed(8),
+        };
+      })
+      .filter((row) => Number(row.weight) > 0);
+    if (!parsed.length) return;
+
+    upsertConstituentsMutation.mutate({
+      as_of_date: analyticsAsOf,
+      fetched_at: new Date().toISOString(),
+      source: 'manual-ui',
+      constituents: parsed,
+    });
+  };
 
   return (
     <div className="mx-auto max-w-6xl p-8">
@@ -217,6 +298,9 @@ export const InvestingPage: React.FC = () => {
         </button>
         <button onClick={() => setTab('cash')} className={`px-4 py-2 text-sm font-medium border-b-2 ${tab === 'cash' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
           Cash Balances
+        </button>
+        <button onClick={() => setTab('analytics')} className={`px-4 py-2 text-sm font-medium border-b-2 ${tab === 'analytics' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
+          Look-through Analytics
         </button>
       </div>
 
@@ -314,7 +398,7 @@ export const InvestingPage: React.FC = () => {
             </table>
           </div>
         </div>
-      ) : (
+      ) : tab === 'cash' ? (
         <div className="grid gap-6 lg:grid-cols-5">
           <form onSubmit={onCreateCash} className="space-y-3 rounded-2xl border border-slate-700/50 bg-slate-800/40 p-4 lg:col-span-2">
             <h3 className="font-semibold text-white">Add Cash Balance</h3>
@@ -367,6 +451,152 @@ export const InvestingPage: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="space-y-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 p-4">
+            <h3 className="font-semibold text-white">Analytics Controls</h3>
+            <label className="block text-xs text-slate-300">
+              As of date
+              <input
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+                type="date"
+                value={analyticsAsOf}
+                onChange={(e) => setAnalyticsAsOf(e.target.value)}
+              />
+            </label>
+            <div className="rounded-lg border border-slate-700/60 bg-slate-900/50 p-3 text-xs text-slate-300">
+              <p>Coverage: {exposure?.snapshot_coverage ?? 'N/A'}</p>
+              <p>Status: {exposure?.analysis_status ?? 'N/A'}</p>
+              {!!exposure?.warnings?.length && (
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-300">
+                  {exposure.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          <form onSubmit={onCreateInstrument} className="space-y-3 rounded-2xl border border-slate-700/50 bg-slate-800/40 p-4">
+            <h3 className="font-semibold text-white">Create Instrument</h3>
+            <input
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+              placeholder="Symbol (e.g. VTI)"
+              value={instrumentForm.symbol}
+              onChange={(e) => setInstrumentForm((s) => ({ ...s, symbol: e.target.value }))}
+            />
+            <input
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+              placeholder="Name"
+              value={instrumentForm.name}
+              onChange={(e) => setInstrumentForm((s) => ({ ...s, name: e.target.value }))}
+            />
+            <select
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+              value={instrumentForm.instrument_type}
+              onChange={(e) =>
+                setInstrumentForm((s) => ({
+                  ...s,
+                  instrument_type: e.target.value as InstrumentCreate['instrument_type'],
+                }))
+              }
+            >
+              <option value="stock">Stock</option>
+              <option value="etf">ETF</option>
+              <option value="mutual_fund">Mutual Fund</option>
+            </select>
+            <button className="w-full rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-500">
+              Create instrument
+            </button>
+            <p className="text-xs text-slate-400">
+              Instruments: {instrumentsLoading ? 'Loading...' : instruments.length}
+            </p>
+          </form>
+
+          <form onSubmit={onUpsertConstituents} className="space-y-3 rounded-2xl border border-slate-700/50 bg-slate-800/40 p-4">
+            <h3 className="font-semibold text-white">Seed Constituents</h3>
+            <select
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+              value={selectedInstrumentId}
+              onChange={(e) => setSelectedInstrumentId(e.target.value)}
+            >
+              <option value="">Select pooled instrument</option>
+              {instruments
+                .filter((item) => item.instrument_type !== 'stock')
+                .map((item) => (
+                  <option key={item.public_id} value={item.public_id}>
+                    {item.symbol} ({item.instrument_type})
+                  </option>
+                ))}
+            </select>
+            <textarea
+              className="h-28 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+              value={constituentRowsText}
+              onChange={(e) => setConstituentRowsText(e.target.value)}
+            />
+            <button className="w-full rounded-lg border border-slate-600 px-4 py-2 font-semibold text-slate-100 hover:bg-slate-700/50">
+              Upsert constituents
+            </button>
+          </form>
+
+          <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4 lg:col-span-2">
+            <div className="mb-3 flex items-center gap-2 text-slate-100">
+              <Layers className="h-4 w-4" />
+              <h3 className="font-semibold">Exposure (Look-through)</h3>
+            </div>
+            {exposureLoading ? (
+              <p className="text-sm text-slate-400">Loading exposure…</p>
+            ) : (
+              <div className="space-y-2 text-sm text-slate-300">
+                <p>Total direct: {formatCurrency(exposure?.total_direct_exposure ?? '0')}</p>
+                <p>Total look-through: {formatCurrency(exposure?.total_lookthrough_exposure ?? '0')}</p>
+                <div className="max-h-56 overflow-auto rounded-lg border border-slate-700/40">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-800/60 text-slate-400">
+                      <tr>
+                        <th className="px-3 py-2">Company</th>
+                        <th className="px-3 py-2">Direct</th>
+                        <th className="px-3 py-2">Look-through</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(exposure?.exposure ?? []).map((row) => (
+                        <tr key={row.company_id} className="border-t border-slate-700/40">
+                          <td className="px-3 py-2">{row.company_ticker ?? row.company_name}</td>
+                          <td className="px-3 py-2">{formatCurrency(row.direct_exposure)}</td>
+                          <td className="px-3 py-2">{formatCurrency(row.lookthrough_exposure)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4">
+            <div className="mb-3 flex items-center gap-2 text-slate-100">
+              <BarChart3 className="h-4 w-4" />
+              <h3 className="font-semibold">Overlap</h3>
+            </div>
+            {overlapLoading ? (
+              <p className="text-sm text-slate-400">Loading overlap…</p>
+            ) : (
+              <div className="space-y-2 text-sm text-slate-300">
+                <p>Top 5 concentration: {(toNumber(overlap?.top_5_concentration_pct ?? 0) * 100).toFixed(2)}%</p>
+                <p>Duplicate exposure index: {(toNumber(overlap?.duplicate_exposure_index ?? 0) * 100).toFixed(2)}%</p>
+                <ol className="space-y-1 text-xs">
+                  {(overlap?.overlaps ?? []).slice(0, 8).map((row) => (
+                    <li key={row.company_id} className="flex items-center justify-between rounded border border-slate-700/50 px-2 py-1">
+                      <span>{row.company_ticker ?? row.company_name}</span>
+                      <span>{(toNumber(row.portfolio_share) * 100).toFixed(2)}%</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
           </div>
         </div>
       )}

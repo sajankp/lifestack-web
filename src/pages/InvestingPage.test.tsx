@@ -61,6 +61,7 @@ describe('InvestingPage', () => {
           valuation_status: 'multi_currency_unconverted',
         }),
       ),
+      http.get('*/v1/investing/instruments', () => HttpResponse.json([])),
     );
 
     renderWithQuery(<InvestingPage />);
@@ -115,6 +116,7 @@ describe('InvestingPage', () => {
           valuation_status: 'single_currency_native',
         }),
       ),
+      http.get('*/v1/investing/instruments', () => HttpResponse.json([])),
       http.post('*/v1/finance/accounts', async ({ request }) => {
         const body = (await request.json()) as {
           name: string;
@@ -189,5 +191,100 @@ describe('InvestingPage', () => {
       avg_cost: 150.25,
       currency: 'USD',
     });
+  });
+
+  it('loads look-through analytics tab with exposure and overlap data', async () => {
+    server.use(
+      http.get('*/v1/investing/holdings', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/investing/cash-balances', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/currencies', () =>
+        HttpResponse.json([
+          { code: 'USD', name: 'US Dollar', symbol: '$', minor_unit: 2, is_active: true },
+        ]),
+      ),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: '0',
+          holdings_count: 0,
+          cash_total: '0',
+          currency_breakdown: {},
+          daily_change: null,
+          reporting_currency: 'USD',
+          valuation_status: 'single_currency_native',
+        }),
+      ),
+      http.get('*/v1/investing/instruments', () =>
+        HttpResponse.json([
+          {
+            public_id: '44444444-4444-4444-4444-444444444444',
+            symbol: 'VTI',
+            name: 'Vanguard Total Market ETF',
+            instrument_type: 'etf',
+            company_id: null,
+            is_active: true,
+            created_at: '2026-05-24T00:00:00Z',
+            updated_at: '2026-05-24T00:00:00Z',
+          },
+        ]),
+      ),
+      http.get('*/v1/investing/analytics/exposure', () =>
+        HttpResponse.json({
+          as_of_date: '2026-05-24',
+          analysis_status: 'complete',
+          snapshot_coverage: '1',
+          staleness_days: 30,
+          warnings: [],
+          exposure: [
+            {
+              company_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+              company_name: 'Apple Inc',
+              company_ticker: 'AAPL',
+              direct_exposure: '300.00',
+              lookthrough_exposure: '900.00',
+            },
+          ],
+          total_direct_exposure: '300.00',
+          total_lookthrough_exposure: '1000.00',
+        }),
+      ),
+      http.get('*/v1/investing/analytics/overlap', () =>
+        HttpResponse.json({
+          as_of_date: '2026-05-24',
+          analysis_status: 'complete',
+          snapshot_coverage: '1',
+          warnings: [],
+          top_5_concentration_pct: '0.90',
+          top_10_concentration_pct: '1.00',
+          duplicate_exposure_index: '0.70',
+          overlaps: [
+            {
+              company_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+              company_name: 'Apple Inc',
+              company_ticker: 'AAPL',
+              overlap_exposure: '900.00',
+              portfolio_share: '0.90',
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithQuery(<InvestingPage />);
+
+    await screen.findByText('Investing');
+    fireEvent.click(screen.getByRole('button', { name: 'Look-through Analytics' }));
+
+    expect(await screen.findByText('Exposure (Look-through)')).toBeInTheDocument();
+    expect(await screen.findByText('Overlap')).toBeInTheDocument();
+    const aaplRows = await screen.findAllByText('AAPL');
+    expect(aaplRows.length).toBeGreaterThanOrEqual(1);
+    expect(await screen.findByText(/Top 5 concentration/)).toBeInTheDocument();
   });
 });
