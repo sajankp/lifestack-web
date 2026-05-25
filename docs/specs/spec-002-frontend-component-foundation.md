@@ -13,9 +13,15 @@ The primary decision in this spec is to adopt `shadcn/ui` as the default compone
   - `popover`
   - `calendar`
   - `date picker`
-- Spending and Investing already use the new date/select foundation for the controls that were most visibly native-looking.
+- The remaining first-phase primitives are now in-repo:
+  - `tabs`
+  - `dialog`
+  - `dropdown-menu`
+  - `command` and reusable `combobox`
+- Spending and Investing now use the new date/select foundation for the controls that were most visibly native-looking.
 - The select and date picker are implemented as reusable in-repo wrappers, following the shadcn composition pattern.
-- Remaining primitives for the first phase still include dialog, tabs, and a fuller dropdown/menu surface where needed.
+- Investing now uses shared tabs and reusable select/combobox controls in place of native `<select>` widgets.
+- Dialog/dropdown primitives are available for migration in the next UI slices.
 
 ## 2. Goals
 - Standardize interactive UI primitives across the app.
@@ -95,12 +101,12 @@ These choices align with the current architecture direction in the backend docs,
 ### Phase 1
 - Introduce the `shadcn/ui` component base and required dependencies.
 - Establish shared patterns for button, input, select, popover, dialog, and calendar usage.
-- Status: partially complete. Select, popover, calendar, and date picker are in place; dialog, tabs, and richer menu patterns remain.
+- Status: complete for the initial primitive set. Button, input, select, popover, calendar/date picker, tabs, dialog, dropdown-menu, and command/combobox are all in-repo.
 
 ### Phase 2
 - Migrate spending modals and filters to the shared form primitives.
 - Replace native-feeling date inputs in key workflows with styled date picker patterns.
-- Status: partially complete. Spending and Investing date/select controls are migrated; broader modal and form composition work remains.
+- Status: mostly complete for current pages. Spending and Investing date/select controls are migrated; full modal/form migration can continue opportunistically as features evolve.
 
 ### Phase 3
 - Apply the same foundation to future dashboard controls, analytics filters, and additional module forms.

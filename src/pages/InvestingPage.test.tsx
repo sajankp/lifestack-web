@@ -279,7 +279,7 @@ describe('InvestingPage', () => {
     renderWithQuery(<InvestingPage />);
 
     await screen.findByText('Investing');
-    fireEvent.click(screen.getByRole('button', { name: 'Look-through Analytics' }));
+    fireEvent.click(await screen.findByRole('tab', { name: 'Look-through Analytics' }));
 
     expect(await screen.findByText('Exposure (Look-through)')).toBeInTheDocument();
     expect(await screen.findByText('Overlap')).toBeInTheDocument();
