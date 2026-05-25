@@ -83,7 +83,7 @@ export const InvestingPage: React.FC = () => {
     queryKey: ['investing', 'summary'],
     queryFn: () => investingService.getSummary(),
   });
-  const { data: performanceSummary } = useQuery({
+  const { data: performanceSummary, isLoading: performanceLoading } = useQuery({
     queryKey: ['investing', 'performance', 'summary'],
     queryFn: () => investingService.getPerformanceSummary(),
   });
@@ -319,9 +319,11 @@ export const InvestingPage: React.FC = () => {
         </p>
         <p className="mt-1">
           <span className="font-semibold text-slate-100">Performance (gain/loss):</span>{' '}
-          {performanceSummary
-            ? `${formatCurrency(performanceSummary.total_gain_loss, performanceSummary.currency)} (${performancePctLabel})`
-            : 'N/A'}
+          {performanceLoading
+            ? 'Loading...'
+            : performanceSummary
+              ? `${formatCurrency(performanceSummary.total_gain_loss, performanceSummary.currency)} (${performancePctLabel})`
+              : 'N/A'}
         </p>
       </div>
 

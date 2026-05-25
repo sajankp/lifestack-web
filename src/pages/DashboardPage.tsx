@@ -37,12 +37,15 @@ export const DashboardPage: React.FC = () => {
         timeStyle: 'short',
       })
     : null;
-  const latestWeeklyStartLabel = latestSummary?.week_start
-    ? new Date(`${latestSummary.week_start}T00:00:00Z`).toLocaleDateString(undefined, {
-        dateStyle: 'medium',
-        timeZone: 'UTC',
-      })
-    : 'N/A';
+  const latestWeeklyStartLabel = (() => {
+    if (!latestSummary?.week_start) return 'N/A';
+    const date = new Date(`${latestSummary.week_start}T00:00:00Z`);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString(undefined, {
+      dateStyle: 'medium',
+      timeZone: 'UTC',
+    });
+  })();
   const budgetRemaining =
     data?.spending.month_budget != null
       ? toNumber(data.spending.month_budget) - toNumber(data.spending.month_spent)
