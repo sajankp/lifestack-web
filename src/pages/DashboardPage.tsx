@@ -5,6 +5,7 @@ import { authService } from '../services/auth';
 import { dashboardService } from '../services/dashboard';
 import { notificationsService } from '../services/notifications';
 import { summariesService } from '../services/summaries';
+import { spendingService } from '../services/spending';
 import { RefreshCw, AlertCircle, Clock3, CircleAlert, PiggyBank, Wallet, BriefcaseBusiness } from 'lucide-react';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
 
@@ -21,6 +22,15 @@ export const DashboardPage: React.FC = () => {
   const { data: latestSummary } = useQuery({
     queryKey: ['summaries', 'weekly', 'latest'],
     queryFn: () => summariesService.latestWeekly(),
+  });
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const { data: trendData } = useQuery({
+    queryKey: ['spending', 'trends', currentMonth],
+    queryFn: () => spendingService.getTrends(currentMonth, currentMonth),
+  });
+  const { data: recurringData } = useQuery({
+    queryKey: ['spending', 'recurring', 'overview'],
+    queryFn: () => spendingService.getRecurring(50, 0),
   });
 
   const handleLogout = async () => {
@@ -160,6 +170,14 @@ export const DashboardPage: React.FC = () => {
                   <StatRow
                     label="Latest weekly summary"
                     value={latestWeeklyStartLabel}
+                  />
+                  <StatRow
+                    label="This month transactions"
+                    value={String(trendData?.months?.[0]?.transaction_count ?? 0)}
+                  />
+                  <StatRow
+                    label="Active recurring rules"
+                    value={String(recurringData?.items?.filter((r) => r.is_active).length ?? 0)}
                   />
                 </div>
               </section>
