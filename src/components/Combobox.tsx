@@ -78,7 +78,7 @@ export const Combobox: React.FC<ComboboxProps> = ({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label}
+                  value={`${option.label} ${option.value}`}
                   onSelect={() => {
                     onChange(option.value);
                     setOpen(false);

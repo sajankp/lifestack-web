@@ -57,7 +57,10 @@ export const DatePicker: React.FC<DatePickerProps> = ({
           mode="single"
           selected={selectedDate}
           onSelect={(date) => {
-            if (!date) return;
+            if (!date) {
+              if (!required) onChange('');
+              return;
+            }
             onChange(format(date, 'yyyy-MM-dd'));
             setOpen(false);
           }}
