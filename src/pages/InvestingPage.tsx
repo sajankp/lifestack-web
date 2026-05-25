@@ -4,6 +4,7 @@ import { BarChart3, Landmark, Layers, Plus, Trash2, WalletCards } from 'lucide-r
 import { financeService } from '../services/finance';
 import { investingService } from '../services/investing';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
+import { DatePicker } from '../components/DatePicker';
 import type {
   CashBalanceCreate,
   HoldingCreate,
@@ -482,11 +483,11 @@ export const InvestingPage: React.FC = () => {
             <h3 className="font-semibold text-white">Analytics Controls</h3>
             <label className="block text-xs text-slate-300">
               As of date
-              <input
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
-                type="date"
+              <DatePicker
                 value={analyticsAsOf}
-                onChange={(e) => setAnalyticsAsOf(e.target.value)}
+                onChange={setAnalyticsAsOf}
+                placeholder="Select date"
+                className="mt-1"
               />
             </label>
             <div className="rounded-lg border border-slate-700/60 bg-slate-900/50 p-3 text-xs text-slate-300">
