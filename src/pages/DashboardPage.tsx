@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/auth';
 import { dashboardService } from '../services/dashboard';
+import { notificationsService } from '../services/notifications';
+import { summariesService } from '../services/summaries';
 import { RefreshCw, AlertCircle, Clock3, CircleAlert, PiggyBank, Wallet, BriefcaseBusiness } from 'lucide-react';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
 
@@ -11,6 +13,14 @@ export const DashboardPage: React.FC = () => {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['dashboard', 'summary'],
     queryFn: () => dashboardService.getSummary(),
+  });
+  const { data: unread } = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => notificationsService.unreadCount(),
+  });
+  const { data: latestSummary } = useQuery({
+    queryKey: ['summaries', 'weekly', 'latest'],
+    queryFn: () => summariesService.latestWeekly(),
   });
 
   const handleLogout = async () => {
@@ -103,6 +113,13 @@ export const DashboardPage: React.FC = () => {
                 icon={<BriefcaseBusiness className="h-5 w-5" />}
                 accent="from-amber-500/25 to-orange-500/10"
               />
+              <MetricCard
+                label="Unread notifications"
+                value={String(unread?.count ?? 0)}
+                note="In-app inbox"
+                icon={<AlertCircle className="h-5 w-5" />}
+                accent="from-rose-500/25 to-pink-500/10"
+              />
             </div>
 
             <div className="mt-6">
@@ -130,6 +147,10 @@ export const DashboardPage: React.FC = () => {
                   <StatRow
                     label="Daily portfolio change"
                     value={data.investing.daily_change != null ? formatCurrency(data.investing.daily_change) : 'N/A'}
+                  />
+                  <StatRow
+                    label="Latest weekly summary"
+                    value={latestSummary?.week_start ?? 'N/A'}
                   />
                 </div>
               </section>

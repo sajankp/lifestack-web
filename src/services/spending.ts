@@ -9,6 +9,8 @@ import type {
   BudgetCreate,
   BudgetUpdate,
   TransactionSummary,
+  SpendingTrendResponse,
+  RecurringTransaction,
 } from '../types/spending';
 import type { PaginatedResponse } from '../types/common';
 
@@ -97,6 +99,18 @@ export const spendingService = {
 
   updateBudget: async (publicId: string, data: BudgetUpdate): Promise<Budget> => {
     const response = await api.patch(`/spending/budgets/${publicId}`, data);
+    return response.data;
+  },
+
+  getTrends: async (fromMonth: string, toMonth: string): Promise<SpendingTrendResponse> => {
+    const response = await api.get('/spending/analytics/trends', {
+      params: { from: `${fromMonth}-01`, to: `${toMonth}-01` },
+    });
+    return response.data;
+  },
+
+  getRecurring: async (limit = 50, offset = 0): Promise<PaginatedResponse<RecurringTransaction>> => {
+    const response = await api.get('/spending/recurring', { params: { limit, offset } });
     return response.data;
   },
 };

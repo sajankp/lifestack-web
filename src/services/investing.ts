@@ -14,6 +14,7 @@ import type {
   InstrumentCreate,
   InvestingSummary,
   OverlapAnalytics,
+  PerformanceSummary,
 } from '../types/investing';
 
 export const investingService = {
@@ -98,6 +99,11 @@ export const investingService = {
 
   getOverlapAnalytics: async (asOf: string): Promise<OverlapAnalytics> => {
     const response = await api.get('/investing/analytics/overlap', { params: { as_of: asOf } });
+    return response.data;
+  },
+
+  getPerformanceSummary: async (): Promise<PerformanceSummary> => {
+    const response = await api.get('/investing/performance/summary');
     return response.data;
   },
 };

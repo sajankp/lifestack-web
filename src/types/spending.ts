@@ -79,3 +79,34 @@ export interface TransactionSummary {
   net_total: number | string;
   category_totals: CategorySpendTotal[];
 }
+
+export interface SpendingTrendPoint {
+  month: string;
+  total_income: number | string;
+  total_expense: number | string;
+  net: number | string;
+  transaction_count: number;
+}
+
+export interface SpendingTrendResponse {
+  from: string;
+  to: string;
+  months: SpendingTrendPoint[];
+}
+
+export interface RecurringTransaction {
+  public_id: string;
+  category_id: string;
+  amount: number | string;
+  type: TransactionType;
+  description: string | null;
+  frequency: string;
+  interval: number;
+  anchor_date: string;
+  next_due_date: string;
+  end_date: string | null;
+  is_active: boolean;
+  last_generated_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
