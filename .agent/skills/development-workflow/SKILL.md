@@ -22,6 +22,14 @@ npm run lint
 gh pr create --base main --head <branch>
 ```
 
+## 1-Minute Checklist
+
+- Confirm approved spec exists before coding.
+- Create branch and write/update tests first.
+- Implement minimal scope per spec.
+- Run full validation commands for this repo.
+- Open PR and hand off with a clear validation summary.
+
 ## Scope
 
 - Spec-first delivery
