@@ -7,15 +7,37 @@ description: Use when delivering a new feature or architectural change that need
 
 Use this agent for feature work and architectural changes.
 
+## Applicability
+
+- Frontend-focused in `lifestack-web`.
+- For backend-heavy work, use the backend copy in `lifestack-api`.
+
+## Quick Commands
+
+```bash
+git checkout -b feat/<name>
+npm test -- --run
+npm run build
+npm run lint
+gh pr create --base main --head <branch>
+```
+
 ## Scope
 
 - Spec-first delivery
-- Test-first implementation (Red-Green-Refactor)
+- Test-first implementation (Red-Green-Refactor mindset)
 - Verification and PR preparation
 
 ## Core Flow
 
-Spec -> Tests (failing) -> Implement -> Verify -> PR
+Spec -> Tests (failing/updated) -> Implement -> Verify -> PR
+
+## Phase Guardrails
+
+- Do not start implementation before spec approval.
+- Do not request review before verification passes.
+- Escalate when spec intent and implementation reality diverge.
+- Keep frontend-only stack decisions in frontend docs/specs.
 
 ## Phases
 
@@ -27,8 +49,8 @@ Spec -> Tests (failing) -> Implement -> Verify -> PR
 2. Test-First (Red)
 - Create feature branch
 - Mark spec `Approved`
-- Write failing tests
-- Confirm failure before implementation
+- Add failing or coverage-extending tests first
+- Confirm tests enforce intended behavior
 
 3. Implementation (Green)
 - Implement minimum required behavior
@@ -36,12 +58,12 @@ Spec -> Tests (failing) -> Implement -> Verify -> PR
 - Pause for user decision if spec ambiguity appears
 
 4. Verify and PR
-- Run full test suite with coverage
+- Run full frontend validation (`test`, `build`, `lint`)
 - Mark spec `Implemented`
 - Open PR and hand off to PR review workflow
-- For review-thread cleanup during handoff, use:
-  - `bash .agent/scripts/resolve-review-threads.sh --repo <owner>/<repo> --pr <number> --mode outdated --dry-run`
-  - `bash .agent/scripts/resolve-review-threads.sh --repo <owner>/<repo> --pr <number> --mode outdated`
+- For review-thread cleanup during handoff:
+  - `bash .agent/scripts/resolve-review-threads.sh --mode outdated --dry-run`
+  - `bash .agent/scripts/resolve-review-threads.sh --mode outdated`
 
 ## Commit Prefixes
 
@@ -51,6 +73,26 @@ Spec -> Tests (failing) -> Implement -> Verify -> PR
 - `refactor:` structure-only cleanup
 - `fix:` bug fixes
 - `chore:` tooling/config/CI/deps
+
+## Handoff Template
+
+```text
+Implemented per spec <spec-id>.
+Validation:
+- npm test -- --run
+- npm run build
+- npm run lint
+PR ready for /pr-review workflow.
+```
+
+## Troubleshooting
+
+- Protected main blocks push:
+  - Push feature branch and open PR.
+- Flaky UI assertions:
+  - Prefer role-based queries and explicit waits in tests.
+- Pre-commit failure:
+  - Fix hooks, recommit, and re-verify `git status`.
 
 ## Reference
 
