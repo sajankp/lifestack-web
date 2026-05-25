@@ -1,11 +1,21 @@
 # Feature Spec: Frontend Component Foundation
-**Status:** Proposed
+**Status:** In Progress
 **Spec ID:** 002
 
 ## 1. Overview
 Lifestack Web is moving beyond a small set of hand-built views into a broader product surface with richer forms, date inputs, interactive filters, and dashboard visualizations. This spec defines the frontend component foundation for that next stage so new UI work does not drift into a mix of native browser controls, ad hoc custom widgets, and inconsistent patterns.
 
 The primary decision in this spec is to adopt `shadcn/ui` as the default component foundation for interactive UI primitives while continuing to own styling inside the repo.
+
+### Current Implementation Snapshot
+- The first shared primitives are now in-repo:
+  - `select`
+  - `popover`
+  - `calendar`
+  - `date picker`
+- Spending and Investing already use the new date/select foundation for the controls that were most visibly native-looking.
+- The select and date picker are implemented as reusable in-repo wrappers, following the shadcn composition pattern.
+- Remaining primitives for the first phase still include dialog, tabs, and a fuller dropdown/menu surface where needed.
 
 ## 2. Goals
 - Standardize interactive UI primitives across the app.
@@ -85,10 +95,12 @@ These choices align with the current architecture direction in the backend docs,
 ### Phase 1
 - Introduce the `shadcn/ui` component base and required dependencies.
 - Establish shared patterns for button, input, select, popover, dialog, and calendar usage.
+- Status: partially complete. Select, popover, calendar, and date picker are in place; dialog, tabs, and richer menu patterns remain.
 
 ### Phase 2
 - Migrate spending modals and filters to the shared form primitives.
 - Replace native-feeling date inputs in key workflows with styled date picker patterns.
+- Status: partially complete. Spending and Investing date/select controls are migrated; broader modal and form composition work remains.
 
 ### Phase 3
 - Apply the same foundation to future dashboard controls, analytics filters, and additional module forms.
@@ -109,8 +121,8 @@ These choices align with the current architecture direction in the backend docs,
 - If a `shadcn/ui` component introduces unnecessary complexity for a tiny use case, a simpler local wrapper is acceptable as long as it follows this spec's interaction and styling rules.
 
 ## 9. Follow-Up Work
-- Add the initial `shadcn/ui` setup to `lifestack-web`.
-- Define the first shared control set: button, input, select, dialog, popover, calendar/date picker.
-- Migrate the spending workflow to the new date picker and shared field primitives.
+- Add the remaining `shadcn/ui` primitives needed for the app: dialog, tabs, command/combobox, dropdown menu.
+- Continue migrating native inputs and ad hoc widgets to the shared primitives.
+- Add chart wrappers for future dashboard and analytics work.
 - Update existing frontend specs to reference this component foundation where relevant.
-- Add a frontend architecture note or README section once the initial migration lands.
+- Add a frontend architecture note or README section once the foundation migration is broader.

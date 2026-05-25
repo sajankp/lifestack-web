@@ -1,9 +1,19 @@
 # Feature Spec: Spending UI
-**Status:** Approved
+**Status:** Implemented
 **Spec ID:** 001
 
 ## 1. Overview
 The Spending UI is the frontend component of the Lifestack Spending module. It provides a user interface for authenticated users to view, add, and manage their income and expenses, organize them into categories, and view monthly category budgets.
+
+### Current Implementation Snapshot
+- The spending page is live at `/spending` and is wired into the authenticated app shell.
+- Transaction summary cards are driven by the backend monthly summary endpoint, not by the currently loaded page of transactions.
+- The spending page supports:
+  - month and category filters
+  - transaction create, edit, and delete
+  - category creation and deletion
+  - budget create and edit
+- The page now uses the shared frontend component foundation for the modern date picker and select controls.
 
 ## 2. Goals
 - Provide a responsive and premium UI for managing spending transactions.
@@ -21,9 +31,8 @@ The Spending UI is the frontend component of the Lifestack Spending module. It p
 - **API Integration**: Use `@tanstack/react-query` to fetch and mutate spending data (categories, transactions, budgets).
 
 ### Out of Scope for This Slice
-- Advanced charts and analytics (e.g., spending trends over years).
+- Advanced charts and analytics beyond the monthly summary and budget progress views already shipped.
 - Multi-workspace switching UI (assumed handled globally if at all).
-- Budget creation/editing UI (will just display existing budgets for now, or provide a simple edit form later).
 
 ## 4. Architecture Alignment
 
@@ -40,6 +49,10 @@ The Spending UI is the frontend component of the Lifestack Spending module. It p
 - **Aesthetics**: Follow the "web_application_development" guidelines: vibrant, premium, modern typography, glassmorphism if applicable, and smooth micro-animations.
 - **TailwindCSS**: Leverage the existing Tailwind setup for styling.
 - **Components**: Reusable components should be placed in `src/components/`.
+
+### 4.4 Component Foundation Alignment
+- Spending UI should use the shared frontend component foundation defined in `spec-002-frontend-component-foundation.md` for select, popover, and date picker interactions.
+- Native browser inputs should only remain where they are clearly interim or where no shared primitive exists yet.
 
 ## 5. Requirements
 
@@ -71,3 +84,7 @@ The Spending UI is the frontend component of the Lifestack Spending module. It p
 4. **Page Assembly**: Create the `SpendingPage` and add it to the router.
 5. **Styling & Polish**: Apply premium design, hover states, and animations.
 6. **Testing**: Ensure manual E2E flow works (Create transaction, see it in list, update, delete).
+
+## 7. Shipping Notes
+- This spec is now considered implemented for the current frontend scope.
+- Further spending UI changes should reference spec 002 for component foundation details when new controls are introduced.
