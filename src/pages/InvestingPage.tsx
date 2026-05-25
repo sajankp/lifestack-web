@@ -169,6 +169,10 @@ export const InvestingPage: React.FC = () => {
   });
 
   const isLoading = holdingsLoading || cashLoading || summaryLoading;
+  const performancePctLabel =
+    performanceSummary?.total_gain_loss_pct != null
+      ? `${Number(performanceSummary.total_gain_loss_pct).toFixed(2)}%`
+      : 'N/A';
   const holdings = useMemo(() => holdingsRes?.items ?? [], [holdingsRes]);
   const cashBalances = useMemo(() => cashRes?.items ?? [], [cashRes]);
   const accounts = accountsRes?.items ?? [];
@@ -316,7 +320,7 @@ export const InvestingPage: React.FC = () => {
         <p className="mt-1">
           <span className="font-semibold text-slate-100">Performance (gain/loss):</span>{' '}
           {performanceSummary
-            ? `${formatCurrency(performanceSummary.total_gain_loss, performanceSummary.currency)} (${performanceSummary.total_gain_loss_pct ?? 'N/A'}%)`
+            ? `${formatCurrency(performanceSummary.total_gain_loss, performanceSummary.currency)} (${performancePctLabel})`
             : 'N/A'}
         </p>
       </div>

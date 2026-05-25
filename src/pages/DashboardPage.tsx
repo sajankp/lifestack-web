@@ -37,6 +37,12 @@ export const DashboardPage: React.FC = () => {
         timeStyle: 'short',
       })
     : null;
+  const latestWeeklyStartLabel = latestSummary?.week_start
+    ? new Date(`${latestSummary.week_start}T00:00:00Z`).toLocaleDateString(undefined, {
+        dateStyle: 'medium',
+        timeZone: 'UTC',
+      })
+    : 'N/A';
   const budgetRemaining =
     data?.spending.month_budget != null
       ? toNumber(data.spending.month_budget) - toNumber(data.spending.month_spent)
@@ -150,7 +156,7 @@ export const DashboardPage: React.FC = () => {
                   />
                   <StatRow
                     label="Latest weekly summary"
-                    value={latestSummary?.week_start ?? 'N/A'}
+                    value={latestWeeklyStartLabel}
                   />
                 </div>
               </section>
