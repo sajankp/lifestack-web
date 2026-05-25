@@ -50,23 +50,26 @@ const getCurrentMonthValue = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 };
 
+const monthLabelFormatter = new Intl.DateTimeFormat(undefined, {
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
 const formatMonthLabel = (monthValue: string) => {
+  if (!/^\d{4}-\d{2}$/.test(monthValue)) return monthValue;
   const [yearStr, monthStr] = monthValue.split('-');
   const year = Number(yearStr);
   const month = Number(monthStr);
-  if (!year || !month) return monthValue;
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(year, month - 1, 1)));
+  if (!year || month < 1 || month > 12) return monthValue;
+  return monthLabelFormatter.format(new Date(Date.UTC(year, month - 1, 1)));
 };
 
-const buildMonthOptions = (count = 36) => {
+const buildMonthOptions = (pastCount = 24, futureCount = 12) => {
   const options: Array<{ value: string; label: string }> = [];
   const now = new Date();
-  for (let index = 0; index < count; index += 1) {
-    const monthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - index, 1));
+  for (let offset = futureCount; offset >= -pastCount; offset -= 1) {
+    const monthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
     const value = `${monthDate.getUTCFullYear()}-${String(monthDate.getUTCMonth() + 1).padStart(2, '0')}`;
     options.push({ value, label: formatMonthLabel(value) });
   }
