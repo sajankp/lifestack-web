@@ -67,3 +67,15 @@ export interface BudgetCreate {
 export interface BudgetUpdate {
   amount: number;
 }
+
+export interface CategorySpendTotal {
+  category_id: string;
+  total: number | string;
+}
+
+export interface TransactionSummary {
+  income_total: number | string;
+  expense_total: number | string;
+  net_total: number | string;
+  category_totals: CategorySpendTotal[];
+}

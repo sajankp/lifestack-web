@@ -8,6 +8,7 @@ import type {
   Budget,
   BudgetCreate,
   BudgetUpdate,
+  TransactionSummary,
 } from '../types/spending';
 import type { PaginatedResponse } from '../types/common';
 
@@ -28,8 +29,33 @@ export const spendingService = {
   },
 
   // Transactions
-  getTransactions: async (limit: number = 50, offset: number = 0): Promise<PaginatedResponse<Transaction>> => {
-    const response = await api.get('/spending/transactions', { params: { limit, offset } });
+  getTransactions: async (
+    limit: number = 50,
+    offset: number = 0,
+    params?: { categoryId?: string; fromDate?: string; toDate?: string }
+  ): Promise<PaginatedResponse<Transaction>> => {
+    const response = await api.get('/spending/transactions', {
+      params: {
+        limit,
+        offset,
+        category_id: params?.categoryId,
+        from_date: params?.fromDate,
+        to_date: params?.toDate,
+      },
+    });
+    return response.data;
+  },
+
+  getTransactionSummary: async (
+    params: { fromDate: string; toDate: string; categoryId?: string }
+  ): Promise<TransactionSummary> => {
+    const response = await api.get('/spending/transactions/summary', {
+      params: {
+        from_date: params.fromDate,
+        to_date: params.toDate,
+        category_id: params.categoryId,
+      },
+    });
     return response.data;
   },
 
@@ -53,8 +79,14 @@ export const spendingService = {
   },
 
   // Budgets
-  getBudgets: async (limit: number = 50, offset: number = 0): Promise<PaginatedResponse<Budget>> => {
-    const response = await api.get('/spending/budgets', { params: { limit, offset } });
+  getBudgets: async (
+    limit: number = 50,
+    offset: number = 0,
+    monthStart?: string
+  ): Promise<PaginatedResponse<Budget>> => {
+    const response = await api.get('/spending/budgets', {
+      params: { limit, offset, month_start: monthStart },
+    });
     return response.data;
   },
 
