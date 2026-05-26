@@ -20,15 +20,25 @@ export const WeeklySummariesPage: React.FC = () => {
 
       {isLoading ? (
         <div className="text-slate-400">Loading weekly summaries...</div>
-      ) : data?.items.length ? (
+      ) : data?.items?.length ? (
         <>
           <div className="space-y-3">
             {data.items.map((item) => (
               <article key={item.public_id} className="rounded-xl border border-slate-800 bg-slate-800/30 p-4">
                 <h2 className="font-semibold text-white">
-                  Week of {new Date(`${item.week_start}T00:00:00Z`).toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' })}
+                  Week of {
+                    !Number.isNaN(new Date(`${item.week_start}T00:00:00Z`).getTime())
+                      ? new Date(`${item.week_start}T00:00:00Z`).toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' })
+                      : 'N/A'
+                  }
                 </h2>
-                <p className="text-xs text-slate-500">Generated {new Date(item.generated_at).toLocaleString()}</p>
+                <p className="text-xs text-slate-500">
+                  Generated {
+                    !Number.isNaN(new Date(item.generated_at).getTime())
+                      ? new Date(item.generated_at).toLocaleString()
+                      : 'N/A'
+                  }
+                </p>
                 <div className="mt-3 grid gap-2 md:grid-cols-3">
                   <JsonBox title="Todo" value={item.todo_summary} />
                   <JsonBox title="Spending" value={item.spending_summary} />

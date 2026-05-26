@@ -65,7 +65,7 @@ export const NotificationsPage: React.FC = () => {
 
       {isLoading ? (
         <div className="text-slate-400">Loading notifications...</div>
-      ) : data?.items.length ? (
+      ) : data?.items?.length ? (
         <>
           <div className="space-y-3">
             {data.items.map((n) => (
@@ -75,12 +75,19 @@ export const NotificationsPage: React.FC = () => {
                     <p className="text-sm text-slate-400">{n.category} · {n.severity}</p>
                     <h3 className="font-semibold text-white">{n.title}</h3>
                     {n.body ? <p className="mt-1 text-sm text-slate-300">{n.body}</p> : null}
-                    <p className="mt-2 text-xs text-slate-500">{new Date(n.created_at).toLocaleString()}</p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {!Number.isNaN(new Date(n.created_at).getTime())
+                        ? new Date(n.created_at).toLocaleString()
+                        : 'N/A'}
+                    </p>
                   </div>
                   {!n.is_read ? (
                     <button
                       onClick={() => markReadMutation.mutate(n.public_id)}
-                      disabled={markReadMutation.isPending}
+                      disabled={
+                        markReadMutation.isPending &&
+                        markReadMutation.variables === n.public_id
+                      }
                       className="rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
                     >
                       Mark read

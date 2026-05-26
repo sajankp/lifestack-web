@@ -177,7 +177,7 @@ export const DashboardPage: React.FC = () => {
                   />
                   <StatRow
                     label="Active recurring rules"
-                    value={String(recurringData?.items?.filter((r) => r.is_active).length ?? 0)}
+                    value={String(recurringData?.items?.filter((r) => r.is_active)?.length ?? 0)}
                   />
                 </div>
               </section>
