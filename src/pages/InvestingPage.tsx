@@ -169,10 +169,13 @@ export const InvestingPage: React.FC = () => {
   });
 
   const isLoading = holdingsLoading || cashLoading || summaryLoading;
-  const performancePctLabel =
+  const performancePctRaw =
     performanceSummary?.total_gain_loss_pct != null
-      ? `${Number(performanceSummary.total_gain_loss_pct).toFixed(2)}%`
-      : 'N/A';
+      ? Number(performanceSummary.total_gain_loss_pct)
+      : Number.NaN;
+  const performancePctLabel = Number.isNaN(performancePctRaw)
+    ? 'N/A'
+    : `${performancePctRaw.toFixed(2)}%`;
   const holdings = useMemo(() => holdingsRes?.items ?? [], [holdingsRes]);
   const cashBalances = useMemo(() => cashRes?.items ?? [], [cashRes]);
   const accounts = accountsRes?.items ?? [];

@@ -8,7 +8,7 @@ export const NotificationsPage: React.FC = () => {
   const [offset, setOffset] = useState(0);
   const limit = 20;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['notifications', offset],
     queryFn: () => notificationsService.list(limit, offset),
   });
@@ -65,6 +65,10 @@ export const NotificationsPage: React.FC = () => {
 
       {isLoading ? (
         <div className="text-slate-400">Loading notifications...</div>
+      ) : isError ? (
+        <div className="rounded-xl border border-rose-800 bg-rose-950/30 p-6 text-rose-300">
+          Failed to load notifications. Please try again.
+        </div>
       ) : data?.items?.length ? (
         <>
           <div className="space-y-3">

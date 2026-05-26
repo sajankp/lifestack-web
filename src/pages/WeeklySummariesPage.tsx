@@ -6,7 +6,7 @@ import { Pagination } from '../components/Pagination';
 export const WeeklySummariesPage: React.FC = () => {
   const [offset, setOffset] = useState(0);
   const limit = 12;
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['summaries', 'weekly', offset],
     queryFn: () => summariesService.listWeekly(limit, offset),
   });
@@ -20,6 +20,10 @@ export const WeeklySummariesPage: React.FC = () => {
 
       {isLoading ? (
         <div className="text-slate-400">Loading weekly summaries...</div>
+      ) : isError ? (
+        <div className="rounded-xl border border-rose-800 bg-rose-950/30 p-6 text-rose-300">
+          Failed to load weekly summaries. Please try again.
+        </div>
       ) : data?.items?.length ? (
         <>
           <div className="space-y-3">

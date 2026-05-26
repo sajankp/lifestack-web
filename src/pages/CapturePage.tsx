@@ -45,7 +45,7 @@ export const CapturePage: React.FC = () => {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (!text.trim()) return;
+          if (!text.trim() || captureMutation.isPending) return;
           captureMutation.mutate();
         }}
         className="rounded-xl border border-slate-800 bg-slate-800/30 p-5"
