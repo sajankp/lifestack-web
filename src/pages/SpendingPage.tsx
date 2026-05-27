@@ -8,6 +8,10 @@ import type {
   Budget,
   BudgetCreate,
   BudgetUpdate,
+  RecurringTransaction,
+  RecurringTransactionCreate,
+  RecurringTransactionUpdate,
+  RecurringFrequency,
   Transaction,
   TransactionCreate,
   TransactionType,
@@ -26,6 +30,9 @@ import {
   Edit2,
   Filter,
   Brush,
+  RefreshCw,
+  Clock,
+  ToggleLeft,
 } from 'lucide-react';
 import { Pagination } from '../components/Pagination';
 import { DropdownSelect } from '../components/DropdownSelect';
@@ -43,6 +50,43 @@ const budgetFormSchema = z.object({
 });
 
 type BudgetFormValues = z.infer<typeof budgetFormSchema>;
+
+const recurringFormSchema = z.object({
+  categoryId: z.string().min(1, 'Select a category'),
+  amount: z
+    .string()
+    .min(1, 'Enter an amount')
+    .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, 'Amount must be greater than 0'),
+  type: z.enum(['income', 'expense']),
+  description: z.string().max(500).optional(),
+  frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
+  interval: z
+    .string()
+    .refine((v) => Number.isInteger(Number(v)) && Number(v) >= 1, 'Interval must be a positive integer'),
+  anchor_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Select a start date'),
+  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
+});
+
+type RecurringFormValues = z.infer<typeof recurringFormSchema>;
+
+const FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  yearly: 'Yearly',
+};
+
+const formatDueDate = (dateStr: string) => {
+  const due = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return { label: `${Math.abs(diffDays)}d overdue`, color: 'text-red-400 bg-red-500/10' };
+  if (diffDays === 0) return { label: 'Due today', color: 'text-amber-400 bg-amber-500/10' };
+  if (diffDays === 1) return { label: 'Due tomorrow', color: 'text-amber-400 bg-amber-500/10' };
+  return { label: `Due in ${diffDays}d`, color: 'text-slate-400 bg-slate-800' };
+};
 
 const getCurrentMonthValue = () => {
   const now = new Date();
@@ -89,7 +133,7 @@ export const SpendingPage: React.FC = () => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('');
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'transactions' | 'budgets'>('transactions');
+  const [activeTab, setActiveTab] = useState<'transactions' | 'budgets' | 'recurring'>('transactions');
 
   // Budget Modal
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
@@ -101,8 +145,13 @@ export const SpendingPage: React.FC = () => {
 
   const [txOffset, setTxOffset] = useState(0);
   const [budgetOffset, setBudgetOffset] = useState(0);
+  const [recurringOffset, setRecurringOffset] = useState(0);
   const limit = 50;
   const monthRange = useMemo(() => monthValueToDateRange(selectedMonth), [selectedMonth]);
+
+  // Recurring modal state
+  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringTransaction | null>(null);
 
   const { data: categoriesResponse, isLoading: isCatsLoading } = useQuery({
     queryKey: ['categories'],
@@ -237,6 +286,57 @@ export const SpendingPage: React.FC = () => {
     }
   });
 
+  // ----- Recurring Queries & Mutations -----
+  const { data: recurringResponse, isLoading: isRecurringLoading } = useQuery({
+    queryKey: ['recurring', recurringOffset],
+    queryFn: () => spendingService.getRecurring(limit, recurringOffset, true),
+  });
+  const recurringItems = recurringResponse?.items ?? [];
+
+  const {
+    control: recurringControl,
+    register: registerRecurringField,
+    handleSubmit: handleRecurringSubmit,
+    reset: resetRecurringForm,
+    formState: { errors: recurringErrors },
+  } = useForm<RecurringFormValues>({
+    resolver: zodResolver(recurringFormSchema),
+    defaultValues: {
+      categoryId: '',
+      amount: '',
+      type: 'expense',
+      description: '',
+      frequency: 'monthly',
+      interval: '1',
+      anchor_date: new Date().toISOString().split('T')[0],
+      end_date: '',
+    },
+  });
+
+  const createRecurringMutation = useMutation({
+    mutationFn: (data: RecurringTransactionCreate) => spendingService.createRecurring(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recurring'] });
+      closeRecurringModal();
+    },
+  });
+
+  const updateRecurringMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: RecurringTransactionUpdate }) =>
+      spendingService.updateRecurring(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recurring'] });
+      closeRecurringModal();
+    },
+  });
+
+  const deactivateRecurringMutation = useMutation({
+    mutationFn: (id: string) => spendingService.deleteRecurring(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['recurring'] });
+    },
+  });
+
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || !categoryId || !type || !date) return;
@@ -308,6 +408,67 @@ export const SpendingPage: React.FC = () => {
     setCategoryName('');
     setCategoryColor('#60a5fa');
     setCategoryIcon('');
+  };
+
+  const openRecurringModalForNew = () => {
+    setEditingRecurring(null);
+    resetRecurringForm({
+      categoryId: '',
+      amount: '',
+      type: 'expense',
+      description: '',
+      frequency: 'monthly',
+      interval: '1',
+      anchor_date: new Date().toISOString().split('T')[0],
+      end_date: '',
+    });
+    setIsRecurringModalOpen(true);
+  };
+
+  const openRecurringModalForEdit = (r: RecurringTransaction) => {
+    setEditingRecurring(r);
+    resetRecurringForm({
+      categoryId: r.category_id,
+      amount: r.amount.toString(),
+      type: r.type,
+      description: r.description ?? '',
+      frequency: r.frequency as RecurringFrequency,
+      interval: r.interval.toString(),
+      anchor_date: r.anchor_date,
+      end_date: r.end_date ?? '',
+    });
+    setIsRecurringModalOpen(true);
+  };
+
+  const closeRecurringModal = () => {
+    setIsRecurringModalOpen(false);
+    setEditingRecurring(null);
+    resetRecurringForm();
+  };
+
+  const handleSaveRecurring = (values: RecurringFormValues) => {
+    if (editingRecurring) {
+      const update: RecurringTransactionUpdate = {
+        amount: parseFloat(values.amount),
+        description: values.description || null,
+        frequency: values.frequency as RecurringFrequency,
+        interval: parseInt(values.interval, 10),
+        end_date: values.end_date || null,
+      };
+      updateRecurringMutation.mutate({ id: editingRecurring.public_id, data: update });
+    } else {
+      const create: RecurringTransactionCreate = {
+        category_id: values.categoryId,
+        amount: parseFloat(values.amount),
+        type: values.type as TransactionType,
+        description: values.description || null,
+        frequency: values.frequency as RecurringFrequency,
+        interval: parseInt(values.interval, 10),
+        anchor_date: values.anchor_date,
+        end_date: values.end_date || null,
+      };
+      createRecurringMutation.mutate(create);
+    }
   };
 
   const handleSaveBudget = (values: BudgetFormValues) => {
@@ -395,6 +556,13 @@ export const SpendingPage: React.FC = () => {
           >
             <Target className="h-5 w-5" />
             <span>Set Budget</span>
+          </button>
+          <button
+            onClick={openRecurringModalForNew}
+            className="group relative flex items-center gap-2 overflow-hidden rounded-xl bg-slate-800 px-6 py-3 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 border border-slate-700/50"
+          >
+            <RefreshCw className="h-5 w-5" />
+            <span>Add Recurring</span>
           </button>
           <button
             onClick={openTransactionModalForNew}
@@ -513,9 +681,19 @@ export const SpendingPage: React.FC = () => {
         >
           Budgets
         </button>
+        <button
+          onClick={() => setActiveTab('recurring')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'recurring' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+        >
+          Recurring
+        </button>
       </div>
 
-      {isLoading ? (
+      {isRecurringLoading && activeTab === 'recurring' ? (
+        <div className="flex h-32 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-600 border-t-blue-500" />
+        </div>
+      ) : isLoading && activeTab !== 'recurring' ? (
         <div className="flex h-32 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-600 border-t-blue-500" />
         </div>
@@ -606,7 +784,7 @@ export const SpendingPage: React.FC = () => {
             />
           )}
         </div>
-      ) : (
+      ) : activeTab === 'budgets' ? (
         <div className="space-y-4 animate-in fade-in duration-300">
           <h3 className="text-xl font-semibold text-white">Category Budgets for {monthRange.label}</h3>
           {budgets?.length === 0 ? (
@@ -669,17 +847,328 @@ export const SpendingPage: React.FC = () => {
             </div>
           )}
           {budgetsResponse && (
-            <Pagination 
-              total={budgetsResponse.total} 
-              limit={budgetsResponse.limit} 
-              offset={budgetsResponse.offset} 
-              onPageChange={setBudgetOffset} 
+            <Pagination
+              total={budgetsResponse.total}
+              limit={budgetsResponse.limit}
+              offset={budgetsResponse.offset}
+              onPageChange={setBudgetOffset}
             />
           )}
         </div>
+      ) : activeTab === 'recurring' ? (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <h3 className="text-xl font-semibold text-white">Recurring Rules</h3>
+          {recurringItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-800/30 p-12 text-center">
+              <div className="mb-4 rounded-full bg-slate-800 p-4">
+                <RefreshCw className="h-8 w-8 text-slate-500" />
+              </div>
+              <h3 className="mb-2 text-lg font-medium text-white">No recurring rules yet</h3>
+              <p className="text-slate-400">Set up recurring transactions for rent, subscriptions, or salary.</p>
+              <button
+                onClick={openRecurringModalForNew}
+                className="mt-6 flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-blue-500 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Add First Rule
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {recurringItems.map((r) => {
+                const catTheme = getCategoryTheme(r.category_id);
+                const isIncome = r.type === 'income';
+                const dueInfo = formatDueDate(r.next_due_date);
+                return (
+                  <div
+                    key={r.public_id}
+                    className="group flex flex-col gap-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 p-5 backdrop-blur-sm transition-all hover:border-slate-600 hover:bg-slate-800/60"
+                  >
+                    {/* Category + Type row */}
+                    <div className="flex items-center justify-between">
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                        style={{ backgroundColor: `${catTheme.color}20`, color: catTheme.color }}
+                      >
+                        {catTheme.icon ? <span>{catTheme.icon}</span> : <Tag className="h-3 w-3" />}
+                        {catTheme.name}
+                      </span>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          isIncome ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
+                        }`}
+                      >
+                        {isIncome ? 'Income' : 'Expense'}
+                      </span>
+                    </div>
+
+                    {/* Amount */}
+                    <div>
+                      <p
+                        className={`text-2xl font-bold ${
+                          isIncome ? 'text-emerald-400' : 'text-white'
+                        }`}
+                      >
+                        {isIncome ? '+' : '-'}${Number(r.amount).toFixed(2)}
+                      </p>
+                      {r.description && (
+                        <p className="mt-0.5 text-sm text-slate-400 truncate">{r.description}</p>
+                      )}
+                    </div>
+
+                    {/* Frequency + Next due */}
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1.5 text-slate-400">
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        {FREQUENCY_LABELS[r.frequency as RecurringFrequency] ?? r.frequency} · Every {r.interval}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${dueInfo.color}`}>
+                        {dueInfo.label}
+                      </span>
+                    </div>
+
+                    {/* Last generated */}
+                    {r.last_generated_at && (
+                      <p className="flex items-center gap-1.5 text-xs text-slate-500">
+                        <Clock className="h-3.5 w-3.5" />
+                        Last generated {new Date(r.last_generated_at).toLocaleDateString()}
+                      </p>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex gap-2 border-t border-slate-700/50 pt-3">
+                      <button
+                        onClick={() => openRecurringModalForEdit(r)}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" /> Edit
+                      </button>
+                      <button
+                        onClick={() => deactivateRecurringMutation.mutate(r.public_id)}
+                        disabled={deactivateRecurringMutation.isPending}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                        title="Deactivate this rule"
+                      >
+                        <ToggleLeft className="h-3.5 w-3.5" /> Deactivate
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {recurringResponse && (
+            <Pagination
+              total={recurringResponse.total}
+              limit={recurringResponse.limit}
+              offset={recurringResponse.offset}
+              onPageChange={setRecurringOffset}
+            />
+          )}
+        </div>
+      ) : null}
+
+      {/* Recurring Modal */}
+      {isRecurringModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+            onClick={closeRecurringModal}
+          />
+          <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10">
+              <h3 className="text-lg font-semibold text-white">
+                {editingRecurring ? 'Edit Recurring Rule' : 'New Recurring Rule'}
+              </h3>
+              <button
+                onClick={closeRecurringModal}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRecurringSubmit(handleSaveRecurring)} className="space-y-5 p-6">
+              {(createRecurringMutation.isError || updateRecurringMutation.isError) && (
+                <div className="rounded-xl border bg-red-500/10 border-red-500/50 p-3 text-sm text-red-400">
+                  Failed to save recurring rule. Please check your inputs and try again.
+                </div>
+              )}
+
+              {/* Category */}
+              {!editingRecurring && (
+                <div>
+                  <Label className="mb-2 block">Category</Label>
+                  <Controller
+                    control={recurringControl}
+                    name="categoryId"
+                    render={({ field }) => (
+                      <DropdownSelect
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={categoryOptions}
+                        placeholder="Select category"
+                      />
+                    )}
+                  />
+                  {recurringErrors.categoryId && (
+                    <p className="mt-2 text-sm text-rose-400">{recurringErrors.categoryId.message}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Type toggle (create only) */}
+              {!editingRecurring && (
+                <div>
+                  <Label className="mb-2 block">Type</Label>
+                  <Controller
+                    control={recurringControl}
+                    name="type"
+                    render={({ field }) => (
+                      <div className="flex gap-2 rounded-xl bg-slate-800/50 p-1 border border-slate-700/50">
+                        <button
+                          type="button"
+                          onClick={() => field.onChange('expense')}
+                          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
+                            field.value === 'expense' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          Expense
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => field.onChange('income')}
+                          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
+                            field.value === 'income' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          Income
+                        </button>
+                      </div>
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Amount */}
+              <div>
+                <Label htmlFor="rec-amount" className="mb-2 block">Amount</Label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                  <Input
+                    id="rec-amount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    className="pl-8"
+                    placeholder="0.00"
+                    {...registerRecurringField('amount')}
+                  />
+                </div>
+                {recurringErrors.amount && (
+                  <p className="mt-2 text-sm text-rose-400">{recurringErrors.amount.message}</p>
+                )}
+              </div>
+
+              {/* Frequency + Interval row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="rec-frequency" className="mb-2 block">Frequency</Label>
+                  <Controller
+                    control={recurringControl}
+                    name="frequency"
+                    render={({ field }) => (
+                      <DropdownSelect
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={[
+                          { value: 'daily', label: 'Daily' },
+                          { value: 'weekly', label: 'Weekly' },
+                          { value: 'monthly', label: 'Monthly' },
+                          { value: 'yearly', label: 'Yearly' },
+                        ]}
+                        placeholder="Select frequency"
+                      />
+                    )}
+                  />
+                  {recurringErrors.frequency && (
+                    <p className="mt-2 text-sm text-rose-400">{recurringErrors.frequency.message}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="rec-interval" className="mb-2 block">Every N</Label>
+                  <Input
+                    id="rec-interval"
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="1"
+                    {...registerRecurringField('interval')}
+                  />
+                  {recurringErrors.interval && (
+                    <p className="mt-2 text-sm text-rose-400">{recurringErrors.interval.message}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Start date (create only) */}
+              {!editingRecurring && (
+                <div>
+                  <Label htmlFor="rec-anchor" className="mb-2 block">Start Date</Label>
+                  <Input
+                    id="rec-anchor"
+                    type="date"
+                    {...registerRecurringField('anchor_date')}
+                  />
+                  {recurringErrors.anchor_date && (
+                    <p className="mt-2 text-sm text-rose-400">{recurringErrors.anchor_date.message}</p>
+                  )}
+                </div>
+              )}
+
+              {/* End date (optional) */}
+              <div>
+                <Label htmlFor="rec-end" className="mb-2 block">End Date <span className="text-slate-500">(optional)</span></Label>
+                <Input
+                  id="rec-end"
+                  type="date"
+                  {...registerRecurringField('end_date')}
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <Label htmlFor="rec-desc" className="mb-2 block">Description <span className="text-slate-500">(optional)</span></Label>
+                <Input
+                  id="rec-desc"
+                  placeholder="e.g. Netflix subscription"
+                  {...registerRecurringField('description')}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeRecurringModal}
+                  className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createRecurringMutation.isPending || updateRecurringMutation.isPending}
+                  className="flex-1 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 py-2.5 text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {(createRecurringMutation.isPending || updateRecurringMutation.isPending)
+                    ? 'Saving...'
+                    : editingRecurring ? 'Update Rule' : 'Create Rule'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
-      {/* Transaction Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
           <div 

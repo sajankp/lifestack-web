@@ -11,6 +11,9 @@ import type {
   TransactionSummary,
   SpendingTrendResponse,
   RecurringTransaction,
+  RecurringTransactionCreate,
+  RecurringTransactionUpdate,
+  UpcomingPreviewResponse,
 } from '../types/spending';
 import type { PaginatedResponse } from '../types/common';
 
@@ -109,8 +112,27 @@ export const spendingService = {
     return response.data;
   },
 
-  getRecurring: async (limit = 50, offset = 0): Promise<PaginatedResponse<RecurringTransaction>> => {
-    const response = await api.get('/spending/recurring', { params: { limit, offset } });
+  getRecurring: async (limit = 50, offset = 0, isActive = true): Promise<PaginatedResponse<RecurringTransaction>> => {
+    const response = await api.get('/spending/recurring', { params: { limit, offset, is_active: isActive } });
+    return response.data;
+  },
+
+  createRecurring: async (data: RecurringTransactionCreate): Promise<RecurringTransaction> => {
+    const response = await api.post('/spending/recurring', data);
+    return response.data;
+  },
+
+  updateRecurring: async (publicId: string, data: RecurringTransactionUpdate): Promise<RecurringTransaction> => {
+    const response = await api.patch(`/spending/recurring/${publicId}`, data);
+    return response.data;
+  },
+
+  deleteRecurring: async (publicId: string): Promise<void> => {
+    await api.delete(`/spending/recurring/${publicId}`);
+  },
+
+  getUpcoming: async (days = 30): Promise<UpcomingPreviewResponse> => {
+    const response = await api.get('/spending/recurring/upcoming', { params: { days } });
     return response.data;
   },
 };

@@ -110,3 +110,43 @@ export interface RecurringTransaction {
   created_at: string;
   updated_at: string;
 }
+
+export type RecurringFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+export interface RecurringTransactionCreate {
+  category_id: string;
+  amount: number;
+  type: TransactionType;
+  description?: string | null;
+  frequency: RecurringFrequency;
+  interval: number;
+  anchor_date: string; // ISO date yyyy-mm-dd
+  end_date?: string | null;
+}
+
+export interface RecurringTransactionUpdate {
+  amount?: number | null;
+  description?: string | null;
+  frequency?: RecurringFrequency | null;
+  interval?: number | null;
+  end_date?: string | null;
+  is_active?: boolean | null;
+}
+
+export interface UpcomingTransactionItem {
+  recurring_public_id: string;
+  category_id: string;
+  amount: number | string;
+  type: TransactionType;
+  description: string | null;
+  projected_date: string;
+  frequency: string;
+  interval: number;
+}
+
+export interface UpcomingPreviewResponse {
+  days: number;
+  from_date: string;
+  to_date: string;
+  items: UpcomingTransactionItem[];
+}
