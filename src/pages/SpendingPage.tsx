@@ -51,21 +51,32 @@ const budgetFormSchema = z.object({
 
 type BudgetFormValues = z.infer<typeof budgetFormSchema>;
 
-const recurringFormSchema = z.object({
-  categoryId: z.string().min(1, 'Select a category'),
-  amount: z
-    .string()
-    .min(1, 'Enter an amount')
-    .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, 'Amount must be greater than 0'),
-  type: z.enum(['income', 'expense']),
-  description: z.string().max(500).optional(),
-  frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
-  interval: z
-    .string()
-    .refine((v) => Number.isInteger(Number(v)) && Number(v) >= 1, 'Interval must be a positive integer'),
-  anchor_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Select a start date'),
-  end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
-});
+const recurringFormSchema = z
+  .object({
+    categoryId: z.string().min(1, 'Select a category'),
+    amount: z
+      .string()
+      .min(1, 'Enter an amount')
+      .refine((v) => !Number.isNaN(Number(v)) && Number(v) > 0, 'Amount must be greater than 0'),
+    type: z.enum(['income', 'expense']),
+    description: z.string().max(500).optional(),
+    frequency: z.enum(['daily', 'weekly', 'monthly', 'yearly']),
+    interval: z
+      .string()
+      .refine((v) => Number.isInteger(Number(v)) && Number(v) >= 1, 'Interval must be a positive integer'),
+    anchor_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Select a start date'),
+    end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
+  })
+  .refine(
+    (data) => {
+      if (!data.end_date) return true;
+      return new Date(data.end_date) >= new Date(data.anchor_date);
+    },
+    {
+      message: 'End date must be after or equal to start date',
+      path: ['end_date'],
+    }
+  );
 
 type RecurringFormValues = z.infer<typeof recurringFormSchema>;
 
@@ -76,8 +87,16 @@ const FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
   yearly: 'Yearly',
 };
 
+const localDateInputValue = () => new Date().toLocaleDateString('en-CA');
+
 const formatDueDate = (dateStr: string) => {
-  const due = new Date(dateStr);
+  if (!dateStr) return { label: 'N/A', color: 'text-slate-400 bg-slate-800' };
+  const datePart = dateStr.split('T')[0];
+  const parts = datePart.split('-');
+  if (parts.length !== 3) return { label: 'N/A', color: 'text-slate-400 bg-slate-800' };
+  const [year, month, day] = parts.map(Number);
+  const due = new Date(year, month - 1, day);
+  if (Number.isNaN(due.getTime())) return { label: 'N/A', color: 'text-slate-400 bg-slate-800' };
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   due.setHours(0, 0, 0, 0);
@@ -308,7 +327,7 @@ export const SpendingPage: React.FC = () => {
       description: '',
       frequency: 'monthly',
       interval: '1',
-      anchor_date: new Date().toISOString().split('T')[0],
+      anchor_date: localDateInputValue(),
       end_date: '',
     },
   });
@@ -334,6 +353,10 @@ export const SpendingPage: React.FC = () => {
     mutationFn: (id: string) => spendingService.deleteRecurring(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurring'] });
+    },
+    onError: (error) => {
+      console.error('Failed to deactivate recurring rule:', error);
+      alert('Failed to deactivate recurring rule. Please try again.');
     },
   });
 
@@ -419,7 +442,7 @@ export const SpendingPage: React.FC = () => {
       description: '',
       frequency: 'monthly',
       interval: '1',
-      anchor_date: new Date().toISOString().split('T')[0],
+      anchor_date: localDateInputValue(),
       end_date: '',
     });
     setIsRecurringModalOpen(true);
@@ -928,10 +951,13 @@ export const SpendingPage: React.FC = () => {
                     </div>
 
                     {/* Last generated */}
-                    {r.last_generated_at && (
+                    {r.last_generated_at && !Number.isNaN(Date.parse(r.last_generated_at)) && (
                       <p className="flex items-center gap-1.5 text-xs text-slate-500">
                         <Clock className="h-3.5 w-3.5" />
-                        Last generated {new Date(r.last_generated_at).toLocaleDateString()}
+                        Last generated{' '}
+                        {new Date(r.last_generated_at).toLocaleDateString(undefined, {
+                          timeZone: 'UTC',
+                        })}
                       </p>
                     )}
 
@@ -944,7 +970,15 @@ export const SpendingPage: React.FC = () => {
                         <Edit2 className="h-3.5 w-3.5" /> Edit
                       </button>
                       <button
-                        onClick={() => deactivateRecurringMutation.mutate(r.public_id)}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              'Are you sure you want to deactivate this recurring rule?'
+                            )
+                          ) {
+                            deactivateRecurringMutation.mutate(r.public_id);
+                          }
+                        }}
                         disabled={deactivateRecurringMutation.isPending}
                         className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
                         title="Deactivate this rule"

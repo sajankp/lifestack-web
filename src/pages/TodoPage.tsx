@@ -11,6 +11,11 @@ const toIsoStartOfDay = (yyyyMmDd: string): string | null => {
   return `${yyyyMmDd}T00:00:00Z`;
 };
 
+const formatUtcDate = (value: string | null | undefined): string | null => {
+  if (!value || Number.isNaN(Date.parse(value))) return null;
+  return new Date(value).toLocaleDateString(undefined, { timeZone: 'UTC' });
+};
+
 export const TodoPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [newTodoTitle, setNewTodoTitle] = useState('');
@@ -167,7 +172,11 @@ export const TodoPage: React.FC = () => {
                           <h3 className={`font-medium text-white ${todo.completed ? 'line-through text-slate-400' : ''}`}>
                             {todo.title}
                           </h3>
-                          {todo.due_date ? <p className="text-xs text-slate-400">Due: {new Date(todo.due_date).toLocaleDateString()}</p> : null}
+                          {formatUtcDate(todo.due_date) ? (
+                            <p className="text-xs text-slate-400">
+                              Due: {formatUtcDate(todo.due_date)}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
 
@@ -269,7 +278,8 @@ export const TodoPage: React.FC = () => {
                       <div>
                         <h3 className="font-medium text-white">{rule.title}</h3>
                         <p className="text-xs text-slate-400 mt-1">
-                          Every {rule.interval} {rule.frequency} | Next: {new Date(rule.next_due_date).toLocaleDateString()}
+                          Every {rule.interval} {rule.frequency} | Next:{' '}
+                          {formatUtcDate(rule.next_due_date) ?? 'N/A'}
                         </p>
                       </div>
                       <button
