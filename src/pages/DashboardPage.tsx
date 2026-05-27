@@ -3,6 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/auth';
 import { dashboardService } from '../services/dashboard';
+import { notificationsService } from '../services/notifications';
+import { summariesService } from '../services/summaries';
+import { spendingService } from '../services/spending';
 import { RefreshCw, AlertCircle, Clock3, CircleAlert, PiggyBank, Wallet, BriefcaseBusiness } from 'lucide-react';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
 
@@ -11,6 +14,23 @@ export const DashboardPage: React.FC = () => {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['dashboard', 'summary'],
     queryFn: () => dashboardService.getSummary(),
+  });
+  const { data: unread } = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => notificationsService.unreadCount(),
+  });
+  const { data: latestSummary } = useQuery({
+    queryKey: ['summaries', 'weekly', 'latest'],
+    queryFn: () => summariesService.latestWeekly(),
+  });
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const { data: trendData } = useQuery({
+    queryKey: ['spending', 'trends', currentMonth],
+    queryFn: () => spendingService.getTrends(currentMonth, currentMonth),
+  });
+  const { data: recurringData } = useQuery({
+    queryKey: ['spending', 'recurring', 'overview'],
+    queryFn: () => spendingService.getRecurring(50, 0),
   });
 
   const handleLogout = async () => {
@@ -27,6 +47,15 @@ export const DashboardPage: React.FC = () => {
         timeStyle: 'short',
       })
     : null;
+  const latestWeeklyStartLabel = (() => {
+    if (!latestSummary?.week_start) return 'N/A';
+    const date = new Date(`${latestSummary.week_start}T00:00:00Z`);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString(undefined, {
+      dateStyle: 'medium',
+      timeZone: 'UTC',
+    });
+  })();
   const budgetRemaining =
     data?.spending.month_budget != null
       ? toNumber(data.spending.month_budget) - toNumber(data.spending.month_spent)
@@ -103,6 +132,13 @@ export const DashboardPage: React.FC = () => {
                 icon={<BriefcaseBusiness className="h-5 w-5" />}
                 accent="from-amber-500/25 to-orange-500/10"
               />
+              <MetricCard
+                label="Unread notifications"
+                value={String(unread?.count ?? 0)}
+                note="In-app inbox"
+                icon={<AlertCircle className="h-5 w-5" />}
+                accent="from-rose-500/25 to-pink-500/10"
+              />
             </div>
 
             <div className="mt-6">
@@ -130,6 +166,18 @@ export const DashboardPage: React.FC = () => {
                   <StatRow
                     label="Daily portfolio change"
                     value={data.investing.daily_change != null ? formatCurrency(data.investing.daily_change) : 'N/A'}
+                  />
+                  <StatRow
+                    label="Latest weekly summary"
+                    value={latestWeeklyStartLabel}
+                  />
+                  <StatRow
+                    label="This month transactions"
+                    value={String(trendData?.months?.[0]?.transaction_count ?? 0)}
+                  />
+                  <StatRow
+                    label="Active recurring rules"
+                    value={String(recurringData?.items?.filter((r) => r.is_active)?.length ?? 0)}
                   />
                 </div>
               </section>

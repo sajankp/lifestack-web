@@ -135,3 +135,12 @@ export interface OverlapAnalytics {
   duplicate_exposure_index: string;
   overlaps: OverlapRow[];
 }
+
+export interface PerformanceSummary {
+  total_value: number | string;
+  total_cost: number | string;
+  total_gain_loss: number | string;
+  total_gain_loss_pct: number | string | null;
+  snapshot_date: string;
+  currency: string;
+}

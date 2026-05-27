@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/auth';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const stateMessage = location.state?.message;
   const setSession = useAuthStore((state) => state.setSession);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,6 +39,12 @@ export const LoginPage: React.FC = () => {
           <p className="mt-2 text-sm text-slate-400">Sign in to your account</p>
         </div>
         
+        {stateMessage && !error && (
+          <div className="rounded-md bg-emerald-500/10 p-4">
+            <p className="text-sm font-medium text-emerald-500">{stateMessage}</p>
+          </div>
+        )}
+
         {error && (
           <div className="rounded-md bg-red-500/10 p-4">
             <p className="text-sm font-medium text-red-500">{error}</p>
