@@ -220,6 +220,13 @@ describe('InvestingPage', () => {
           valuation_status: 'single_currency_native',
         }),
       ),
+      http.get('*/v1/investing/performance/summary', () =>
+        HttpResponse.json({
+          total_gain_loss: '0.00',
+          total_gain_loss_pct: '0.00',
+          holdings_count: 0,
+        }),
+      ),
       http.get('*/v1/investing/instruments', () =>
         HttpResponse.json([
           {
@@ -279,7 +286,9 @@ describe('InvestingPage', () => {
     renderWithQuery(<InvestingPage />);
 
     await screen.findByText('Investing');
-    fireEvent.click(await screen.findByRole('tab', { name: 'Look-through Analytics' }));
+    const analyticsTab = await screen.findByRole('tab', { name: 'Look-through Analytics' });
+    analyticsTab.focus();
+    fireEvent.keyDown(analyticsTab, { key: 'Enter', code: 'Enter' });
 
     expect(await screen.findByText('Exposure (Look-through)')).toBeInTheDocument();
     expect(await screen.findByText('Overlap')).toBeInTheDocument();

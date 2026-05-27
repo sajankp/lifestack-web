@@ -16,8 +16,8 @@ type DatePickerProps = {
   className?: string;
 };
 
-const parseValue = (value: string) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+const parseValue = (value: string | null | undefined) => {
+  if (!value || typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
   const parsed = parseISO(`${value}T12:00:00`);
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 };

@@ -204,7 +204,7 @@ export const InvestingPage: React.FC = () => {
   ] as const;
   const pooledInstrumentOptions = useMemo(
     () =>
-      instruments
+      (instruments ?? [])
         .filter((item) => item.instrument_type !== 'stock')
         .map((item) => ({
           value: item.public_id,
@@ -363,9 +363,9 @@ export const InvestingPage: React.FC = () => {
 
       <Tabs value={tab} onValueChange={(value) => setTab(value as 'holdings' | 'cash' | 'analytics')}>
           <TabsList className="mb-6">
-            <TabsTrigger value="holdings" onClick={() => setTab('holdings')}>Holdings</TabsTrigger>
-            <TabsTrigger value="cash" onClick={() => setTab('cash')}>Cash Balances</TabsTrigger>
-            <TabsTrigger value="analytics" onClick={() => setTab('analytics')}>Look-through Analytics</TabsTrigger>
+            <TabsTrigger value="holdings">Holdings</TabsTrigger>
+            <TabsTrigger value="cash">Cash Balances</TabsTrigger>
+            <TabsTrigger value="analytics">Look-through Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="holdings">

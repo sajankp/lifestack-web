@@ -31,7 +31,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
 
   return (
     <Select
-      value={value}
+      value={value || undefined}
       onValueChange={(nextValue) => onChange(nextValue === clearValue ? '' : nextValue)}
       disabled={disabled}
     >
