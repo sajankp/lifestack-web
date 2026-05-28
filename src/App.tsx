@@ -8,7 +8,6 @@ import { SpendingPage } from './pages/SpendingPage';
 import { InvestingPage } from './pages/InvestingPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { WeeklySummariesPage } from './pages/WeeklySummariesPage';
-import { CapturePage } from './pages/CapturePage';
 import { ImportsPage } from './pages/ImportsPage';
 import { useAuthStore } from './store/authStore';
 import { authService } from './services/auth';
@@ -46,9 +45,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           <li>
             <Link to="/investing" className="hover:text-white transition-colors">Investing</Link>
           </li>
-          <li>
-            <Link to="/capture" className="hover:text-white transition-colors">Quick Capture</Link>
-          </li>
+
           <li>
             <Link to="/notifications" className="hover:text-white transition-colors">Notifications</Link>
           </li>
@@ -159,14 +156,6 @@ function App() {
           element={
             <ProtectedRoute>
               <InvestingPage />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/capture" 
-          element={
-            <ProtectedRoute>
-              <CapturePage />
             </ProtectedRoute>
           } 
         />
