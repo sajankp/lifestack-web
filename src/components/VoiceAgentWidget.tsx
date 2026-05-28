@@ -107,7 +107,8 @@ export const VoiceAgentWidget: React.FC = () => {
   // Construct WebSocket URL dynamically
   const getWebSocketUrl = () => {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/v1';
-    return apiUrl.replace(/^http/, 'ws') + '/capture/agent/ws';
+    const absoluteUrl = apiUrl.startsWith('/') ? `${window.location.origin}${apiUrl}` : apiUrl;
+    return absoluteUrl.replace(/^http/, 'ws') + '/capture/agent/ws';
   };
 
   // Safe AudioContext initializer
@@ -140,7 +141,7 @@ export const VoiceAgentWidget: React.FC = () => {
   const playAudioChunk = (pcmData: ArrayBuffer) => {
     if (!audioCtxRef.current) return;
 
-    const int16Array = new Int16Array(pcmData);
+    const int16Array = new Int16Array(pcmData, 0, Math.floor(pcmData.byteLength / 2));
     const float32Array = new Float32Array(int16Array.length);
     for (let i = 0; i < int16Array.length; i++) {
       float32Array[i] = int16Array[i] / 32768.0;
@@ -248,51 +249,63 @@ export const VoiceAgentWidget: React.FC = () => {
     }
 
     setConnectionStatus('connecting');
-    const wsUrl = getWebSocketUrl();
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-    ws.binaryType = 'arraybuffer';
+    try {
+      const wsUrl = getWebSocketUrl();
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+      ws.binaryType = 'arraybuffer';
 
-    ws.onopen = () => {
-      setConnectionStatus('connected');
-      setMessages(prev => [...prev, {
-        id: Math.random().toString(),
-        role: 'system',
-        type: 'text',
-        content: 'Connected. Tap the microphone to talk.',
-        timestamp: new Date()
-      }]);
-    };
+      ws.onopen = () => {
+        setConnectionStatus('connected');
+        setMessages(prev => [...prev, {
+          id: Math.random().toString(),
+          role: 'system',
+          type: 'text',
+          content: 'Connected. Tap the microphone to talk.',
+          timestamp: new Date()
+        }]);
+      };
 
-    ws.onmessage = (event) => {
-      if (event.data instanceof ArrayBuffer) {
-        playAudioChunk(event.data);
-      } else {
-        try {
-          const msg = JSON.parse(event.data);
-          handleServerMessage(msg);
-        } catch (err) {
-          console.error('Failed parsing server message:', err);
+      ws.onmessage = (event) => {
+        if (event.data instanceof ArrayBuffer) {
+          playAudioChunk(event.data);
+        } else {
+          try {
+            const msg = JSON.parse(event.data);
+            handleServerMessage(msg);
+          } catch (err) {
+            console.error('Failed parsing server message:', err);
+          }
         }
-      }
-    };
+      };
 
-    ws.onerror = (err) => {
-      console.error('WS Error:', err);
+      ws.onerror = (err) => {
+        console.error('WS Error:', err);
+        setConnectionStatus('error');
+      };
+
+      ws.onclose = (event) => {
+        setConnectionStatus('disconnected');
+        setMessages(prev => [...prev, {
+          id: Math.random().toString(),
+          role: 'system',
+          type: 'text',
+          content: `Session closed (${event.code}).`,
+          timestamp: new Date()
+        }]);
+        stopRecording();
+      };
+    } catch (err) {
+      console.error('Failed to establish WebSocket connection:', err);
       setConnectionStatus('error');
-    };
-
-    ws.onclose = (event) => {
-      setConnectionStatus('disconnected');
       setMessages(prev => [...prev, {
         id: Math.random().toString(),
         role: 'system',
-        type: 'text',
-        content: `Session closed (${event.code}).`,
+        type: 'error',
+        content: 'Failed to connect: ' + (err as Error).message,
         timestamp: new Date()
       }]);
-      stopRecording();
-    };
+    }
   };
 
   const startRecording = async () => {
@@ -362,6 +375,7 @@ export const VoiceAgentWidget: React.FC = () => {
   };
 
   const toggleRecording = () => {
+    if (isStarting) return;
     if (isRecording) {
       stopRecording();
     } else {
@@ -422,6 +436,10 @@ export const VoiceAgentWidget: React.FC = () => {
       clearAudioQueue();
       if (wsRef.current) {
         wsRef.current.close();
+      }
+      if (audioCtxRef.current) {
+        void audioCtxRef.current.close();
+        audioCtxRef.current = null;
       }
     };
   }, []);
@@ -611,12 +629,13 @@ export const VoiceAgentWidget: React.FC = () => {
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="Type a message instead..."
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 pr-10 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all"
+                placeholder={connectionStatus === 'connected' ? 'Type a message instead...' : 'Connecting...'}
+                disabled={connectionStatus !== 'connected'}
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 pr-10 text-sm text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all disabled:opacity-50"
               />
               <button
                 type="submit"
-                disabled={!inputText.trim()}
+                disabled={!inputText.trim() || connectionStatus !== 'connected'}
                 className="absolute right-2 top-1.5 rounded-lg bg-slate-900 border border-slate-800 p-1.5 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition-all"
               >
                 <CornerDownLeft className="h-3.5 w-3.5" />

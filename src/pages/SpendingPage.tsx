@@ -440,6 +440,10 @@ export const SpendingPage: React.FC = () => {
       const platformFee = Number(transferPlatformFee) || 0;
       const tax = Number(transferTax) || 0;
       const net = Math.max(0, gross - fxFee - platformFee - tax);
+      const parsedTransferDate = new Date(transferDate);
+      if (Number.isNaN(parsedTransferDate.getTime())) {
+        throw new Error('Invalid transfer date');
+      }
 
       return financeService.createTransfer({
         from_module: 'spending',
@@ -454,7 +458,7 @@ export const SpendingPage: React.FC = () => {
         platform_fee_amount: platformFee.toFixed(2),
         tax_amount: tax.toFixed(2),
         net_amount_received: net.toFixed(2),
-        occurred_at: new Date(transferDate).toISOString(),
+        occurred_at: parsedTransferDate.toISOString(),
         notes: transferNotes || null,
       });
     },
@@ -478,12 +482,17 @@ export const SpendingPage: React.FC = () => {
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || !categoryId || !type || !date) return;
+    const parsedTransactionDate = new Date(date);
+    if (Number.isNaN(parsedTransactionDate.getTime())) {
+      alert('Please enter a valid transaction date.');
+      return;
+    }
     const payload: TransactionCreate = {
       amount: parseFloat(amount),
       category_id: categoryId,
       account_id: accountId || null,
       type,
-      occurred_at: new Date(date).toISOString(),
+      occurred_at: parsedTransactionDate.toISOString(),
       description: description || null
     };
 
