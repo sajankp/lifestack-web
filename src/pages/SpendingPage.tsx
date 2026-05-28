@@ -435,10 +435,10 @@ export const SpendingPage: React.FC = () => {
       if (!from || !to) {
         throw new Error('Transfer accounts are required');
       }
-      const gross = Number(transferAmount || 0);
-      const fxFee = Number(transferFxFee || 0);
-      const platformFee = Number(transferPlatformFee || 0);
-      const tax = Number(transferTax || 0);
+      const gross = Number(transferAmount) || 0;
+      const fxFee = Number(transferFxFee) || 0;
+      const platformFee = Number(transferPlatformFee) || 0;
+      const tax = Number(transferTax) || 0;
       const net = Math.max(0, gross - fxFee - platformFee - tax);
 
       return financeService.createTransfer({
@@ -1159,11 +1159,14 @@ export const SpendingPage: React.FC = () => {
                   {transferItems.map((t) => (
                     <tr key={t.public_id} className="transition-colors hover:bg-slate-700/30">
                       <td className="whitespace-nowrap px-6 py-4">
-                        {new Date(t.occurred_at).toLocaleDateString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
+                        {t.occurred_at && !Number.isNaN(Date.parse(t.occurred_at))
+                          ? new Date(t.occurred_at).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              timeZone: 'UTC',
+                            })
+                          : 'N/A'}
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-slate-200">

@@ -41,6 +41,7 @@ export const VoiceAgentWidget: React.FC = () => {
   
   const [isOpen, setIsOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [inputText, setInputText] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -295,6 +296,8 @@ export const VoiceAgentWidget: React.FC = () => {
   };
 
   const startRecording = async () => {
+    let stream: MediaStream | null = null;
+    setIsStarting(true);
     try {
       initAudioContext();
       clearAudioQueue();
@@ -303,7 +306,7 @@ export const VoiceAgentWidget: React.FC = () => {
         connectWebSocket();
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
       let mimeType = 'audio/webm;codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
@@ -318,8 +321,14 @@ export const VoiceAgentWidget: React.FC = () => {
 
       mediaRecorder.ondataavailable = async (event) => {
         if (event.data && event.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
-          const buffer = await event.data.arrayBuffer();
-          wsRef.current.send(buffer);
+          try {
+            const buffer = await event.data.arrayBuffer();
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(buffer);
+            }
+          } catch (e) {
+            console.error('Failed to send audio chunk:', e);
+          }
         }
       };
 
@@ -328,6 +337,9 @@ export const VoiceAgentWidget: React.FC = () => {
 
     } catch (err) {
       console.error('Mic access failed:', err);
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
       setMessages(prev => [...prev, {
         id: Math.random().toString(),
         role: 'system',
@@ -335,6 +347,8 @@ export const VoiceAgentWidget: React.FC = () => {
         content: 'Could not access mic: ' + (err as Error).message,
         timestamp: new Date()
       }]);
+    } finally {
+      setIsStarting(false);
     }
   };
 
@@ -358,6 +372,7 @@ export const VoiceAgentWidget: React.FC = () => {
   const handleSendText = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim()) return;
+    initAudioContext();
 
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       connectWebSocket();
@@ -387,6 +402,7 @@ export const VoiceAgentWidget: React.FC = () => {
   const toggleOpen = () => {
     if (!isOpen) {
       setIsOpen(true);
+      initAudioContext();
       connectWebSocket();
     } else {
       setIsOpen(false);
@@ -431,6 +447,7 @@ export const VoiceAgentWidget: React.FC = () => {
         style={{ left: launcherPos.x, top: launcherPos.y }}
         id="voice-agent-trigger"
         title="Voice Copilot"
+        disabled={isStarting}
       >
         {isRecording ? (
           <div className="relative flex h-full w-full items-center justify-center">
@@ -576,6 +593,7 @@ export const VoiceAgentWidget: React.FC = () => {
             {/* Mic Toggle Button */}
             <button
               onClick={toggleRecording}
+              disabled={isStarting || connectionStatus !== 'connected'}
               className={`flex h-16 w-16 items-center justify-center rounded-full border transition-all duration-300 active:scale-95 ${
                 isRecording 
                   ? 'bg-rose-500/10 border-rose-500 text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]' 

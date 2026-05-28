@@ -11,7 +11,7 @@ export const MasterConfigPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card'>('wallet');
-  const [newAccountCurrency, setNewAccountCurrency] = useState('USD');
+  const [newAccountCurrency, setNewAccountCurrency] = useState('');
   const [reportingCurrency, setReportingCurrency] = useState('');
 
   const { data: currencies = [] } = useQuery({
@@ -142,7 +142,9 @@ export const MasterConfigPage: React.FC = () => {
           <Button
             type="button"
             onClick={() => createAccountMutation.mutate()}
-            disabled={createAccountMutation.isPending || !newAccountName.trim()}
+            disabled={
+              createAccountMutation.isPending || !newAccountName.trim() || !newAccountCurrency
+            }
           >
             {createAccountMutation.isPending ? 'Creating...' : 'Create Account'}
           </Button>
@@ -215,4 +217,3 @@ export const MasterConfigPage: React.FC = () => {
     </div>
   );
 };
-
