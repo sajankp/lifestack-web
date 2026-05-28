@@ -25,6 +25,7 @@ export type TransactionType = 'income' | 'expense';
 export interface Transaction {
   public_id: string;
   category_id: string;
+  account_id: string | null;
   amount: number | string;
   type: TransactionType;
   occurred_at: string;
@@ -35,6 +36,7 @@ export interface Transaction {
 
 export interface TransactionCreate {
   category_id: string;
+  account_id?: string | null;
   amount: number;
   type: TransactionType;
   occurred_at: string;
@@ -43,6 +45,7 @@ export interface TransactionCreate {
 
 export interface TransactionUpdate {
   category_id?: string | null;
+  account_id?: string | null;
   amount?: number | null;
   type?: TransactionType | null;
   occurred_at?: string | null;

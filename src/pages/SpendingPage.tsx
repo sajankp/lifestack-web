@@ -176,6 +176,7 @@ export const SpendingPage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [type, setType] = useState<TransactionType>('expense');
   const [categoryId, setCategoryId] = useState('');
+  const [accountId, setAccountId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthValue());
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('');
@@ -216,6 +217,20 @@ export const SpendingPage: React.FC = () => {
     label: category.name,
   })) ?? [], [categories]);
   const categoryFilterOptions = categoryOptions;
+  const { data: accountsResponse } = useQuery({
+    queryKey: ['finance', 'accounts', 'spending'],
+    queryFn: () => financeService.getAccounts(200, 0),
+  });
+  const accountOptions = useMemo(
+    () =>
+      (accountsResponse?.items ?? [])
+        .filter((account) => ['bank', 'wallet', 'card', 'gift_card'].includes(account.account_type))
+        .map((account) => ({
+          value: account.public_id,
+          label: `${account.name} (${account.account_type.replace('_', ' ')})`,
+        })),
+    [accountsResponse?.items]
+  );
 
   const {
     control: budgetControl,
@@ -398,6 +413,7 @@ export const SpendingPage: React.FC = () => {
     const payload: TransactionCreate = {
       amount: parseFloat(amount),
       category_id: categoryId,
+      account_id: accountId || null,
       type,
       occurred_at: new Date(date).toISOString(),
       description: description || null
@@ -430,6 +446,7 @@ export const SpendingPage: React.FC = () => {
     setDescription('');
     setType('expense');
     setCategoryId('');
+    setAccountId('');
     setDate(new Date().toISOString().split('T')[0]);
     setIsModalOpen(true);
   };
@@ -444,6 +461,7 @@ export const SpendingPage: React.FC = () => {
     setDescription(tx.description ?? '');
     setType(tx.type);
     setCategoryId(tx.category_id);
+    setAccountId(tx.account_id ?? '');
     setDate(new Date(tx.occurred_at).toISOString().split('T')[0]);
     setIsModalOpen(true);
   };
@@ -455,6 +473,7 @@ export const SpendingPage: React.FC = () => {
     setDescription('');
     setType('expense');
     setCategoryId('');
+    setAccountId('');
     setDate(new Date().toISOString().split('T')[0]);
   };
 
@@ -1313,6 +1332,17 @@ export const SpendingPage: React.FC = () => {
                     onChange={setCategoryId}
                     options={categoryOptions}
                     placeholder="Select category"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">Wallet / Account (Optional)</label>
+                  <DropdownSelect
+                    value={accountId}
+                    onChange={setAccountId}
+                    options={accountOptions}
+                    placeholder="Unassigned"
+                    clearLabel="Unassigned"
                   />
                 </div>
 
