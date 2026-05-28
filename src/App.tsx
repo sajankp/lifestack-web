@@ -13,6 +13,7 @@ import { ImportsPage } from './pages/ImportsPage';
 import { useAuthStore } from './store/authStore';
 import { authService } from './services/auth';
 import { onUnauthorized } from './services/api';
+import { VoiceAgentWidget } from './components/VoiceAgentWidget';
 
 import { Link } from 'react-router-dom';
 
@@ -62,6 +63,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       <main className="flex-1 text-slate-100">
         {children}
       </main>
+      <VoiceAgentWidget />
     </div>
   );
 };
