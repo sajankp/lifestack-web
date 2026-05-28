@@ -153,15 +153,16 @@ export const TodoPage: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {todosResponse?.items.length === 0 ? (
-                <div className="rounded-xl border border-slate-800 bg-slate-800/30 p-6 text-center text-slate-400">
-                  No tasks yet. Add one above.
+                <div className="rounded-2xl border border-slate-800 bg-slate-800/30 p-8 text-center">
+                  <p className="text-slate-300">No tasks yet.</p>
+                  <p className="mt-1 text-sm text-slate-500">Create your first task above to get started.</p>
                 </div>
               ) : (
                 <>
                   {todosResponse?.items.map((todo) => (
                     <div
                       key={todo.public_id}
-                      className={`group flex items-center justify-between rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 transition-all hover:border-slate-600 ${todo.completed ? 'opacity-60' : ''}`}
+                      className={`group flex items-center justify-between rounded-2xl border border-slate-700/50 bg-slate-800/50 p-5 transition-all hover:border-slate-600 ${todo.completed ? 'opacity-60' : ''}`}
                     >
                       <div className="flex items-center gap-4">
                         <button
@@ -222,12 +223,21 @@ export const TodoPage: React.FC = () => {
           ) : (
             <div className="space-y-3">
               {(recurringResponse?.items ?? []).length === 0 ? (
-                <div className="rounded-xl border border-slate-800 bg-slate-800/30 p-6 text-center text-slate-400">
-                  No recurring rules yet.
+                <div className="rounded-2xl border border-slate-800 bg-slate-800/30 p-8 text-center">
+                  <p className="text-slate-300">No recurring rules yet.</p>
+                  <p className="mt-1 text-sm text-slate-500">Create one to auto-generate routine tasks.</p>
+                  <button
+                    type="button"
+                    onClick={() => setIsRecurringModalOpen(true)}
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create first rule
+                  </button>
                 </div>
               ) : (
                 recurringResponse?.items.map((rule) => (
-                  <div key={rule.public_id} className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4">
+                  <div key={rule.public_id} className="rounded-2xl border border-slate-700/50 bg-slate-800/50 p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h3 className="font-medium text-white">{rule.title}</h3>

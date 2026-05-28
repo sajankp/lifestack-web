@@ -457,7 +457,7 @@ export const VoiceAgentWidget: React.FC = () => {
               const isError = msg.status === 'error';
               return (
                 <div key={msg.id} className="flex justify-center my-2">
-                  <div className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs shadow-sm bg-slate-900/60 ${
+                  <div className={`max-w-[90%] flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs shadow-sm bg-slate-900/60 ${
                     isSuccess ? 'border-emerald-500/20 text-emerald-400' :
                     isError ? 'border-rose-500/20 text-rose-400' :
                     'border-slate-800 text-slate-400'
@@ -469,7 +469,7 @@ export const VoiceAgentWidget: React.FC = () => {
                     ) : (
                       <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
                     )}
-                    <span className="font-medium">{msg.content}</span>
+                    <span className="break-words font-medium">{msg.content}</span>
                   </div>
                 </div>
               );

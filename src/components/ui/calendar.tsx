@@ -17,16 +17,15 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      navLayout="around"
       className={cn('p-3', className)}
       classNames={{
         months: 'flex flex-col sm:flex-row gap-4',
-        month: 'space-y-4',
-        month_caption: 'flex h-9 items-center justify-center',
+        month: 'space-y-3',
+        month_caption: 'relative flex h-10 items-center justify-center',
         caption_label: 'text-sm font-semibold text-slate-100',
-        nav: 'flex items-center gap-1',
-        button_previous: 'h-8 w-8 rounded-lg border border-slate-700 bg-slate-950/50 text-slate-300 hover:bg-slate-800 hover:text-white',
-        button_next: 'h-8 w-8 rounded-lg border border-slate-700 bg-slate-950/50 text-slate-300 hover:bg-slate-800 hover:text-white',
+        nav: 'pointer-events-none absolute inset-x-0 top-0 flex h-10 items-center justify-between',
+        button_previous: 'pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-950/50 text-slate-300 hover:bg-slate-800 hover:text-white',
+        button_next: 'pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-950/50 text-slate-300 hover:bg-slate-800 hover:text-white',
         month_grid: 'w-full border-collapse space-y-1',
         weekdays: 'flex',
         weekday: 'w-9 rounded-md text-[0.8rem] font-normal text-slate-500',

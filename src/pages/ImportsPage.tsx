@@ -119,7 +119,7 @@ export const ImportsPage: React.FC = () => {
             type="button"
             onClick={() => void handleTemplateDownload()}
             disabled={!module || isDownloadingTemplate}
-            className="rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800"
+            className="rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isDownloadingTemplate ? 'Downloading...' : 'Download template'}
           </button>
@@ -143,6 +143,12 @@ export const ImportsPage: React.FC = () => {
           <h2 className="mb-4 text-lg font-semibold text-white">Recent imports</h2>
           {isLoadingImports ? <p className="text-slate-400">Loading imports...</p> : null}
           <div className="space-y-2">
+            {!isLoadingImports && (importsResponse?.items.length ?? 0) === 0 ? (
+              <div className="rounded-xl border border-slate-800 bg-slate-800/30 p-6 text-center">
+                <p className="text-slate-300">No import batches yet.</p>
+                <p className="mt-1 text-sm text-slate-500">Choose a module and upload your first CSV.</p>
+              </div>
+            ) : null}
             {importsResponse?.items.map((item) => (
               <button
                 key={item.public_id}
