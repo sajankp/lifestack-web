@@ -1,6 +1,13 @@
 import api from './api';
 import type { PaginatedResponse } from '../types/common';
-import type { Account, AccountCreate, CapitalTransferCreate, Currency, WorkspaceFinanceSetting } from '../types/finance';
+import type {
+  Account,
+  AccountCreate,
+  CapitalTransfer,
+  CapitalTransferCreate,
+  Currency,
+  WorkspaceFinanceSetting,
+} from '../types/finance';
 
 export const financeService = {
   getCurrencies: async (): Promise<Currency[]> => {
@@ -25,6 +32,11 @@ export const financeService = {
 
   createTransfer: async (data: CapitalTransferCreate) => {
     const response = await api.post('/finance/transfers', data);
+    return response.data;
+  },
+
+  getTransfers: async (limit: number = 50, offset: number = 0): Promise<PaginatedResponse<CapitalTransfer>> => {
+    const response = await api.get('/finance/transfers', { params: { limit, offset } });
     return response.data;
   },
 };

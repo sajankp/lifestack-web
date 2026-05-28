@@ -183,7 +183,7 @@ export const SpendingPage: React.FC = () => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('');
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'transactions' | 'budgets' | 'recurring'>('transactions');
+  const [activeTab, setActiveTab] = useState<'transactions' | 'budgets' | 'recurring' | 'transfers'>('transactions');
 
   // Budget Modal
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
@@ -196,6 +196,7 @@ export const SpendingPage: React.FC = () => {
   const [txOffset, setTxOffset] = useState(0);
   const [budgetOffset, setBudgetOffset] = useState(0);
   const [recurringOffset, setRecurringOffset] = useState(0);
+  const [transferOffset, setTransferOffset] = useState(0);
   const limit = 50;
   const monthRange = useMemo(() => monthValueToDateRange(selectedMonth), [selectedMonth]);
   const monthFilterOptions = useMemo(() => buildMonthOptions(), []);
@@ -231,15 +232,20 @@ export const SpendingPage: React.FC = () => {
     queryKey: ['finance', 'accounts', 'spending'],
     queryFn: () => financeService.getAccounts(200, 0),
   });
+  const spendingAccounts = useMemo(
+    () =>
+      (accountsResponse?.items ?? []).filter((account) =>
+        ['bank', 'wallet', 'card', 'gift_card'].includes(account.account_type)
+      ),
+    [accountsResponse?.items]
+  );
   const accountOptions = useMemo(
     () =>
-      (accountsResponse?.items ?? [])
-        .filter((account) => ['bank', 'wallet', 'card', 'gift_card'].includes(account.account_type))
-        .map((account) => ({
+      spendingAccounts.map((account) => ({
           value: account.public_id,
           label: `${account.name} (${account.account_type.replace('_', ' ')})`,
         })),
-    [accountsResponse?.items]
+    [spendingAccounts]
   );
 
   const {
@@ -362,12 +368,17 @@ export const SpendingPage: React.FC = () => {
     queryKey: ['recurring', recurringOffset],
     queryFn: () => spendingService.getRecurring(limit, recurringOffset, true),
   });
+  const { data: transfersResponse, isLoading: isTransfersLoading } = useQuery({
+    queryKey: ['finance', 'transfers', transferOffset],
+    queryFn: () => financeService.getTransfers(limit, transferOffset),
+  });
   const { data: financeSettings } = useQuery({
     queryKey: ['finance', 'settings'],
     queryFn: () => financeService.getSettings(),
   });
   const displayCurrency = financeSettings?.reporting_currency_code ?? 'USD';
   const recurringItems = recurringResponse?.items ?? [];
+  const transferItems = transfersResponse?.items ?? [];
 
   const {
     control: recurringControl,
@@ -448,6 +459,7 @@ export const SpendingPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['finance', 'transfers'] });
       setIsTransferModalOpen(false);
       setTransferFromAccountId('');
       setTransferToAccountId('');
@@ -457,6 +469,7 @@ export const SpendingPage: React.FC = () => {
       setTransferTax('0');
       setTransferNotes('');
       setTransferDate(new Date().toISOString().split('T')[0]);
+      setTransferOffset(0);
     },
   });
 
@@ -817,9 +830,19 @@ export const SpendingPage: React.FC = () => {
         >
           Recurring
         </button>
+        <button
+          onClick={() => setActiveTab('transfers')}
+          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'transfers' ? 'border-blue-500 text-blue-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+        >
+          Transfers
+        </button>
       </div>
 
       {isRecurringLoading && activeTab === 'recurring' ? (
+        <div className="flex h-32 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-600 border-t-blue-500" />
+        </div>
+      ) : isTransfersLoading && activeTab === 'transfers' ? (
         <div className="flex h-32 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-600 border-t-blue-500" />
         </div>
@@ -1104,6 +1127,68 @@ export const SpendingPage: React.FC = () => {
               limit={recurringResponse.limit}
               offset={recurringResponse.offset}
               onPageChange={setRecurringOffset}
+            />
+          )}
+        </div>
+      ) : activeTab === 'transfers' ? (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <h3 className="text-xl font-semibold text-white">Transfer History</h3>
+          {transferItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-800/30 p-12 text-center">
+              <div className="mb-4 rounded-full bg-slate-800 p-4">
+                <ArrowRightLeft className="h-8 w-8 text-slate-500" />
+              </div>
+              <h3 className="mb-2 text-lg font-medium text-white">No transfers yet</h3>
+              <p className="text-slate-400">Create an account-to-account transfer from the Transfer button above.</p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/30 backdrop-blur-sm">
+              <table className="w-full text-left text-sm text-slate-300">
+                <thead className="border-b border-slate-700/50 bg-slate-800/50 text-xs uppercase text-slate-400">
+                  <tr>
+                    <th className="px-6 py-4 font-medium">Date</th>
+                    <th className="px-6 py-4 font-medium">Flow</th>
+                    <th className="px-6 py-4 text-right font-medium">Gross</th>
+                    <th className="px-6 py-4 text-right font-medium">Net</th>
+                    <th className="px-6 py-4 font-medium">Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/50">
+                  {transferItems.map((t) => (
+                    <tr key={t.public_id} className="transition-colors hover:bg-slate-700/30">
+                      <td className="whitespace-nowrap px-6 py-4">
+                        {new Date(t.occurred_at).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-slate-200">
+                          Account #{t.from_account_id} → Account #{t.to_account_id}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {formatCurrency(Number(t.gross_amount), t.from_currency_code)}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {formatCurrency(Number(t.net_amount_received), t.to_currency_code)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="truncate max-w-[280px] text-slate-400">{t.notes || '-'}</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {transfersResponse && (
+            <Pagination
+              total={transfersResponse.total}
+              limit={transfersResponse.limit}
+              offset={transfersResponse.offset}
+              onPageChange={setTransferOffset}
             />
           )}
         </div>

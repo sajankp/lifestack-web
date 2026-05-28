@@ -43,3 +43,23 @@ export interface CapitalTransferCreate {
   occurred_at: string;
   notes?: string | null;
 }
+
+export interface CapitalTransfer {
+  public_id: string;
+  from_module: 'spending' | 'investing';
+  to_module: 'spending' | 'investing';
+  from_account_id: number;
+  to_account_id: number;
+  from_currency_code: string;
+  to_currency_code: string;
+  gross_amount: string;
+  fx_rate_used: string | null;
+  fx_fee_amount: string;
+  platform_fee_amount: string;
+  tax_amount: string;
+  net_amount_received: string;
+  occurred_at: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
