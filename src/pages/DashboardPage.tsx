@@ -6,6 +6,7 @@ import { dashboardService } from '../services/dashboard';
 import { notificationsService } from '../services/notifications';
 import { summariesService } from '../services/summaries';
 import { spendingService } from '../services/spending';
+import { financeService } from '../services/finance';
 import { RefreshCw, AlertCircle, Clock3, CircleAlert, PiggyBank, Wallet, BriefcaseBusiness } from 'lucide-react';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
 
@@ -32,6 +33,11 @@ export const DashboardPage: React.FC = () => {
     queryKey: ['spending', 'recurring', 'overview'],
     queryFn: () => spendingService.getRecurring(50, 0),
   });
+  const { data: financeSettings } = useQuery({
+    queryKey: ['finance', 'settings'],
+    queryFn: () => financeService.getSettings(),
+  });
+  const displayCurrency = financeSettings?.reporting_currency_code ?? 'USD';
 
   const handleLogout = async () => {
     try {
@@ -113,21 +119,21 @@ export const DashboardPage: React.FC = () => {
               />
               <MetricCard
                 label="This month spent"
-                value={formatCurrency(data.spending.month_spent)}
-                note={data.spending.month_budget != null ? `Budget: ${formatCurrency(data.spending.month_budget)}` : 'No budget set'}
+                value={formatCurrency(data.spending.month_spent, displayCurrency)}
+                note={data.spending.month_budget != null ? `Budget: ${formatCurrency(data.spending.month_budget, displayCurrency)}` : 'No budget set'}
                 icon={<PiggyBank className="h-5 w-5" />}
                 accent="from-emerald-500/25 to-teal-500/10"
               />
               <MetricCard
                 label="Budget remaining"
-                value={budgetRemaining != null ? formatCurrency(budgetRemaining) : 'N/A'}
+                value={budgetRemaining != null ? formatCurrency(budgetRemaining, displayCurrency) : 'N/A'}
                 note={budgetRemaining != null ? 'Based on current month budget' : 'Set a budget to track remaining spend'}
                 icon={<Wallet className="h-5 w-5" />}
                 accent="from-violet-500/25 to-fuchsia-500/10"
               />
               <MetricCard
                 label="Portfolio value"
-                value={formatCurrency(data.investing.portfolio_value)}
+                value={formatCurrency(data.investing.portfolio_value, displayCurrency)}
                 note={`${data.investing.holdings_count} holdings`}
                 icon={<BriefcaseBusiness className="h-5 w-5" />}
                 accent="from-amber-500/25 to-orange-500/10"
@@ -165,7 +171,7 @@ export const DashboardPage: React.FC = () => {
                   />
                   <StatRow
                     label="Daily portfolio change"
-                    value={data.investing.daily_change != null ? formatCurrency(data.investing.daily_change) : 'N/A'}
+                    value={data.investing.daily_change != null ? formatCurrency(data.investing.daily_change, displayCurrency) : 'N/A'}
                   />
                   <StatRow
                     label="Latest weekly summary"

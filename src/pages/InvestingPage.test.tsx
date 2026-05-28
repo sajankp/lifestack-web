@@ -78,7 +78,7 @@ describe('InvestingPage', () => {
       items: [] as Array<{
         public_id: string;
         name: string;
-        account_type: 'bank' | 'brokerage' | 'wallet';
+        account_type: 'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card';
         default_currency_code: string;
         is_active: boolean;
         created_at: string;
@@ -120,7 +120,7 @@ describe('InvestingPage', () => {
       http.post('*/v1/finance/accounts', async ({ request }) => {
         const body = (await request.json()) as {
           name: string;
-          account_type: 'bank' | 'brokerage' | 'wallet';
+          account_type: 'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card';
           default_currency_code: string;
         };
         accountList = {

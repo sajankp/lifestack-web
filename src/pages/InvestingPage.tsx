@@ -63,7 +63,7 @@ export const InvestingPage: React.FC = () => {
   });
 
   const [newAccountName, setNewAccountName] = useState('');
-  const [newAccountType, setNewAccountType] = useState<'bank' | 'brokerage' | 'wallet'>('brokerage');
+  const [newAccountType, setNewAccountType] = useState<'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card'>('brokerage');
   const [instrumentForm, setInstrumentForm] = useState<InstrumentCreate>({
     symbol: '',
     name: '',
@@ -196,6 +196,8 @@ export const InvestingPage: React.FC = () => {
     { value: 'brokerage', label: 'Brokerage' },
     { value: 'bank', label: 'Bank' },
     { value: 'wallet', label: 'Wallet' },
+    { value: 'card', label: 'Card' },
+    { value: 'gift_card', label: 'Gift Card' },
   ] as const;
   const instrumentTypeOptions = [
     { value: 'stock', label: 'Stock' },
@@ -403,7 +405,7 @@ export const InvestingPage: React.FC = () => {
               <DropdownSelect
                 value={newAccountType}
                 options={[...accountTypeOptions]}
-                onChange={(value) => setNewAccountType(value as 'bank' | 'brokerage' | 'wallet')}
+                onChange={(value) => setNewAccountType(value as 'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card')}
                 placeholder="Account type"
               />
               <button

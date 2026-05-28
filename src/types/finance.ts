@@ -9,7 +9,7 @@ export interface Currency {
 export interface Account {
   public_id: string;
   name: string;
-  account_type: 'bank' | 'brokerage' | 'wallet';
+  account_type: 'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card';
   default_currency_code: string;
   is_active: boolean;
   created_at: string;
@@ -18,6 +18,11 @@ export interface Account {
 
 export interface AccountCreate {
   name: string;
-  account_type: 'bank' | 'brokerage' | 'wallet';
+  account_type: 'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card';
   default_currency_code: string;
+}
+
+export interface WorkspaceFinanceSetting {
+  reporting_currency_code: string | null;
+  updated_at: string;
 }

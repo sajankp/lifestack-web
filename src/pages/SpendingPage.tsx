@@ -4,6 +4,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { spendingService } from '../services/spending';
+import { financeService } from '../services/finance';
 import type {
   Budget,
   BudgetCreate,
@@ -40,6 +41,7 @@ import { DatePicker } from '../components/DatePicker';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { formatCurrency } from '../utils/numberFormat';
 
 const budgetFormSchema = z.object({
   categoryId: z.string().min(1, 'Select a category'),
@@ -335,6 +337,11 @@ export const SpendingPage: React.FC = () => {
     queryKey: ['recurring', recurringOffset],
     queryFn: () => spendingService.getRecurring(limit, recurringOffset, true),
   });
+  const { data: financeSettings } = useQuery({
+    queryKey: ['finance', 'settings'],
+    queryFn: () => financeService.getSettings(),
+  });
+  const displayCurrency = financeSettings?.reporting_currency_code ?? 'USD';
   const recurringItems = recurringResponse?.items ?? [];
 
   const {
@@ -680,7 +687,7 @@ export const SpendingPage: React.FC = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-400">Total Income</p>
-              <h2 className="text-2xl font-bold text-white">${summary.income.toFixed(2)}</h2>
+              <h2 className="text-2xl font-bold text-white">{formatCurrency(summary.income, displayCurrency)}</h2>
             </div>
           </div>
         </div>
@@ -693,7 +700,7 @@ export const SpendingPage: React.FC = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-400">Total Expenses</p>
-              <h2 className="text-2xl font-bold text-white">${summary.expense.toFixed(2)}</h2>
+              <h2 className="text-2xl font-bold text-white">{formatCurrency(summary.expense, displayCurrency)}</h2>
             </div>
           </div>
         </div>
@@ -706,7 +713,7 @@ export const SpendingPage: React.FC = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-400">Net Balance</p>
-              <h2 className="text-2xl font-bold text-white">${summary.net.toFixed(2)}</h2>
+              <h2 className="text-2xl font-bold text-white">{formatCurrency(summary.net, displayCurrency)}</h2>
             </div>
           </div>
         </div>
@@ -793,7 +800,7 @@ export const SpendingPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <span className={`font-semibold ${isIncome ? 'text-emerald-400' : 'text-slate-200'}`}>
-                            {isIncome ? '+' : '-'}${parseFloat(tx.amount.toString()).toFixed(2)}
+                            {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount.toString()), displayCurrency)}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
@@ -871,11 +878,11 @@ export const SpendingPage: React.FC = () => {
                     <div className="mb-1 flex items-end justify-between">
                       <div>
                         <p className="text-xs text-slate-400">Spent ({monthStartToMonthValue(b.month_start)})</p>
-                        <p className="text-lg font-bold text-white">${spent.toFixed(2)}</p>
+                        <p className="text-lg font-bold text-white">{formatCurrency(spent, displayCurrency)}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-slate-400">Budget</p>
-                        <p className="font-semibold text-slate-300">${bAmount.toFixed(2)}</p>
+                        <p className="font-semibold text-slate-300">{formatCurrency(bAmount, displayCurrency)}</p>
                       </div>
                     </div>
                     
@@ -953,7 +960,7 @@ export const SpendingPage: React.FC = () => {
                           isIncome ? 'text-emerald-400' : 'text-white'
                         }`}
                       >
-                        {isIncome ? '+' : '-'}${Number(r.amount).toFixed(2)}
+                        {isIncome ? '+' : '-'}{formatCurrency(Number(r.amount), displayCurrency)}
                       </p>
                       {r.description && (
                         <p className="mt-0.5 text-sm text-slate-400 truncate">{r.description}</p>
@@ -1284,7 +1291,7 @@ export const SpendingPage: React.FC = () => {
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-300">Amount</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">{displayCurrency}</span>
                     <input
                       type="number"
                       step="0.01"
