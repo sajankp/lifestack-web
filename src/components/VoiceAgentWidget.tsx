@@ -20,9 +20,17 @@ interface Message {
   timestamp: Date;
   status?: 'success' | 'error';
   toolName?: string;
-  arguments?: Record<string, any>;
-  result?: any;
 }
+
+type RealtimeAgentMessage = {
+  type: 'transcript' | 'tool_call' | 'tool_response' | 'error';
+  content?: string;
+  name?: string;
+  arguments?: Record<string, unknown>;
+  status?: 'success' | 'error';
+  result?: { message?: string };
+  message?: string;
+};
 
 export const VoiceAgentWidget: React.FC = () => {
   const queryClient = useQueryClient();
@@ -55,8 +63,9 @@ export const VoiceAgentWidget: React.FC = () => {
 
   // Safe AudioContext initializer
   const initAudioContext = () => {
+    const AudioContextCtor = window.AudioContext;
     if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+      audioCtxRef.current = new AudioContextCtor({
         sampleRate: 24000
       });
       nextPlayTimeRef.current = 0;
@@ -70,7 +79,9 @@ export const VoiceAgentWidget: React.FC = () => {
     activeSourcesRef.current.forEach(source => {
       try {
         source.stop();
-      } catch (e) {}
+      } catch {
+        // Ignore if source is already stopped.
+      }
     });
     activeSourcesRef.current = [];
     nextPlayTimeRef.current = 0;
@@ -108,7 +119,7 @@ export const VoiceAgentWidget: React.FC = () => {
   };
 
   // Parse server messages
-  const handleServerMessage = (msg: any) => {
+  const handleServerMessage = (msg: RealtimeAgentMessage) => {
     if (msg.type === 'transcript') {
       setMessages(prev => {
         const lastMsg = prev[prev.length - 1];
@@ -141,8 +152,7 @@ export const VoiceAgentWidget: React.FC = () => {
         type: 'tool_call',
         content: `Voice agent is running ${msg.name}...`,
         timestamp: new Date(),
-        toolName: msg.name,
-        arguments: msg.arguments
+        toolName: msg.name
       }]);
     } 
     
@@ -156,8 +166,7 @@ export const VoiceAgentWidget: React.FC = () => {
           : `Error executing ${msg.name}: ${msg.result?.message || 'Unknown error'}`,
         timestamp: new Date(),
         status: msg.status,
-        toolName: msg.name,
-        result: msg.result
+        toolName: msg.name
       }]);
 
       if (msg.status === 'success') {
@@ -461,11 +470,6 @@ export const VoiceAgentWidget: React.FC = () => {
                       <AlertCircle className="h-3.5 w-3.5 text-rose-500" />
                     )}
                     <span className="font-medium">{msg.content}</span>
-                    {msg.arguments && (
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        ({JSON.stringify(msg.arguments)})
-                      </span>
-                    )}
                   </div>
                 </div>
               );

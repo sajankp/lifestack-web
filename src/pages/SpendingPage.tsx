@@ -1176,10 +1176,17 @@ export const SpendingPage: React.FC = () => {
               {!editingRecurring && (
                 <div>
                   <Label htmlFor="rec-anchor" className="mb-2 block">Start Date</Label>
-                  <Input
-                    id="rec-anchor"
-                    type="date"
-                    {...registerRecurringField('anchor_date')}
+                  <Controller
+                    control={recurringControl}
+                    name="anchor_date"
+                    render={({ field }) => (
+                      <DatePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Select start date"
+                        required
+                      />
+                    )}
                   />
                   {recurringErrors.anchor_date && (
                     <p className="mt-2 text-sm text-rose-400">{recurringErrors.anchor_date.message}</p>
@@ -1190,11 +1197,20 @@ export const SpendingPage: React.FC = () => {
               {/* End date (optional) */}
               <div>
                 <Label htmlFor="rec-end" className="mb-2 block">End Date <span className="text-slate-500">(optional)</span></Label>
-                <Input
-                  id="rec-end"
-                  type="date"
-                  {...registerRecurringField('end_date')}
+                <Controller
+                  control={recurringControl}
+                  name="end_date"
+                  render={({ field }) => (
+                    <DatePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Select end date"
+                    />
+                  )}
                 />
+                {recurringErrors.end_date && (
+                  <p className="mt-2 text-sm text-rose-400">{recurringErrors.end_date.message}</p>
+                )}
               </div>
 
               {/* Description */}

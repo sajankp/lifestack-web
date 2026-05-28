@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Circle, Trash2 } from 'lucide-react';
 
+import { DatePicker } from '../components/DatePicker';
 import { Pagination } from '../components/Pagination';
 import { todoService } from '../services/todo';
 import type { RecurringTodoCreate, Todo, TodoCreate } from '../services/todo';
@@ -129,11 +130,10 @@ export const TodoPage: React.FC = () => {
             />
             <div>
               <label className="mb-1 block text-sm text-slate-300">Due date (optional)</label>
-              <input
-                type="date"
+              <DatePicker
                 value={newTodoDueDate}
-                onChange={(e) => setNewTodoDueDate(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-white"
+                onChange={setNewTodoDueDate}
+                placeholder="Select due date"
                 disabled={createMutation.isPending}
               />
             </div>
@@ -240,18 +240,16 @@ export const TodoPage: React.FC = () => {
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <input
-                type="date"
+              <DatePicker
                 value={ruleAnchorDate}
-                onChange={(e) => setRuleAnchorDate(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-white"
+                onChange={setRuleAnchorDate}
+                placeholder="Start date"
                 required
               />
-              <input
-                type="date"
+              <DatePicker
                 value={ruleEndDate}
-                onChange={(e) => setRuleEndDate(e.target.value)}
-                className="rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-white"
+                onChange={setRuleEndDate}
+                placeholder="End date (optional)"
               />
             </div>
             <button
