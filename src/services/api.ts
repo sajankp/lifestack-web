@@ -15,9 +15,7 @@ api.interceptors.request.use((config) => {
     return config;
   }
 
-  if (!config.headers) {
-    config.headers = {};
-  }
+  config.headers = config.headers ?? {};
   if (!('Content-Type' in config.headers)) {
     (config.headers as Record<string, unknown>)['Content-Type'] = 'application/json';
   }

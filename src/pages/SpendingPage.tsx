@@ -1369,7 +1369,7 @@ export const SpendingPage: React.FC = () => {
                   name="end_date"
                   render={({ field }) => (
                     <DatePicker
-                      value={field.value}
+                      value={field.value ?? ''}
                       onChange={field.onChange}
                       placeholder="Select end date"
                     />

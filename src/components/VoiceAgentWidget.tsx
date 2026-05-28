@@ -175,7 +175,7 @@ export const VoiceAgentWidget: React.FC = () => {
           const updated = [...prev];
           updated[updated.length - 1] = {
             ...lastMsg,
-            content: lastMsg.content + msg.content
+            content: lastMsg.content + (msg.content ?? '')
           };
           return updated;
         } else {
@@ -183,7 +183,7 @@ export const VoiceAgentWidget: React.FC = () => {
             id: Math.random().toString(),
             role: 'agent',
             type: 'text',
-            content: msg.content,
+            content: msg.content ?? '',
             timestamp: new Date()
           }];
         }
@@ -235,7 +235,7 @@ export const VoiceAgentWidget: React.FC = () => {
         id: Math.random().toString(),
         role: 'system',
         type: 'error',
-        content: msg.message,
+        content: msg.message ?? 'Unknown error',
         timestamp: new Date()
       }]);
     }
