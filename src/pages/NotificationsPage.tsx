@@ -35,7 +35,7 @@ export const NotificationsPage: React.FC = () => {
   });
 
   return (
-    <div className="mx-auto max-w-5xl p-8">
+    <div className="w-full px-8 py-8">
       <header className="mb-6 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-white">Notifications</h1>

@@ -63,7 +63,7 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-7xl p-8">
+      <div className="w-full px-8 py-8">
         <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.35em] text-slate-500">Workspace snapshot</p>

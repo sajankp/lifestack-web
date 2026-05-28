@@ -112,9 +112,9 @@ export const TodoPage: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto max-w-5xl p-8">
+    <div className="w-full px-8 py-8">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-white">Todos</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-white">Todos</h1>
         <p className="mt-2 text-slate-400">Manage your tasks and recurring task rules for this workspace.</p>
       </header>
 
@@ -142,7 +142,7 @@ export const TodoPage: React.FC = () => {
             <button
               type="submit"
               disabled={createMutation.isPending || !newTodoTitle.trim()}
-              className="rounded-lg bg-blue-600 px-5 py-2 font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+              className="h-10 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
             >
               Add Task
             </button>
@@ -211,7 +211,7 @@ export const TodoPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsRecurringModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500"
             >
               <Plus className="h-4 w-4" />
               New rule

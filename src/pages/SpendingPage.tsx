@@ -582,7 +582,7 @@ export const SpendingPage: React.FC = () => {
   const isLoading = isCatsLoading || isTxLoading || isBudgetsLoading || isSummaryLoading;
 
   return (
-    <div className="mx-auto max-w-5xl p-8 animate-in fade-in duration-500">
+    <div className="w-full px-8 py-8 animate-in fade-in duration-500">
       <header className="mb-8 space-y-4">
         <div className="max-w-2xl">
           <h1 className="text-3xl font-bold tracking-tight text-white drop-shadow-sm">Spending Overview</h1>

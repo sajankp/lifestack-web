@@ -320,7 +320,7 @@ export const InvestingPage: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="w-full px-8 py-8">
       <header className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">Investing</h1>

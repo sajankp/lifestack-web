@@ -83,9 +83,9 @@ export const ImportsPage: React.FC = () => {
   const errors: ImportErrorItem[] = activeDetail?.errors ?? [];
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="w-full px-8 py-8">
       <header className="mb-6">
-        <h1 className="text-3xl font-bold text-white">Bulk Imports</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-white">Bulk Imports</h1>
         <p className="mt-1 text-slate-400">Upload CSV templates for transactions, budgets, and holdings.</p>
       </header>
 
@@ -119,7 +119,7 @@ export const ImportsPage: React.FC = () => {
             type="button"
             onClick={() => void handleTemplateDownload()}
             disabled={!module || isDownloadingTemplate}
-            className="rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-10 rounded-lg border border-slate-600 bg-slate-900 px-4 text-sm font-semibold text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isDownloadingTemplate ? 'Downloading...' : 'Download template'}
           </button>
@@ -128,7 +128,7 @@ export const ImportsPage: React.FC = () => {
             type="button"
             onClick={() => file && uploadMutation.mutate()}
             disabled={!module || !file || uploadMutation.isPending}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-10 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {uploadMutation.isPending ? 'Validating...' : 'Upload + validate'}
           </button>
@@ -184,7 +184,7 @@ export const ImportsPage: React.FC = () => {
                 type="button"
                 disabled={activeDetail.import_batch.status !== 'validated' || commitMutation.isPending}
                 onClick={() => commitMutation.mutate(activeDetail.import_batch.public_id)}
-                className="mb-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mb-4 h-10 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {commitMutation.isPending ? 'Committing...' : 'Commit import'}
               </button>
