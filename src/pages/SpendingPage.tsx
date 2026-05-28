@@ -208,6 +208,7 @@ export const SpendingPage: React.FC = () => {
   const [transferFromAccountId, setTransferFromAccountId] = useState('');
   const [transferToAccountId, setTransferToAccountId] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
+  const [transferFxRate, setTransferFxRate] = useState('');
   const [transferFxFee, setTransferFxFee] = useState('0');
   const [transferPlatformFee, setTransferPlatformFee] = useState('0');
   const [transferTax, setTransferTax] = useState('0');
@@ -448,7 +449,7 @@ export const SpendingPage: React.FC = () => {
         from_currency_code: from.default_currency_code,
         to_currency_code: to.default_currency_code,
         gross_amount: gross.toFixed(2),
-        fx_rate_used: null,
+        fx_rate_used: transferFxRate ? Number(transferFxRate).toFixed(10) : null,
         fx_fee_amount: fxFee.toFixed(2),
         platform_fee_amount: platformFee.toFixed(2),
         tax_amount: tax.toFixed(2),
@@ -464,6 +465,7 @@ export const SpendingPage: React.FC = () => {
       setTransferFromAccountId('');
       setTransferToAccountId('');
       setTransferAmount('');
+      setTransferFxRate('');
       setTransferFxFee('0');
       setTransferPlatformFee('0');
       setTransferTax('0');
@@ -1825,6 +1827,10 @@ export const SpendingPage: React.FC = () => {
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
+                  <Label className="mb-2 block">FX Rate (optional)</Label>
+                  <Input type="number" min="0" step="0.0000000001" value={transferFxRate} onChange={(e) => setTransferFxRate(e.target.value)} />
+                </div>
+                <div>
                   <Label className="mb-2 block">FX Fee</Label>
                   <Input type="number" min="0" step="0.01" value={transferFxFee} onChange={(e) => setTransferFxFee(e.target.value)} />
                 </div>
@@ -1837,6 +1843,9 @@ export const SpendingPage: React.FC = () => {
                   <Input type="number" min="0" step="0.01" value={transferTax} onChange={(e) => setTransferTax(e.target.value)} />
                 </div>
               </div>
+              <p className="text-xs text-slate-400">
+                Same-currency transfer: FX rate can be empty. Cross-currency transfer: provide FX rate and optional fee/tax charges.
+              </p>
               <div>
                 <Label className="mb-2 block">Notes (optional)</Label>
                 <Input value={transferNotes} onChange={(e) => setTransferNotes(e.target.value)} placeholder="e.g. Top-up to wallet" />

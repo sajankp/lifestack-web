@@ -9,6 +9,7 @@ import { InvestingPage } from './pages/InvestingPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { WeeklySummariesPage } from './pages/WeeklySummariesPage';
 import { ImportsPage } from './pages/ImportsPage';
+import { MasterConfigPage } from './pages/MasterConfigPage';
 import { useAuthStore } from './store/authStore';
 import { authService } from './services/auth';
 import { onUnauthorized } from './services/api';
@@ -54,6 +55,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           </li>
           <li>
             <Link to="/imports" className="hover:text-white transition-colors">Bulk Imports</Link>
+          </li>
+          <li>
+            <Link to="/settings" className="hover:text-white transition-colors">Master Config</Link>
           </li>
         </ul>
       </nav>
@@ -180,6 +184,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ImportsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <MasterConfigPage />
             </ProtectedRoute>
           }
         />

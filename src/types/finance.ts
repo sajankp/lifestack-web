@@ -22,9 +22,20 @@ export interface AccountCreate {
   default_currency_code: string;
 }
 
+export interface AccountUpdate {
+  name?: string;
+  account_type?: 'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card';
+  default_currency_code?: string;
+  is_active?: boolean;
+}
+
 export interface WorkspaceFinanceSetting {
   reporting_currency_code: string | null;
   updated_at: string;
+}
+
+export interface WorkspaceFinanceSettingUpdate {
+  reporting_currency_code: string | null;
 }
 
 export interface CapitalTransferCreate {

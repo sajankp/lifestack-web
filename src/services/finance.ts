@@ -3,10 +3,12 @@ import type { PaginatedResponse } from '../types/common';
 import type {
   Account,
   AccountCreate,
+  AccountUpdate,
   CapitalTransfer,
   CapitalTransferCreate,
   Currency,
   WorkspaceFinanceSetting,
+  WorkspaceFinanceSettingUpdate,
 } from '../types/finance';
 
 export const financeService = {
@@ -25,8 +27,18 @@ export const financeService = {
     return response.data;
   },
 
+  updateAccount: async (publicId: string, data: AccountUpdate): Promise<Account> => {
+    const response = await api.patch(`/finance/accounts/${publicId}`, data);
+    return response.data;
+  },
+
   getSettings: async (): Promise<WorkspaceFinanceSetting> => {
     const response = await api.get('/finance/settings');
+    return response.data;
+  },
+
+  updateSettings: async (data: WorkspaceFinanceSettingUpdate): Promise<WorkspaceFinanceSetting> => {
+    const response = await api.patch('/finance/settings', data);
     return response.data;
   },
 
