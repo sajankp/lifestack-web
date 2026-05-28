@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Circle, Trash2 } from 'lucide-react';
+import { CheckCircle2, Circle, Plus, Trash2, X } from 'lucide-react';
 
 import { DatePicker } from '../components/DatePicker';
 import { Pagination } from '../components/Pagination';
@@ -30,6 +30,7 @@ export const TodoPage: React.FC = () => {
   const [ruleEndDate, setRuleEndDate] = useState('');
   const [ruleFrequency, setRuleFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('weekly');
   const [ruleInterval, setRuleInterval] = useState(1);
+  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
 
   const { data: todosResponse, isLoading } = useQuery({
     queryKey: ['todos', offset],
@@ -77,6 +78,7 @@ export const TodoPage: React.FC = () => {
       setRuleEndDate('');
       setRuleFrequency('weekly');
       setRuleInterval(1);
+      setIsRecurringModalOpen(false);
     },
   });
 
@@ -203,63 +205,17 @@ export const TodoPage: React.FC = () => {
         </section>
 
         <section>
-          <h2 className="mb-3 text-lg font-semibold text-white">Recurring rules</h2>
-          <form onSubmit={handleCreateRule} className="mb-6 rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 space-y-3">
-            <input
-              type="text"
-              value={ruleTitle}
-              onChange={(e) => setRuleTitle(e.target.value)}
-              placeholder="Rule title (e.g. Weekly grocery planning)"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-white placeholder-slate-400"
-              required
-            />
-            <input
-              type="text"
-              value={ruleDescription}
-              onChange={(e) => setRuleDescription(e.target.value)}
-              placeholder="Description (optional)"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-white placeholder-slate-400"
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <select
-                value={ruleFrequency}
-                onChange={(e) => setRuleFrequency(e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly')}
-                className="rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-white"
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-              </select>
-              <input
-                type="number"
-                min={1}
-                value={ruleInterval}
-                onChange={(e) => setRuleInterval(Number(e.target.value) || 1)}
-                className="rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-white"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <DatePicker
-                value={ruleAnchorDate}
-                onChange={setRuleAnchorDate}
-                placeholder="Start date"
-                required
-              />
-              <DatePicker
-                value={ruleEndDate}
-                onChange={setRuleEndDate}
-                placeholder="End date (optional)"
-              />
-            </div>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Recurring rules</h2>
             <button
-              type="submit"
-              disabled={createRuleMutation.isPending || !ruleTitle.trim() || !ruleAnchorDate}
-              className="rounded-lg bg-emerald-600 px-5 py-2 font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+              type="button"
+              onClick={() => setIsRecurringModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
             >
-              Add recurring rule
+              <Plus className="h-4 w-4" />
+              New rule
             </button>
-          </form>
+          </div>
 
           {isRecurringLoading ? (
             <div className="text-center text-slate-400">Loading recurring rules...</div>
@@ -294,6 +250,92 @@ export const TodoPage: React.FC = () => {
           )}
         </section>
       </div>
+
+      {isRecurringModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => setIsRecurringModalOpen(false)}
+          />
+          <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+              <h3 className="text-lg font-semibold text-white">Create recurring rule</h3>
+              <button
+                type="button"
+                onClick={() => setIsRecurringModalOpen(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateRule} className="space-y-4 p-5">
+              <input
+                type="text"
+                value={ruleTitle}
+                onChange={(e) => setRuleTitle(e.target.value)}
+                placeholder="Rule title (e.g. Weekly grocery planning)"
+                className="w-full rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-white placeholder-slate-400"
+                required
+              />
+              <input
+                type="text"
+                value={ruleDescription}
+                onChange={(e) => setRuleDescription(e.target.value)}
+                placeholder="Description (optional)"
+                className="w-full rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-white placeholder-slate-400"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  value={ruleFrequency}
+                  onChange={(e) => setRuleFrequency(e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly')}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-white"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+                <input
+                  type="number"
+                  min={1}
+                  value={ruleInterval}
+                  onChange={(e) => setRuleInterval(Number(e.target.value) || 1)}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-white"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <DatePicker
+                  value={ruleAnchorDate}
+                  onChange={setRuleAnchorDate}
+                  placeholder="Start date"
+                  required
+                />
+                <DatePicker
+                  value={ruleEndDate}
+                  onChange={setRuleEndDate}
+                  placeholder="End date (optional)"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsRecurringModalOpen(false)}
+                  className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createRuleMutation.isPending || !ruleTitle.trim() || !ruleAnchorDate}
+                  className="flex-1 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {createRuleMutation.isPending ? 'Creating...' : 'Create rule'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
