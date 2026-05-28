@@ -26,3 +26,20 @@ export interface WorkspaceFinanceSetting {
   reporting_currency_code: string | null;
   updated_at: string;
 }
+
+export interface CapitalTransferCreate {
+  from_module: 'spending' | 'investing';
+  to_module: 'spending' | 'investing';
+  from_account_id: string;
+  to_account_id: string;
+  from_currency_code: string;
+  to_currency_code: string;
+  gross_amount: string;
+  fx_rate_used?: string | null;
+  fx_fee_amount: string;
+  platform_fee_amount: string;
+  tax_amount: string;
+  net_amount_received: string;
+  occurred_at: string;
+  notes?: string | null;
+}

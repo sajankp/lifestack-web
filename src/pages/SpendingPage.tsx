@@ -34,6 +34,7 @@ import {
   RefreshCw,
   Clock,
   ToggleLeft,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { Pagination } from '../components/Pagination';
 import { DropdownSelect } from '../components/DropdownSelect';
@@ -202,6 +203,15 @@ export const SpendingPage: React.FC = () => {
   // Recurring modal state
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState<RecurringTransaction | null>(null);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [transferFromAccountId, setTransferFromAccountId] = useState('');
+  const [transferToAccountId, setTransferToAccountId] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferFxFee, setTransferFxFee] = useState('0');
+  const [transferPlatformFee, setTransferPlatformFee] = useState('0');
+  const [transferTax, setTransferTax] = useState('0');
+  const [transferNotes, setTransferNotes] = useState('');
+  const [transferDate, setTransferDate] = useState(new Date().toISOString().split('T')[0]);
 
   const { data: categoriesResponse, isLoading: isCatsLoading } = useQuery({
     queryKey: ['categories'],
@@ -404,6 +414,49 @@ export const SpendingPage: React.FC = () => {
     onError: (error) => {
       console.error('Failed to deactivate recurring rule:', error);
       alert('Failed to deactivate recurring rule. Please try again.');
+    },
+  });
+  const createTransferMutation = useMutation({
+    mutationFn: () => {
+      const from = spendingAccounts.find((a) => a.public_id === transferFromAccountId);
+      const to = spendingAccounts.find((a) => a.public_id === transferToAccountId);
+      if (!from || !to) {
+        throw new Error('Transfer accounts are required');
+      }
+      const gross = Number(transferAmount || 0);
+      const fxFee = Number(transferFxFee || 0);
+      const platformFee = Number(transferPlatformFee || 0);
+      const tax = Number(transferTax || 0);
+      const net = Math.max(0, gross - fxFee - platformFee - tax);
+
+      return financeService.createTransfer({
+        from_module: 'spending',
+        to_module: 'spending',
+        from_account_id: from.public_id,
+        to_account_id: to.public_id,
+        from_currency_code: from.default_currency_code,
+        to_currency_code: to.default_currency_code,
+        gross_amount: gross.toFixed(2),
+        fx_rate_used: null,
+        fx_fee_amount: fxFee.toFixed(2),
+        platform_fee_amount: platformFee.toFixed(2),
+        tax_amount: tax.toFixed(2),
+        net_amount_received: net.toFixed(2),
+        occurred_at: new Date(transferDate).toISOString(),
+        notes: transferNotes || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      setIsTransferModalOpen(false);
+      setTransferFromAccountId('');
+      setTransferToAccountId('');
+      setTransferAmount('');
+      setTransferFxFee('0');
+      setTransferPlatformFee('0');
+      setTransferTax('0');
+      setTransferNotes('');
+      setTransferDate(new Date().toISOString().split('T')[0]);
     },
   });
 
@@ -645,6 +698,13 @@ export const SpendingPage: React.FC = () => {
           >
             <RefreshCw className="h-5 w-5" />
             <span className="whitespace-nowrap">Add Recurring</span>
+          </button>
+          <button
+            onClick={() => setIsTransferModalOpen(true)}
+            className="group relative flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
+          >
+            <ArrowRightLeft className="h-5 w-5" />
+            <span className="whitespace-nowrap">Transfer</span>
           </button>
         </div>
       </header>
@@ -1635,6 +1695,86 @@ export const SpendingPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isTransferModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
+          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" onClick={() => setIsTransferModalOpen(false)} />
+          <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+              <h3 className="text-lg font-semibold text-white">Transfer Between Wallets/Accounts</h3>
+              <button
+                onClick={() => setIsTransferModalOpen(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form
+              className="space-y-4 p-6"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!transferFromAccountId || !transferToAccountId || !transferAmount) return;
+                createTransferMutation.mutate();
+              }}
+            >
+              <div>
+                <Label className="mb-2 block">From</Label>
+                <DropdownSelect value={transferFromAccountId} onChange={setTransferFromAccountId} options={accountOptions} placeholder="Select source account" />
+              </div>
+              <div>
+                <Label className="mb-2 block">To</Label>
+                <DropdownSelect value={transferToAccountId} onChange={setTransferToAccountId} options={accountOptions} placeholder="Select destination account" />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label className="mb-2 block">Amount</Label>
+                  <Input type="number" min="0.01" step="0.01" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} placeholder="0.00" required />
+                </div>
+                <div>
+                  <Label className="mb-2 block">Date</Label>
+                  <DatePicker value={transferDate} onChange={setTransferDate} required />
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <Label className="mb-2 block">FX Fee</Label>
+                  <Input type="number" min="0" step="0.01" value={transferFxFee} onChange={(e) => setTransferFxFee(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="mb-2 block">Platform Fee</Label>
+                  <Input type="number" min="0" step="0.01" value={transferPlatformFee} onChange={(e) => setTransferPlatformFee(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="mb-2 block">Tax</Label>
+                  <Input type="number" min="0" step="0.01" value={transferTax} onChange={(e) => setTransferTax(e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label className="mb-2 block">Notes (optional)</Label>
+                <Input value={transferNotes} onChange={(e) => setTransferNotes(e.target.value)} placeholder="e.g. Top-up to wallet" />
+              </div>
+              <div className="mt-6 flex gap-3">
+                <Button type="button" variant="secondary" className="flex-1" onClick={() => setIsTransferModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={
+                    createTransferMutation.isPending ||
+                    !transferFromAccountId ||
+                    !transferToAccountId ||
+                    !transferAmount ||
+                    transferFromAccountId === transferToAccountId
+                  }
+                >
+                  {createTransferMutation.isPending ? 'Transferring...' : 'Create Transfer'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
