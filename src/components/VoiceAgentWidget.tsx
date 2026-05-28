@@ -34,12 +34,20 @@ type RealtimeAgentMessage = {
 
 export const VoiceAgentWidget: React.FC = () => {
   const queryClient = useQueryClient();
+  const launcherSize = 56;
+  const viewportMargin = 24;
+  const panelWidth = 384;
+  const panelHeight = 600;
   
   const [isOpen, setIsOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [inputText, setInputText] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [launcherPos, setLauncherPos] = useState<{ x: number; y: number }>(() => ({
+    x: Math.max(viewportMargin, window.innerWidth - launcherSize - viewportMargin),
+    y: Math.max(viewportMargin, window.innerHeight - launcherSize - viewportMargin),
+  }));
   
   const wsRef = useRef<WebSocket | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -47,6 +55,8 @@ export const VoiceAgentWidget: React.FC = () => {
   const nextPlayTimeRef = useRef<number>(0);
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
+  const dragOffsetRef = useRef<{ x: number; y: number } | null>(null);
+  const isDraggingRef = useRef(false);
 
   // Auto-scroll transcript to the bottom on new messages
   useEffect(() => {
@@ -54,6 +64,44 @@ export const VoiceAgentWidget: React.FC = () => {
       transcriptEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setLauncherPos((prev) => ({
+        x: Math.min(Math.max(viewportMargin, prev.x), window.innerWidth - launcherSize - viewportMargin),
+        y: Math.min(Math.max(viewportMargin, prev.y), window.innerHeight - launcherSize - viewportMargin),
+      }));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const startDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    isDraggingRef.current = false;
+    dragOffsetRef.current = {
+      x: event.clientX - launcherPos.x,
+      y: event.clientY - launcherPos.y,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!dragOffsetRef.current) return;
+    isDraggingRef.current = true;
+    const nextX = event.clientX - dragOffsetRef.current.x;
+    const nextY = event.clientY - dragOffsetRef.current.y;
+    setLauncherPos({
+      x: Math.min(Math.max(viewportMargin, nextX), window.innerWidth - launcherSize - viewportMargin),
+      y: Math.min(Math.max(viewportMargin, nextY), window.innerHeight - launcherSize - viewportMargin),
+    });
+  };
+
+  const endDrag = () => {
+    dragOffsetRef.current = null;
+    window.setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 0);
+  };
 
   // Construct WebSocket URL dynamically
   const getWebSocketUrl = () => {
@@ -366,12 +414,21 @@ export const VoiceAgentWidget: React.FC = () => {
     <>
       {/* Persistent Floating Mic Button */}
       <button
-        onClick={toggleOpen}
-        className={`fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 border transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(30,41,59,0.5)] ${
+        onClick={() => {
+          if (!isDraggingRef.current) {
+            toggleOpen();
+          }
+        }}
+        onPointerDown={startDrag}
+        onPointerMove={onDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        className={`fixed z-50 flex h-14 w-14 cursor-grab items-center justify-center rounded-full bg-slate-900 border transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(30,41,59,0.5)] ${
           isRecording 
             ? 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.6)]' 
             : 'border-slate-800 hover:border-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)]'
         }`}
+        style={{ left: launcherPos.x, top: launcherPos.y }}
         id="voice-agent-trigger"
         title="Voice Copilot"
       >
@@ -387,9 +444,19 @@ export const VoiceAgentWidget: React.FC = () => {
 
       {/* Floating Copilot Drawer Panel */}
       <div
-        className={`fixed bottom-24 right-6 z-50 flex h-[600px] w-96 flex-col rounded-2xl border border-slate-800 bg-slate-950/90 shadow-2xl backdrop-blur-xl transition-all duration-300 ease-in-out origin-bottom-right ${
+        className={`fixed z-50 flex h-[600px] w-96 flex-col rounded-2xl border border-slate-800 bg-slate-950/90 shadow-2xl backdrop-blur-xl transition-all duration-300 ease-in-out origin-bottom-right ${
           isOpen ? 'scale-100 opacity-100' : 'scale-75 opacity-0 pointer-events-none'
         }`}
+        style={{
+          left: Math.min(
+            Math.max(viewportMargin, launcherPos.x + launcherSize - panelWidth),
+            window.innerWidth - panelWidth - viewportMargin
+          ),
+          top: Math.min(
+            Math.max(viewportMargin, launcherPos.y - panelHeight - 10),
+            window.innerHeight - panelHeight - viewportMargin
+          ),
+        }}
       >
         {/* Panel Header */}
         <div className="flex items-center justify-between border-b border-slate-800/80 px-4 py-3">
