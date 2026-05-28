@@ -583,96 +583,90 @@ export const SpendingPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-5xl p-8 animate-in fade-in duration-500">
-      <header className="mb-8 flex items-center justify-between">
-        <div>
+      <header className="mb-8 space-y-4">
+        <div className="max-w-2xl">
           <h1 className="text-3xl font-bold tracking-tight text-white drop-shadow-sm">Spending Overview</h1>
           <p className="mt-2 text-slate-400">
             Track your finances across the workspace for {monthRange.label}.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={openCategoryModal}
-            className="group relative flex items-center gap-2 overflow-hidden rounded-xl bg-slate-900 px-6 py-3 font-semibold text-slate-200 shadow-lg transition-all hover:bg-slate-800 active:scale-95 border border-slate-700/50"
-          >
-            <Brush className="h-5 w-5" />
-            <span>Manage Categories</span>
-          </button>
-          <button
-            onClick={openBudgetModalForNew}
-            className="group relative flex items-center gap-2 overflow-hidden rounded-xl bg-slate-800 px-6 py-3 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 border border-slate-700/50"
-          >
-            <Target className="h-5 w-5" />
-            <span>Set Budget</span>
-          </button>
-          <button
-            onClick={openRecurringModalForNew}
-            className="group relative flex items-center gap-2 overflow-hidden rounded-xl bg-slate-800 px-6 py-3 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 border border-slate-700/50"
-          >
-            <RefreshCw className="h-5 w-5" />
-            <span>Add Recurring</span>
-          </button>
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <button
             onClick={openTransactionModalForNew}
-            className="group relative flex items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 px-6 py-3 font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-105 hover:shadow-blue-500/40 active:scale-95"
+            className="group relative flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 px-5 font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.01] hover:shadow-blue-500/40 active:scale-95"
           >
             <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
             <Plus className="h-5 w-5" />
-            <span>New Transaction</span>
+            <span className="whitespace-nowrap">New Transaction</span>
+          </button>
+          <button
+            onClick={openCategoryModal}
+            className="group relative flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-900 px-5 font-semibold text-slate-200 shadow-lg transition-all hover:bg-slate-800 active:scale-95"
+          >
+            <Brush className="h-5 w-5" />
+            <span className="whitespace-nowrap">Manage Categories</span>
+          </button>
+          <button
+            onClick={openBudgetModalForNew}
+            className="group relative flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
+          >
+            <Target className="h-5 w-5" />
+            <span className="whitespace-nowrap">Set Budget</span>
+          </button>
+          <button
+            onClick={openRecurringModalForNew}
+            className="group relative flex h-12 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
+          >
+            <RefreshCw className="h-5 w-5" />
+            <span className="whitespace-nowrap">Add Recurring</span>
           </button>
         </div>
       </header>
 
       <div className="mb-6 rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4 backdrop-blur-xl">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-400">
-              <Filter className="h-4 w-4" />
-              Filters
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="spending-month" className="mb-2 block">Month</Label>
-                <DropdownSelect
-                  id="spending-month"
-                  value={selectedMonth}
-                  onChange={(value) => {
-                    setSelectedMonth(value);
-                    setTxOffset(0);
-                    setBudgetOffset(0);
-                  }}
-                  options={monthFilterOptions}
-                  placeholder="Select month"
-                />
-              </div>
-              <div>
-                <Label className="mb-2 block">Category</Label>
-                <DropdownSelect
-                  value={selectedCategoryFilter}
-                  onChange={(value) => {
-                    setSelectedCategoryFilter(value);
-                    setTxOffset(0);
-                  }}
-                  options={categoryFilterOptions}
-                  placeholder="All categories"
-                  clearLabel="All categories"
-                />
-              </div>
-            </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex h-10 items-center gap-2 pr-1 text-sm font-medium text-slate-400">
+            <Filter className="h-4 w-4" />
+            <span>Filters</span>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
-                setSelectedMonth(getCurrentMonthValue());
-                setSelectedCategoryFilter('');
+          <div className="min-w-[220px] flex-1">
+            <Label htmlFor="spending-month" className="mb-1 block text-xs text-slate-400">Month</Label>
+            <DropdownSelect
+              id="spending-month"
+              value={selectedMonth}
+              onChange={(value) => {
+                setSelectedMonth(value);
                 setTxOffset(0);
                 setBudgetOffset(0);
               }}
-              className="rounded-xl border border-slate-700 px-4 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
-            >
-              Reset filters
-            </button>
+              options={monthFilterOptions}
+              placeholder="Select month"
+            />
           </div>
+          <div className="min-w-[220px] flex-1">
+            <Label className="mb-1 block text-xs text-slate-400">Category</Label>
+            <DropdownSelect
+              value={selectedCategoryFilter}
+              onChange={(value) => {
+                setSelectedCategoryFilter(value);
+                setTxOffset(0);
+              }}
+              options={categoryFilterOptions}
+              placeholder="All categories"
+              clearLabel="All categories"
+            />
+          </div>
+          <button
+            onClick={() => {
+              setSelectedMonth(getCurrentMonthValue());
+              setSelectedCategoryFilter('');
+              setTxOffset(0);
+              setBudgetOffset(0);
+            }}
+            className="h-10 rounded-xl border border-slate-700 px-4 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
+          >
+            Reset filters
+          </button>
         </div>
       </div>
 
