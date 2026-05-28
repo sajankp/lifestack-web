@@ -5,9 +5,23 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true, // Send HttpOnly cookies on every request
-  headers: {
-    'Content-Type': 'application/json',
-  },
+});
+
+api.interceptors.request.use((config) => {
+  if (config.data instanceof FormData) {
+    if (config.headers && 'Content-Type' in config.headers) {
+      delete (config.headers as Record<string, unknown>)['Content-Type'];
+    }
+    return config;
+  }
+
+  if (!config.headers) {
+    config.headers = {};
+  }
+  if (!('Content-Type' in config.headers)) {
+    (config.headers as Record<string, unknown>)['Content-Type'] = 'application/json';
+  }
+  return config;
 });
 
 // ─── Auth observers ───────────────────────────────────────────────────────────
