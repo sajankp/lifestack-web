@@ -30,6 +30,8 @@ export interface Transaction {
   type: TransactionType;
   occurred_at: string;
   description: string | null;
+  wallet_name: string | null;
+  labels: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +43,8 @@ export interface TransactionCreate {
   type: TransactionType;
   occurred_at: string;
   description?: string | null;
+  wallet_name?: string | null;
+  labels?: string | null;
 }
 
 export interface TransactionUpdate {
@@ -50,6 +54,8 @@ export interface TransactionUpdate {
   type?: TransactionType | null;
   occurred_at?: string | null;
   description?: string | null;
+  wallet_name?: string | null;
+  labels?: string | null;
 }
 
 export interface Budget {

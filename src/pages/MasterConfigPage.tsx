@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Edit2 } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { spendingService } from '../services/spending';
 import { DropdownSelect } from '../components/DropdownSelect';
@@ -13,6 +14,15 @@ export const MasterConfigPage: React.FC = () => {
   const [newAccountType, setNewAccountType] = useState<'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card'>('wallet');
   const [newAccountCurrency, setNewAccountCurrency] = useState('');
   const [reportingCurrency, setReportingCurrency] = useState('');
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [editingAccountName, setEditingAccountName] = useState('');
+  const [editingAccountType, setEditingAccountType] = useState<'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card'>('wallet');
+  const [editingAccountCurrency, setEditingAccountCurrency] = useState('');
+  const [editingAccountIsActive, setEditingAccountIsActive] = useState(true);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
+  const [editingCategoryColor, setEditingCategoryColor] = useState('');
+  const [editingCategoryIcon, setEditingCategoryIcon] = useState('');
 
   const { data: currencies = [] } = useQuery({
     queryKey: ['finance', 'currencies', 'master-config'],
@@ -74,6 +84,36 @@ export const MasterConfigPage: React.FC = () => {
     },
   });
 
+  const updateAccountMutation = useMutation({
+    mutationFn: () =>
+      financeService.updateAccount(editingAccountId!, {
+        name: editingAccountName.trim(),
+        account_type: editingAccountType,
+        default_currency_code: editingAccountCurrency,
+        is_active: editingAccountIsActive,
+      }),
+    onSuccess: () => {
+      setEditingAccountId(null);
+      queryClient.invalidateQueries({ queryKey: ['finance', 'accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['finance', 'accounts', 'master-config'] });
+      queryClient.invalidateQueries({ queryKey: ['finance', 'settings'] });
+    },
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: () =>
+      spendingService.updateCategory(editingCategoryId!, {
+        name: editingCategoryName.trim() || undefined,
+        color: editingCategoryColor.trim() || null,
+        icon: editingCategoryIcon.trim() || null,
+      }),
+    onSuccess: () => {
+      setEditingCategoryId(null);
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['categories', 'master-config'] });
+    },
+  });
+
   const updateSettingsMutation = useMutation({
     mutationFn: () =>
       financeService.updateSettings({
@@ -86,6 +126,21 @@ export const MasterConfigPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['transactions-summary'] });
     },
   });
+
+  const openAccountEditor = (account: typeof accounts[number]) => {
+    setEditingAccountId(account.public_id);
+    setEditingAccountName(account.name);
+    setEditingAccountType(account.account_type);
+    setEditingAccountCurrency(account.default_currency_code);
+    setEditingAccountIsActive(account.is_active);
+  };
+
+  const openCategoryEditor = (category: typeof categories[number]) => {
+    setEditingCategoryId(category.public_id);
+    setEditingCategoryName(category.name);
+    setEditingCategoryColor(category.color ?? '');
+    setEditingCategoryIcon(category.icon ?? '');
+  };
 
   return (
     <div className="w-full px-8 py-8 space-y-8">
@@ -150,6 +205,56 @@ export const MasterConfigPage: React.FC = () => {
           </Button>
         </div>
 
+        {editingAccountId ? (
+          <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950/60 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white">Edit account</h3>
+              <button
+                type="button"
+                onClick={() => setEditingAccountId(null)}
+                className="text-xs text-slate-400 hover:text-slate-200"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-5">
+              <Input value={editingAccountName} onChange={(e) => setEditingAccountName(e.target.value)} placeholder="Account name" />
+              <DropdownSelect
+                value={editingAccountType}
+                onChange={(value) => setEditingAccountType(value as 'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card')}
+                options={[...accountTypeOptions]}
+                placeholder="Account type"
+              />
+              <DropdownSelect
+                value={editingAccountCurrency}
+                onChange={setEditingAccountCurrency}
+                options={currencyOptions}
+                placeholder="Default currency"
+              />
+              <DropdownSelect
+                value={editingAccountIsActive ? 'active' : 'inactive'}
+                onChange={(value) => setEditingAccountIsActive(value === 'active')}
+                options={[
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' },
+                ]}
+                placeholder="Status"
+              />
+              <Button
+                type="button"
+                onClick={() => updateAccountMutation.mutate()}
+                disabled={
+                  updateAccountMutation.isPending ||
+                  !editingAccountName.trim() ||
+                  !editingAccountCurrency
+                }
+              >
+                {updateAccountMutation.isPending ? 'Saving...' : 'Save Account'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="mt-6 overflow-hidden rounded-xl border border-slate-800">
           <table className="w-full text-sm text-slate-300">
             <thead className="bg-slate-800/60 text-xs uppercase text-slate-400">
@@ -157,6 +262,7 @@ export const MasterConfigPage: React.FC = () => {
                 <th className="px-4 py-3 text-left font-medium">Name</th>
                 <th className="px-4 py-3 text-left font-medium">Type</th>
                 <th className="px-4 py-3 text-left font-medium">Currency</th>
+                <th className="px-4 py-3 text-right font-medium">Edit</th>
                 <th className="px-4 py-3 text-right font-medium">Status</th>
               </tr>
             </thead>
@@ -166,6 +272,16 @@ export const MasterConfigPage: React.FC = () => {
                   <td className="px-4 py-3">{account.name}</td>
                   <td className="px-4 py-3 capitalize">{account.account_type.replace('_', ' ')}</td>
                   <td className="px-4 py-3">{account.default_currency_code}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => openAccountEditor(account)}
+                      className="inline-flex items-center rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+                      title="Edit account"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <Button
                       type="button"
@@ -186,7 +302,7 @@ export const MasterConfigPage: React.FC = () => {
               ))}
               {accounts.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-5 text-slate-400" colSpan={4}>
+                  <td className="px-4 py-5 text-slate-400" colSpan={5}>
                     No accounts configured yet.
                   </td>
                 </tr>
@@ -212,6 +328,79 @@ export const MasterConfigPage: React.FC = () => {
               {categories.filter((category) => category.is_system).length}
             </p>
           </div>
+        </div>
+
+        {editingCategoryId ? (
+          <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950/60 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white">Edit category</h3>
+              <button
+                type="button"
+                onClick={() => setEditingCategoryId(null)}
+                className="text-xs text-slate-400 hover:text-slate-200"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="grid gap-3 md:grid-cols-4">
+              <Input value={editingCategoryName} onChange={(e) => setEditingCategoryName(e.target.value)} placeholder="Category name" />
+              <Input value={editingCategoryColor} onChange={(e) => setEditingCategoryColor(e.target.value)} placeholder="#3B82F6" />
+              <Input value={editingCategoryIcon} onChange={(e) => setEditingCategoryIcon(e.target.value)} placeholder="e.g. 🛒" />
+              <Button
+                type="button"
+                onClick={() => updateCategoryMutation.mutate()}
+                disabled={updateCategoryMutation.isPending || !editingCategoryName.trim()}
+              >
+                {updateCategoryMutation.isPending ? 'Saving...' : 'Save Category'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-6 overflow-hidden rounded-xl border border-slate-800">
+          <table className="w-full text-sm text-slate-300">
+            <thead className="bg-slate-800/60 text-xs uppercase text-slate-400">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Name</th>
+                <th className="px-4 py-3 text-left font-medium">Color</th>
+                <th className="px-4 py-3 text-left font-medium">Icon</th>
+                <th className="px-4 py-3 text-left font-medium">Type</th>
+                <th className="px-4 py-3 text-right font-medium">Edit</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {categories.map((category) => (
+                <tr key={category.public_id}>
+                  <td className="px-4 py-3">{category.name}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: category.color ?? '#64748b' }} />
+                      <span className="text-slate-400">{category.color ?? '-'}</span>
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">{category.icon ?? '-'}</td>
+                  <td className="px-4 py-3">{category.is_system ? 'System' : 'Custom'}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => openCategoryEditor(category)}
+                      className="inline-flex items-center rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-200"
+                      title="Edit category"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {categories.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-5 text-slate-400" colSpan={5}>
+                    No categories configured yet.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
       </section>
     </div>

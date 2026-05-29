@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, NavLink } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Bell, LogOut, UserCircle2 } from 'lucide-react';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -13,13 +15,18 @@ import { MasterConfigPage } from './pages/MasterConfigPage';
 import { useAuthStore } from './store/authStore';
 import { authService } from './services/auth';
 import { onUnauthorized } from './services/api';
+import { notificationsService } from './services/notifications';
 import { VoiceAgentWidget } from './components/VoiceAgentWidget';
-
-import { Link } from 'react-router-dom';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isAuthResolved = useAuthStore((state) => state.isAuthResolved);
+  const user = useAuthStore((state) => state.user);
+  const clearSession = useAuthStore((state) => state.clearSession);
+  const { data: unread } = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => notificationsService.unreadCount(),
+  });
 
   if (!isAuthResolved) {
     return <div className="flex min-h-screen items-center justify-center bg-slate-900 text-slate-300">Checking session...</div>;
@@ -28,6 +35,14 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+    } finally {
+      clearSession();
+    }
+  };
   
   return (
     <div className="flex min-h-screen bg-slate-900">
@@ -46,10 +61,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           <li>
             <Link to="/investing" className="hover:text-white transition-colors">Investing</Link>
           </li>
-
-          <li>
-            <Link to="/notifications" className="hover:text-white transition-colors">Notifications</Link>
-          </li>
           <li>
             <Link to="/summaries" className="hover:text-white transition-colors">Weekly Summaries</Link>
           </li>
@@ -61,8 +72,47 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           </li>
         </ul>
       </nav>
-      <main className="flex-1 text-slate-100">
-        {children}
+      <main className="flex flex-1 flex-col text-slate-100">
+        <header className="flex items-center justify-between border-b border-slate-800/60 px-8 py-4">
+          <div className="text-sm text-slate-400">
+            Workspace
+          </div>
+          <div className="flex items-center gap-3">
+            <NavLink
+              to="/notifications"
+              aria-label="Notifications"
+              className={({ isActive }) =>
+                `relative inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
+                  isActive
+                    ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-300'
+                    : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
+                }`
+              }
+              title="Notifications"
+            >
+              <Bell className="h-4 w-4" />
+              {(unread?.count ?? 0) > 0 ? (
+                <span className="absolute -right-1 -top-1 rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">
+                  {unread?.count}
+                </span>
+              ) : null}
+            </NavLink>
+            <div className="hidden items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 sm:inline-flex">
+              <UserCircle2 className="h-4 w-4 text-slate-400" />
+              <span className="max-w-[160px] truncate">{user?.username ?? user?.email ?? 'Profile'}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
+        </header>
+        <div className="flex-1">
+          {children}
+        </div>
       </main>
       <VoiceAgentWidget />
     </div>

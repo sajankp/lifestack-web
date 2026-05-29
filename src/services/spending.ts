@@ -2,6 +2,7 @@ import api from './api';
 import type {
   Category,
   CategoryCreate,
+  CategoryUpdate,
   Transaction,
   TransactionCreate,
   TransactionUpdate,
@@ -26,6 +27,11 @@ export const spendingService = {
 
   createCategory: async (data: CategoryCreate): Promise<Category> => {
     const response = await api.post('/spending/categories', data);
+    return response.data;
+  },
+
+  updateCategory: async (publicId: string, data: CategoryUpdate): Promise<Category> => {
+    const response = await api.patch(`/spending/categories/${publicId}`, data);
     return response.data;
   },
 
