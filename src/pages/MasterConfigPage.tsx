@@ -344,7 +344,7 @@ export const MasterConfigPage: React.FC = () => {
             </div>
             <div className="grid gap-3 md:grid-cols-4">
               <Input value={editingCategoryName} onChange={(e) => setEditingCategoryName(e.target.value)} placeholder="Category name" />
-              <Input value={editingCategoryColor} onChange={(e) => setEditingCategoryColor(e.target.value)} placeholder="#3B82F6" />
+              <Input type="color" value={editingCategoryColor} onChange={(e) => setEditingCategoryColor(e.target.value)} />
               <Input value={editingCategoryIcon} onChange={(e) => setEditingCategoryIcon(e.target.value)} placeholder="e.g. 🛒" />
               <Button
                 type="button"

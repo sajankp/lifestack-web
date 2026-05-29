@@ -932,9 +932,9 @@ export const SpendingPage: React.FC = () => {
                                 .map((label) => label.trim())
                                 .filter(Boolean)
                                 .slice(0, 3)
-                                .map((label) => (
+                                .map((label, index) => (
                                   <span
-                                    key={`${tx.public_id}-${label}`}
+                                    key={`${tx.public_id}-${label}-${index}`}
                                     className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-xs text-slate-300"
                                   >
                                     {label}
