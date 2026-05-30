@@ -17,17 +17,20 @@ export interface DashboardOverspentCategory {
 
 export interface DashboardSummary {
   todos: {
+    status: string;
     open_count: number;
     overdue_count: number;
     next_due_items: DashboardTodoItem[];
     active_guardrail_todo_count: number;
   };
   spending: {
+    status: string;
     month_spent: number | string;
     month_budget: number | string | null;
     top_overspent_categories: DashboardOverspentCategory[];
   };
   investing: {
+    status: string;
     portfolio_value: number | string;
     daily_change: number | string | null;
     holdings_count: number;

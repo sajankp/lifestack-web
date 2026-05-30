@@ -115,6 +115,10 @@ export const InvestingPage: React.FC = () => {
     queryKey: ['finance', 'accounts'],
     queryFn: () => financeService.getAccounts(200, 0),
   });
+  const { data: financeSettings } = useQuery({
+    queryKey: ['finance', 'settings'],
+    queryFn: () => financeService.getSettings(),
+  });
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['investing'] });
@@ -216,17 +220,22 @@ export const InvestingPage: React.FC = () => {
   );
   const selectedHoldingAccount = holdingForm.account_name;
   const selectedCashAccount = cashForm.account_name;
+  const preferredWorkspaceCurrency =
+    (financeSettings?.reporting_currency_code &&
+    currencyOptions.includes(financeSettings.reporting_currency_code)
+      ? financeSettings.reporting_currency_code
+      : null) ?? currencyOptions[0] ?? 'USD';
   const selectedHoldingCurrency =
-    currencyOptions.includes(holdingForm.currency) ? holdingForm.currency : (currencyOptions[0] ?? 'USD');
+    currencyOptions.includes(holdingForm.currency) ? holdingForm.currency : preferredWorkspaceCurrency;
   const selectedCashCurrency =
-    currencyOptions.includes(cashForm.currency) ? cashForm.currency : (currencyOptions[0] ?? 'USD');
+    currencyOptions.includes(cashForm.currency) ? cashForm.currency : preferredWorkspaceCurrency;
 
   const createAccountMutation = useMutation({
     mutationFn: () =>
       financeService.createAccount({
         name: newAccountName.trim(),
         account_type: newAccountType,
-        default_currency_code: holdingForm.currency,
+        default_currency_code: selectedHoldingCurrency,
       }),
     onSuccess: (created) => {
       setNewAccountName('');
@@ -333,12 +342,12 @@ export const InvestingPage: React.FC = () => {
       <div className="mb-6 grid gap-4 md:grid-cols-3">
         <SummaryCard
           label="Portfolio value"
-          value={summary?.portfolio_value != null ? formatCurrency(summary.portfolio_value, summary.reporting_currency ?? 'USD') : 'N/A'}
+          value={summary?.portfolio_value != null ? formatCurrency(summary.portfolio_value, summary.reporting_currency ?? preferredWorkspaceCurrency) : 'N/A'}
           icon={<Landmark className="h-5 w-5" />}
         />
         <SummaryCard
           label="Cash total"
-          value={summary?.cash_total != null ? formatCurrency(summary.cash_total, summary.reporting_currency ?? 'USD') : 'N/A'}
+          value={summary?.cash_total != null ? formatCurrency(summary.cash_total, summary.reporting_currency ?? preferredWorkspaceCurrency) : 'N/A'}
           icon={<WalletCards className="h-5 w-5" />}
         />
         <SummaryCard label="Holdings" value={summary ? summary.holdings_count.toString() : '0'} icon={<Plus className="h-5 w-5" />} />
@@ -614,8 +623,8 @@ export const InvestingPage: React.FC = () => {
               <p className="text-sm text-slate-400">Loading exposure…</p>
             ) : (
               <div className="space-y-2 text-sm text-slate-300">
-                <p>Total direct: {formatCurrency(exposure?.total_direct_exposure ?? '0')}</p>
-                <p>Total look-through: {formatCurrency(exposure?.total_lookthrough_exposure ?? '0')}</p>
+                <p>Total direct: {formatCurrency(exposure?.total_direct_exposure ?? '0', preferredWorkspaceCurrency)}</p>
+                <p>Total look-through: {formatCurrency(exposure?.total_lookthrough_exposure ?? '0', preferredWorkspaceCurrency)}</p>
                 <div className="max-h-56 overflow-auto rounded-lg border border-slate-700/40">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-800/60 text-slate-400">
@@ -629,8 +638,8 @@ export const InvestingPage: React.FC = () => {
                       {(exposure?.exposure ?? []).map((row) => (
                         <tr key={row.company_id} className="border-t border-slate-700/40">
                           <td className="px-3 py-2">{row.company_ticker ?? row.company_name}</td>
-                          <td className="px-3 py-2">{formatCurrency(row.direct_exposure)}</td>
-                          <td className="px-3 py-2">{formatCurrency(row.lookthrough_exposure)}</td>
+                          <td className="px-3 py-2">{formatCurrency(row.direct_exposure, preferredWorkspaceCurrency)}</td>
+                          <td className="px-3 py-2">{formatCurrency(row.lookthrough_exposure, preferredWorkspaceCurrency)}</td>
                         </tr>
                       ))}
                     </tbody>
