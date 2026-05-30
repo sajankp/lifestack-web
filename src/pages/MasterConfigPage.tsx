@@ -99,6 +99,14 @@ export const MasterConfigPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['finance', 'settings'] });
     },
   });
+  const deleteAccountMutation = useMutation({
+    mutationFn: (publicId: string) => financeService.deleteAccount(publicId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['finance', 'accounts', 'master-config'] });
+      queryClient.invalidateQueries({ queryKey: ['finance', 'settings'] });
+    },
+  });
 
   const updateCategoryMutation = useMutation({
     mutationFn: () =>
@@ -263,6 +271,7 @@ export const MasterConfigPage: React.FC = () => {
                 <th className="px-4 py-3 text-left font-medium">Type</th>
                 <th className="px-4 py-3 text-left font-medium">Currency</th>
                 <th className="px-4 py-3 text-right font-medium">Edit</th>
+                <th className="px-4 py-3 text-right font-medium">Delete</th>
                 <th className="px-4 py-3 text-right font-medium">Status</th>
               </tr>
             </thead>
@@ -286,6 +295,21 @@ export const MasterConfigPage: React.FC = () => {
                     <Button
                       type="button"
                       variant="secondary"
+                      className="h-9 px-3 text-rose-300 hover:text-rose-200"
+                      onClick={() => {
+                        if (window.confirm(`Delete account "${account.name}"? This cannot be undone.`)) {
+                          deleteAccountMutation.mutate(account.public_id);
+                        }
+                      }}
+                      disabled={deleteAccountMutation.isPending}
+                    >
+                      Delete
+                    </Button>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button
+                      type="button"
+                      variant="secondary"
                       className="h-9 px-3"
                       onClick={() =>
                         toggleAccountActiveMutation.mutate({
@@ -302,7 +326,7 @@ export const MasterConfigPage: React.FC = () => {
               ))}
               {accounts.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-5 text-slate-400" colSpan={5}>
+                  <td className="px-4 py-5 text-slate-400" colSpan={6}>
                     No accounts configured yet.
                   </td>
                 </tr>

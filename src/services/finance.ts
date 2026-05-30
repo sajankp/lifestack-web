@@ -32,6 +32,10 @@ export const financeService = {
     return response.data;
   },
 
+  deleteAccount: async (publicId: string): Promise<void> => {
+    await api.delete(`/finance/accounts/${publicId}`);
+  },
+
   getSettings: async (): Promise<WorkspaceFinanceSetting> => {
     const response = await api.get('/finance/settings');
     return response.data;
