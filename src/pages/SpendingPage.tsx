@@ -35,6 +35,7 @@ import {
   Clock,
   ToggleLeft,
   ArrowRightLeft,
+  Landmark,
 } from 'lucide-react';
 import { Pagination } from '../components/Pagination';
 import { DropdownSelect } from '../components/DropdownSelect';
@@ -205,6 +206,10 @@ export const SpendingPage: React.FC = () => {
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
   const [editingRecurring, setEditingRecurring] = useState<RecurringTransaction | null>(null);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isQuickAccountModalOpen, setIsQuickAccountModalOpen] = useState(false);
+  const [newAccountName, setNewAccountName] = useState('');
+  const [newAccountType, setNewAccountType] = useState<'bank' | 'wallet' | 'card' | 'gift_card'>('wallet');
+  const [newAccountCurrency, setNewAccountCurrency] = useState('USD');
   const [transferFromAccountId, setTransferFromAccountId] = useState('');
   const [transferToAccountId, setTransferToAccountId] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
@@ -252,6 +257,12 @@ export const SpendingPage: React.FC = () => {
     () => new Map(spendingAccounts.map((account) => [account.public_id, account.name])),
     [spendingAccounts]
   );
+  const accountTypeOptions: Array<{ value: 'bank' | 'wallet' | 'card' | 'gift_card'; label: string }> = [
+    { value: 'wallet', label: 'Wallet' },
+    { value: 'bank', label: 'Bank' },
+    { value: 'card', label: 'Card' },
+    { value: 'gift_card', label: 'Gift Card' },
+  ];
 
   const {
     control: budgetControl,
@@ -480,6 +491,24 @@ export const SpendingPage: React.FC = () => {
       setTransferNotes('');
       setTransferDate(new Date().toISOString().split('T')[0]);
       setTransferOffset(0);
+    },
+  });
+  const createAccountMutation = useMutation({
+    mutationFn: () =>
+      financeService.createAccount({
+        name: newAccountName.trim(),
+        account_type: newAccountType,
+        default_currency_code: newAccountCurrency.trim().toUpperCase(),
+      }),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['finance', 'accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['finance', 'accounts', 'spending'] });
+      setAccountId(created.public_id);
+      if (!transferFromAccountId) setTransferFromAccountId(created.public_id);
+      setNewAccountName('');
+      setNewAccountType('wallet');
+      setNewAccountCurrency(created.default_currency_code);
+      setIsQuickAccountModalOpen(false);
     },
   });
 
@@ -1537,6 +1566,17 @@ export const SpendingPage: React.FC = () => {
                     placeholder="Unassigned"
                     clearLabel="Unassigned"
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewAccountCurrency(displayCurrency || 'USD');
+                      setIsQuickAccountModalOpen(true);
+                    }}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-blue-400 hover:text-blue-300"
+                  >
+                    <Landmark className="h-3.5 w-3.5" />
+                    Create account
+                  </button>
                 </div>
 
                 {/* Date */}
@@ -1832,6 +1872,83 @@ export const SpendingPage: React.FC = () => {
         </div>
       )}
 
+      {isQuickAccountModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
+          <div
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsQuickAccountModalOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+              <h3 className="text-lg font-semibold text-white">Create Wallet / Account</h3>
+              <button
+                onClick={() => setIsQuickAccountModalOpen(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form
+              className="space-y-4 p-6"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newAccountName.trim()) return;
+                createAccountMutation.mutate();
+              }}
+            >
+              <div>
+                <Label className="mb-2 block">Account Name</Label>
+                <Input
+                  value={newAccountName}
+                  onChange={(e) => setNewAccountName(e.target.value)}
+                  placeholder="e.g. Main Wallet"
+                />
+              </div>
+              <div>
+                <Label className="mb-2 block">Type</Label>
+                <DropdownSelect
+                  value={newAccountType}
+                  onChange={(value) => setNewAccountType(value as 'bank' | 'wallet' | 'card' | 'gift_card')}
+                  options={accountTypeOptions}
+                  placeholder="Select account type"
+                />
+              </div>
+              <div>
+                <Label className="mb-2 block">Default Currency</Label>
+                <Input
+                  value={newAccountCurrency}
+                  onChange={(e) => setNewAccountCurrency(e.target.value.toUpperCase())}
+                  placeholder="USD"
+                  maxLength={3}
+                />
+              </div>
+              {createAccountMutation.isError ? (
+                <p className="text-sm text-rose-400">
+                  Failed to create account. Check fields and try again.
+                </p>
+              ) : null}
+              <div className="mt-6 flex gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => setIsQuickAccountModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={createAccountMutation.isPending || !newAccountName.trim() || newAccountCurrency.trim().length !== 3}
+                >
+                  {createAccountMutation.isPending ? 'Creating...' : 'Create Account'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {isTransferModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
           <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" onClick={() => setIsTransferModalOpen(false)} />
@@ -1860,6 +1977,19 @@ export const SpendingPage: React.FC = () => {
               <div>
                 <Label className="mb-2 block">To</Label>
                 <DropdownSelect value={transferToAccountId} onChange={setTransferToAccountId} options={accountOptions} placeholder="Select destination account" />
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewAccountCurrency(displayCurrency || 'USD');
+                    setIsQuickAccountModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-400 hover:text-blue-300"
+                >
+                  <Landmark className="h-3.5 w-3.5" />
+                  Need another account? Create one now
+                </button>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
