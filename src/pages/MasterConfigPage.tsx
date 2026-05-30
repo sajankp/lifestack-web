@@ -101,10 +101,13 @@ export const MasterConfigPage: React.FC = () => {
   });
   const deleteAccountMutation = useMutation({
     mutationFn: (publicId: string) => financeService.deleteAccount(publicId),
-    onSuccess: () => {
+    onSuccess: (_, publicId) => {
       queryClient.invalidateQueries({ queryKey: ['finance', 'accounts'] });
       queryClient.invalidateQueries({ queryKey: ['finance', 'accounts', 'master-config'] });
       queryClient.invalidateQueries({ queryKey: ['finance', 'settings'] });
+      if (editingAccountId === publicId) {
+        setEditingAccountId(null);
+      }
     },
   });
 
@@ -146,7 +149,7 @@ export const MasterConfigPage: React.FC = () => {
   const openCategoryEditor = (category: typeof categories[number]) => {
     setEditingCategoryId(category.public_id);
     setEditingCategoryName(category.name);
-    setEditingCategoryColor(category.color ?? '');
+    setEditingCategoryColor(category.color ?? '#64748b');
     setEditingCategoryIcon(category.icon ?? '');
   };
 

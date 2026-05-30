@@ -26,6 +26,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { data: unread } = useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => notificationsService.unreadCount(),
+    enabled: isAuthenticated && isAuthResolved,
   });
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
