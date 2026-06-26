@@ -209,7 +209,17 @@ export const SpendingPage: React.FC = () => {
   const [categoryId, setCategoryId] = useState('');
   const [accountId, setAccountId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthValue());
+  const [fromDate, setFromDate] = useState<string>(() => {
+    const now = new Date();
+    const start = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+    return start.toISOString().split('T')[0];
+  });
+  const [toDate, setToDate] = useState<string>(() => {
+    const now = new Date();
+    const end = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0));
+    return end.toISOString().split('T')[0];
+  });
+  const selectedMonth = useMemo(() => fromDate.slice(0, 7), [fromDate]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('');
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('');
 
@@ -310,26 +320,24 @@ export const SpendingPage: React.FC = () => {
   });
 
   const { data: transactionsResponse, isLoading: isTxLoading } = useQuery({
-    queryKey: ['transactions', txOffset, selectedMonth, selectedCategoryFilter, selectedAccountFilter],
+    queryKey: ['transactions', txOffset, fromDate, toDate, selectedCategoryFilter, selectedAccountFilter],
     queryFn: () => spendingService.getTransactions(limit, txOffset, {
       categoryId: selectedCategoryFilter || undefined,
       accountId: selectedAccountFilter || undefined,
-      fromDate: monthRange.fromDate,
-      toDate: monthRange.toDate,
+      fromDate: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
+      toDate: toDate ? `${toDate}T23:59:59.999Z` : undefined,
     }),
-    enabled: monthRange.isValid,
   });
   const transactions = transactionsResponse?.items;
 
   const { data: summaryResponse, isLoading: isSummaryLoading } = useQuery({
-    queryKey: ['transactions-summary', selectedMonth, selectedCategoryFilter, selectedAccountFilter],
+    queryKey: ['transactions-summary', fromDate, toDate, selectedCategoryFilter, selectedAccountFilter],
     queryFn: () => spendingService.getTransactionSummary({
-      fromDate: monthRange.fromDate,
-      toDate: monthRange.toDate,
+      fromDate: fromDate ? `${fromDate}T00:00:00.000Z` : `${new Date().getFullYear()}-01-01T00:00:00.000Z`,
+      toDate: toDate ? `${toDate}T23:59:59.999Z` : `${new Date().getFullYear()}-12-31T23:59:59.999Z`,
       categoryId: selectedCategoryFilter || undefined,
       accountId: selectedAccountFilter || undefined,
     }),
-    enabled: monthRange.isValid,
   });
 
   const { data: budgetsResponse, isLoading: isBudgetsLoading } = useQuery({
@@ -806,27 +814,37 @@ export const SpendingPage: React.FC = () => {
       <CompactFilterBar
         className="mb-6"
         onReset={() => {
-          setSelectedMonth(getCurrentMonthValue());
+          const now = new Date();
+          const start = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+          const end = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0));
+          setFromDate(start.toISOString().split('T')[0]);
+          setToDate(end.toISOString().split('T')[0]);
           setSelectedCategoryFilter('');
           setSelectedAccountFilter('');
           setTxOffset(0);
           setBudgetOffset(0);
         }}
       >
-        <CompactFilterField label="Month">
-          <Input
-            id="spending-month"
-            type="month"
-            className="w-44 border-slate-700 bg-slate-950/50 text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500"
-            value={selectedMonth}
-            onChange={(e) => {
-              const val = e.target.value;
-              setSelectedMonth(val);
-              if (val) {
-                setTxOffset(0);
-                setBudgetOffset(0);
-              }
+        <CompactFilterField label="From">
+          <DatePicker
+            value={fromDate}
+            onChange={(val) => {
+              setFromDate(val);
+              setTxOffset(0);
+              setBudgetOffset(0);
             }}
+            placeholder="From date"
+          />
+        </CompactFilterField>
+        <CompactFilterField label="To">
+          <DatePicker
+            value={toDate}
+            onChange={(val) => {
+              setToDate(val);
+              setTxOffset(0);
+              setBudgetOffset(0);
+            }}
+            placeholder="To date"
           />
         </CompactFilterField>
         <CompactFilterField label="Category">
@@ -839,6 +857,8 @@ export const SpendingPage: React.FC = () => {
             options={categoryFilterOptions}
             placeholder="All categories"
             clearLabel="All categories"
+            showSearch
+            sortByLabel
           />
         </CompactFilterField>
         <CompactFilterField label="Account">
@@ -852,6 +872,8 @@ export const SpendingPage: React.FC = () => {
             options={accountOptions}
             placeholder="All accounts"
             clearLabel="All accounts"
+            showSearch
+            sortByLabel
           />
         </CompactFilterField>
       </CompactFilterBar>
@@ -1444,6 +1466,8 @@ export const SpendingPage: React.FC = () => {
           limit={ledgerLimit}
           onOffsetChange={setLedgerOffset}
           currencyDisplayPreference={currencyDisplayPreference}
+          fromDate={fromDate}
+          toDate={toDate}
         />
       ) : null}
 
@@ -1488,6 +1512,8 @@ export const SpendingPage: React.FC = () => {
                         onChange={field.onChange}
                         options={categoryOptions}
                         placeholder="Select category"
+                        showSearch
+                        sortByLabel
                       />
                     )}
                   />
@@ -1740,6 +1766,8 @@ export const SpendingPage: React.FC = () => {
                     onChange={setCategoryId}
                     options={categoryOptions}
                     placeholder="Select category"
+                    showSearch
+                    sortByLabel
                   />
                 </div>
 
@@ -1752,6 +1780,8 @@ export const SpendingPage: React.FC = () => {
                     options={accountOptions}
                     placeholder="Unassigned"
                     clearLabel="Unassigned"
+                    showSearch
+                    sortByLabel
                   />
                   <button
                     type="button"
@@ -1858,6 +1888,8 @@ export const SpendingPage: React.FC = () => {
                         options={categoryOptions}
                         placeholder="Select category"
                         disabled={!!editingBudgetId}
+                        showSearch
+                        sortByLabel
                       />
                     )}
                   />
@@ -2039,11 +2071,11 @@ export const SpendingPage: React.FC = () => {
             >
               <div>
                 <Label className="mb-2 block">From</Label>
-                <DropdownSelect value={transferFromAccountId} onChange={setTransferFromAccountId} options={accountOptions} placeholder="Select source account" />
+                <DropdownSelect value={transferFromAccountId} onChange={setTransferFromAccountId} options={accountOptions} placeholder="Select source account" showSearch sortByLabel />
               </div>
               <div>
                 <Label className="mb-2 block">To</Label>
-                <DropdownSelect value={transferToAccountId} onChange={setTransferToAccountId} options={accountOptions} placeholder="Select destination account" />
+                <DropdownSelect value={transferToAccountId} onChange={setTransferToAccountId} options={accountOptions} placeholder="Select destination account" showSearch sortByLabel />
               </div>
               <div>
                 <button
@@ -2701,6 +2733,8 @@ interface SpendingLedgerTabProps {
   limit: number;
   onOffsetChange: (offset: number) => void;
   currencyDisplayPreference: 'symbol' | 'code';
+  fromDate?: string;
+  toDate?: string;
 }
 
 // Reconciliation card: compares projected ledger balance to cash snapshot
@@ -2778,12 +2812,19 @@ const SpendingLedgerTab: React.FC<SpendingLedgerTabProps> = ({
   limit,
   onOffsetChange,
   currencyDisplayPreference,
+  fromDate,
+  toDate,
 }) => {
   const selectedAccount = accounts.find((a) => a.public_id === selectedAccountId) ?? null;
 
   const { data: ledger, isLoading } = useQuery({
-    queryKey: ['spending', 'ledger', selectedAccountId, offset, limit],
-    queryFn: () => spendingService.getAccountLedger(selectedAccountId, { limit, offset }),
+    queryKey: ['spending', 'ledger', selectedAccountId, offset, limit, fromDate, toDate],
+    queryFn: () => spendingService.getAccountLedger(selectedAccountId, {
+      limit,
+      offset,
+      from_date: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
+      to_date: toDate ? `${toDate}T23:59:59.999Z` : undefined,
+    }),
     enabled: !!selectedAccountId,
   });
 
