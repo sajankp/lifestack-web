@@ -117,7 +117,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
               {displayOptions.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.label}
+                  value={option.label + ' ' + option.value}
                   onSelect={() => {
                     onChange(option.value);
                     setOpen(false);

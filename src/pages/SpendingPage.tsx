@@ -834,6 +834,7 @@ export const SpendingPage: React.FC = () => {
               setBudgetOffset(0);
             }}
             placeholder="From date"
+            required
           />
         </CompactFilterField>
         <CompactFilterField label="To">
@@ -845,6 +846,7 @@ export const SpendingPage: React.FC = () => {
               setBudgetOffset(0);
             }}
             placeholder="To date"
+            required
           />
         </CompactFilterField>
         <CompactFilterField label="Category">
