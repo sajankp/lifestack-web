@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BarChart3, Check, Edit2, Info, Landmark, Layers, Plus, RefreshCw, Trash2, WalletCards, X } from 'lucide-react';
+import { ArrowDownUp, BarChart3, Check, ChevronDown, ChevronUp, Edit2, Info, Landmark, Layers, Plus, RefreshCw, Trash2, WalletCards, X } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { investingService } from '../services/investing';
+import type { InvestingOrderCreate, OrderType } from '../services/investing';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
 import { DatePicker } from '../components/DatePicker';
 import { DateTimePicker } from '../components/DateTimePicker';
@@ -66,7 +67,7 @@ const instrumentTypeLabel = (type: InstrumentType | undefined): string => {
 
 export const InvestingPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'holdings' | 'cash' | 'analytics'>('holdings');
+  const [tab, setTab] = useState<'holdings' | 'orders' | 'cash' | 'analytics'>('holdings');
   const [analyticsAsOf, setAnalyticsAsOf] = useState(formatDateInput(new Date()));
   const [isAddHoldingModalOpen, setIsAddHoldingModalOpen] = useState(false);
   const [isEditHoldingModalOpen, setIsEditHoldingModalOpen] = useState(false);
@@ -272,6 +273,69 @@ export const InvestingPage: React.FC = () => {
     onSuccess: refresh,
   });
 
+  const [isPlaceOrderModalOpen, setIsPlaceOrderModalOpen] = useState(false);
+  const [orderForm, setOrderForm] = useState<{
+    order_type: OrderType;
+    account_id: string;
+    symbol: string;
+    quantity: string;
+    price_per_unit: string;
+    currency: string;
+    brokerage_fee: string;
+    tax_amount: string;
+    other_fees: string;
+    exchange_name: string;
+    occurred_at: string;
+    notes: string;
+  }>({
+    order_type: 'buy',
+    account_id: '',
+    symbol: '',
+    quantity: '',
+    price_per_unit: '',
+    currency: 'USD',
+    brokerage_fee: '0',
+    tax_amount: '0',
+    other_fees: '0',
+    exchange_name: '',
+    occurred_at: formatDateTimeLocalInput(new Date()),
+    notes: '',
+  });
+  const [orderSymbolFilter, setOrderSymbolFilter] = useState('');
+  const [orderTypeFilter, setOrderTypeFilter] = useState<'' | 'buy' | 'sell'>('');
+  const [tradeHistoryHoldingId, setTradeHistoryHoldingId] = useState<string | null>(null);
+
+  const ordersRes = useQuery({
+    queryKey: ['investing', 'orders'],
+    queryFn: () => investingService.getOrders(200, 0),
+    enabled: tab === 'orders',
+  });
+
+  const placeOrderMutation = useMutation({
+    mutationFn: (payload: InvestingOrderCreate) => investingService.placeOrder(payload),
+    onSuccess: () => {
+      setOrderForm((prev) => ({
+        ...prev,
+        symbol: '',
+        quantity: '',
+        price_per_unit: '',
+        brokerage_fee: '0',
+        tax_amount: '0',
+        other_fees: '0',
+        exchange_name: '',
+        notes: '',
+        occurred_at: formatDateTimeLocalInput(new Date()),
+      }));
+      setIsPlaceOrderModalOpen(false);
+      refresh();
+    },
+  });
+
+  const deleteOrderMutation = useMutation({
+    mutationFn: (publicId: string) => investingService.deleteOrder(publicId),
+    onSuccess: refresh,
+  });
+
   const [editingPriceHoldingId, setEditingPriceHoldingId] = useState<string | null>(null);
   const [editPriceValue, setEditPriceValue] = useState<string>('');
 
@@ -454,6 +518,54 @@ export const InvestingPage: React.FC = () => {
       }),
     [cashBalances, cashAccountFilter, cashCurrencyFilter]
   );
+
+  const orders = useMemo(() => ordersRes.data?.items ?? [], [ordersRes.data]);
+  const filteredOrders = useMemo(
+    () =>
+      orders.filter((o) => {
+        const symbolMatch = !orderSymbolFilter || o.symbol.includes(orderSymbolFilter.toUpperCase());
+        const typeMatch = !orderTypeFilter || o.order_type === orderTypeFilter;
+        return symbolMatch && typeMatch;
+      }),
+    [orders, orderSymbolFilter, orderTypeFilter]
+  );
+
+  const orderQty = Number(orderForm.quantity);
+  const orderPrice = Number(orderForm.price_per_unit);
+  const orderGross = Number.isFinite(orderQty) && Number.isFinite(orderPrice) ? orderQty * orderPrice : 0;
+  const orderFees =
+    Number(orderForm.brokerage_fee || 0) +
+    Number(orderForm.tax_amount || 0) +
+    Number(orderForm.other_fees || 0);
+  const orderNet = orderForm.order_type === 'buy' ? orderGross + orderFees : orderGross - orderFees;
+
+  const brokerageAccounts = useMemo(
+    () => accounts.filter((a) => a.account_type === 'brokerage'),
+    [accounts]
+  );
+  const brokerageAccountOptions = useMemo(
+    () => brokerageAccounts.map((a) => ({ value: a.public_id, label: a.name })),
+    [brokerageAccounts]
+  );
+
+  const onPlaceOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orderForm.account_id || !orderForm.symbol || !orderQty || !orderPrice) return;
+    placeOrderMutation.mutate({
+      account_id: orderForm.account_id,
+      order_type: orderForm.order_type,
+      symbol: orderForm.symbol.trim().toUpperCase(),
+      quantity: orderQty,
+      price_per_unit: orderPrice,
+      currency: orderForm.currency,
+      brokerage_fee: Number(orderForm.brokerage_fee || 0),
+      tax_amount: Number(orderForm.tax_amount || 0),
+      other_fees: Number(orderForm.other_fees || 0),
+      exchange_name: orderForm.exchange_name || undefined,
+      occurred_at: new Date(orderForm.occurred_at).toISOString(),
+      notes: orderForm.notes || undefined,
+    });
+  };
   const holdingsByCurrency = useMemo(() => {
     return filteredHoldings.reduce<Record<string, number>>((acc, item) => {
       const currency = item.currency?.toUpperCase() || 'USD';
@@ -718,6 +830,7 @@ export const InvestingPage: React.FC = () => {
         <div className="-mx-1 mb-6 overflow-x-auto px-1 pb-1">
           <TabsList className="min-w-max">
             <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-holdings" value="holdings">Holdings</TabsTrigger>
+            <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-orders" value="orders">Orders</TabsTrigger>
             <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-cash" value="cash">Cash Balances</TabsTrigger>
             <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-analytics" value="analytics">Look-through Analytics</TabsTrigger>
           </TabsList>
@@ -882,6 +995,21 @@ export const InvestingPage: React.FC = () => {
                                 </button>
                                 <button
                                   type="button"
+                                  data-testid={`investing-holding-trade-history-${h.public_id}`}
+                                  onClick={() => {
+                                    setTradeHistoryHoldingId(
+                                      tradeHistoryHoldingId === h.public_id ? null : h.public_id
+                                    );
+                                    setTab('orders');
+                                    setOrderSymbolFilter(h.symbol);
+                                  }}
+                                  className="rounded-lg border border-slate-600/70 p-2 text-slate-300 hover:bg-slate-700/60"
+                                  title="Trade History"
+                                >
+                                  <ArrowDownUp className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
                                   disabled={deleteHoldingMutation.isPending}
                                   onClick={() => deleteHoldingMutation.mutate(h.public_id)}
                                   className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
@@ -919,6 +1047,345 @@ export const InvestingPage: React.FC = () => {
               </div>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="orders">
+          <div className="space-y-6">
+            <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="font-semibold text-white text-base">Orders</h3>
+              <button
+                type="button"
+                data-testid="investing-place-order-btn"
+                onClick={() => setIsPlaceOrderModalOpen(true)}
+                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+              >
+                <Plus className="h-4 w-4" />
+                Place Order
+              </button>
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-wrap gap-3">
+              <input
+                type="text"
+                data-testid="investing-orders-symbol-filter"
+                placeholder="Filter by symbol…"
+                value={orderSymbolFilter}
+                onChange={(e) => setOrderSymbolFilter(e.target.value)}
+                className="rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-1.5 text-sm text-white placeholder:text-slate-500"
+              />
+              <select
+                data-testid="investing-orders-type-filter"
+                value={orderTypeFilter}
+                onChange={(e) => setOrderTypeFilter(e.target.value as '' | 'buy' | 'sell')}
+                className="rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-1.5 text-sm text-white"
+              >
+                <option value="">All types</option>
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+              </select>
+            </div>
+
+            {/* Orders table */}
+            <div className="overflow-x-auto rounded-xl border border-slate-700/50">
+              <table data-testid="investing-orders-table" className="w-full text-sm">
+                <thead className="border-b border-slate-700/50 bg-slate-800/40">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">Symbol</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Qty</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Price</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Gross</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Fees</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Net</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">Realized G/L</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/30">
+                  {ordersRes.isLoading ? (
+                    <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">Loading…</td></tr>
+                  ) : filteredOrders.length === 0 ? (
+                    <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">No orders yet. Place your first order to get started.</td></tr>
+                  ) : (
+                    filteredOrders.map((o) => {
+                      const fees = toNumber(o.brokerage_fee) + toNumber(o.tax_amount) + toNumber(o.other_fees);
+                      const isBuy = o.order_type === 'buy';
+                      return (
+                        <tr
+                          key={o.public_id}
+                          data-testid={`investing-order-row-${o.public_id}`}
+                          className="bg-slate-900/20 hover:bg-slate-800/40 transition-colors"
+                        >
+                          <td className="px-4 py-3 text-slate-300 whitespace-nowrap">
+                            {new Date(o.occurred_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${isBuy ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                              {isBuy ? 'BUY' : 'SELL'}
+                            </span>
+                          </td>
+                          <td
+                            data-testid={`investing-order-symbol-${o.symbol}`}
+                            className="px-4 py-3 font-semibold text-white"
+                          >
+                            {o.symbol}
+                          </td>
+                          <td className="px-4 py-3 text-right text-slate-300">{toNumber(o.quantity).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right text-slate-300">
+                            {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-slate-300">
+                            {formatCurrency(toNumber(o.gross_amount), o.currency, currencyDisplayPreference)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-slate-400">
+                            {formatCurrency(fees, o.currency, currencyDisplayPreference)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-white">
+                            {formatCurrency(toNumber(o.net_amount), o.currency, currencyDisplayPreference)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {o.realized_gain_loss != null ? (
+                              <span className={toNumber(o.realized_gain_loss) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
+                                {formatCurrency(toNumber(o.realized_gain_loss), o.currency, currencyDisplayPreference)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-500">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              disabled={deleteOrderMutation.isPending}
+                              onClick={() => deleteOrderMutation.mutate(o.public_id)}
+                              className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                              title="Delete order"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Place Order Modal */}
+          {isPlaceOrderModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-lg rounded-2xl border border-slate-700/60 bg-slate-900 p-6 shadow-2xl">
+                <div className="mb-5 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-white">Place Order</h2>
+                  <button
+                    type="button"
+                    onClick={() => setIsPlaceOrderModalOpen(false)}
+                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <form onSubmit={onPlaceOrder} className="space-y-4">
+                  {/* Buy / Sell toggle */}
+                  <div data-testid="order-type-toggle" className="flex rounded-lg border border-slate-700/60 overflow-hidden">
+                    {(['buy', 'sell'] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setOrderForm((prev) => ({ ...prev, order_type: t }))}
+                        className={`flex-1 py-2 text-sm font-semibold transition-colors ${
+                          orderForm.order_type === t
+                            ? t === 'buy'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-rose-600 text-white'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {t.toUpperCase()}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <label className="mb-1 block text-xs text-slate-400">Brokerage Account</label>
+                      <DropdownSelect
+                        data-testid="order-account-select"
+                        options={brokerageAccountOptions}
+                        value={orderForm.account_id}
+                        onChange={(v) => setOrderForm((prev) => ({ ...prev, account_id: v }))}
+                        placeholder="Select brokerage account"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Symbol</label>
+                      <input
+                        data-testid="order-symbol"
+                        type="text"
+                        required
+                        value={orderForm.symbol}
+                        onChange={(e) => setOrderForm((prev) => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
+                        placeholder="AAPL"
+                        className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Currency</label>
+                      <DropdownSelect
+                        data-testid="order-currency"
+                        options={currencyDropdownOptions}
+                        value={orderForm.currency}
+                        onChange={(v) => setOrderForm((prev) => ({ ...prev, currency: v }))}
+                        placeholder="USD"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Quantity</label>
+                      <input
+                        data-testid="order-quantity"
+                        type="number"
+                        required
+                        min="0.00000001"
+                        step="any"
+                        value={orderForm.quantity}
+                        onChange={(e) => setOrderForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Price per unit</label>
+                      <input
+                        data-testid="order-price"
+                        type="number"
+                        required
+                        min="0.000001"
+                        step="any"
+                        value={orderForm.price_per_unit}
+                        onChange={(e) => setOrderForm((prev) => ({ ...prev, price_per_unit: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Brokerage fee</label>
+                      <input
+                        data-testid="order-brokerage-fee"
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={orderForm.brokerage_fee}
+                        onChange={(e) => setOrderForm((prev) => ({ ...prev, brokerage_fee: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Tax / STT</label>
+                      <input
+                        data-testid="order-tax"
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={orderForm.tax_amount}
+                        onChange={(e) => setOrderForm((prev) => ({ ...prev, tax_amount: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Other fees</label>
+                      <input
+                        data-testid="order-other-fees"
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={orderForm.other_fees}
+                        onChange={(e) => setOrderForm((prev) => ({ ...prev, other_fees: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-400">Exchange (optional)</label>
+                      <input
+                        data-testid="order-exchange"
+                        type="text"
+                        value={orderForm.exchange_name}
+                        onChange={(e) => setOrderForm((prev) => ({ ...prev, exchange_name: e.target.value }))}
+                        placeholder="NSE / NASDAQ"
+                        className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="mb-1 block text-xs text-slate-400">Trade date & time</label>
+                      <input
+                        data-testid="order-date"
+                        type="datetime-local"
+                        value={orderForm.occurred_at}
+                        onChange={(e) => setOrderForm((prev) => ({ ...prev, occurred_at: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="mb-1 block text-xs text-slate-400">Notes (optional)</label>
+                      <input
+                        data-testid="order-notes"
+                        type="text"
+                        value={orderForm.notes}
+                        onChange={(e) => setOrderForm((prev) => ({ ...prev, notes: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Computed summary */}
+                  <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Gross amount</span>
+                      <span data-testid="order-gross-amount" className="text-white font-medium">
+                        {formatCurrency(orderGross, orderForm.currency, currencyDisplayPreference)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Total fees</span>
+                      <span data-testid="order-total-fees" className="text-white">
+                        {formatCurrency(orderFees, orderForm.currency, currencyDisplayPreference)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-700/50 pt-2">
+                      <span className="font-semibold text-white">Net {orderForm.order_type === 'buy' ? 'cost' : 'proceeds'}</span>
+                      <span data-testid="order-net-amount" className="font-semibold text-white">
+                        {formatCurrency(orderNet, orderForm.currency, currencyDisplayPreference)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsPlaceOrderModalOpen(false)}
+                      className="flex-1 rounded-lg border border-slate-600/70 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      data-testid="order-submit"
+                      type="submit"
+                      disabled={placeOrderMutation.isPending || !orderForm.account_id || !orderForm.symbol || !orderQty || !orderPrice}
+                      className="flex-1 rounded-lg bg-indigo-600 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {placeOrderMutation.isPending ? 'Placing…' : `Place ${orderForm.order_type === 'buy' ? 'Buy' : 'Sell'} Order`}
+                    </button>
+                  </div>
+
+                  {placeOrderMutation.isError && (
+                    <p className="text-sm text-rose-400">
+                      {(placeOrderMutation.error as Error)?.message ?? 'Failed to place order'}
+                    </p>
+                  )}
+                </form>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="cash">
@@ -984,6 +1451,22 @@ export const InvestingPage: React.FC = () => {
                           <td className="px-4 py-3 text-white">{c.account_name}</td>
                           <td className="px-4 py-3">{formatCurrency(c.balance, c.currency, currencyDisplayPreference)}</td>
                           <td className="px-4 py-3">{Number.isNaN(new Date(c.as_of).getTime()) ? "N/A" : new Date(c.as_of).toLocaleString()}</td>
+                          <td className="px-4 py-3">
+                            {c.trigger_type && (
+                              <span
+                                data-testid={`cash-balance-trigger-type-${c.public_id}`}
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                  c.trigger_type === 'transfer'
+                                    ? 'bg-blue-500/20 text-blue-300'
+                                    : c.trigger_type === 'order'
+                                    ? 'bg-indigo-500/20 text-indigo-300'
+                                    : 'bg-slate-700/50 text-slate-400'
+                                }`}
+                              >
+                                {c.trigger_type.charAt(0).toUpperCase() + c.trigger_type.slice(1)}
+                              </span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-right">
                             <button disabled={deleteCashMutation.isPending} onClick={() => deleteCashMutation.mutate(c.public_id)} className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10">
                               <Trash2 className="h-4 w-4" />

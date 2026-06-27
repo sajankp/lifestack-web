@@ -98,6 +98,8 @@ export const CashBalanceSchema = z.object({
   balance: z.union([z.number(), z.string()]).default(0),
   currency: z.string().default(''),
   as_of: z.string().default(''),
+  trigger_type: z.string().nullable().default(null),
+  trigger_ref: z.string().nullable().default(null),
   created_at: z.string().default(''),
   updated_at: z.string().default(''),
 });
@@ -116,6 +118,62 @@ export interface CashBalanceUpdate {
   currency?: string;
   as_of?: string;
 }
+
+export const OrderTypeSchema = z.enum(['buy', 'sell']).default('buy');
+export type OrderType = z.infer<typeof OrderTypeSchema>;
+
+export const InvestingOrderSchema = z.object({
+  public_id: z.string().default(''),
+  account_id: z.string().default(''),
+  account_name: z.string().default(''),
+  order_type: OrderTypeSchema,
+  symbol: z.string().default(''),
+  instrument_type: z.string().nullable().default(null),
+  quantity: z.union([z.number(), z.string()]).default(0),
+  price_per_unit: z.union([z.number(), z.string()]).default(0),
+  gross_amount: z.union([z.number(), z.string()]).default(0),
+  brokerage_fee: z.union([z.number(), z.string()]).default(0),
+  tax_amount: z.union([z.number(), z.string()]).default(0),
+  other_fees: z.union([z.number(), z.string()]).default(0),
+  net_amount: z.union([z.number(), z.string()]).default(0),
+  currency: z.string().default(''),
+  exchange_name: z.string().nullable().default(null),
+  occurred_at: z.string().default(''),
+  notes: z.string().nullable().default(null),
+  realized_gain_loss: z.union([z.number(), z.string()]).nullable().default(null),
+  avg_cost_at_sale: z.union([z.number(), z.string()]).nullable().default(null),
+  source_type: z.string().nullable().default(null),
+  created_at: z.string().default(''),
+});
+
+export type InvestingOrder = z.infer<typeof InvestingOrderSchema>;
+
+export interface InvestingOrderCreate {
+  account_id: string;
+  order_type: OrderType;
+  symbol: string;
+  quantity: number;
+  price_per_unit: number;
+  currency: string;
+  brokerage_fee?: number;
+  tax_amount?: number;
+  other_fees?: number;
+  exchange_name?: string;
+  occurred_at: string;
+  notes?: string;
+}
+
+export interface InvestingOrderBulkCreate {
+  account_id: string;
+  orders: InvestingOrderCreate[];
+}
+
+const PaginatedOrdersSchema = z.object({
+  items: z.array(InvestingOrderSchema).default([]),
+  total: z.number().default(0),
+  limit: z.number().optional().default(50),
+  offset: z.number().optional().default(0),
+});
 
 export const InvestingSummarySchema = z.object({
   portfolio_value: z.union([z.number(), z.string()]).nullable().default(null),
@@ -323,5 +381,42 @@ export const investingService = {
     prices: Array<{ holding_public_id: string; unit_price: number | string }>;
   }): Promise<void> => {
     await api.post('/investing/prices', data);
+  },
+
+  placeOrder: async (data: InvestingOrderCreate): Promise<InvestingOrder> => {
+    const response = await api.post('/investing/orders', data);
+    return InvestingOrderSchema.parse(response.data);
+  },
+
+  getOrders: async (
+    limit: number = 50,
+    offset: number = 0,
+    filters?: { symbol?: string; order_type?: OrderType },
+  ): Promise<z.infer<typeof PaginatedOrdersSchema>> => {
+    const response = await api.get('/investing/orders', {
+      params: { limit, offset, ...filters },
+    });
+    return PaginatedOrdersSchema.parse(response.data);
+  },
+
+  getOrder: async (publicId: string): Promise<InvestingOrder> => {
+    const response = await api.get(`/investing/orders/${publicId}`);
+    return InvestingOrderSchema.parse(response.data);
+  },
+
+  deleteOrder: async (publicId: string): Promise<void> => {
+    await api.delete(`/investing/orders/${publicId}`);
+  },
+
+  getOrdersForHolding: async (symbol: string, accountId: string): Promise<InvestingOrder[]> => {
+    const response = await api.get(`/investing/orders/by-holding/${symbol}`, {
+      params: { account_id: accountId },
+    });
+    return z.array(InvestingOrderSchema).default([]).parse(response.data);
+  },
+
+  bulkImportOrders: async (data: InvestingOrderBulkCreate): Promise<InvestingOrder[]> => {
+    const response = await api.post('/investing/orders/bulk', data);
+    return z.array(InvestingOrderSchema).default([]).parse(response.data);
   },
 };
