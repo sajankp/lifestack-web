@@ -1,4 +1,4 @@
-export type ImportModule = 'spending-transactions' | 'spending-budgets' | 'investing-holdings' | 'investing-constituents';
+export type ImportModule = 'spending-transactions' | 'spending-budgets' | 'investing-holdings' | 'investing-constituents' | 'investing-orders';
 
 export type ImportStatus =
   | 'uploaded'

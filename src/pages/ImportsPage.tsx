@@ -6,11 +6,12 @@ import { PageShell } from '../components/layout/PageShell';
 import { importsService } from '../services/imports';
 import type { ImportErrorItem, ImportModule, ImportValidateResponse } from '../types/imports';
 
-const MODULE_OPTIONS: Array<{ value: ImportModule; label: string }> = [
+const MODULE_OPTIONS: Array<{ value: ImportModule; label: string; testId?: string }> = [
   { value: 'spending-transactions', label: 'Spending Transactions' },
   { value: 'spending-budgets', label: 'Spending Budgets' },
   { value: 'investing-holdings', label: 'Investing Holdings' },
   { value: 'investing-constituents', label: 'Investing Constituents' },
+  { value: 'investing-orders', label: 'Investing Orders', testId: 'import-type-investing-orders' },
 ];
 
 const lifecycleCopy = (status: string) => {
@@ -208,7 +209,7 @@ export const ImportsPage: React.FC = () => {
                     Select module
                   </option>
                   {MODULE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
+                    <option key={opt.value} value={opt.value} data-testid={opt.testId}>
                       {opt.label}
                     </option>
                   ))}
