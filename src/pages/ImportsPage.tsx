@@ -9,7 +9,6 @@ import type { ImportErrorItem, ImportModule, ImportValidateResponse } from '../t
 const MODULE_OPTIONS: Array<{ value: ImportModule; label: string; testId?: string }> = [
   { value: 'spending-transactions', label: 'Spending Transactions' },
   { value: 'spending-budgets', label: 'Spending Budgets' },
-  { value: 'investing-holdings', label: 'Investing Holdings' },
   { value: 'investing-constituents', label: 'Investing Constituents' },
   { value: 'investing-orders', label: 'Investing Orders', testId: 'import-type-investing-orders' },
 ];
@@ -382,15 +381,6 @@ export const ImportsPage: React.FC = () => {
                               <th className="px-3 py-2 text-left">Amount</th>
                             </>
                           )}
-                          {activeDetail.import_batch.module === 'investing-holdings' && (
-                            <>
-                              <th className="px-3 py-2 text-left">Symbol</th>
-                              <th className="px-3 py-2 text-left">Account</th>
-                              <th className="px-3 py-2 text-left">Quantity</th>
-                              <th className="px-3 py-2 text-left">Avg Cost</th>
-                              <th className="px-3 py-2 text-left">Currency</th>
-                            </>
-                          )}
                           {activeDetail.import_batch.module === 'investing-constituents' && (
                             <>
                               <th className="px-3 py-2 text-left">ETF Symbol</th>
@@ -430,15 +420,6 @@ export const ImportsPage: React.FC = () => {
                                 <td className="px-3 py-2">{row.payload_json.month_start}</td>
                                 <td className="px-3 py-2">{row.payload_json.category_name ?? '-'}</td>
                                 <td className="px-3 py-2">{row.payload_json.amount}</td>
-                              </>
-                            )}
-                            {activeDetail.import_batch.module === 'investing-holdings' && (
-                              <>
-                                <td className="px-3 py-2 font-semibold text-white">{row.payload_json.symbol}</td>
-                                <td className="px-3 py-2">{row.payload_json.account_name ?? '-'}</td>
-                                <td className="px-3 py-2">{row.payload_json.quantity}</td>
-                                <td className="px-3 py-2">{row.payload_json.avg_cost}</td>
-                                <td className="px-3 py-2">{row.payload_json.currency}</td>
                               </>
                             )}
                             {activeDetail.import_batch.module === 'investing-constituents' && (
