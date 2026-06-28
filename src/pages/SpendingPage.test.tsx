@@ -171,15 +171,16 @@ describe('SpendingPage', () => {
 
     server.use(
       http.post('*/v1/spending/transactions', async ({ request }) => {
-        capturedPayload = (await request.json()) as Record<string, unknown>;
+        const body = (await request.json()) as Record<string, unknown>;
+        capturedPayload = body;
         return HttpResponse.json(
           {
             public_id: 'tx-new',
-            category_id: capturedPayload.category_id,
+            category_id: body.category_id,
             account_id: null,
-            amount: capturedPayload.amount,
-            type: capturedPayload.type,
-            occurred_at: capturedPayload.occurred_at,
+            amount: body.amount,
+            type: body.type,
+            occurred_at: body.occurred_at,
             description: null,
             wallet_name: null,
             labels: null,
@@ -237,7 +238,8 @@ describe('SpendingPage', () => {
   });
 
   it('switches to budgets tab and shows budget cards with progress', async () => {
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const monthStart = `${currentMonth}-01`;
 
     server.use(
@@ -273,8 +275,6 @@ describe('SpendingPage', () => {
     await screen.findByText('Spending Overview');
     fireEvent.click(screen.getByTestId('spending-tab-budgets'));
 
-    const budgetCard = await screen.findByTestId('spending-tab-budgets');
-    void budgetCard; // tab was already clicked
     // Budget amount and spent amount both appear; check both are present
     const amounts = await screen.findAllByText(/\$\d+\.\d+/);
     const amountValues = amounts.map((el) => el.textContent);
@@ -333,6 +333,7 @@ describe('SpendingPage', () => {
   });
 
   it('deactivate recurring rule shows confirmation dialog then calls delete', async () => {
+    let deleteCalled = false;
     server.use(
       http.get('*/v1/spending/recurring', () =>
         HttpResponse.json({
@@ -359,7 +360,10 @@ describe('SpendingPage', () => {
           offset: 0,
         }),
       ),
-      http.delete('*/v1/spending/recurring/rec-001', () => new HttpResponse(null, { status: 204 })),
+      http.delete('*/v1/spending/recurring/rec-001', () => {
+        deleteCalled = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
       ...baseHandlers,
     );
 
@@ -377,6 +381,7 @@ describe('SpendingPage', () => {
     await waitFor(() => {
       expect(screen.queryByText('Deactivate recurring rule?')).not.toBeInTheDocument();
     });
+    expect(deleteCalled).toBe(true);
   });
 
   it('switches to transfers tab and shows empty state', async () => {
