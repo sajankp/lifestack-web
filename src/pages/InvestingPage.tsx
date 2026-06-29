@@ -73,14 +73,6 @@ export const InvestingPage: React.FC = () => {
   const [isCreateInstrumentModalOpen, setIsCreateInstrumentModalOpen] = useState(false);
   const [isSeedConstituentsModalOpen, setIsSeedConstituentsModalOpen] = useState(false);
 
-  const [holdingForm, setHoldingForm] = useState({
-    symbol: '',
-    account_id: '',
-    quantity: '',
-    avg_cost: '',
-    currency: 'USD',
-    instrument_type: 'stock' as InstrumentType,
-  });
   const [selectedHolding, setSelectedHolding] = useState<Holding | null>(null);
   const [editHoldingForm, setEditHoldingForm] = useState({
     symbol: '',
@@ -466,8 +458,6 @@ export const InvestingPage: React.FC = () => {
     currencyOptions.includes(userFinanceSettings.effective_reporting_currency_code)
       ? userFinanceSettings.effective_reporting_currency_code
       : null) ?? currencyOptions[0] ?? 'USD';
-  const selectedHoldingCurrency =
-    currencyOptions.includes(holdingForm.currency) ? holdingForm.currency : preferredWorkspaceCurrency;
   const selectedCashCurrency =
     currencyOptions.includes(cashForm.currency) ? cashForm.currency : preferredWorkspaceCurrency;
   const analyticsCurrency = exposureRes.data?.currency;
@@ -477,11 +467,10 @@ export const InvestingPage: React.FC = () => {
       financeService.createAccount({
         name: newAccountName.trim(),
         account_type: newAccountType,
-        default_currency_code: selectedHoldingCurrency,
+        default_currency_code: selectedCashCurrency,
       }),
     onSuccess: (created) => {
       setNewAccountName('');
-      setHoldingForm((prev) => ({ ...prev, account_id: created.public_id }));
       setCashForm((prev) => ({ ...prev, account_id: created.public_id }));
       refresh();
     },
