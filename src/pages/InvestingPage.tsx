@@ -17,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import type {
   CashBalanceCreate,
   Holding,
-  HoldingCreate,
   Instrument,
   InstrumentConstituentUpsert,
   InstrumentCreate,
@@ -69,7 +68,6 @@ export const InvestingPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<'holdings' | 'orders' | 'cash' | 'analytics'>('holdings');
   const [analyticsAsOf, setAnalyticsAsOf] = useState(formatDateInput(new Date()));
-  const [isAddHoldingModalOpen, setIsAddHoldingModalOpen] = useState(false);
   const [isEditHoldingModalOpen, setIsEditHoldingModalOpen] = useState(false);
   const [isAddCashModalOpen, setIsAddCashModalOpen] = useState(false);
   const [isCreateInstrumentModalOpen, setIsCreateInstrumentModalOpen] = useState(false);
@@ -182,14 +180,6 @@ export const InvestingPage: React.FC = () => {
     void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   };
 
-  const createHoldingMutation = useMutation({
-    mutationFn: (payload: HoldingCreate) => investingService.createHolding(payload),
-    onSuccess: () => {
-      setHoldingForm((prev) => ({ ...prev, symbol: '', quantity: '', avg_cost: '' }));
-      setIsAddHoldingModalOpen(false);
-      refresh();
-    },
-  });
   const createInstrumentMutation = useMutation({
     mutationFn: (payload: InstrumentCreate) => investingService.createInstrument(payload),
     onSuccess: (created) => {
@@ -468,7 +458,6 @@ export const InvestingPage: React.FC = () => {
         })),
     [instruments]
   );
-  const selectedHoldingAccount = holdingForm.account_id;
   const selectedCashAccount = cashForm.account_id;
   const currencyDisplayPreference =
     userFinanceSettings?.effective_currency_display_preference ?? 'symbol';
@@ -652,24 +641,6 @@ export const InvestingPage: React.FC = () => {
     };
   }, [filteredHoldings, holdingCurrencies, summary.data]);
 
-
-  const onCreateHolding = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!holdingForm.symbol || !holdingForm.quantity || !holdingForm.avg_cost || !selectedHoldingAccount) return;
-
-    const qty = Number(holdingForm.quantity);
-    const cost = Number(holdingForm.avg_cost);
-    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(cost) || cost < 0) return;
-
-    createHoldingMutation.mutate({
-      symbol: holdingForm.symbol.trim().toUpperCase(),
-      account_id: selectedHoldingAccount,
-      quantity: qty,
-      avg_cost: cost,
-      currency: selectedHoldingCurrency.trim().toUpperCase() || 'USD',
-      instrument_type: holdingForm.instrument_type,
-    });
-  };
 
   const onCreateCash = (e: React.FormEvent) => {
     e.preventDefault();
@@ -855,15 +826,6 @@ export const InvestingPage: React.FC = () => {
               <div data-testid="investing-holdings-heading" className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="font-semibold text-white text-base">Active Holdings</h3>
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                  <button
-                    type="button"
-                    data-testid="investing-add-holding-btn"
-                    onClick={() => setIsAddHoldingModalOpen(true)}
-                    className="flex w-full items-center justify-center gap-1 rounded-lg bg-cyan-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-cyan-500 sm:w-auto"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add Holding
-                  </button>
                   <button
                     data-testid="investing-refresh-prices-btn"
                     type="button"
@@ -1727,198 +1689,6 @@ export const InvestingPage: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Add Holding Modal */}
-      {isAddHoldingModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => setIsAddHoldingModalOpen(false)}
-          />
-          <div className="relative w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <h2 className="text-lg font-semibold text-white">Add New Holding</h2>
-              <button
-                type="button"
-                onClick={() => setIsAddHoldingModalOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                title="Close dialog"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form
-              data-testid="investing-add-holding-form"
-              onSubmit={onCreateHolding}
-              className="space-y-4"
-            >
-              {accountOptions.length === 0 ? (
-                <div className="rounded-lg border border-amber-600/40 bg-amber-500/10 p-3 text-xs text-amber-200 animate-none">
-                  Create an account below before adding holdings.
-                </div>
-              ) : null}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <label className="text-xs font-semibold text-slate-300">Symbol</label>
-                    <span className="group relative inline-flex">
-                      <button
-                        type="button"
-                        aria-label="Symbol input help"
-                        className="rounded-full text-slate-500 transition-colors hover:text-cyan-300 focus:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
-                      >
-                        <Info className="h-3.5 w-3.5" aria-hidden="true" />
-                      </button>
-                      <span
-                        role="tooltip"
-                        className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-72 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-normal leading-relaxed text-slate-300 shadow-xl group-hover:block group-focus-within:block"
-                      >
-                        Stocks/ETFs: use the exchange ticker, such as DRREDDY or PHARMABEES.
-                        Indian mutual funds: use the numeric AMFI scheme code, such as 122639—not
-                        the fund name or ISIN.
-                      </span>
-                    </span>
-                  </div>
-                  <input
-                    data-testid="investing-holding-symbol"
-                    className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                    placeholder="Symbol (e.g. AAPL)"
-                    value={holdingForm.symbol}
-                    onChange={(e) => setHoldingForm((s) => ({ ...s, symbol: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-semibold text-slate-300">Asset Type</label>
-                  <DropdownSelect
-                    testId="investing-holding-instrument-type"
-                    value={holdingForm.instrument_type}
-                    options={[...instrumentTypeOptions]}
-                    onChange={(value) =>
-                      setHoldingForm((s) => ({
-                        ...s,
-                        instrument_type: value as InstrumentType,
-                      }))
-                    }
-                    placeholder="Asset type"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-semibold text-slate-300">Account</label>
-                  <Combobox
-                    testId="investing-holding-account"
-                    value={selectedHoldingAccount}
-                    options={accountDropdownOptions}
-                    onChange={(value) => setHoldingForm((s) => ({ ...s, account_id: value }))}
-                    placeholder="Select account"
-                    searchPlaceholder="Search accounts..."
-                    clearLabel="Clear selection"
-                    emptyText="No accounts found."
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-semibold text-slate-300">Quantity</label>
-                  <input
-                    data-testid="investing-holding-quantity"
-                    className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                    placeholder="Quantity"
-                    type="number"
-                    step="0.00000001"
-                    value={holdingForm.quantity}
-                    onChange={(e) => setHoldingForm((s) => ({ ...s, quantity: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-semibold text-slate-300">Avg Cost</label>
-                  <input
-                    data-testid="investing-holding-avg-cost"
-                    className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                    placeholder="Avg cost"
-                    type="number"
-                    step="0.01"
-                    value={holdingForm.avg_cost}
-                    onChange={(e) => setHoldingForm((s) => ({ ...s, avg_cost: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-semibold text-slate-300">Currency</label>
-                  <DropdownSelect
-                    testId="investing-holding-currency"
-                    value={selectedHoldingCurrency}
-                    options={currencyDropdownOptions}
-                    onChange={(value) => setHoldingForm((s) => ({ ...s, currency: value }))}
-                    placeholder="Currency"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAddHoldingModalOpen(false)}
-                  className="flex-1 h-10 rounded-lg border border-slate-700 bg-slate-900 px-4 text-xs font-semibold text-slate-100 hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  data-testid="investing-holding-submit"
-                  disabled={createHoldingMutation.isPending || accountOptions.length === 0}
-                  type="submit"
-                  className="flex-1 h-10 rounded-lg bg-cyan-600 px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 hover:bg-cyan-500 transition-colors"
-                >
-                  {createHoldingMutation.isPending ? 'Adding...' : 'Add Holding'}
-                </button>
-              </div>
-
-              {/* Quick create account sub-form */}
-              <div className="mt-4 border-t border-slate-800 pt-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Quick Create Account</p>
-                <div className="grid grid-cols-2 gap-4 items-end">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold text-slate-300">Account Name</label>
-                    <input
-                      data-testid="investing-account-name"
-                      className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                      placeholder="Account name"
-                      value={newAccountName}
-                      onChange={(e) => setNewAccountName(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold text-slate-300">Account Type</label>
-                    <DropdownSelect
-                      testId="investing-account-type"
-                      value={newAccountType}
-                      options={[...accountTypeOptions]}
-                      onChange={(value) => setNewAccountType(value as 'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card')}
-                      placeholder="Account type"
-                    />
-                  </div>
-                </div>
-                <button
-                  data-testid="investing-account-create"
-                  type="button"
-                  disabled={!newAccountName.trim() || createAccountMutation.isPending}
-                  onClick={() => createAccountMutation.mutate()}
-                  className="mt-3 w-full h-10 rounded-lg border border-slate-700 px-4 text-xs font-semibold text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
-                >
-                  Create account
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Edit Holding Modal */}
       {isEditHoldingModalOpen && selectedHolding && (

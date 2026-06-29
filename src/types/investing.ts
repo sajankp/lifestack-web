@@ -62,15 +62,6 @@ export interface InstrumentConstituent {
   source: string;
 }
 
-export interface HoldingCreate {
-  symbol: string;
-  account_id: string;
-  quantity: number;
-  avg_cost: number;
-  currency: string;
-  instrument_type?: InstrumentType;
-}
-
 export interface HoldingUpdate {
   symbol?: string;
   quantity?: number;

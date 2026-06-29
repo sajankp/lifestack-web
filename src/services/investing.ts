@@ -25,15 +25,6 @@ export const HoldingSchema = z.object({
 
 export type Holding = z.infer<typeof HoldingSchema>;
 
-export interface HoldingCreate {
-  symbol: string;
-  account_id: string;
-  quantity: number;
-  avg_cost: number;
-  currency: string;
-  instrument_type?: InstrumentType;
-}
-
 export interface HoldingUpdate {
   symbol?: string;
   quantity?: number;
@@ -280,11 +271,6 @@ export const investingService = {
   getHoldings: async (limit: number = 50, offset: number = 0): Promise<z.infer<typeof PaginatedHoldingsSchema>> => {
     const response = await api.get('/investing/holdings', { params: { limit, offset } });
     return PaginatedHoldingsSchema.parse(response.data);
-  },
-
-  createHolding: async (data: HoldingCreate): Promise<Holding> => {
-    const response = await api.post('/investing/holdings', data);
-    return HoldingSchema.parse(response.data);
   },
 
   updateHolding: async (publicId: string, data: HoldingUpdate): Promise<Holding> => {
