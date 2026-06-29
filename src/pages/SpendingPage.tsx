@@ -281,12 +281,13 @@ export const SpendingPage: React.FC = () => {
     queryKey: ['finance', 'accounts', 'spending'],
     queryFn: () => financeService.getAccounts(200, 0),
   });
+  const allAccounts = useMemo(() => accountsResponse?.items ?? [], [accountsResponse?.items]);
   const spendingAccounts = useMemo(
     () =>
-      (accountsResponse?.items ?? []).filter((account) =>
+      allAccounts.filter((account) =>
         ['bank', 'wallet', 'card', 'gift_card'].includes(account.account_type)
       ),
-    [accountsResponse?.items]
+    [allAccounts]
   );
   const accountOptions = useMemo(
     () =>
@@ -299,6 +300,18 @@ export const SpendingPage: React.FC = () => {
   const accountById = useMemo(
     () => new Map(spendingAccounts.map((account) => [account.public_id, account])),
     [spendingAccounts]
+  );
+  const transferAccountOptions = useMemo(
+    () =>
+      allAccounts.map((account) => ({
+        value: account.public_id,
+        label: `${account.name} (${account.account_type.replace('_', ' ')})`,
+      })),
+    [allAccounts]
+  );
+  const transferAccountById = useMemo(
+    () => new Map(allAccounts.map((account) => [account.public_id, account])),
+    [allAccounts]
   );
   const accountTypeOptions: Array<{ value: 'bank' | 'wallet' | 'card' | 'gift_card'; label: string }> = [
     { value: 'wallet', label: 'Wallet' },
@@ -470,11 +483,13 @@ export const SpendingPage: React.FC = () => {
   });
   const createTransferMutation = useMutation({
     mutationFn: () => {
-      const from = spendingAccounts.find((a) => a.public_id === transferFromAccountId);
-      const to = spendingAccounts.find((a) => a.public_id === transferToAccountId);
+      const from = transferAccountById.get(transferFromAccountId);
+      const to = transferAccountById.get(transferToAccountId);
       if (!from || !to) {
         throw new Error('Transfer accounts are required');
       }
+      const fromModule = from.account_type === 'brokerage' ? 'investing' : 'spending';
+      const toModule = to.account_type === 'brokerage' ? 'investing' : 'spending';
       const gross = Number(transferAmount);
       if (Number.isNaN(gross) || !Number.isFinite(gross) || gross <= 0) {
         throw new Error('Gross amount must be a valid positive number');
@@ -511,8 +526,8 @@ export const SpendingPage: React.FC = () => {
       }
 
       return financeService.createTransfer({
-        from_module: 'spending',
-        to_module: 'spending',
+        from_module: fromModule,
+        to_module: toModule,
         from_account_id: from.public_id,
         to_account_id: to.public_id,
         from_currency_code: from.default_currency_code,
@@ -2095,11 +2110,11 @@ export const SpendingPage: React.FC = () => {
             >
               <div>
                 <Label className="mb-2 block">From</Label>
-                <DropdownSelect value={transferFromAccountId} onChange={setTransferFromAccountId} options={accountOptions} placeholder="Select source account" showSearch sortByLabel />
+                <DropdownSelect value={transferFromAccountId} onChange={setTransferFromAccountId} options={transferAccountOptions} placeholder="Select source account" showSearch sortByLabel />
               </div>
               <div>
                 <Label className="mb-2 block">To</Label>
-                <DropdownSelect value={transferToAccountId} onChange={setTransferToAccountId} options={accountOptions} placeholder="Select destination account" showSearch sortByLabel />
+                <DropdownSelect value={transferToAccountId} onChange={setTransferToAccountId} options={transferAccountOptions} placeholder="Select destination account" showSearch sortByLabel />
               </div>
               <div>
                 <button
