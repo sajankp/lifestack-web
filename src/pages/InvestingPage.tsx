@@ -109,6 +109,7 @@ export const InvestingPage: React.FC = () => {
   const [holdingsAccountFilter, setHoldingsAccountFilter] = useState('');
   const [holdingsCurrencyFilter, setHoldingsCurrencyFilter] = useState('');
   const [holdingsTypeFilter, setHoldingsTypeFilter] = useState('');
+  const [hideZeroBookValue, setHideZeroBookValue] = useState(false);
   const [cashAccountFilter, setCashAccountFilter] = useState('');
   const [cashCurrencyFilter, setCashCurrencyFilter] = useState('');
   const [selectedInstrumentId, setSelectedInstrumentId] = useState('');
@@ -629,9 +630,11 @@ export const InvestingPage: React.FC = () => {
         const currencyMatch =
           !holdingsCurrencyFilter || (holding.currency ?? 'USD').toUpperCase() === holdingsCurrencyFilter.toUpperCase();
         const typeMatch = !holdingsTypeFilter || (holding.instrument_type ?? 'stock') === holdingsTypeFilter;
-        return accountMatch && currencyMatch && typeMatch;
+        const bookValueMatch =
+          !hideZeroBookValue || toNumber(holding.quantity) * toNumber(holding.avg_cost) !== 0;
+        return accountMatch && currencyMatch && typeMatch && bookValueMatch;
       }),
-    [holdings, holdingsAccountFilter, holdingsCurrencyFilter, holdingsTypeFilter]
+    [holdings, holdingsAccountFilter, holdingsCurrencyFilter, holdingsTypeFilter, hideZeroBookValue]
   );
   const filteredCashBalances = useMemo(
     () =>
@@ -689,6 +692,7 @@ export const InvestingPage: React.FC = () => {
         case 'occurred_at': return dir * (new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime());
         case 'order_type': return dir * a.order_type.localeCompare(b.order_type);
         case 'symbol': return dir * a.symbol.localeCompare(b.symbol);
+        case 'account_name': return dir * a.account_name.localeCompare(b.account_name);
         case 'quantity': return dir * (toNumber(a.quantity) - toNumber(b.quantity));
         case 'price_per_unit': return dir * (toNumber(a.price_per_unit) - toNumber(b.price_per_unit));
         case 'gross_amount': return dir * (toNumber(a.gross_amount) - toNumber(b.gross_amount));
@@ -1026,6 +1030,7 @@ export const InvestingPage: React.FC = () => {
                   setHoldingsAccountFilter('');
                   setHoldingsCurrencyFilter('');
                   setHoldingsTypeFilter('');
+                  setHideZeroBookValue(false);
                 }}
               >
                 <CompactFilterField label="Account">
@@ -1056,6 +1061,18 @@ export const InvestingPage: React.FC = () => {
                     placeholder="All types"
                     clearLabel="All types"
                   />
+                </CompactFilterField>
+                <CompactFilterField label="Book Value">
+                  <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 text-sm text-white cursor-pointer">
+                    <input
+                      type="checkbox"
+                      data-testid="investing-holdings-hide-zero-book-value"
+                      checked={hideZeroBookValue}
+                      onChange={(e) => setHideZeroBookValue(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-500 bg-slate-900 text-cyan-500 focus:ring-cyan-500"
+                    />
+                    Hide zero book value
+                  </label>
                 </CompactFilterField>
               </CompactFilterBar>
 
@@ -1386,6 +1403,7 @@ export const InvestingPage: React.FC = () => {
                     <SortableHeader col="occurred_at" activeCol={ordersSortCol} dir={ordersSortDir} onSort={(c, d) => { setOrdersSortCol(c); setOrdersSortDir(d); }}>Date</SortableHeader>
                     <SortableHeader col="order_type" activeCol={ordersSortCol} dir={ordersSortDir} onSort={(c, d) => { setOrdersSortCol(c); setOrdersSortDir(d); }}>Type</SortableHeader>
                     <SortableHeader col="symbol" activeCol={ordersSortCol} dir={ordersSortDir} onSort={(c, d) => { setOrdersSortCol(c); setOrdersSortDir(d); }}>Symbol</SortableHeader>
+                    <SortableHeader col="account_name" activeCol={ordersSortCol} dir={ordersSortDir} onSort={(c, d) => { setOrdersSortCol(c); setOrdersSortDir(d); }}>Account</SortableHeader>
                     <SortableHeader col="quantity" activeCol={ordersSortCol} dir={ordersSortDir} onSort={(c, d) => { setOrdersSortCol(c); setOrdersSortDir(d); }} className="text-right">Qty</SortableHeader>
                     <SortableHeader col="price_per_unit" activeCol={ordersSortCol} dir={ordersSortDir} onSort={(c, d) => { setOrdersSortCol(c); setOrdersSortDir(d); }} className="text-right">Price</SortableHeader>
                     <SortableHeader col="gross_amount" activeCol={ordersSortCol} dir={ordersSortDir} onSort={(c, d) => { setOrdersSortCol(c); setOrdersSortDir(d); }} className="text-right">Gross</SortableHeader>
@@ -1397,9 +1415,9 @@ export const InvestingPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-700/30">
                   {ordersRes.isLoading ? (
-                    <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">Loading…</td></tr>
+                    <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400">Loading…</td></tr>
                   ) : sortedOrders.length === 0 ? (
-                    <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400">No orders yet. Place your first order to get started.</td></tr>
+                    <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400">No orders yet. Place your first order to get started.</td></tr>
                   ) : (
                     sortedOrders.map((o) => {
                       const fees = toNumber(o.brokerage_fee) + toNumber(o.tax_amount) + toNumber(o.other_fees);
@@ -1426,6 +1444,7 @@ export const InvestingPage: React.FC = () => {
                           >
                             {o.symbol}
                           </td>
+                          <td className="px-4 py-3 text-slate-300">{o.account_name}</td>
                           <td className="px-4 py-3 text-right text-slate-300">{toNumber(o.quantity).toLocaleString()}</td>
                           <td className="px-4 py-3 text-right text-slate-300">
                             {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference)}
@@ -2599,7 +2618,7 @@ export const InvestingPage: React.FC = () => {
 
       <Dialog
         open={!!pendingDeleteHolding}
-        onOpenChange={(open) => !open && setPendingDeleteHolding(null)}
+        onOpenChange={(open) => !open && !deleteHoldingMutation.isPending && setPendingDeleteHolding(null)}
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -2611,7 +2630,12 @@ export const InvestingPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setPendingDeleteHolding(null)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setPendingDeleteHolding(null)}
+              disabled={deleteHoldingMutation.isPending}
+            >
               Cancel
             </Button>
             <Button
@@ -2624,12 +2648,17 @@ export const InvestingPage: React.FC = () => {
               {deleteHoldingMutation.isPending ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
+          {deleteHoldingMutation.isError && (
+            <p className="mt-2 text-sm text-rose-400 text-right">
+              {(deleteHoldingMutation.error as Error)?.message ?? 'Failed to delete holding'}
+            </p>
+          )}
         </DialogContent>
       </Dialog>
 
       <Dialog
         open={!!pendingDeleteOrder}
-        onOpenChange={(open) => !open && setPendingDeleteOrder(null)}
+        onOpenChange={(open) => !open && !deleteOrderMutation.isPending && setPendingDeleteOrder(null)}
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -2641,7 +2670,12 @@ export const InvestingPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setPendingDeleteOrder(null)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setPendingDeleteOrder(null)}
+              disabled={deleteOrderMutation.isPending}
+            >
               Cancel
             </Button>
             <Button
@@ -2654,12 +2688,17 @@ export const InvestingPage: React.FC = () => {
               {deleteOrderMutation.isPending ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
+          {deleteOrderMutation.isError && (
+            <p className="mt-2 text-sm text-rose-400 text-right">
+              {(deleteOrderMutation.error as Error)?.message ?? 'Failed to delete order'}
+            </p>
+          )}
         </DialogContent>
       </Dialog>
 
       <Dialog
         open={!!pendingDeleteCash}
-        onOpenChange={(open) => !open && setPendingDeleteCash(null)}
+        onOpenChange={(open) => !open && !deleteCashMutation.isPending && setPendingDeleteCash(null)}
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -2671,7 +2710,12 @@ export const InvestingPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setPendingDeleteCash(null)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setPendingDeleteCash(null)}
+              disabled={deleteCashMutation.isPending}
+            >
               Cancel
             </Button>
             <Button
@@ -2684,6 +2728,11 @@ export const InvestingPage: React.FC = () => {
               {deleteCashMutation.isPending ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
+          {deleteCashMutation.isError && (
+            <p className="mt-2 text-sm text-rose-400 text-right">
+              {(deleteCashMutation.error as Error)?.message ?? 'Failed to delete cash balance entry'}
+            </p>
+          )}
         </DialogContent>
       </Dialog>
     </PageShell>
