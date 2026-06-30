@@ -630,8 +630,7 @@ export const InvestingPage: React.FC = () => {
         const currencyMatch =
           !holdingsCurrencyFilter || (holding.currency ?? 'USD').toUpperCase() === holdingsCurrencyFilter.toUpperCase();
         const typeMatch = !holdingsTypeFilter || (holding.instrument_type ?? 'stock') === holdingsTypeFilter;
-        const bookValueMatch =
-          !hideZeroBookValue || toNumber(holding.quantity) * toNumber(holding.avg_cost) !== 0;
+        const bookValueMatch = !hideZeroBookValue || toNumber(holding.book_value) !== 0;
         return accountMatch && currencyMatch && typeMatch && bookValueMatch;
       }),
     [holdings, holdingsAccountFilter, holdingsCurrencyFilter, holdingsTypeFilter, hideZeroBookValue]
@@ -674,7 +673,7 @@ export const InvestingPage: React.FC = () => {
         case 'currency': return dir * (a.currency ?? 'USD').localeCompare(b.currency ?? 'USD');
         case 'quantity': return dir * (toNumber(a.quantity) - toNumber(b.quantity));
         case 'avg_cost': return dir * (toNumber(a.avg_cost) - toNumber(b.avg_cost));
-        case 'book_value': return dir * (toNumber(a.quantity) * toNumber(a.avg_cost) - toNumber(b.quantity) * toNumber(b.avg_cost));
+        case 'book_value': return dir * (toNumber(a.book_value) - toNumber(b.book_value));
         case 'current_price': return dir * (toNumber(a.current_price ?? a.avg_cost) - toNumber(b.current_price ?? b.avg_cost));
         case 'current_value': return dir * (toNumber(a.current_value ?? 0) - toNumber(b.current_value ?? 0));
         case 'gain_loss': return dir * (toNumber(a.gain_loss ?? 0) - toNumber(b.gain_loss ?? 0));
@@ -756,7 +755,7 @@ export const InvestingPage: React.FC = () => {
   const holdingsByCurrency = useMemo(() => {
     return filteredHoldings.reduce<Record<string, number>>((acc, item) => {
       const currency = item.currency?.toUpperCase() || 'USD';
-      const value = toNumber(item.quantity) * toNumber(item.avg_cost);
+      const value = toNumber(item.book_value);
       acc[currency] = (acc[currency] ?? 0) + value;
       return acc;
     }, {});
@@ -777,7 +776,7 @@ export const InvestingPage: React.FC = () => {
     let total = 0;
     for (const h of filteredHoldings) {
       const c = (h.currency ?? 'USD').toUpperCase();
-      const value = toNumber(h.quantity) * toNumber(h.avg_cost);
+      const value = toNumber(h.book_value);
       if (c === reportingCurrency.toUpperCase()) {
         total += value;
       } else {
@@ -1133,7 +1132,7 @@ export const InvestingPage: React.FC = () => {
                             </td>
                             <td className="px-4 py-3">{toNumber(h.quantity).toFixed(8)}</td>
                             <td className="px-4 py-3">{formatCurrency(h.avg_cost, h.currency, currencyDisplayPreference)}</td>
-                            <td className="px-4 py-3">{formatCurrency(toNumber(h.quantity) * toNumber(h.avg_cost), h.currency, currencyDisplayPreference)}</td>
+                            <td className="px-4 py-3">{formatCurrency(h.book_value, h.currency, currencyDisplayPreference)}</td>
                             <td className="px-4 py-3">
                               {editingPriceHoldingId === h.public_id ? (
                                 <div className="flex items-center gap-1.5">
@@ -1175,7 +1174,7 @@ export const InvestingPage: React.FC = () => {
                                 </div>
                               )}
                             </td>
-                            <td className="px-4 py-3">{formatCurrency(h.current_value ?? (toNumber(h.quantity) * toNumber(h.avg_cost)), h.currency, currencyDisplayPreference)}</td>
+                            <td className="px-4 py-3">{formatCurrency(h.current_value ?? h.book_value, h.currency, currencyDisplayPreference)}</td>
                             <td className="px-4 py-3 font-medium">
                               <span className={colorClass}>
                                 {sign}{formatCurrency(gainLoss, h.currency, currencyDisplayPreference)} ({sign}{gainLossPct.toFixed(2)}%)

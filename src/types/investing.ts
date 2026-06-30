@@ -9,6 +9,7 @@ export interface Holding {
   currency: string;
   current_price?: number | string;
   current_value?: number | string;
+  book_value?: number | string;
   gain_loss?: number | string;
   gain_loss_pct?: number | string;
   created_at: string;

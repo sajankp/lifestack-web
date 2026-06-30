@@ -18,6 +18,7 @@ export const HoldingSchema = z.object({
   source_type: z.string().optional(),
   current_price: z.union([z.number(), z.string()]).optional(),
   current_value: z.union([z.number(), z.string()]).optional(),
+  book_value: z.union([z.number(), z.string()]).optional(),
   gain_loss: z.union([z.number(), z.string()]).optional(),
   gain_loss_pct: z.union([z.number(), z.string()]).optional(),
   created_at: z.string().default(''),
