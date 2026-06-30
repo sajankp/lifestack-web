@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 
@@ -957,5 +957,116 @@ describe('InvestingPage', () => {
     const row = await screen.findByTestId('investing-trade-history-row-order-old-id');
     expect(row).toHaveTextContent(/buy/i);
     expect(row).toHaveTextContent('2');
+  });
+
+  it('requires confirmation before deleting a holding, and does not call delete until confirmed', async () => {
+    let deleteCalled = false;
+
+    server.use(
+      http.get('*/v1/investing/holdings', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'holding-aapl-id',
+              symbol: 'AAPL',
+              account_id: '11111111-1111-1111-1111-111111111111',
+              account_name: 'Brokerage A',
+              quantity: '10.00000000',
+              avg_cost: '150.00',
+              currency: 'USD',
+              source_type: 'imported',
+              current_price: '180.00',
+              current_value: '1800.00',
+              gain_loss: '300.00',
+              gain_loss_pct: '20.00',
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/investing/cash-balances', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '11111111-1111-1111-1111-111111111111',
+              name: 'Brokerage A',
+              account_type: 'brokerage',
+              default_currency_code: 'USD',
+              is_active: true,
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/currencies', () =>
+        HttpResponse.json([
+          { code: 'USD', name: 'US Dollar', symbol: '$', minor_unit: 2, is_active: true },
+        ]),
+      ),
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          reporting_currency_override_code: null,
+          currency_display_preference_override: null,
+          workspace_reporting_currency_code: 'USD',
+          workspace_currency_display_preference: 'symbol',
+          effective_reporting_currency_code: 'USD',
+          effective_currency_display_preference: 'symbol',
+          updated_at: '2026-05-24T00:00:00Z',
+        }),
+      ),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: '1800.00',
+          holdings_count: 1,
+          cash_total: '0',
+          currency_breakdown: { USD: '1500.00' },
+          daily_change: null,
+          reporting_currency: 'USD',
+          valuation_status: 'single_currency_native',
+        }),
+      ),
+      http.get('*/v1/investing/instruments', () => HttpResponse.json([])),
+      http.get('*/v1/investing/performance/summary', () =>
+        HttpResponse.json({
+          total_value: '1800.00',
+          total_cost: '1500.00',
+          total_gain_loss: '300.00',
+          total_gain_loss_pct: '20.00',
+          snapshot_date: '2026-05-24',
+          currency: 'USD',
+        }),
+      ),
+      http.delete('*/v1/investing/holdings/holding-aapl-id', () => {
+        deleteCalled = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderWithQuery(<InvestingPage />);
+
+    await screen.findByTestId('investing-holding-row-holding-aapl-id');
+    fireEvent.click(screen.getByTitle('Delete holding'));
+
+    // Clicking the row action only opens a confirmation dialog — no request yet
+    expect(deleteCalled).toBe(false);
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/delete the AAPL holding/i);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(deleteCalled).toBe(true);
+    });
   });
 });
