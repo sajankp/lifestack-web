@@ -959,6 +959,140 @@ describe('InvestingPage', () => {
     expect(row).toHaveTextContent('2');
   });
 
+  it('opens the Edit Order modal from Trade History without ever visiting the Orders tab', async () => {
+    // Regression test: the Edit Order modal used to be nested inside
+    // <TabsContent value="orders">, which Radix unmounts when the Orders
+    // tab isn't active. Trade History opens from the Holdings tab, so
+    // clicking Edit there set state but rendered nothing.
+    server.use(
+      http.get('*/v1/investing/holdings', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'holding-old-order-id',
+              symbol: 'GMMPFAUDLR',
+              account_id: '11111111-1111-1111-1111-111111111111',
+              account_name: 'Groww',
+              quantity: '2.00000000',
+              avg_cost: '4540.00',
+              currency: 'INR',
+              current_price: '4540.00',
+              current_value: '9080.00',
+              gain_loss: '0.00',
+              gain_loss_pct: '0.00',
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/investing/cash-balances', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '11111111-1111-1111-1111-111111111111',
+              name: 'Groww',
+              account_type: 'brokerage',
+              default_currency_code: 'INR',
+              is_active: true,
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/currencies', () =>
+        HttpResponse.json([
+          { code: 'INR', name: 'Indian Rupee', symbol: 'Rs', minor_unit: 2, is_active: true },
+        ]),
+      ),
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          reporting_currency_override_code: null,
+          currency_display_preference_override: null,
+          workspace_reporting_currency_code: 'USD',
+          workspace_currency_display_preference: 'symbol',
+          effective_reporting_currency_code: 'USD',
+          effective_currency_display_preference: 'symbol',
+          updated_at: '2026-05-24T00:00:00Z',
+        }),
+      ),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: null,
+          holdings_count: 1,
+          cash_total: null,
+          currency_breakdown: { INR: '9080.00' },
+          daily_change: null,
+          reporting_currency: null,
+          valuation_status: 'multi_currency_unconverted',
+        }),
+      ),
+      http.get('*/v1/investing/performance/summary', () =>
+        HttpResponse.json({
+          total_value: '0',
+          total_cost: '0',
+          total_gain_loss: '0',
+          total_gain_loss_pct: '0',
+          snapshot_date: '2026-05-24',
+          currency: 'USD',
+        }),
+      ),
+      http.get('*/v1/investing/instruments', () => HttpResponse.json([])),
+      http.get('*/v1/investing/orders', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 }),
+      ),
+      http.get('*/v1/investing/orders/by-holding/GMMPFAUDLR', () =>
+        HttpResponse.json([
+          {
+            public_id: 'order-old-id',
+            account_id: '11111111-1111-1111-1111-111111111111',
+            account_name: 'Groww',
+            order_type: 'buy',
+            symbol: 'GMMPFAUDLR',
+            instrument_type: null,
+            quantity: '2.00000000',
+            price_per_unit: '4540.000000',
+            gross_amount: '9080.00',
+            brokerage_fee: '0.00',
+            tax_amount: '0.00',
+            other_fees: '0.00',
+            net_amount: '9080.00',
+            currency: 'INR',
+            exchange_name: null,
+            occurred_at: '2021-10-21T03:57:00Z',
+            notes: null,
+            realized_gain_loss: null,
+            avg_cost_at_sale: null,
+            source_type: 'manual',
+            created_at: '2026-06-30T04:12:12.028065Z',
+          },
+        ]),
+      ),
+    );
+
+    renderWithQuery(<InvestingPage />);
+
+    // Stay on the Holdings tab (the default) the whole time — never click
+    // the Orders tab trigger, which is what makes this a regression test.
+    await screen.findByTestId('investing-holding-row-holding-old-order-id');
+    fireEvent.click(screen.getByTestId('investing-holding-trade-history-holding-old-order-id'));
+
+    await screen.findByTestId('investing-trade-history-row-order-old-id');
+    fireEvent.click(screen.getByTestId('investing-trade-history-edit-order-old-id'));
+
+    expect(await screen.findByText('Edit Order — GMMPFAUDLR')).toBeInTheDocument();
+  });
+
   it('requires confirmation before deleting a holding, and does not call delete until confirmed', async () => {
     let deleteCalled = false;
 
