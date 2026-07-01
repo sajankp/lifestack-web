@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDownUp, BarChart3, Check, ChevronDown, ChevronUp, ChevronsUpDown, Edit2, Info, Landmark, Layers, Plus, RefreshCw, Trash2, WalletCards, X } from 'lucide-react';
 import { financeService } from '../services/finance';
@@ -1416,7 +1417,7 @@ export const InvestingPage: React.FC = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="cash">
+        <TabsContent value="cash" className="space-y-6">
           <div className="space-y-6">
             {/* One account filter scopes reconciliation, balances, orders and
                 transfers below, so the tab reads as a single account story. */}
@@ -1960,13 +1961,13 @@ export const InvestingPage: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-white text-base">Transfers</h3>
-                <a
-                  href="/spending"
+                <Link
+                  to="/spending"
                   data-testid="investing-transfers-manage-link"
                   className="text-xs font-medium text-cyan-300 hover:text-cyan-200"
                 >
                   Manage in Spending →
-                </a>
+                </Link>
               </div>
               <div className="overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-800/30">
                 <table className="w-full text-left text-sm text-slate-300 min-w-[600px]">
@@ -1986,8 +1987,17 @@ export const InvestingPage: React.FC = () => {
                       <tr><td className="px-4 py-6 text-slate-400" colSpan={5}>No transfers for this account yet.</td></tr>
                     ) : (
                       visibleTransfers.map((t) => {
-                        const isOut = cashAccountFilter !== '' && t.from_account_public_id === cashAccountFilter;
-                        const isIn = cashAccountFilter !== '' && t.to_account_public_id === cashAccountFilter;
+                        // With an account selected, direction is relative to that
+                        // account; in the all-accounts view, fall back to direction
+                        // relative to the investing module.
+                        const isOut =
+                          cashAccountFilter !== ''
+                            ? t.from_account_public_id === cashAccountFilter
+                            : t.from_module === 'investing' && t.to_module === 'spending';
+                        const isIn =
+                          cashAccountFilter !== ''
+                            ? t.to_account_public_id === cashAccountFilter
+                            : t.from_module === 'spending' && t.to_module === 'investing';
                         return (
                           <tr key={t.public_id} data-testid={`investing-transfer-row-${t.public_id}`}>
                             <td className="px-4 py-3 whitespace-nowrap">{formatDate(t.occurred_at, { fallback: 'N/A' })}</td>
