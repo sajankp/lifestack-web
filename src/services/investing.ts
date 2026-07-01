@@ -299,8 +299,11 @@ export const investingService = {
   getCashBalances: async (
     limit: number = 50,
     offset: number = 0,
+    accountId?: string,
   ): Promise<z.infer<typeof PaginatedCashBalancesSchema>> => {
-    const response = await api.get('/investing/cash-balances', { params: { limit, offset } });
+    const response = await api.get('/investing/cash-balances', {
+      params: { limit, offset, account_id: accountId || undefined },
+    });
     return PaginatedCashBalancesSchema.parse(response.data);
   },
 

@@ -138,8 +138,12 @@ export const InvestingPage: React.FC = () => {
   });
 
   const cashRes = useQuery({
-    queryKey: ['investing', 'cash-balances'],
-    queryFn: () => investingService.getCashBalances(200, 0),
+    // account_id is a server-side filter (not just client-side), so switching
+    // accounts fetches that account's full history instead of relying on
+    // whatever happens to be in the first 200 rows ordered by as_of desc --
+    // an old backfilled snapshot can otherwise be invisible past that window.
+    queryKey: ['investing', 'cash-balances', cashAccountFilter],
+    queryFn: () => investingService.getCashBalances(200, 0, cashAccountFilter || undefined),
   });
 
   const summary = useQuery({
