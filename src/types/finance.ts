@@ -137,6 +137,7 @@ export interface ReconciliationSummary {
   discrepancy: string | null; // projected - snapshot; null when no snapshot
   transaction_count: number;
   transfer_count: number;
+  order_count: number;
 }
 
 export interface SpendingAccountBalance {

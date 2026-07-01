@@ -1479,7 +1479,7 @@ export const InvestingPage: React.FC = () => {
                             Reconciliation — {r.account_name}
                           </span>
                           <span className="text-[11px] text-slate-500">
-                            {r.transaction_count} txns · {r.transfer_count} transfers
+                            {r.transaction_count} txns · {r.transfer_count} transfers · {r.order_count} trades
                           </span>
                         </div>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
