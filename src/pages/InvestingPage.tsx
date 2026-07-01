@@ -85,7 +85,7 @@ const deriveBookValue = (h: Pick<Holding, 'quantity' | 'avg_cost' | 'book_value'
 
 export const InvestingPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<'holdings' | 'orders' | 'cash' | 'analytics'>('holdings');
+  const [tab, setTab] = useState<'holdings' | 'cash' | 'analytics'>('holdings');
   const [analyticsAsOf, setAnalyticsAsOf] = useState(formatDateInput(new Date()));
   const [isEditHoldingModalOpen, setIsEditHoldingModalOpen] = useState(false);
   const [isAddCashModalOpen, setIsAddCashModalOpen] = useState(false);
@@ -336,7 +336,23 @@ export const InvestingPage: React.FC = () => {
         search: orderSymbolFilter || undefined,
         order_type: orderTypeFilter || undefined,
       }),
-    enabled: tab === 'orders',
+    enabled: tab === 'cash',
+  });
+
+  // Transfers are surfaced read-only on the Cash tab for reconciliation
+  // context; full transfer CRUD stays in Spending.
+  const transfersRes = useQuery({
+    queryKey: ['finance', 'transfers', 'cash-tab'],
+    queryFn: () => financeService.getTransfers(200, 0),
+    enabled: tab === 'cash',
+  });
+
+  // Per-account reconciliation (projected-from-flows vs latest snapshot).
+  // Only meaningful once a single account is selected in the Cash filter.
+  const reconciliationRes = useQuery({
+    queryKey: ['finance', 'reconciliation', cashAccountFilter],
+    queryFn: () => financeService.getAccountReconciliation(cashAccountFilter),
+    enabled: tab === 'cash' && cashAccountFilter !== '',
   });
 
   const tradeHistoryRes = useQuery({
@@ -732,6 +748,25 @@ export const InvestingPage: React.FC = () => {
     });
   }, [orders, ordersSortCol, ordersSortDir]);
 
+  // The unified account filter on the Cash tab scopes orders too, so
+  // balances, reconciliation, orders and transfers all read as one account.
+  const visibleOrders = useMemo(
+    () => sortedOrders.filter((o) => !cashAccountFilter || o.account_id === cashAccountFilter),
+    [sortedOrders, cashAccountFilter]
+  );
+
+  const transfers = useMemo(() => transfersRes.data?.items ?? [], [transfersRes.data]);
+  const visibleTransfers = useMemo(
+    () =>
+      transfers.filter(
+        (t) =>
+          !cashAccountFilter ||
+          t.from_account_public_id === cashAccountFilter ||
+          t.to_account_public_id === cashAccountFilter
+      ),
+    [transfers, cashAccountFilter]
+  );
+
   const orderQty = Number(orderForm.quantity);
   const orderPrice = Number(orderForm.price_per_unit);
   const orderGross = Number.isFinite(orderQty) && Number.isFinite(orderPrice) ? orderQty * orderPrice : 0;
@@ -1027,8 +1062,7 @@ export const InvestingPage: React.FC = () => {
         <div className="-mx-1 mb-6 overflow-x-auto px-1 pb-1">
           <TabsList className="min-w-max">
             <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-holdings" value="holdings">Holdings</TabsTrigger>
-            <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-orders" value="orders">Orders</TabsTrigger>
-            <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-cash" value="cash">Cash Balances</TabsTrigger>
+            <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-cash" value="cash">Cash</TabsTrigger>
             <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-analytics" value="analytics">Look-through Analytics</TabsTrigger>
           </TabsList>
         </div>
@@ -1382,8 +1416,116 @@ export const InvestingPage: React.FC = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="orders">
+        <TabsContent value="cash">
           <div className="space-y-6">
+            {/* One account filter scopes reconciliation, balances, orders and
+                transfers below, so the tab reads as a single account story. */}
+            <CompactFilterBar
+              title="Cash filters"
+              onReset={() => {
+                setCashAccountFilter('');
+                setCashCurrencyFilter('');
+              }}
+            >
+              <CompactFilterField label="Account">
+                <DropdownSelect
+                  testId="investing-cash-account-filter"
+                  value={cashAccountFilter}
+                  options={accountDropdownOptions}
+                  onChange={setCashAccountFilter}
+                  placeholder="All accounts"
+                  clearLabel="All accounts"
+                />
+              </CompactFilterField>
+              <CompactFilterField label="Currency">
+                <DropdownSelect
+                  value={cashCurrencyFilter}
+                  options={currencyDropdownOptions}
+                  onChange={setCashCurrencyFilter}
+                  placeholder="All currencies"
+                  clearLabel="All currencies"
+                />
+              </CompactFilterField>
+            </CompactFilterBar>
+
+            {/* Reconciliation ties a snapshot to the flows that explain it:
+                projected-from-flows vs the latest cash snapshot. */}
+            {cashAccountFilter !== '' && (
+              <div
+                data-testid="investing-cash-reconciliation"
+                className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4"
+              >
+                {reconciliationRes.isLoading ? (
+                  <p className="text-sm text-slate-400">Loading reconciliation…</p>
+                ) : reconciliationRes.data ? (
+                  (() => {
+                    const r = reconciliationRes.data;
+                    const projected = Number(r.projected_balance);
+                    const snapshot = r.snapshot_balance !== null ? Number(r.snapshot_balance) : null;
+                    const disc = r.discrepancy !== null ? Number(r.discrepancy) : null;
+                    const threshold = projected !== 0 ? Math.abs(projected) * 0.05 : 100;
+                    const discColor =
+                      disc === null
+                        ? 'text-slate-400'
+                        : Math.abs(disc) < 1
+                        ? 'text-emerald-300'
+                        : Math.abs(disc) >= threshold
+                        ? 'text-rose-300'
+                        : 'text-amber-300';
+                    return (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                            Reconciliation — {r.account_name}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            {r.transaction_count} txns · {r.transfer_count} transfers
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">Projected</p>
+                            <p
+                              data-testid="investing-reconciliation-projected"
+                              className="text-sm font-semibold text-white"
+                            >
+                              {formatCurrency(projected, r.currency_code, currencyDisplayPreference)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">Latest snapshot</p>
+                            <p className="text-sm font-semibold text-white">
+                              {snapshot !== null
+                                ? formatCurrency(snapshot, r.currency_code, currencyDisplayPreference)
+                                : '—'}
+                              {r.snapshot_as_of && (
+                                <span className="ml-1 text-[10px] text-slate-500">
+                                  ({formatDate(r.snapshot_as_of, { fallback: 'N/A' })})
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-slate-500">Discrepancy</p>
+                            <p
+                              data-testid="investing-reconciliation-discrepancy"
+                              className={`text-sm font-semibold ${discColor}`}
+                            >
+                              {disc !== null
+                                ? formatCurrency(disc, r.currency_code, currencyDisplayPreference)
+                                : 'No snapshot yet'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <p className="text-sm text-slate-400">Reconciliation unavailable.</p>
+                )}
+              </div>
+            )}
+
             <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="font-semibold text-white text-base">Orders</h3>
               <button
@@ -1451,10 +1593,10 @@ export const InvestingPage: React.FC = () => {
                 <tbody className="divide-y divide-slate-700/30">
                   {ordersRes.isLoading ? (
                     <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400">Loading…</td></tr>
-                  ) : sortedOrders.length === 0 ? (
-                    <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400">No orders yet. Place your first order to get started.</td></tr>
+                  ) : visibleOrders.length === 0 ? (
+                    <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400">No orders for this account yet.</td></tr>
                   ) : (
-                    sortedOrders.map((o) => {
+                    visibleOrders.map((o) => {
                       const fees = toNumber(o.brokerage_fee) + toNumber(o.tax_amount) + toNumber(o.other_fees);
                       const isBuy = o.order_type === 'buy';
                       return (
@@ -1749,9 +1891,6 @@ export const InvestingPage: React.FC = () => {
             </div>
           )}
 
-        </TabsContent>
-
-        <TabsContent value="cash">
           <div className="space-y-6">
             <div data-testid="investing-cash-heading" className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="font-semibold text-white text-base">Cash Balances</h3>
@@ -1768,33 +1907,6 @@ export const InvestingPage: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              <CompactFilterBar
-                title="Cash filters"
-                onReset={() => {
-                  setCashAccountFilter('');
-                  setCashCurrencyFilter('');
-                }}
-              >
-                <CompactFilterField label="Account">
-                  <DropdownSelect
-                    testId="investing-cash-account-filter"
-                    value={cashAccountFilter}
-                    options={accountDropdownOptions}
-                    onChange={setCashAccountFilter}
-                    placeholder="All accounts"
-                    clearLabel="All accounts"
-                  />
-                </CompactFilterField>
-                <CompactFilterField label="Currency">
-                  <DropdownSelect
-                    value={cashCurrencyFilter}
-                    options={currencyDropdownOptions}
-                    onChange={setCashCurrencyFilter}
-                    placeholder="All currencies"
-                    clearLabel="All currencies"
-                  />
-                </CompactFilterField>
-              </CompactFilterBar>
               <div className="overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-800/30">
                 <table className="w-full text-left text-sm text-slate-300 min-w-[600px]">
                   <thead className="border-b border-slate-700/50 bg-slate-800/50 text-xs uppercase text-slate-400">
@@ -1837,6 +1949,65 @@ export const InvestingPage: React.FC = () => {
                           </td>
                         </tr>
                       ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Transfers moving cash in/out of the selected account — read-only
+                context for reconciliation; full transfer CRUD lives in Spending. */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-white text-base">Transfers</h3>
+                <a
+                  href="/spending"
+                  data-testid="investing-transfers-manage-link"
+                  className="text-xs font-medium text-cyan-300 hover:text-cyan-200"
+                >
+                  Manage in Spending →
+                </a>
+              </div>
+              <div className="overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-800/30">
+                <table className="w-full text-left text-sm text-slate-300 min-w-[600px]">
+                  <thead className="border-b border-slate-700/50 bg-slate-800/50 text-xs uppercase text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3">Direction</th>
+                      <th className="px-4 py-3">From → To</th>
+                      <th className="px-4 py-3 text-right">Gross</th>
+                      <th className="px-4 py-3 text-right">Net received</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/50">
+                    {transfersRes.isLoading ? (
+                      <tr><td className="px-4 py-6 text-slate-400" colSpan={5}>Loading…</td></tr>
+                    ) : visibleTransfers.length === 0 ? (
+                      <tr><td className="px-4 py-6 text-slate-400" colSpan={5}>No transfers for this account yet.</td></tr>
+                    ) : (
+                      visibleTransfers.map((t) => {
+                        const isOut = cashAccountFilter !== '' && t.from_account_public_id === cashAccountFilter;
+                        const isIn = cashAccountFilter !== '' && t.to_account_public_id === cashAccountFilter;
+                        return (
+                          <tr key={t.public_id} data-testid={`investing-transfer-row-${t.public_id}`}>
+                            <td className="px-4 py-3 whitespace-nowrap">{formatDate(t.occurred_at, { fallback: 'N/A' })}</td>
+                            <td className="px-4 py-3">
+                              {isOut ? (
+                                <span className="inline-flex items-center rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-300">OUT</span>
+                              ) : isIn ? (
+                                <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-300">IN</span>
+                              ) : (
+                                <span className="text-slate-500">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-slate-300">
+                              {(t.from_account_name ?? '—')} → {(t.to_account_name ?? '—')}
+                            </td>
+                            <td className="px-4 py-3 text-right">{formatCurrency(toNumber(t.gross_amount), t.from_currency_code, currencyDisplayPreference)}</td>
+                            <td className="px-4 py-3 text-right text-white">{formatCurrency(toNumber(t.net_amount_received), t.to_currency_code, currencyDisplayPreference)}</td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

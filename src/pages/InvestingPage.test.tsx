@@ -1586,13 +1586,129 @@ describe('InvestingPage', () => {
     renderWithQuery(<InvestingPage />);
 
     await screen.findByText('Investing');
-    const ordersTab = screen.getByTestId('investing-tab-orders');
-    ordersTab.focus();
-    fireEvent.keyDown(ordersTab, { key: 'Enter', code: 'Enter' });
+    const cashTab = screen.getByTestId('investing-tab-cash');
+    cashTab.focus();
+    fireEvent.keyDown(cashTab, { key: 'Enter', code: 'Enter' });
 
     const growwRow = await screen.findByTestId('investing-order-row-order-groww-id');
     expect(growwRow).toHaveTextContent('Groww');
     const zerodhaRow = await screen.findByTestId('investing-order-row-order-zerodha-id');
     expect(zerodhaRow).toHaveTextContent('Zerodha');
+  });
+
+  it('surfaces transfers on the unified Cash tab with a link to manage them in Spending', async () => {
+    server.use(
+      http.get('*/v1/investing/holdings', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/investing/cash-balances', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '11111111-1111-1111-1111-111111111111',
+              name: 'Groww',
+              account_type: 'brokerage',
+              default_currency_code: 'INR',
+              is_active: true,
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/currencies', () =>
+        HttpResponse.json([
+          { code: 'INR', name: 'Indian Rupee', symbol: 'Rs', minor_unit: 2, is_active: true },
+        ]),
+      ),
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          reporting_currency_override_code: null,
+          currency_display_preference_override: null,
+          workspace_reporting_currency_code: 'USD',
+          workspace_currency_display_preference: 'symbol',
+          effective_reporting_currency_code: 'USD',
+          effective_currency_display_preference: 'symbol',
+          updated_at: '2026-05-24T00:00:00Z',
+        }),
+      ),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: null,
+          holdings_count: 0,
+          cash_total: null,
+          currency_breakdown: {},
+          daily_change: null,
+          reporting_currency: null,
+          valuation_status: 'single_currency_native',
+        }),
+      ),
+      http.get('*/v1/investing/performance/summary', () =>
+        HttpResponse.json({
+          total_value: '0',
+          total_cost: '0',
+          total_gain_loss: '0',
+          total_gain_loss_pct: '0',
+          snapshot_date: '2026-05-24',
+          currency: 'USD',
+        }),
+      ),
+      http.get('*/v1/investing/instruments', () => HttpResponse.json([])),
+      http.get('*/v1/investing/orders', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 }),
+      ),
+      http.get('*/v1/finance/transfers', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'transfer-1',
+              from_module: 'spending',
+              to_module: 'investing',
+              from_account_id: 1,
+              to_account_id: 2,
+              from_account_public_id: '99999999-9999-9999-9999-999999999999',
+              to_account_public_id: '11111111-1111-1111-1111-111111111111',
+              from_account_name: 'HDFC Bank',
+              to_account_name: 'Groww',
+              from_account_type: 'bank',
+              to_account_type: 'brokerage',
+              from_currency_code: 'INR',
+              to_currency_code: 'INR',
+              gross_amount: '50000.00',
+              fx_rate_used: null,
+              fx_fee_amount: '0.00',
+              platform_fee_amount: '0.00',
+              tax_amount: '0.00',
+              net_amount_received: '50000.00',
+              occurred_at: '2026-06-01T00:00:00Z',
+              notes: null,
+              created_at: '2026-06-01T00:00:00Z',
+              updated_at: '2026-06-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+    );
+
+    renderWithQuery(<InvestingPage />);
+
+    await screen.findByText('Investing');
+    const cashTab = screen.getByTestId('investing-tab-cash');
+    cashTab.focus();
+    fireEvent.keyDown(cashTab, { key: 'Enter', code: 'Enter' });
+
+    const transferRow = await screen.findByTestId('investing-transfer-row-transfer-1');
+    expect(transferRow).toHaveTextContent('HDFC Bank');
+    expect(transferRow).toHaveTextContent('Groww');
+    expect(screen.getByTestId('investing-transfers-manage-link')).toHaveAttribute('href', '/spending');
   });
 });
