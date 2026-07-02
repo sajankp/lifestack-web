@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format, isAfter, isBefore, parseISO, startOfDay } from 'date-fns';
 import { CalendarDays } from 'lucide-react';
 
 import { Button } from './ui/button';
@@ -16,6 +16,10 @@ type DatePickerProps = {
   disabled?: boolean;
   className?: string;
   testId?: string;
+  /** Earliest selectable date (yyyy-MM-dd). Also bounds the year dropdown. */
+  minDate?: string;
+  /** Latest selectable date (yyyy-MM-dd). Also bounds the year dropdown. */
+  maxDate?: string;
 };
 
 const parseValue = (value: string | null | undefined) => {
@@ -32,10 +36,31 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   disabled = false,
   className,
   testId,
+  minDate,
+  maxDate,
 }) => {
   const [open, setOpen] = useState(false);
   const selectedDate = useMemo(() => parseValue(value), [value]);
+  const min = useMemo(() => parseValue(minDate), [minDate]);
+  const max = useMemo(() => parseValue(maxDate), [maxDate]);
   const label = selectedDate ? formatDate(selectedDate, { utc: false }) : placeholder;
+
+  // Bound the year dropdown to a sensible window (or the caller's min/max).
+  const today = useMemo(() => new Date(), []);
+  const startMonth = min ?? new Date(today.getFullYear() - 100, 0, 1);
+  const endMonth = max ?? new Date(today.getFullYear() + 5, 11, 31);
+  const disabledMatcher = useMemo(
+    () => (min || max ? { before: min, after: max } : undefined),
+    [min, max],
+  );
+  const todayInRange =
+    (!min || !isBefore(startOfDay(today), startOfDay(min))) &&
+    (!max || !isAfter(startOfDay(today), startOfDay(max)));
+
+  const commit = (date: Date) => {
+    onChange(format(date, 'yyyy-MM-dd'));
+    setOpen(false);
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -59,16 +84,35 @@ export const DatePicker: React.FC<DatePickerProps> = ({
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="single"
+          captionLayout="dropdown"
+          startMonth={startMonth}
+          endMonth={endMonth}
+          defaultMonth={selectedDate ?? (todayInRange ? today : startMonth)}
           selected={selectedDate}
+          disabled={disabledMatcher}
           onSelect={(date) => {
             if (!date) {
-              if (!required) onChange('');
+              if (!required) {
+                onChange('');
+                setOpen(false);
+              }
               return;
             }
-            onChange(format(date, 'yyyy-MM-dd'));
-            setOpen(false);
+            commit(date);
           }}
         />
+        {todayInRange ? (
+          <div className="border-t border-slate-800 p-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-8 w-full text-sm font-normal text-slate-300 hover:bg-slate-800 hover:text-white"
+              onClick={() => commit(today)}
+            >
+              Today
+            </Button>
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );

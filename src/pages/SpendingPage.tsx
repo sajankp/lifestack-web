@@ -49,6 +49,7 @@ import {
 import { Pagination } from '../components/Pagination';
 import { DropdownSelect } from '../components/DropdownSelect';
 import { DatePicker } from '../components/DatePicker';
+import { DateRangePicker } from '../components/DateRangePicker';
 import { CompactFilterBar, CompactFilterField } from '../components/filters/CompactFilterBar';
 import { AccountTypeBadge, CurrencyBadge } from '../components/finance/Badges';
 import { PageHero } from '../components/layout/PageHero';
@@ -989,28 +990,17 @@ export const SpendingPage: React.FC = () => {
           setBudgetOffset(0);
         }}
       >
-        <CompactFilterField label="From">
-          <DatePicker
-            value={fromDate}
-            onChange={(val) => {
-              setFromDate(val);
+        <CompactFilterField label="Date range">
+          <DateRangePicker
+            from={fromDate}
+            to={toDate}
+            onChange={({ from, to }) => {
+              setFromDate(from);
+              setToDate(to);
               setTxOffset(0);
               setBudgetOffset(0);
             }}
-            placeholder="From date"
-            required
-          />
-        </CompactFilterField>
-        <CompactFilterField label="To">
-          <DatePicker
-            value={toDate}
-            onChange={(val) => {
-              setToDate(val);
-              setTxOffset(0);
-              setBudgetOffset(0);
-            }}
-            placeholder="To date"
-            required
+            placeholder="Select date range"
           />
         </CompactFilterField>
         <CompactFilterField label="Category">
@@ -2409,7 +2399,7 @@ export const SpendingPage: React.FC = () => {
               </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1 block">Date</Label>
-                <Input type="date" value={editTransferDate} onChange={(e) => setEditTransferDate(e.target.value)} className="bg-slate-800 border-slate-700 text-white" required />
+                <DatePicker value={editTransferDate} onChange={setEditTransferDate} required />
               </div>
               <div>
                 <Label className="text-slate-300 text-xs mb-1 block">Notes</Label>
