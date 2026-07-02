@@ -1232,6 +1232,162 @@ describe('InvestingPage', () => {
     expect(await screen.findByText('Edit Order — GMMPFAUDLR')).toBeInTheDocument();
   });
 
+  it('blocks Edit Order submission and shows an inline error for invalid numeric fees, and for an unparsable trade date', async () => {
+    let updateCalled = false;
+    server.use(
+      http.get('*/v1/investing/holdings', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'holding-1',
+              symbol: 'AAPL',
+              account_id: '11111111-1111-1111-1111-111111111111',
+              account_name: 'Groww',
+              quantity: '2.00000000',
+              avg_cost: '100.00',
+              currency: 'USD',
+              current_price: '100.00',
+              current_value: '200.00',
+              gain_loss: '0.00',
+              gain_loss_pct: '0.00',
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/investing/cash-balances', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '11111111-1111-1111-1111-111111111111',
+              name: 'Groww',
+              account_type: 'brokerage',
+              default_currency_code: 'USD',
+              is_active: true,
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/currencies', () =>
+        HttpResponse.json([
+          { code: 'USD', name: 'US Dollar', symbol: '$', minor_unit: 2, is_active: true },
+        ]),
+      ),
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          reporting_currency_override_code: null,
+          currency_display_preference_override: null,
+          workspace_reporting_currency_code: 'USD',
+          workspace_currency_display_preference: 'symbol',
+          effective_reporting_currency_code: 'USD',
+          effective_currency_display_preference: 'symbol',
+          updated_at: '2026-05-24T00:00:00Z',
+        }),
+      ),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: '200.00',
+          holdings_count: 1,
+          cash_total: null,
+          currency_breakdown: { USD: '200.00' },
+          daily_change: null,
+          reporting_currency: 'USD',
+          valuation_status: 'single_currency_native',
+        }),
+      ),
+      http.get('*/v1/investing/performance/summary', () =>
+        HttpResponse.json({
+          total_value: '200',
+          total_cost: '200',
+          total_gain_loss: '0',
+          total_gain_loss_pct: '0',
+          snapshot_date: '2026-05-24',
+          currency: 'USD',
+        }),
+      ),
+      http.get('*/v1/investing/instruments', () => HttpResponse.json([])),
+      http.get('*/v1/investing/orders', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 }),
+      ),
+      http.get('*/v1/investing/orders/by-holding/AAPL', () =>
+        HttpResponse.json([
+          {
+            public_id: 'order-1',
+            account_id: '11111111-1111-1111-1111-111111111111',
+            account_name: 'Groww',
+            order_type: 'buy',
+            symbol: 'AAPL',
+            instrument_type: null,
+            quantity: '2.00000000',
+            price_per_unit: '100.000000',
+            gross_amount: '200.00',
+            brokerage_fee: '0.00',
+            tax_amount: '0.00',
+            other_fees: '0.00',
+            net_amount: '200.00',
+            currency: 'USD',
+            exchange_name: null,
+            occurred_at: '2026-05-24T00:00:00Z',
+            notes: null,
+            realized_gain_loss: null,
+            avg_cost_at_sale: null,
+            source_type: 'manual',
+            created_at: '2026-06-30T04:12:12.028065Z',
+          },
+        ]),
+      ),
+      http.patch('*/v1/investing/orders/order-1', () => {
+        updateCalled = true;
+        return HttpResponse.json({});
+      }),
+    );
+
+    renderWithQuery(<InvestingPage />);
+
+    await screen.findByTestId('investing-holding-row-holding-1');
+    fireEvent.click(screen.getByTestId('investing-holding-trade-history-holding-1'));
+
+    await screen.findByTestId('investing-trade-history-row-order-1');
+    fireEvent.click(screen.getByTestId('investing-trade-history-edit-order-1'));
+
+    const modalHeading = await screen.findByText('Edit Order — AAPL');
+    const modal = modalHeading.closest('div.relative') as HTMLElement;
+    expect(modal).not.toBeNull();
+    const form = modal.querySelector('form') as HTMLFormElement;
+    expect(form).not.toBeNull();
+
+    // Invalid brokerage fee should block submission with an inline error.
+    const brokerageFeeLabel = within(modal).getByText('Brokerage fee');
+    const brokerageFeeInput = brokerageFeeLabel.nextElementSibling as HTMLInputElement;
+    fireEvent.change(brokerageFeeInput, { target: { value: '-5' } });
+    fireEvent.submit(form);
+
+    expect(await screen.findByText('Brokerage fee must be a non-negative number.')).toBeInTheDocument();
+    expect(updateCalled).toBe(false);
+
+    // Fix the fee, but break the trade date instead -- still should not submit.
+    fireEvent.change(brokerageFeeInput, { target: { value: '0' } });
+    const dateLabel = within(modal).getByText('Trade date & time');
+    const dateInput = dateLabel.nextElementSibling as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: '' } });
+    fireEvent.submit(form);
+
+    expect(await screen.findByText('Trade date & time is invalid.')).toBeInTheDocument();
+    expect(updateCalled).toBe(false);
+  });
+
   it('requires confirmation before deleting a holding, and does not call delete until confirmed', async () => {
     let deleteCalled = false;
 

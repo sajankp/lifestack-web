@@ -64,5 +64,6 @@ export const formatDateTime = (
   if (value == null || value === '') return fallback;
   const date = toDate(value);
   if (Number.isNaN(date.getTime())) return fallback;
-  return format(date, `${DATE_FORMAT} HH:mm`);
+  const target = options?.utc === false ? date : toUtcCalendarDate(date);
+  return format(target, `${DATE_FORMAT} HH:mm`);
 };

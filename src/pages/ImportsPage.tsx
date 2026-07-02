@@ -50,7 +50,14 @@ export const ImportsPage: React.FC = () => {
     refetchInterval: (query) => {
       const items = query.state.data?.items ?? [];
       const hasPending = items.some((item) => {
-        if (item.status !== 'uploaded' && item.status !== 'committing') {
+        // A batch actively committing should keep being polled regardless of
+        // how long the user spent reviewing validation results beforehand --
+        // only `uploaded` (awaiting/mid validation) is subject to the
+        // stale/abandoned-import timeout below.
+        if (item.status === 'committing') {
+          return true;
+        }
+        if (item.status !== 'uploaded') {
           return false;
         }
         // Avoid polling indefinitely for stale/abandoned imports (older than 2 minutes)

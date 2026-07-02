@@ -97,21 +97,21 @@ export const NetWorthPage: React.FC = () => {
       value: data?.spending_total ?? null,
       currency: rc,
       icon: <Wallet className="h-4 w-4" />,
-      unavailable: data?.spending_total == null,
+      unavailable: data?.spending_total == null || !rc,
     },
     {
       label: 'Investing Cash',
       value: data?.investing_cash_total ?? null,
       currency: rc,
       icon: <Landmark className="h-4 w-4" />,
-      unavailable: data?.investing_cash_total == null,
+      unavailable: data?.investing_cash_total == null || !rc,
     },
     {
       label: 'Portfolio Holdings',
       value: data?.holdings_value ?? null,
       currency: rc,
       icon: <TrendingUp className="h-4 w-4" />,
-      unavailable: data?.holdings_value == null,
+      unavailable: data?.holdings_value == null || !rc,
     },
     {
       label: 'Total Net Worth',
@@ -119,7 +119,7 @@ export const NetWorthPage: React.FC = () => {
       currency: rc,
       icon: <PieChart className="h-4 w-4" />,
       highlight: true,
-      unavailable: data?.total_net_worth == null,
+      unavailable: data?.total_net_worth == null || !rc,
     },
   ];
 
@@ -210,7 +210,7 @@ export const NetWorthPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-5 py-3 text-right text-slate-200">
-                        {data?.investing_cash_total != null
+                        {data?.investing_cash_total != null && rc
                           ? formatCurrency(data.investing_cash_total, rc)
                           : '—'}
                       </td>
@@ -223,12 +223,12 @@ export const NetWorthPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-5 py-3 text-right text-slate-200">
-                        {data?.holdings_value != null
+                        {data?.holdings_value != null && rc
                           ? formatCurrency(data.holdings_value, rc)
                           : '—'}
                       </td>
                     </tr>
-                    {data?.investing_total != null && (
+                    {data?.investing_total != null && rc && (
                       <tr className="border-t border-slate-700">
                         <td className="px-5 py-3 font-semibold text-slate-300">Investing total</td>
                         <td className="px-5 py-3 text-right font-semibold text-slate-200">
@@ -287,7 +287,7 @@ export const NetWorthPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-5 py-3 text-right">
-                          {account.balance_in_reporting_currency != null ? (
+                          {account.balance_in_reporting_currency != null && rc ? (
                             <span className="font-medium text-slate-200">
                               {formatCurrency(account.balance_in_reporting_currency, rc)}
                             </span>
@@ -297,7 +297,7 @@ export const NetWorthPage: React.FC = () => {
                         </td>
                       </tr>
                     ))}
-                    {data?.investing_cash_total != null && (
+                    {data?.investing_cash_total != null && rc && (
                       <tr className="border-t border-slate-700">
                         <td className="px-5 py-3 font-semibold text-slate-300" colSpan={2}>
                           Investing cash total
@@ -357,7 +357,7 @@ export const NetWorthPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-5 py-3 text-right">
-                          {account.balance_in_reporting_currency != null ? (
+                          {account.balance_in_reporting_currency != null && rc ? (
                             <span className="font-medium text-slate-200">
                               {formatCurrency(account.balance_in_reporting_currency, rc)}
                             </span>
@@ -367,7 +367,7 @@ export const NetWorthPage: React.FC = () => {
                         </td>
                       </tr>
                     ))}
-                    {data?.spending_total != null && (
+                    {data?.spending_total != null && rc && (
                       <tr className="border-t border-slate-700">
                         <td className="px-5 py-3 font-semibold text-slate-300" colSpan={2}>
                           Spending total
@@ -401,8 +401,14 @@ export const NetWorthPage: React.FC = () => {
                 </div>
               </div>
               <p className="text-3xl font-bold text-cyan-300">
-                {formatCurrency(data.total_net_worth, rc)}
-                {rc && <span className="ml-2 text-lg font-semibold text-cyan-500">{rc}</span>}
+                {rc ? (
+                  <>
+                    {formatCurrency(data.total_net_worth, rc)}
+                    <span className="ml-2 text-lg font-semibold text-cyan-500">{rc}</span>
+                  </>
+                ) : (
+                  '—'
+                )}
               </p>
             </div>
           )}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 
@@ -437,5 +437,121 @@ describe('SpendingPage', () => {
 
     expect(await screen.findByText('Monthly top-up')).toBeInTheDocument();
     expect(await screen.findByText('My Bank')).toBeInTheDocument();
+  });
+
+  it('blocks saving an edited transfer with an invalid FX fee', async () => {
+    const transfer = {
+      public_id: 'tfr-002',
+      from_account_id: 'acc-wallet-id',
+      from_account_public_id: 'acc-wallet-id',
+      from_account_name: 'My Wallet',
+      from_account_type: 'wallet',
+      from_module: 'spending',
+      to_account_id: 'acc-bank-id',
+      to_account_public_id: 'acc-bank-id',
+      to_account_name: 'My Bank',
+      to_account_type: 'bank',
+      to_module: 'spending',
+      from_currency_code: 'USD',
+      to_currency_code: 'USD',
+      gross_amount: '200.00',
+      net_amount_received: '200.00',
+      fx_rate_used: null,
+      fx_fee_amount: '0.00',
+      platform_fee_amount: '0.00',
+      tax_amount: '0.00',
+      occurred_at: '2026-06-20T00:00:00Z',
+      notes: 'Monthly top-up',
+      created_at: '2026-06-20T00:00:00Z',
+      updated_at: '2026-06-20T00:00:00Z',
+    };
+    server.use(
+      http.get('*/v1/finance/transfers', () =>
+        HttpResponse.json({ items: [transfer], total: 1, limit: 50, offset: 0 }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            ACCOUNT,
+            {
+              public_id: 'acc-bank-id',
+              name: 'My Bank',
+              account_type: 'bank' as const,
+              default_currency_code: 'USD',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 2,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      ...baseHandlers,
+    );
+
+    renderWithQuery(<SpendingPage />);
+    await screen.findByText('Spending Overview');
+    fireEvent.click(screen.getByTestId('spending-tab-transfers'));
+    await screen.findByText('Monthly top-up');
+
+    fireEvent.click(screen.getByTitle('Edit transfer'));
+    const modalHeading = await screen.findByText('Edit Transfer');
+    const modal = modalHeading.closest('div.relative') as HTMLElement;
+    expect(modal).not.toBeNull();
+    const form = modal.querySelector('form') as HTMLFormElement;
+    expect(form).not.toBeNull();
+
+    const fxFeeLabel = within(modal).getByText('FX Fee');
+    const fxFeeInput = fxFeeLabel.parentElement?.querySelector('input') as HTMLInputElement;
+    fireEvent.change(fxFeeInput, { target: { value: '-1' } });
+    fireEvent.submit(form);
+
+    expect(await screen.findByText('FX fee must be a valid non-negative number')).toBeInTheDocument();
+  });
+
+  it('disables Save Changes on the edit-transfer form when source and destination accounts are the same', async () => {
+    const transfer = {
+      public_id: 'tfr-003',
+      from_account_id: 'acc-wallet-id',
+      from_account_public_id: 'acc-wallet-id',
+      from_account_name: 'My Wallet',
+      from_account_type: 'wallet',
+      from_module: 'spending',
+      to_account_id: 'acc-wallet-id',
+      to_account_public_id: 'acc-wallet-id',
+      to_account_name: 'My Wallet',
+      to_account_type: 'wallet',
+      to_module: 'spending',
+      from_currency_code: 'USD',
+      to_currency_code: 'USD',
+      gross_amount: '200.00',
+      net_amount_received: '200.00',
+      fx_rate_used: null,
+      fx_fee_amount: '0.00',
+      platform_fee_amount: '0.00',
+      tax_amount: '0.00',
+      occurred_at: '2026-06-20T00:00:00Z',
+      notes: 'Self transfer edge case',
+      created_at: '2026-06-20T00:00:00Z',
+      updated_at: '2026-06-20T00:00:00Z',
+    };
+    server.use(
+      http.get('*/v1/finance/transfers', () =>
+        HttpResponse.json({ items: [transfer], total: 1, limit: 50, offset: 0 }),
+      ),
+      ...baseHandlers,
+    );
+
+    renderWithQuery(<SpendingPage />);
+    await screen.findByText('Spending Overview');
+    fireEvent.click(screen.getByTestId('spending-tab-transfers'));
+    await screen.findByText('Self transfer edge case');
+
+    fireEvent.click(screen.getByTitle('Edit transfer'));
+    await screen.findByText('Edit Transfer');
+
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
   });
 });

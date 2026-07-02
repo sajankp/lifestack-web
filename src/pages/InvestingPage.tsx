@@ -422,6 +422,7 @@ export const InvestingPage: React.FC = () => {
 
   const [isEditOrderModalOpen, setIsEditOrderModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<InvestingOrder | null>(null);
+  const [editOrderFormError, setEditOrderFormError] = useState('');
   const [editOrderForm, setEditOrderForm] = useState<{
     order_type: OrderType;
     quantity: string;
@@ -456,6 +457,8 @@ export const InvestingPage: React.FC = () => {
 
   const handleStartEditOrder = (order: InvestingOrder) => {
     setSelectedOrder(order);
+    const parsedDate = new Date(order.occurred_at);
+    const isValidDate = !Number.isNaN(parsedDate.getTime());
     setEditOrderForm({
       order_type: order.order_type as OrderType,
       quantity: toNumber(order.quantity).toString(),
@@ -464,22 +467,47 @@ export const InvestingPage: React.FC = () => {
       tax_amount: toNumber(order.tax_amount).toString(),
       other_fees: toNumber(order.other_fees).toString(),
       exchange_name: order.exchange_name ?? '',
-      occurred_at: formatDateTimeLocalInput(new Date(order.occurred_at)),
+      occurred_at: isValidDate ? formatDateTimeLocalInput(parsedDate) : '',
       notes: order.notes ?? '',
     });
+    setEditOrderFormError('');
     setIsEditOrderModalOpen(true);
   };
 
   const onUpdateOrder = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOrder) return;
+    setEditOrderFormError('');
     const qty = Number(editOrderForm.quantity);
     const price = Number(editOrderForm.price_per_unit);
     const brokerageFee = editOrderForm.brokerage_fee ? Number(editOrderForm.brokerage_fee) : 0;
     const taxAmount = editOrderForm.tax_amount ? Number(editOrderForm.tax_amount) : 0;
     const otherFees = editOrderForm.other_fees ? Number(editOrderForm.other_fees) : 0;
     const occurredAt = new Date(editOrderForm.occurred_at);
-    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(price) || price <= 0 || Number.isNaN(occurredAt.getTime())) return;
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setEditOrderFormError('Quantity must be a positive number.');
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      setEditOrderFormError('Price per unit must be a positive number.');
+      return;
+    }
+    if (!Number.isFinite(brokerageFee) || brokerageFee < 0) {
+      setEditOrderFormError('Brokerage fee must be a non-negative number.');
+      return;
+    }
+    if (!Number.isFinite(taxAmount) || taxAmount < 0) {
+      setEditOrderFormError('Tax / STT must be a non-negative number.');
+      return;
+    }
+    if (!Number.isFinite(otherFees) || otherFees < 0) {
+      setEditOrderFormError('Other fees must be a non-negative number.');
+      return;
+    }
+    if (Number.isNaN(occurredAt.getTime())) {
+      setEditOrderFormError('Trade date & time is invalid.');
+      return;
+    }
     updateOrderMutation.mutate({
       publicId: selectedOrder.public_id,
       payload: {
@@ -1391,8 +1419,9 @@ export const InvestingPage: React.FC = () => {
                                     <button
                                       type="button"
                                       data-testid={`investing-trade-history-edit-${o.public_id}`}
+                                      disabled={deleteOrderMutation.isPending || updateOrderMutation.isPending}
                                       onClick={() => handleStartEditOrder(o)}
-                                      className="rounded-lg border border-slate-600/70 p-2 text-slate-200 hover:bg-slate-700/60"
+                                      className="rounded-lg border border-slate-600/70 p-2 text-slate-200 hover:bg-slate-700/60 disabled:cursor-not-allowed disabled:opacity-60"
                                       title="Edit order"
                                     >
                                       <Edit2 className="h-4 w-4" />
@@ -1400,7 +1429,7 @@ export const InvestingPage: React.FC = () => {
                                     <button
                                       type="button"
                                       data-testid={`investing-trade-history-delete-${o.public_id}`}
-                                      disabled={deleteOrderMutation.isPending}
+                                      disabled={deleteOrderMutation.isPending || updateOrderMutation.isPending}
                                       onClick={() => setPendingDeleteOrder(o)}
                                       className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
                                       title="Delete order"
@@ -1651,15 +1680,16 @@ export const InvestingPage: React.FC = () => {
                             <div className="flex justify-end gap-2">
                               <button
                                 type="button"
+                                disabled={deleteOrderMutation.isPending || updateOrderMutation.isPending}
                                 onClick={() => handleStartEditOrder(o)}
-                                className="rounded-lg border border-slate-600/70 p-2 text-slate-200 hover:bg-slate-700/60"
+                                className="rounded-lg border border-slate-600/70 p-2 text-slate-200 hover:bg-slate-700/60 disabled:cursor-not-allowed disabled:opacity-60"
                                 title="Edit order"
                               >
                                 <Edit2 className="h-4 w-4" />
                               </button>
                               <button
                                 type="button"
-                                disabled={deleteOrderMutation.isPending}
+                                disabled={deleteOrderMutation.isPending || updateOrderMutation.isPending}
                                 onClick={() => setPendingDeleteOrder(o)}
                                 className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
                                 title="Delete order"
@@ -2712,6 +2742,7 @@ export const InvestingPage: React.FC = () => {
             onClick={() => {
               setIsEditOrderModalOpen(false);
               setSelectedOrder(null);
+              setEditOrderFormError('');
             }}
           />
           <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/60 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
@@ -2719,7 +2750,7 @@ export const InvestingPage: React.FC = () => {
               <h2 className="text-lg font-semibold text-white">Edit Order — {selectedOrder.symbol}</h2>
               <button
                 type="button"
-                onClick={() => { setIsEditOrderModalOpen(false); setSelectedOrder(null); }}
+                onClick={() => { setIsEditOrderModalOpen(false); setSelectedOrder(null); setEditOrderFormError(''); }}
                 className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
                 title="Close dialog"
               >
@@ -2833,10 +2864,12 @@ export const InvestingPage: React.FC = () => {
                 </div>
               </div>
 
+              {editOrderFormError ? <p className="text-xs text-rose-300">{editOrderFormError}</p> : null}
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => { setIsEditOrderModalOpen(false); setSelectedOrder(null); }}
+                  onClick={() => { setIsEditOrderModalOpen(false); setSelectedOrder(null); setEditOrderFormError(''); }}
                   className="flex-1 rounded-lg border border-slate-600/70 py-2 text-sm text-slate-300 hover:bg-slate-800"
                 >
                   Cancel

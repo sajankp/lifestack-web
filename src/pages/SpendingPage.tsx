@@ -580,17 +580,38 @@ export const SpendingPage: React.FC = () => {
   const updateTransferMutation = useMutation({
     mutationFn: () => {
       if (!editingTransfer) throw new Error('No transfer selected');
+      if (!editTransferFromId || !editTransferToId) {
+        throw new Error('Both From and To accounts must be selected');
+      }
+      if (editTransferFromId === editTransferToId) {
+        throw new Error('Source and destination accounts cannot be the same');
+      }
       const gross = Number(editTransferGross);
-      if (Number.isNaN(gross) || gross <= 0) throw new Error('Gross amount must be a positive number');
+      if (Number.isNaN(gross) || !Number.isFinite(gross) || gross <= 0) {
+        throw new Error('Gross amount must be a valid positive number');
+      }
       const net = Number(editTransferNet);
-      if (Number.isNaN(net) || net < 0) throw new Error('Net amount must be a non-negative number');
+      if (Number.isNaN(net) || !Number.isFinite(net) || net < 0) {
+        throw new Error('Net received must be a valid non-negative number');
+      }
       const fxFee = editTransferFxFee ? Number(editTransferFxFee) : 0;
       const platformFee = editTransferPlatformFee ? Number(editTransferPlatformFee) : 0;
       const tax = editTransferTax ? Number(editTransferTax) : 0;
+      if (Number.isNaN(fxFee) || !Number.isFinite(fxFee) || fxFee < 0) {
+        throw new Error('FX fee must be a valid non-negative number');
+      }
+      if (Number.isNaN(platformFee) || !Number.isFinite(platformFee) || platformFee < 0) {
+        throw new Error('Platform fee must be a valid non-negative number');
+      }
+      if (Number.isNaN(tax) || !Number.isFinite(tax) || tax < 0) {
+        throw new Error('Tax must be a valid non-negative number');
+      }
       let parsedFxRate: string | null = null;
       if (editTransferFxRate) {
         const rate = Number(editTransferFxRate);
-        if (Number.isNaN(rate) || rate <= 0) throw new Error('FX rate must be a positive number');
+        if (Number.isNaN(rate) || !Number.isFinite(rate) || rate <= 0) {
+          throw new Error('FX rate must be a valid positive number');
+        }
         parsedFxRate = rate.toFixed(10);
       }
       const parsedDate = new Date(editTransferDate);
@@ -687,7 +708,7 @@ export const SpendingPage: React.FC = () => {
     mutationFn: (data: { name: string; icon?: string }) =>
       spendingService.createCategory({ name: data.name, icon: data.icon || null }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['spending', 'categories'] });
+      void queryClient.invalidateQueries({ queryKey: ['categories'] });
       setNewCategoryName('');
       setNewCategoryIcon('');
       setIsManageCategoriesOpen(false);
@@ -2321,6 +2342,10 @@ export const SpendingPage: React.FC = () => {
                   setEditTransferError('Both From and To accounts must be selected.');
                   return;
                 }
+                if (editTransferFromId === editTransferToId) {
+                  setEditTransferError('Source and destination accounts cannot be the same.');
+                  return;
+                }
                 if (updateTransferMutation.isPending) return;
                 setEditTransferError(null);
                 updateTransferMutation.mutate();
@@ -2395,7 +2420,12 @@ export const SpendingPage: React.FC = () => {
                 <Button
                   type="submit"
                   className="flex-1"
-                  disabled={updateTransferMutation.isPending || !editTransferFromId || !editTransferToId}
+                  disabled={
+                    updateTransferMutation.isPending ||
+                    !editTransferFromId ||
+                    !editTransferToId ||
+                    editTransferFromId === editTransferToId
+                  }
                 >
                   {updateTransferMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </Button>
