@@ -13,7 +13,7 @@ import { SkeletonList } from '../components/ui/FeedbackStates';
 import { todoService } from '../services/todo';
 import type { RecurringTodoCreate, RecurringTodoRule, Todo, TodoCreate } from '../services/todo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { formatDate } from '../utils/dateFormat';
+import { formatDate, formatDateTime } from '../utils/dateFormat';
 
 type TodoPriority = 'low' | 'medium' | 'high';
 type TodoFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -88,10 +88,7 @@ const formatDueDateTime = (value: string | null | undefined): string | null => {
   if (isUtcMidnight(value)) {
     return formatDate(value);
   }
-  return new Date(value).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
+  return formatDateTime(value, { utc: false });
 };
 
 const formatUtcDate = (value: string | null | undefined): string | null => {

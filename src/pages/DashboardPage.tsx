@@ -7,7 +7,7 @@ import { RefreshCw, AlertCircle, Clock3, CircleAlert, PiggyBank, Wallet, Briefca
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
-import { formatDate } from '../utils/dateFormat';
+import { formatDate, formatDateTime } from '../utils/dateFormat';
 
 export const DashboardPage: React.FC = () => {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -26,15 +26,9 @@ export const DashboardPage: React.FC = () => {
   const currencyDisplayPreference =
     userFinanceSettings?.effective_currency_display_preference ?? 'symbol';
 
-  const generatedAt = (() => {
-    if (!data?.system.generated_at) return null;
-    const generatedAtDate = new Date(data.system.generated_at);
-    if (Number.isNaN(generatedAtDate.getTime())) return null;
-    return generatedAtDate.toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
-  })();
+  const generatedAt = data?.system.generated_at
+    ? formatDateTime(data.system.generated_at, { utc: false, fallback: '' }) || null
+    : null;
   const latestWeeklyStartLabel = formatDate(
     latestSummary?.week_start ? `${latestSummary.week_start}T00:00:00Z` : null,
     { fallback: 'N/A' },

@@ -7,7 +7,7 @@ import { PageShell } from '../components/layout/PageShell';
 import { Pagination } from '../components/Pagination';
 import { SkeletonList, EmptyState, ErrorBanner } from '../components/ui/FeedbackStates';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
-import { formatDate } from '../utils/dateFormat';
+import { formatDate, formatDateTime } from '../utils/dateFormat';
 import type { WeeklySummary } from '../services/summaries';
 
 export const WeeklySummariesPage: React.FC = () => {
@@ -46,10 +46,7 @@ export const WeeklySummariesPage: React.FC = () => {
                       Week of {formatDate(`${item.week_start}T00:00:00Z`, { fallback: 'N/A' })}
                     </h2>
                     <p className="mt-1 text-xs text-slate-500">
-                      Generated{' '}
-                      {!Number.isNaN(new Date(item.generated_at).getTime())
-                        ? new Date(item.generated_at).toLocaleString(undefined, { timeZone: 'UTC' })
-                        : 'N/A'}
+                      Generated {formatDateTime(item.generated_at, { fallback: 'N/A' })}
                     </p>
                   </div>
                 </div>
