@@ -202,6 +202,7 @@ The UI goal is not just "good CRUD." It is to help users notice what matters, de
   - `npm test -- --run`
 - Coverage:
   - `npm run test:coverage`
+  - Playwright/E2E specs do not contribute to this Vitest coverage number — CI coverage gates are measured from unit/integration tests only.
 - Browser E2E:
   - `npm run test:e2e`
 - Key page-level tests:
@@ -229,7 +230,7 @@ npm install
 npm run dev
 ```
 
-The frontend expects the backend API to be available separately.
+The frontend expects the backend API to be available separately. It reads the API base URL from `VITE_API_URL` (see `.env`, defaults to `http://localhost:8000/v1`) — update this if your `lifestack-api` instance runs elsewhere.
 
 ---
 
