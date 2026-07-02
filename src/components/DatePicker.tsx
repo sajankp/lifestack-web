@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { format, isAfter, isBefore, parseISO, startOfDay } from 'date-fns';
 import { CalendarDays } from 'lucide-react';
+import type { Matcher } from 'react-day-picker';
 
 import { Button } from './ui/button';
 import { Calendar } from './ui/calendar';
@@ -50,10 +51,12 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const today = new Date();
   const startMonth = min ?? new Date(today.getFullYear() - 100, 0, 1);
   const endMonth = max ?? new Date(today.getFullYear() + 5, 11, 31);
-  const disabledMatcher = useMemo(
-    () => (min || max ? { before: min, after: max } : undefined),
-    [min, max],
-  );
+  const disabledMatcher = useMemo<Matcher[]>(() => {
+    const matchers: Matcher[] = [];
+    if (min) matchers.push({ before: min });
+    if (max) matchers.push({ after: max });
+    return matchers;
+  }, [min, max]);
   const todayInRange =
     (!min || !isBefore(startOfDay(today), startOfDay(min))) &&
     (!max || !isAfter(startOfDay(today), startOfDay(max)));
