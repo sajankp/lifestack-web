@@ -46,7 +46,8 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     fromDate ? { from: fromDate, to: toDate } : undefined,
   );
 
-  const today = useMemo(() => new Date(), []);
+  // Computed each render so the default month always reflects the current date.
+  const today = new Date();
   const startMonth = new Date(today.getFullYear() - 100, 0, 1);
   const endMonth = new Date(today.getFullYear() + 5, 11, 31);
 

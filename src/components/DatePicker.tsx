@@ -46,7 +46,8 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const label = selectedDate ? formatDate(selectedDate, { utc: false }) : placeholder;
 
   // Bound the year dropdown to a sensible window (or the caller's min/max).
-  const today = useMemo(() => new Date(), []);
+  // Computed each render so "Today" never goes stale across midnight.
+  const today = new Date();
   const startMonth = min ?? new Date(today.getFullYear() - 100, 0, 1);
   const endMonth = max ?? new Date(today.getFullYear() + 5, 11, 31);
   const disabledMatcher = useMemo(
