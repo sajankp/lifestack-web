@@ -12,9 +12,10 @@ import {
 } from '../../components/ui/dialog';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
+import { describeRecurrence } from '../../utils/recurrenceLabel';
 import type { PaginatedResponse } from '../../types/common';
-import type { RecurringFrequency, RecurringTransaction } from '../../types/spending';
-import { FREQUENCY_LABELS, formatDueDate } from './format';
+import type { RecurringTransaction } from '../../types/spending';
+import { formatDueDate } from './format';
 
 interface RecurringTabProps {
   recurringItems: RecurringTransaction[];
@@ -113,7 +114,7 @@ export const RecurringTab: React.FC<RecurringTabProps> = ({
                 <div className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-1.5 text-slate-400">
                     <RefreshCw className="h-3.5 w-3.5" />
-                    {FREQUENCY_LABELS[r.frequency as RecurringFrequency] ?? r.frequency} · Every {r.interval}
+                    {describeRecurrence(r)}
                   </span>
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${dueInfo.color}`}>
                     {dueInfo.label}

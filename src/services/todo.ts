@@ -24,6 +24,8 @@ export interface TodoCreate {
 
 export type TodoUpdate = Partial<TodoCreate>;
 
+export type MonthlyMode = 'day_of_month' | 'last_day' | 'nth_weekday';
+
 export const RecurringTodoRuleSchema = z.object({
   public_id: z.string().default(''),
   title: z.string().default(''),
@@ -38,6 +40,9 @@ export const RecurringTodoRuleSchema = z.object({
   end_date: z.string().nullable().default(null),
   is_active: z.boolean().default(true),
   last_generated_at: z.string().nullable().default(null),
+  monthly_mode: z.enum(['day_of_month', 'last_day', 'nth_weekday']).default('day_of_month'),
+  by_weekday: z.number().nullable().default(null),
+  by_ordinal: z.number().nullable().default(null),
   created_at: z.string().default(''),
   updated_at: z.string().default(''),
 });
@@ -54,6 +59,9 @@ export interface RecurringTodoCreate {
   due_time?: string | null;
   timezone?: string;
   end_date?: string | null;
+  monthly_mode?: MonthlyMode;
+  by_weekday?: number | null;
+  by_ordinal?: number | null;
 }
 
 export type RecurringTodoUpdate = Partial<Omit<RecurringTodoCreate, 'anchor_date'>> & {

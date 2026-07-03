@@ -190,6 +190,8 @@ export interface SavingsRateResponse {
   period_totals: SavingsRateTotals;
 }
 
+export type MonthlyMode = 'day_of_month' | 'last_day' | 'nth_weekday';
+
 export interface RecurringTransaction {
   public_id: string;
   category_id: string;
@@ -203,6 +205,9 @@ export interface RecurringTransaction {
   end_date: string | null;
   is_active: boolean;
   last_generated_at: string | null;
+  monthly_mode: MonthlyMode;
+  by_weekday: number | null;
+  by_ordinal: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -218,6 +223,9 @@ export interface RecurringTransactionCreate {
   interval: number;
   anchor_date: string; // ISO date yyyy-mm-dd
   end_date?: string | null;
+  monthly_mode?: MonthlyMode;
+  by_weekday?: number | null;
+  by_ordinal?: number | null;
 }
 
 export interface RecurringTransactionUpdate {
@@ -227,6 +235,9 @@ export interface RecurringTransactionUpdate {
   interval?: number | null;
   end_date?: string | null;
   is_active?: boolean | null;
+  monthly_mode?: MonthlyMode | null;
+  by_weekday?: number | null;
+  by_ordinal?: number | null;
 }
 
 export interface UpcomingTransactionItem {

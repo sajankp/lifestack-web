@@ -94,6 +94,9 @@ const recurringFormSchema = z
       }, 'Interval must be a positive integer'),
     anchor_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Select a start date'),
     end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('')),
+    monthly_mode: z.enum(['day_of_month', 'last_day', 'nth_weekday']),
+    by_weekday: z.string().optional(),
+    by_ordinal: z.string().optional(),
   })
   .refine(
     (data) => {
@@ -364,6 +367,7 @@ export const SpendingPage: React.FC = () => {
     register: registerRecurringField,
     handleSubmit: handleRecurringSubmit,
     reset: resetRecurringForm,
+    watch: watchRecurringForm,
     formState: { errors: recurringErrors },
   } = useForm<RecurringFormValues>({
     resolver: zodResolver(recurringFormSchema),
@@ -376,8 +380,15 @@ export const SpendingPage: React.FC = () => {
       interval: '1',
       anchor_date: localDateInputValue(),
       end_date: '',
+      monthly_mode: 'day_of_month',
+      by_weekday: '0',
+      by_ordinal: '1',
     },
   });
+  const recurringFrequencyWatch = watchRecurringForm('frequency');
+  const recurringMonthlyModeWatch = watchRecurringForm('monthly_mode');
+  const isRecurringNthWeekdayMode =
+    recurringFrequencyWatch === 'monthly' && recurringMonthlyModeWatch === 'nth_weekday';
 
   const createRecurringMutation = useMutation({
     mutationFn: (data: RecurringTransactionCreate) => spendingService.createRecurring(data),
@@ -711,6 +722,9 @@ export const SpendingPage: React.FC = () => {
       interval: '1',
       anchor_date: localDateInputValue(),
       end_date: '',
+      monthly_mode: 'day_of_month',
+      by_weekday: '0',
+      by_ordinal: '1',
     });
     setIsRecurringModalOpen(true);
   };
@@ -726,6 +740,9 @@ export const SpendingPage: React.FC = () => {
       interval: r.interval.toString(),
       anchor_date: r.anchor_date,
       end_date: r.end_date ?? '',
+      monthly_mode: r.monthly_mode ?? 'day_of_month',
+      by_weekday: r.by_weekday != null ? String(r.by_weekday) : '0',
+      by_ordinal: r.by_ordinal != null ? String(r.by_ordinal) : '1',
     });
     setIsRecurringModalOpen(true);
   };
@@ -744,6 +761,10 @@ export const SpendingPage: React.FC = () => {
   };
 
   const handleSaveRecurring = (values: RecurringFormValues) => {
+    const isNthWeekday = values.frequency === 'monthly' && values.monthly_mode === 'nth_weekday';
+    const monthlyMode = values.frequency === 'monthly' ? values.monthly_mode : 'day_of_month';
+    const byWeekday = isNthWeekday && values.by_weekday ? parseInt(values.by_weekday, 10) : null;
+    const byOrdinal = isNthWeekday && values.by_ordinal ? parseInt(values.by_ordinal, 10) : null;
     if (editingRecurring) {
       const update: RecurringTransactionUpdate = {
         amount: parseFloat(values.amount),
@@ -751,6 +772,9 @@ export const SpendingPage: React.FC = () => {
         frequency: values.frequency as RecurringFrequency,
         interval: parseInt(values.interval, 10),
         end_date: values.end_date || null,
+        monthly_mode: monthlyMode,
+        by_weekday: byWeekday,
+        by_ordinal: byOrdinal,
       };
       updateRecurringMutation.mutate({ id: editingRecurring.public_id, data: update });
     } else {
@@ -763,6 +787,9 @@ export const SpendingPage: React.FC = () => {
         interval: parseInt(values.interval, 10),
         anchor_date: values.anchor_date,
         end_date: values.end_date || null,
+        monthly_mode: monthlyMode,
+        by_weekday: byWeekday,
+        by_ordinal: byOrdinal,
       };
       createRecurringMutation.mutate(create);
     }
@@ -1261,6 +1288,82 @@ export const SpendingPage: React.FC = () => {
                   )}
                 </div>
               </div>
+
+              {/* Monthly recurrence mode (spec-053) */}
+              {recurringFrequencyWatch === 'monthly' && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="mb-2 block">Monthly mode</Label>
+                    <Controller
+                      control={recurringControl}
+                      name="monthly_mode"
+                      render={({ field }) => (
+                        <DropdownSelect
+                          testId="spending-recurring-monthly-mode"
+                          value={field.value ?? 'day_of_month'}
+                          onChange={field.onChange}
+                          options={[
+                            { value: 'day_of_month', label: 'On day N' },
+                            { value: 'last_day', label: 'On the last day' },
+                            { value: 'nth_weekday', label: 'On the Nth weekday' },
+                          ]}
+                          placeholder="Select monthly mode"
+                        />
+                      )}
+                    />
+                  </div>
+                  {isRecurringNthWeekdayMode && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="mb-2 block">Occurrence</Label>
+                        <Controller
+                          control={recurringControl}
+                          name="by_ordinal"
+                          render={({ field }) => (
+                            <DropdownSelect
+                              testId="spending-recurring-ordinal"
+                              value={field.value ?? '1'}
+                              onChange={field.onChange}
+                              options={[
+                                { value: '1', label: 'First' },
+                                { value: '2', label: 'Second' },
+                                { value: '3', label: 'Third' },
+                                { value: '4', label: 'Fourth' },
+                                { value: '-1', label: 'Last' },
+                              ]}
+                              placeholder="Occurrence"
+                            />
+                          )}
+                        />
+                      </div>
+                      <div>
+                        <Label className="mb-2 block">Weekday</Label>
+                        <Controller
+                          control={recurringControl}
+                          name="by_weekday"
+                          render={({ field }) => (
+                            <DropdownSelect
+                              testId="spending-recurring-weekday"
+                              value={field.value ?? '0'}
+                              onChange={field.onChange}
+                              options={[
+                                { value: '0', label: 'Monday' },
+                                { value: '1', label: 'Tuesday' },
+                                { value: '2', label: 'Wednesday' },
+                                { value: '3', label: 'Thursday' },
+                                { value: '4', label: 'Friday' },
+                                { value: '5', label: 'Saturday' },
+                                { value: '6', label: 'Sunday' },
+                              ]}
+                              placeholder="Weekday"
+                            />
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Start date (create only) */}
               {!editingRecurring && (

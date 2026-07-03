@@ -13,9 +13,10 @@ import { SkeletonList } from '../components/ui/FeedbackStates';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { queryKeys } from '../lib/queryKeys';
 import { todoService } from '../services/todo';
-import type { RecurringTodoCreate, RecurringTodoRule, Todo, TodoCreate } from '../services/todo';
+import type { MonthlyMode, RecurringTodoCreate, RecurringTodoRule, Todo, TodoCreate } from '../services/todo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { formatDate, formatDateTime } from '../utils/dateFormat';
+import { describeRecurrence } from '../utils/recurrenceLabel';
 
 type TodoPriority = 'low' | 'medium' | 'high';
 type TodoFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -37,6 +38,30 @@ const frequencyOptions: Array<{ value: TodoFrequency; label: string }> = [
   { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
   { value: 'yearly', label: 'Yearly' },
+];
+
+const monthlyModeOptions: Array<{ value: MonthlyMode; label: string }> = [
+  { value: 'day_of_month', label: 'On day N' },
+  { value: 'last_day', label: 'On the last day' },
+  { value: 'nth_weekday', label: 'On the Nth weekday' },
+];
+
+const weekdayOptions = [
+  { value: '0', label: 'Monday' },
+  { value: '1', label: 'Tuesday' },
+  { value: '2', label: 'Wednesday' },
+  { value: '3', label: 'Thursday' },
+  { value: '4', label: 'Friday' },
+  { value: '5', label: 'Saturday' },
+  { value: '6', label: 'Sunday' },
+];
+
+const ordinalOptions = [
+  { value: '1', label: 'First' },
+  { value: '2', label: 'Second' },
+  { value: '3', label: 'Third' },
+  { value: '4', label: 'Fourth' },
+  { value: '-1', label: 'Last' },
 ];
 
 const priorityLabel = (priority: TodoPriority | undefined): string => {
@@ -120,6 +145,9 @@ export const TodoPage: React.FC = () => {
   const [ruleEndDate, setRuleEndDate] = useState('');
   const [ruleFrequency, setRuleFrequency] = useState<TodoFrequency>('weekly');
   const [ruleInterval, setRuleInterval] = useState(1);
+  const [ruleMonthlyMode, setRuleMonthlyMode] = useState<MonthlyMode>('day_of_month');
+  const [ruleByWeekday, setRuleByWeekday] = useState(0);
+  const [ruleByOrdinal, setRuleByOrdinal] = useState(1);
   const [editingRecurringRule, setEditingRecurringRule] = useState<RecurringTodoRule | null>(null);
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
   const completedFilterValue =
@@ -233,6 +261,9 @@ export const TodoPage: React.FC = () => {
     setRuleEndDate('');
     setRuleFrequency('weekly');
     setRuleInterval(1);
+    setRuleMonthlyMode('day_of_month');
+    setRuleByWeekday(0);
+    setRuleByOrdinal(1);
     setEditingRecurringRule(null);
     setIsRecurringModalOpen(true);
   }
@@ -246,6 +277,9 @@ export const TodoPage: React.FC = () => {
     setRuleEndDate(rule.end_date ?? '');
     setRuleFrequency(rule.frequency);
     setRuleInterval(rule.interval);
+    setRuleMonthlyMode(rule.monthly_mode ?? 'day_of_month');
+    setRuleByWeekday(rule.by_weekday ?? 0);
+    setRuleByOrdinal(rule.by_ordinal ?? 1);
     setEditingRecurringRule(rule);
     setIsRecurringModalOpen(true);
   }
@@ -266,6 +300,8 @@ export const TodoPage: React.FC = () => {
     createMutation.mutate(payload);
   };
 
+  const isNthWeekdayMode = ruleFrequency === 'monthly' && ruleMonthlyMode === 'nth_weekday';
+
   const handleCreateRule = (e: React.FormEvent) => {
     e.preventDefault();
     if (!ruleTitle.trim() || !ruleAnchorDate) return;
@@ -279,6 +315,9 @@ export const TodoPage: React.FC = () => {
       due_time: ruleDueTime || null,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
       end_date: ruleEndDate || null,
+      monthly_mode: ruleFrequency === 'monthly' ? ruleMonthlyMode : 'day_of_month',
+      by_weekday: isNthWeekdayMode ? ruleByWeekday : null,
+      by_ordinal: isNthWeekdayMode ? ruleByOrdinal : null,
     });
   };
 
@@ -297,6 +336,9 @@ export const TodoPage: React.FC = () => {
           due_time: ruleDueTime || null,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
           end_date: ruleEndDate || null,
+          monthly_mode: ruleFrequency === 'monthly' ? ruleMonthlyMode : 'day_of_month',
+          by_weekday: isNthWeekdayMode ? ruleByWeekday : null,
+          by_ordinal: isNthWeekdayMode ? ruleByOrdinal : null,
         },
       });
       return;
@@ -598,7 +640,7 @@ export const TodoPage: React.FC = () => {
                           </span>
                         </div>
                         <p className="text-xs text-slate-400 mt-2">
-                          Every {rule.interval} {rule.frequency} | Next:{' '}
+                          {describeRecurrence(rule)} | Next:{' '}
                           {formatUtcDate(rule.next_due_date) ?? 'N/A'}
                           {rule.due_time ? ` at ${rule.due_time.slice(0, 5)}` : ''}
                         </p>
@@ -696,6 +738,35 @@ export const TodoPage: React.FC = () => {
                   className="h-10 rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 />
               </div>
+              {ruleFrequency === 'monthly' ? (
+                <div className="space-y-3">
+                  <DropdownSelect
+                    testId="todo-recurring-monthly-mode"
+                    value={ruleMonthlyMode}
+                    onChange={(value) => setRuleMonthlyMode(value as MonthlyMode)}
+                    options={monthlyModeOptions}
+                    placeholder="Monthly mode"
+                  />
+                  {isNthWeekdayMode ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <DropdownSelect
+                        testId="todo-recurring-ordinal"
+                        value={String(ruleByOrdinal)}
+                        onChange={(value) => setRuleByOrdinal(parseInt(value, 10))}
+                        options={ordinalOptions}
+                        placeholder="Occurrence"
+                      />
+                      <DropdownSelect
+                        testId="todo-recurring-weekday"
+                        value={String(ruleByWeekday)}
+                        onChange={(value) => setRuleByWeekday(parseInt(value, 10))}
+                        options={weekdayOptions}
+                        placeholder="Weekday"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               <TimePicker
                 testId="todo-recurring-due-time"
                 value={ruleDueTime}
