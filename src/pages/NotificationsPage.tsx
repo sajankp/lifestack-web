@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell } from 'lucide-react';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
+import { PushSubscriptionSettings } from '../components/PushSubscriptionSettings';
 import { notificationsService } from '../services/notifications';
 import type { NotificationItem } from '../types/notifications';
 import { Pagination } from '../components/Pagination';
@@ -60,6 +61,28 @@ export const NotificationsPage: React.FC = () => {
     queryFn: () => notificationsService.getPreferences(),
   });
 
+  const togglePushMutation = useMutation({
+    mutationFn: ({ category, channel_push }: { category: string; channel_push: boolean }) =>
+      notificationsService.updatePreference(category, { channel_push }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['notifications', 'preferences'] });
+    },
+  });
+
+  // A category with no preference row yet defaults to channel_in_app=true,
+  // channel_push=false (the model defaults) — todo_reminder is spec-052's
+  // new source, so always show it even before the user has touched it.
+  const displayedPreferences = (() => {
+    const known = preferences ?? [];
+    if (known.some((p) => p.category === 'todo_reminder')) {
+      return known;
+    }
+    return [
+      ...known,
+      { category: 'todo_reminder', channel_in_app: true, channel_email: false, channel_push: false, is_muted: false },
+    ];
+  })();
+
   const markAllMutation = useMutation({
     mutationFn: () => notificationsService.markAllRead(),
     onSuccess: () => {
@@ -84,16 +107,33 @@ export const NotificationsPage: React.FC = () => {
         )}
       />
 
-      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">Preferences</h2>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {preferences?.map((pref) => (
-            <div key={pref.category} className="rounded-lg border border-slate-700 bg-slate-900/50 p-3 text-sm">
-              <p className="font-semibold text-white">{pref.category}</p>
-              <p className="text-slate-400">In-app: {pref.channel_in_app ? 'On' : 'Off'} | Muted: {pref.is_muted ? 'Yes' : 'No'}</p>
-            </div>
-          ))}
-          {preferences !== undefined && !preferences.length ? <p className="text-slate-400">No preferences configured yet.</p> : null}
+      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-6">
+        <div>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">Preferences</h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {displayedPreferences.map((pref) => (
+              <div key={pref.category} className="rounded-lg border border-slate-700 bg-slate-900/50 p-3 text-sm">
+                <p className="font-semibold text-white">{pref.category}</p>
+                <p className="text-slate-400">In-app: {pref.channel_in_app ? 'On' : 'Off'} | Muted: {pref.is_muted ? 'Yes' : 'No'}</p>
+                <label className="mt-2 flex items-center gap-2 text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={pref.channel_push}
+                    disabled={togglePushMutation.isPending}
+                    onChange={(e) =>
+                      togglePushMutation.mutate({ category: pref.category, channel_push: e.target.checked })
+                    }
+                  />
+                  Push notifications
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">Devices</h2>
+          <PushSubscriptionSettings />
         </div>
       </section>
 

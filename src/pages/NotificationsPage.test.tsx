@@ -47,8 +47,8 @@ describe('NotificationsPage', () => {
     server.use(
       http.get('*/v1/notifications/preferences', () =>
         HttpResponse.json([
-          { category: 'budget', channel_in_app: true, is_muted: false },
-          { category: 'system', channel_in_app: false, is_muted: true },
+          { category: 'budget', channel_in_app: true, channel_push: false, is_muted: false },
+          { category: 'system', channel_in_app: false, channel_push: false, is_muted: true },
         ]),
       ),
       ...baseHandlers,
@@ -57,16 +57,17 @@ describe('NotificationsPage', () => {
     renderWithQuery(<NotificationsPage />);
 
     expect(await screen.findByText('budget')).toBeInTheDocument();
-    expect(screen.getByText('In-app: On | Muted: No')).toBeInTheDocument();
+    expect(screen.getAllByText('In-app: On | Muted: No').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('system')).toBeInTheDocument();
     expect(screen.getByText('In-app: Off | Muted: Yes')).toBeInTheDocument();
   });
 
-  it('shows no preferences message when list is empty', async () => {
+  it('always shows a default todo_reminder preference row (spec-052)', async () => {
     server.use(...baseHandlers);
     renderWithQuery(<NotificationsPage />);
 
-    expect(await screen.findByText('No preferences configured yet.')).toBeInTheDocument();
+    expect(await screen.findByText('todo_reminder')).toBeInTheDocument();
+    expect(screen.getByText('In-app: On | Muted: No')).toBeInTheDocument();
   });
 
   it('renders notification items', async () => {

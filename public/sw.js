@@ -60,3 +60,44 @@ self.addEventListener('fetch', (event) => {
     }),
   )
 })
+
+// Web Push delivery (spec-052). Payload shape from push_delivery_job:
+// { title, body, entity_type, entity_public_id }.
+self.addEventListener('push', (event) => {
+  let payload = {}
+  try {
+    payload = event.data ? event.data.json() : {}
+  } catch {
+    payload = { title: 'Lifestack', body: event.data ? event.data.text() : '' }
+  }
+
+  const title = payload.title || 'Lifestack'
+  const url = payload.entity_type === 'todo' ? '/todo' : '/notifications'
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: payload.body || '',
+      icon: '/favicon.svg',
+      badge: '/favicon.svg',
+      data: { url },
+    }),
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/'
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        const clientUrl = new URL(client.url)
+        if (clientUrl.origin === self.location.origin && 'focus' in client) {
+          client.navigate(targetUrl)
+          return client.focus()
+        }
+      }
+      return self.clients.openWindow(targetUrl)
+    }),
+  )
+})
