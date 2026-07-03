@@ -3,8 +3,12 @@ import type { PaginatedResponse } from '../types/common';
 import type { NotificationItem, NotificationPreference } from '../types/notifications';
 
 export const notificationsService = {
-  list: async (limit = 20, offset = 0): Promise<PaginatedResponse<NotificationItem>> => {
-    const res = await api.get('/notifications', { params: { limit, offset } });
+  list: async (
+    limit = 20,
+    offset = 0,
+    params: { category?: string; is_read?: boolean } = {},
+  ): Promise<PaginatedResponse<NotificationItem>> => {
+    const res = await api.get('/notifications', { params: { limit, offset, ...params } });
     return res.data;
   },
   unreadCount: async (): Promise<{ count: number }> => {
