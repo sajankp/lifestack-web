@@ -1918,7 +1918,10 @@ export const InvestingPage: React.FC = () => {
 
                   {placeOrderMutation.isError && (
                     <p className="text-sm text-rose-400">
-                      {(placeOrderMutation.error as Error)?.message ?? 'Failed to place order'}
+                      {(placeOrderMutation.error as { response?: { data?: { detail?: string } } })
+                        ?.response?.data?.detail ??
+                        (placeOrderMutation.error as Error)?.message ??
+                        'Failed to place order'}
                     </p>
                   )}
                 </form>
