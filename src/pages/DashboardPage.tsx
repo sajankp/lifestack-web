@@ -23,7 +23,12 @@ export const DashboardPage: React.FC = () => {
     queryKey: ['finance', 'settings', 'user'],
     queryFn: () => financeService.getUserSettings(),
   });
-  const { data: insightsData } = useQuery({
+  const {
+    data: insightsData,
+    isLoading: isInsightsLoading,
+    isError: isInsightsError,
+    refetch: refetchInsights,
+  } = useQuery({
     queryKey: ['dashboard', 'insights'],
     queryFn: () => notificationsService.list(5, 0, { category: 'insight', is_read: false }),
   });
@@ -60,7 +65,10 @@ export const DashboardPage: React.FC = () => {
         subtitle="Live totals for tasks, spending, and portfolio activity."
         actions={(
           <button
-            onClick={() => void refetch()}
+            onClick={() => {
+              void refetch();
+              void refetchInsights();
+            }}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
           >
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
@@ -190,7 +198,15 @@ export const DashboardPage: React.FC = () => {
                   <Lightbulb className="h-5 w-5 text-cyan-400" />
                   <h2 className="text-xl font-semibold">Insights</h2>
                 </div>
-                {insights.length === 0 ? (
+                {isInsightsLoading ? (
+                  <div className="mt-4 flex justify-center py-4">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-700 border-t-cyan-400" />
+                  </div>
+                ) : isInsightsError ? (
+                  <p className="mt-3 text-sm text-rose-400">
+                    Failed to load insights. Please try refreshing.
+                  </p>
+                ) : insights.length === 0 ? (
                   <p className="mt-3 text-sm text-slate-400">
                     No insights right now — check back after your next few transactions.
                   </p>
