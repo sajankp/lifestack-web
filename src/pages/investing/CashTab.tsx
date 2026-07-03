@@ -258,7 +258,11 @@ export const CashTab: React.FC<CashTabProps> = ({
       switch (cashSortCol) {
         case 'account_name': return dir * a.account_name.localeCompare(b.account_name);
         case 'balance': return dir * (toNumber(a.balance) - toNumber(b.balance));
-        case 'as_of': return dir * (new Date(a.as_of).getTime() - new Date(b.as_of).getTime());
+        case 'as_of': {
+          const timeA = new Date(a.as_of).getTime();
+          const timeB = new Date(b.as_of).getTime();
+          return dir * ((Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0));
+        }
         default: return 0;
       }
     });
@@ -270,7 +274,11 @@ export const CashTab: React.FC<CashTabProps> = ({
     const dir = ordersSortDir === 'asc' ? 1 : -1;
     return [...orders].sort((a, b) => {
       switch (ordersSortCol) {
-        case 'occurred_at': return dir * (new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime());
+        case 'occurred_at': {
+          const timeA = new Date(a.occurred_at).getTime();
+          const timeB = new Date(b.occurred_at).getTime();
+          return dir * ((Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0));
+        }
         case 'order_type': return dir * a.order_type.localeCompare(b.order_type);
         case 'symbol': return dir * a.symbol.localeCompare(b.symbol);
         case 'account_name': return dir * a.account_name.localeCompare(b.account_name);

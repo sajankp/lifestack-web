@@ -482,6 +482,11 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
               <p className="text-xs text-slate-400 mt-2 text-center">
                 Instruments: {instrumentsLoading ? 'Loading...' : instruments.length}
               </p>
+              {createInstrumentMutation.isError && (
+                <p className="text-xs text-rose-300 text-center">
+                  {(createInstrumentMutation.error as Error)?.message ?? 'Failed to create instrument'}
+                </p>
+              )}
             </form>
           </div>
         </div>
@@ -548,6 +553,11 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                   {upsertConstituentsMutation.isPending ? 'Upserting...' : 'Upsert constituents'}
                 </button>
               </div>
+              {upsertConstituentsMutation.isError && (
+                <p className="text-xs text-rose-300 text-center">
+                  {(upsertConstituentsMutation.error as Error)?.message ?? 'Failed to upsert constituents'}
+                </p>
+              )}
             </form>
           </div>
         </div>

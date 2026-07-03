@@ -124,7 +124,11 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
 
   const sortedTradeHistory = useMemo(() => {
     const data = tradeHistoryRes.data ?? [];
-    return [...data].sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime());
+    return [...data].sort((a, b) => {
+      const timeA = new Date(a.occurred_at).getTime();
+      const timeB = new Date(b.occurred_at).getTime();
+      return (Number.isFinite(timeB) ? timeB : 0) - (Number.isFinite(timeA) ? timeA : 0);
+    });
   }, [tradeHistoryRes.data]);
 
   const updateHoldingMutation = useMutation({
