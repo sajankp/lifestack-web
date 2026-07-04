@@ -101,9 +101,12 @@ const playServerAudio = (ws: FakeWebSocket) => {
 };
 
 describe('VoiceAgentWidget interruption handling (spec-059)', () => {
+  let originalScrollIntoView: typeof window.HTMLElement.prototype.scrollIntoView;
+
   beforeEach(() => {
     createdSources.length = 0;
     sockets.length = 0;
+    originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
     vi.stubGlobal('AudioContext', FakeAudioContext);
     vi.stubGlobal('WebSocket', FakeWebSocket);
@@ -119,6 +122,7 @@ describe('VoiceAgentWidget interruption handling (spec-059)', () => {
   });
 
   afterEach(() => {
+    window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
     vi.unstubAllGlobals();
   });
 
@@ -141,16 +145,14 @@ describe('VoiceAgentWidget interruption handling (spec-059)', () => {
     renderWidget();
     const ws = openPanelAndGetSocket();
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Start listening' }));
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Start listening' }));
+    await screen.findByRole('button', { name: 'Stop listening' });
 
     playServerAudio(ws);
     expect(createdSources).toHaveLength(1);
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Stop listening' }));
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Stop listening' }));
+    await screen.findByRole('button', { name: 'Start listening' });
 
     expect(createdSources[0].stop).toHaveBeenCalled();
   });
