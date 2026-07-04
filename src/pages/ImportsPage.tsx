@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, X } from 'lucide-react';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
+import { DropdownSelect } from '../components/DropdownSelect';
 import { importsService } from '../services/imports';
+import { financeService } from '../services/finance';
 import type { ImportErrorItem, ImportModule, ImportValidateResponse } from '../types/imports';
 import { formatDate } from '../utils/dateFormat';
 
@@ -38,11 +40,30 @@ export const ImportsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [module, setModule] = useState<ImportModule | ''>('');
   const [file, setFile] = useState<File | null>(null);
+  const [targetAccountId, setTargetAccountId] = useState('');
   const [selectedImportId, setSelectedImportId] = useState<string | null>(null);
   const [latestValidation, setLatestValidation] = useState<ImportValidateResponse | null>(null);
   const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+
+  const { data: accountsResponse } = useQuery({
+    queryKey: ['finance', 'accounts', 'imports'],
+    queryFn: () => financeService.getAccounts(200, 0),
+  });
+  // No account-type restriction for the import-level target account
+  // (spec-054) — any active account works, matching how a row's
+  // account_name column already resolves for spending-transaction imports.
+  const targetAccountOptions = useMemo(
+    () =>
+      (accountsResponse?.items ?? [])
+        .filter((account) => account.is_active)
+        .map((account) => ({
+          value: account.public_id,
+          label: `${account.name} (${account.account_type.replace('_', ' ')})`,
+        })),
+    [accountsResponse?.items]
+  );
 
   const { data: importsResponse, isLoading: isLoadingImports } = useQuery({
     queryKey: ['imports', 'list'],
@@ -93,12 +114,17 @@ export const ImportsPage: React.FC = () => {
       if (!module) {
         throw new Error('Module is required');
       }
-      return importsService.uploadAndValidate(module, file as File);
+      return importsService.uploadAndValidate(
+        module,
+        file as File,
+        module === 'spending-transactions' ? targetAccountId || undefined : undefined
+      );
     },
     onSuccess: (data) => {
       setLatestValidation(data);
       setSelectedImportId(data.import_batch.public_id);
       setFile(null);
+      setTargetAccountId('');
       setUploadError(null);
       setIsUploadModalOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['imports', 'list'] });
@@ -210,7 +236,10 @@ export const ImportsPage: React.FC = () => {
                 <select
                   data-testid="imports-module-select"
                   value={module}
-                  onChange={(e) => setModule(e.target.value as ImportModule)}
+                  onChange={(e) => {
+                    setModule(e.target.value as ImportModule);
+                    setTargetAccountId('');
+                  }}
                   className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-white text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 >
                   <option value="" disabled>
@@ -223,6 +252,28 @@ export const ImportsPage: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              {module === 'spending-transactions' && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-slate-300">
+                    Target account (Optional)
+                  </label>
+                  <DropdownSelect
+                    testId="imports-target-account"
+                    value={targetAccountId}
+                    onChange={setTargetAccountId}
+                    options={targetAccountOptions}
+                    placeholder="No target account"
+                    clearLabel="No target account"
+                    showSearch
+                    sortByLabel
+                  />
+                  <p className="text-xs text-slate-500">
+                    Used for rows with no (matching) account name, before falling back to the
+                    workspace default spending account.
+                  </p>
+                </div>
+              )}
 
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-semibold text-slate-300">Choose CSV/Excel File</label>

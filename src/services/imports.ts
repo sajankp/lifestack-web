@@ -13,10 +13,17 @@ export const importsService = {
     return response.data as string;
   },
 
-  uploadAndValidate: async (module: ImportModule, file: File): Promise<ImportValidateResponse> => {
+  uploadAndValidate: async (
+    module: ImportModule,
+    file: File,
+    targetAccountId?: string
+  ): Promise<ImportValidateResponse> => {
     const form = new FormData();
     form.append('module', module);
     form.append('file', file);
+    if (targetAccountId) {
+      form.append('target_account_id', targetAccountId);
+    }
     const response = await api.post('/imports', form);
     return response.data;
   },

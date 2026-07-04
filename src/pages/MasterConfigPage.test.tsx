@@ -17,6 +17,15 @@ const renderWithQuery = (ui: React.ReactNode) => {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 };
 
+beforeAll(() => {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+  Element.prototype.scrollIntoView = vi.fn();
+});
+
 describe('MasterConfigPage', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -180,5 +189,127 @@ describe('MasterConfigPage', () => {
     expect(await screen.findByTestId('master-demo-reset-section')).toBeInTheDocument();
     expect(await screen.findByText('insufficient_role')).toBeInTheDocument();
     expect(screen.getByTestId('master-demo-reset-button')).toBeDisabled();
+  });
+
+  it('sets the default spending account and excludes brokerage/inactive accounts from the picker', async () => {
+    const workspaceId = '44444444-4444-4444-4444-444444444444';
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+    let capturedPayload: Record<string, unknown> | null = null;
+
+    server.use(
+      http.get('*/v1/platform/workspaces/', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: workspaceId,
+              name: 'Gamma Workspace',
+              description: null,
+              is_active: true,
+              role: 'owner',
+            },
+          ],
+        }),
+      ),
+      http.get(`*/v1/platform/workspaces/${workspaceId}/reset-demo/status`, () =>
+        HttpResponse.json({
+          enabled: false,
+          allowed: false,
+          workspace_public_id: workspaceId,
+          workspace_name: 'Gamma Workspace',
+          role: 'owner',
+          reason: null,
+        }),
+      ),
+      http.get('*/v1/finance/currencies', () =>
+        HttpResponse.json([
+          { code: 'USD', name: 'US Dollar', symbol: '$', minor_unit: 2, is_active: true },
+        ]),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-wallet',
+              name: 'Everyday Wallet',
+              account_type: 'wallet',
+              default_currency_code: 'USD',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+            {
+              public_id: 'acc-brokerage',
+              name: 'Brokerage One',
+              account_type: 'brokerage',
+              default_currency_code: 'USD',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+            {
+              public_id: 'acc-inactive',
+              name: 'Closed Wallet',
+              account_type: 'wallet',
+              default_currency_code: 'USD',
+              is_active: false,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 3,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/settings', () =>
+        HttpResponse.json({
+          reporting_currency_code: null,
+          currency_display_preference: 'symbol',
+          default_spending_account_id: null,
+          updated_at: '2026-06-10T00:00:00Z',
+        }),
+      ),
+      http.patch('*/v1/finance/settings', async ({ request }) => {
+        capturedPayload = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({
+          reporting_currency_code: null,
+          currency_display_preference: 'symbol',
+          default_spending_account_id: 'acc-wallet',
+          updated_at: '2026-06-11T00:00:00Z',
+        });
+      }),
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          reporting_currency_override_code: null,
+          currency_display_preference_override: null,
+          workspace_reporting_currency_code: null,
+          workspace_currency_display_preference: 'symbol',
+          effective_reporting_currency_code: null,
+          effective_currency_display_preference: 'symbol',
+          updated_at: '2026-06-10T00:00:00Z',
+        }),
+      ),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+    );
+
+    renderWithQuery(<MasterConfigPage />);
+
+    const picker = await screen.findByTestId('master-default-spending-account');
+    fireEvent.click(picker);
+
+    // Eligible, active, non-brokerage account is offered...
+    const walletOption = await screen.findByRole('option', { name: /Everyday Wallet/ });
+    // ...but the brokerage and inactive accounts are not.
+    expect(screen.queryByRole('option', { name: /Brokerage One/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Closed Wallet/ })).not.toBeInTheDocument();
+
+    fireEvent.click(walletOption);
+    fireEvent.click(screen.getByTestId('master-workspace-save'));
+
+    await waitFor(() => {
+      expect(capturedPayload).toMatchObject({ default_spending_account_id: 'acc-wallet' });
+    });
   });
 });

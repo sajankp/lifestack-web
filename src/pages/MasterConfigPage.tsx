@@ -27,6 +27,7 @@ export const MasterConfigPage: React.FC = () => {
   const [newAccountType, setNewAccountType] = useState<'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card'>('wallet');
   const [newAccountCurrency, setNewAccountCurrency] = useState('');
   const [reportingCurrency, setReportingCurrency] = useState('');
+  const [defaultSpendingAccountId, setDefaultSpendingAccountId] = useState('');
   const [lookthroughMinWeightPct, setLookthroughMinWeightPct] = useState('0.5');
   const [currencyDisplayPreference, setCurrencyDisplayPreference] = useState<'symbol' | 'code'>('symbol');
   const [userReportingCurrencyOverride, setUserReportingCurrencyOverride] = useState('');
@@ -105,10 +106,12 @@ export const MasterConfigPage: React.FC = () => {
     setReportingCurrency(settings?.reporting_currency_code ?? '');
     setCurrencyDisplayPreference(settings?.currency_display_preference ?? 'symbol');
     setLookthroughMinWeightPct(String(settings?.lookthrough_min_weight_pct ?? '0.5'));
+    setDefaultSpendingAccountId(settings?.default_spending_account_id ?? '');
   }, [
     settings?.reporting_currency_code,
     settings?.currency_display_preference,
     settings?.lookthrough_min_weight_pct,
+    settings?.default_spending_account_id,
   ]);
   React.useEffect(() => {
     setUserReportingCurrencyOverride(userSettings?.reporting_currency_override_code ?? '');
@@ -119,6 +122,16 @@ export const MasterConfigPage: React.FC = () => {
     () => currencies.map((currency) => ({ value: currency.code, label: `${currency.code} ${currency.symbol ?? ''}`.trim() })),
     [currencies]
   );
+
+  // The default spending account can't be a brokerage account (mirrors the
+  // backend's InvestingOrderService brokerage-only check, inverted) and
+  // deactivated accounts aren't eligible either (spec-054).
+  const defaultSpendingAccountOptions = accounts
+    .filter((account) => account.is_active && account.account_type !== 'brokerage')
+    .map((account) => ({
+      value: account.public_id,
+      label: `${account.name} (${account.account_type.replace('_', ' ')})`,
+    }));
 
   const accountTypeOptions = [
     { value: 'wallet', label: 'Wallet' },
@@ -206,10 +219,12 @@ export const MasterConfigPage: React.FC = () => {
         reporting_currency_code: reportingCurrency || null,
         lookthrough_min_weight_pct: lookthroughMinWeightPct,
         currency_display_preference: currencyDisplayPreference,
+        default_spending_account_id: defaultSpendingAccountId || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['finance', 'settings'] });
       queryClient.invalidateQueries({ queryKey: ['finance', 'settings', 'master-config'] });
+      queryClient.invalidateQueries({ queryKey: ['finance', 'settings', 'workspace'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['transactions-summary'] });
     },
@@ -324,6 +339,23 @@ export const MasterConfigPage: React.FC = () => {
           Constituents below this portfolio weight are hidden from detail lists only. Totals,
           concentration, and overlap calculations still use every constituent.
         </p>
+        <div className="mt-4 border-t border-slate-800 pt-4">
+          <Label className="text-sm text-slate-300">Default spending account</Label>
+          <p className="mt-1 text-xs text-slate-500">
+            New spending transactions use this account when none is picked on the form.
+          </p>
+          <div className="mt-2 max-w-sm">
+            <DropdownSelect
+              testId="master-default-spending-account"
+              value={defaultSpendingAccountId}
+              onChange={setDefaultSpendingAccountId}
+              options={defaultSpendingAccountOptions}
+              placeholder="No default"
+              clearLabel="No default"
+              showSearch
+            />
+          </div>
+        </div>
       </section>
 
       <section data-testid="master-user-overrides" className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">

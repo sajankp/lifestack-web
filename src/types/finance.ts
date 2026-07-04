@@ -33,6 +33,7 @@ export interface WorkspaceFinanceSetting {
   reporting_currency_code: string | null;
   currency_display_preference?: 'symbol' | 'code';
   lookthrough_min_weight_pct: number | string;
+  default_spending_account_id?: string | null;
   updated_at: string;
 }
 
@@ -40,6 +41,7 @@ export interface WorkspaceFinanceSettingUpdate {
   reporting_currency_code?: string | null;
   currency_display_preference?: 'symbol' | 'code' | null;
   lookthrough_min_weight_pct?: number | string;
+  default_spending_account_id?: string | null;
 }
 
 export interface UserFinanceSetting {

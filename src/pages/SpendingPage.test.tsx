@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 
 import { SpendingPage } from './SpendingPage';
@@ -13,7 +14,11 @@ const renderWithQuery = (ui: React.ReactNode) => {
       mutations: { retry: false },
     },
   });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </QueryClientProvider>,
+  );
 };
 
 const CATEGORY = {
@@ -46,6 +51,14 @@ const USER_SETTINGS = {
   updated_at: '2026-01-01T00:00:00Z',
 };
 
+const WORKSPACE_SETTINGS = {
+  reporting_currency_code: 'USD',
+  currency_display_preference: 'symbol',
+  lookthrough_min_weight_pct: '0.5',
+  default_spending_account_id: null,
+  updated_at: '2026-01-01T00:00:00Z',
+};
+
 const EMPTY_PAGE = { items: [], total: 0, limit: 50, offset: 0 };
 const EMPTY_SUMMARY = { income_total: 0, expense_total: 0, net_total: 0, category_totals: [] };
 
@@ -63,6 +76,7 @@ const baseHandlers = [
   http.get('*/v1/spending/recurring', () => HttpResponse.json(EMPTY_PAGE)),
   http.get('*/v1/finance/transfers', () => HttpResponse.json(EMPTY_PAGE)),
   http.get('*/v1/finance/settings/user', () => HttpResponse.json(USER_SETTINGS)),
+  http.get('*/v1/finance/settings', () => HttpResponse.json(WORKSPACE_SETTINGS)),
 ];
 
 // jsdom doesn't implement these browser APIs used by Radix/cmdk
@@ -73,6 +87,12 @@ beforeAll(() => {
     disconnect() {}
   };
   Element.prototype.scrollIntoView = vi.fn();
+});
+
+// The transaction form's "last used account" pre-fill (spec-054) persists
+// across renders via localStorage — reset it so tests don't leak state.
+beforeEach(() => {
+  window.localStorage.clear();
 });
 
 describe('SpendingPage', () => {
@@ -206,6 +226,11 @@ describe('SpendingPage', () => {
     const foodOption = await screen.findByRole('option', { name: /Food/ });
     fireEvent.click(foodOption);
 
+    // Account is required on create (spec-054)
+    fireEvent.click(screen.getByTestId('spending-transaction-account'));
+    const walletOption = await screen.findByRole('option', { name: /My Wallet/ });
+    fireEvent.click(walletOption);
+
     // Save button should now be enabled
     const saveBtn = screen.getByTestId('spending-transaction-save');
     expect(saveBtn).not.toBeDisabled();
@@ -224,6 +249,88 @@ describe('SpendingPage', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('spending-transaction-amount')).not.toBeInTheDocument();
     });
+  });
+
+  it('blocks saving a new transaction without an account and shows the inline error', async () => {
+    server.use(...baseHandlers);
+    renderWithQuery(<SpendingPage />);
+
+    await screen.findByText('Spending Overview');
+    fireEvent.click(screen.getByTestId('spending-open-new-transaction'));
+
+    const amountInput = await screen.findByTestId('spending-transaction-amount');
+    fireEvent.change(amountInput, { target: { value: '20.00' } });
+    fireEvent.click(screen.getByTestId('spending-transaction-category'));
+    fireEvent.click(await screen.findByRole('option', { name: /Food/ }));
+
+    // No account selected — save stays disabled and the inline error shows,
+    // pointing at Finance Settings (spec-054).
+    expect(screen.getByTestId('spending-transaction-save')).toBeDisabled();
+    const error = screen.getByTestId('spending-transaction-account-error');
+    expect(error).toBeInTheDocument();
+    expect(within(error).getByRole('link', { name: /default spending account/i })).toHaveAttribute(
+      'href',
+      '/settings',
+    );
+  });
+
+  it('pre-selects the workspace default spending account on a new transaction', async () => {
+    server.use(
+      http.get('*/v1/finance/settings', () =>
+        HttpResponse.json({ ...WORKSPACE_SETTINGS, default_spending_account_id: ACCOUNT.public_id }),
+      ),
+      ...baseHandlers,
+    );
+    renderWithQuery(<SpendingPage />);
+
+    await screen.findByText('Spending Overview');
+    fireEvent.click(screen.getByTestId('spending-open-new-transaction'));
+    await screen.findByTestId('spending-transaction-amount');
+
+    // Pre-selected — no inline error, and the account trigger shows the name.
+    expect(screen.queryByTestId('spending-transaction-account-error')).not.toBeInTheDocument();
+    expect(screen.getByTestId('spending-transaction-account')).toHaveTextContent('My Wallet');
+  });
+
+  it('shows a "No account" filter option with an unassigned count and filters the list', async () => {
+    server.use(
+      http.get('*/v1/spending/transactions', ({ request }) => {
+        const url = new URL(request.url);
+        if (url.searchParams.get('unassigned') === 'true') {
+          return HttpResponse.json({
+            items: [
+              {
+                public_id: 'tx-unassigned',
+                category_id: CATEGORY.public_id,
+                account_id: null,
+                amount: 12,
+                type: 'expense',
+                occurred_at: '2026-06-01T00:00:00Z',
+                description: 'legacy row',
+                wallet_name: null,
+                labels: null,
+                created_at: '2026-06-01T00:00:00Z',
+                updated_at: '2026-06-01T00:00:00Z',
+              },
+            ],
+            total: 1,
+            limit: 50,
+            offset: 0,
+          });
+        }
+        return HttpResponse.json(EMPTY_PAGE);
+      }),
+      ...baseHandlers,
+    );
+
+    renderWithQuery(<SpendingPage />);
+    await screen.findByText('Spending Overview');
+
+    fireEvent.click(screen.getByTestId('spending-account-filter'));
+    const noAccountOption = await screen.findByRole('option', { name: /No account \(1\)/ });
+    fireEvent.click(noAccountOption);
+
+    await screen.findByText('legacy row');
   });
 
   it('switches to budgets tab and shows empty state', async () => {

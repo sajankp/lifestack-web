@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -110,6 +111,30 @@ const recurringFormSchema = z
   );
 
 type RecurringFormValues = z.infer<typeof recurringFormSchema>;
+
+// Every new transaction must resolve to an account (spec-054). The
+// workspace default takes priority; this is only the pre-fill fallback
+// for workspaces that haven't set one yet.
+const LAST_USED_ACCOUNT_KEY = 'spending:lastUsedAccountId';
+const getLastUsedAccountId = (): string => {
+  try {
+    return window.localStorage.getItem(LAST_USED_ACCOUNT_KEY) ?? '';
+  } catch {
+    return '';
+  }
+};
+const setLastUsedAccountId = (accountId: string) => {
+  try {
+    window.localStorage.setItem(LAST_USED_ACCOUNT_KEY, accountId);
+  } catch {
+    // Storage unavailable (private browsing, quota) — pre-fill just won't persist.
+  }
+};
+
+// Sentinel for the account filter's "No account" option — historical
+// NULL-account rows (forward-only per spec-054/spec-050) are filtered via
+// the backend's `unassigned=true` param, not a real account id.
+const UNASSIGNED_ACCOUNT_FILTER_VALUE = '__unassigned__';
 
 export const SpendingPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -263,16 +288,27 @@ export const SpendingPage: React.FC = () => {
     },
   });
 
+  const isUnassignedFilterActive = selectedAccountFilter === UNASSIGNED_ACCOUNT_FILTER_VALUE;
+
   const { data: transactionsResponse, isLoading: isTxLoading } = useQuery({
     queryKey: ['transactions', txOffset, fromDate, toDate, selectedCategoryFilter, selectedAccountFilter],
     queryFn: () => spendingService.getTransactions(limit, txOffset, {
       categoryId: selectedCategoryFilter || undefined,
-      accountId: selectedAccountFilter || undefined,
+      accountId: isUnassignedFilterActive ? undefined : selectedAccountFilter || undefined,
+      unassigned: isUnassignedFilterActive,
       fromDate: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
       toDate: toDate ? `${toDate}T23:59:59.999Z` : undefined,
     }),
   });
   const transactions = transactionsResponse?.items;
+
+  // Backing the filter's count badge — the `unassigned` list endpoint's
+  // `total` is already exactly this count (spec-054), no separate endpoint.
+  const { data: unassignedCountResponse } = useQuery({
+    queryKey: ['transactions', 'unassigned-count'],
+    queryFn: () => spendingService.getTransactions(1, 0, { unassigned: true }),
+  });
+  const unassignedTransactionCount = unassignedCountResponse?.total ?? 0;
 
   const { data: summaryResponse, isLoading: isSummaryLoading } = useQuery({
     queryKey: ['transactions-summary', fromDate, toDate, selectedCategoryFilter, selectedAccountFilter],
@@ -280,9 +316,23 @@ export const SpendingPage: React.FC = () => {
       fromDate: fromDate ? `${fromDate}T00:00:00.000Z` : `${new Date().getFullYear()}-01-01T00:00:00.000Z`,
       toDate: toDate ? `${toDate}T23:59:59.999Z` : `${new Date().getFullYear()}-12-31T23:59:59.999Z`,
       categoryId: selectedCategoryFilter || undefined,
-      accountId: selectedAccountFilter || undefined,
+      // The summary endpoint has no unassigned filter — falls back to the
+      // unfiltered (all-accounts) summary while the unassigned filter is active.
+      accountId: isUnassignedFilterActive ? undefined : selectedAccountFilter || undefined,
     }),
   });
+
+  // "No account" is always last (spec-054) — real accounts sort
+  // alphabetically ahead of it, so sortByLabel is not used on this dropdown.
+  const accountFilterOptions = useMemo(
+    () => [
+      ...[...accountOptions].sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, { sensitivity: 'base' })
+      ),
+      { value: UNASSIGNED_ACCOUNT_FILTER_VALUE, label: `No account (${unassignedTransactionCount})` },
+    ],
+    [accountOptions, unassignedTransactionCount]
+  );
 
   const { data: budgetsResponse, isLoading: isBudgetsLoading } = useQuery({
     queryKey: ['budgets', budgetOffset, selectedMonth],
@@ -356,6 +406,23 @@ export const SpendingPage: React.FC = () => {
     queryKey: ['finance', 'settings', 'user'],
     queryFn: () => financeService.getUserSettings(),
   });
+  const { data: workspaceFinanceSettings } = useQuery({
+    queryKey: ['finance', 'settings', 'workspace'],
+    queryFn: () => financeService.getSettings(),
+  });
+  const defaultSpendingAccountId = workspaceFinanceSettings?.default_spending_account_id ?? null;
+
+  // If the workspace default (or accounts list) is still loading when the
+  // "new transaction" modal opens, pre-fill it reactively once it arrives
+  // instead of leaving the field stuck empty (spec-054).
+  React.useEffect(() => {
+    if (!isModalOpen || editingTransaction || accountId) return;
+    const fallbackAccountId = defaultSpendingAccountId || getLastUsedAccountId();
+    if (fallbackAccountId && accountById.has(fallbackAccountId)) {
+      setAccountId(fallbackAccountId);
+    }
+  }, [isModalOpen, editingTransaction, accountId, defaultSpendingAccountId, accountById]);
+
   const displayCurrency = userFinanceSettings?.effective_reporting_currency_code ?? 'USD';
   const currencyDisplayPreference =
     userFinanceSettings?.effective_currency_display_preference ?? 'symbol';
@@ -635,7 +702,10 @@ export const SpendingPage: React.FC = () => {
 
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || !categoryId || !type || !date) return;
+    // Every new transaction must resolve to an account (spec-054); editing a
+    // historical NULL-account row is still allowed to leave it unassigned —
+    // that's the forward-only house rule, not a form bug.
+    if (!amount || !categoryId || !type || !date || (!editingTransaction && !accountId)) return;
     const parsedAmount = parseFloat(amount);
     if (Number.isNaN(parsedAmount) || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       alert('Please enter a valid positive amount.');
@@ -663,6 +733,9 @@ export const SpendingPage: React.FC = () => {
       return;
     }
 
+    if (accountId) {
+      setLastUsedAccountId(accountId);
+    }
     createMutation.mutate(payload);
   };
 
@@ -682,7 +755,13 @@ export const SpendingPage: React.FC = () => {
     setDescription('');
     setType('expense');
     setCategoryId('');
-    setAccountId('');
+    // Pre-fill: workspace default spending account, else the last account
+    // this user picked (spec-054) — falls back to empty only when neither
+    // is available, which blocks submit until one is chosen.
+    const fallbackAccountId = defaultSpendingAccountId || getLastUsedAccountId();
+    setAccountId(
+      fallbackAccountId && accountById.has(fallbackAccountId) ? fallbackAccountId : ''
+    );
     setDate(new Date().toISOString().split('T')[0]);
     setIsModalOpen(true);
   };
@@ -958,11 +1037,10 @@ export const SpendingPage: React.FC = () => {
               setSelectedAccountFilter(value);
               setTxOffset(0);
             }}
-            options={accountOptions}
+            options={accountFilterOptions}
             placeholder="All accounts"
             clearLabel="All accounts"
             showSearch
-            sortByLabel
           />
         </CompactFilterField>
       </CompactFilterBar>
@@ -1517,17 +1595,31 @@ export const SpendingPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Wallet / Account (Optional)</label>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Wallet / Account{editingTransaction ? ' (Optional)' : ''}
+                  </label>
                   <DropdownSelect
                     testId="spending-transaction-account"
                     value={accountId}
                     onChange={setAccountId}
                     options={accountOptions}
-                    placeholder="Unassigned"
-                    clearLabel="Unassigned"
+                    placeholder={editingTransaction ? 'Unassigned' : 'Select account'}
+                    clearLabel={editingTransaction ? 'Unassigned' : undefined}
                     showSearch
                     sortByLabel
                   />
+                  {!editingTransaction && !accountId && (
+                    <p
+                      data-testid="spending-transaction-account-error"
+                      className="mt-2 text-sm text-rose-400"
+                    >
+                      Every transaction needs an account. Pick one above, or set a{' '}
+                      <Link to="/settings" className="underline hover:text-rose-300">
+                        default spending account
+                      </Link>{' '}
+                      in Finance Settings.
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -1577,7 +1669,14 @@ export const SpendingPage: React.FC = () => {
                 <button
                   type="submit"
                   data-testid="spending-transaction-save"
-                  disabled={(createMutation.isPending || updateMutation.isPending) || !amount || !categoryId || !type || !date}
+                  disabled={
+                    (createMutation.isPending || updateMutation.isPending) ||
+                    !amount ||
+                    !categoryId ||
+                    !type ||
+                    !date ||
+                    (!editingTransaction && !accountId)
+                  }
                   className="flex-1 rounded-xl bg-cyan-600 px-4 py-3 font-semibold text-white shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-500 hover:shadow-cyan-500/40 disabled:opacity-50"
                 >
                   {(createMutation.isPending || updateMutation.isPending) ? 'Saving...' : 'Save Transaction'}

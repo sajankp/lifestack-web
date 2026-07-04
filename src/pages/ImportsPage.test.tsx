@@ -16,6 +16,15 @@ const renderWithQuery = (ui: React.ReactNode) => {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 };
 
+beforeAll(() => {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+  Element.prototype.scrollIntoView = vi.fn();
+});
+
 describe('ImportsPage', () => {
   beforeEach(() => {
     server.use(
@@ -208,5 +217,77 @@ describe('ImportsPage', () => {
 
     await waitFor(() => expect(deletedImportId).toBe(importId));
     expect(screen.queryByTestId('imports-delete')).not.toBeInTheDocument();
+  });
+
+  it('shows the target-account picker only for spending-transactions and sends the selection', async () => {
+    let uploadedTargetAccountId: string | null | undefined;
+
+    server.use(
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-checking',
+              name: 'Checking',
+              account_type: 'bank',
+              default_currency_code: 'USD',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.post('*/v1/imports', async ({ request }) => {
+        const formData = await request.formData();
+        uploadedTargetAccountId = formData.get('target_account_id') as string | null;
+        return HttpResponse.json({
+          import_batch: {
+            public_id: '99999999-9999-9999-9999-999999999998',
+            status: 'validated',
+            module: 'spending-transactions',
+            total_rows: 1,
+            valid_rows: 1,
+            error_rows: 0,
+            filename: 'test.csv',
+          },
+          errors: [],
+        });
+      }),
+    );
+
+    renderWithQuery(<ImportsPage />);
+    fireEvent.click(screen.getByText('New Import'));
+
+    // Not shown until spending-transactions is selected.
+    expect(screen.queryByTestId('imports-target-account')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('imports-module-select'), {
+      target: { value: 'spending-transactions' },
+    });
+    expect(await screen.findByTestId('imports-target-account')).toBeInTheDocument();
+
+    // Not shown for a module spec-054 doesn't cover.
+    fireEvent.change(screen.getByTestId('imports-module-select'), {
+      target: { value: 'spending-budgets' },
+    });
+    expect(screen.queryByTestId('imports-target-account')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('imports-module-select'), {
+      target: { value: 'spending-transactions' },
+    });
+    fireEvent.click(await screen.findByTestId('imports-target-account'));
+    fireEvent.click(await screen.findByRole('option', { name: /Checking/ }));
+
+    const file = new File(['col1,col2\nval1,val2'], 'test.csv', { type: 'text/csv' });
+    fireEvent.change(screen.getByTestId('imports-file-input'), { target: { files: [file] } });
+    fireEvent.click(screen.getByTestId('imports-upload-validate'));
+
+    await waitFor(() => {
+      expect(uploadedTargetAccountId).toBe('acc-checking');
+    });
   });
 });

@@ -377,14 +377,21 @@ export const spendingService = {
   getTransactions: async (
     limit: number = 50,
     offset: number = 0,
-    params?: { categoryId?: string; accountId?: string; fromDate?: string; toDate?: string }
+    params?: {
+      categoryId?: string;
+      accountId?: string;
+      unassigned?: boolean;
+      fromDate?: string;
+      toDate?: string;
+    }
   ): Promise<z.infer<typeof PaginatedTransactionsSchema>> => {
     const response = await api.get('/spending/transactions', {
       params: {
         limit,
         offset,
         category_id: params?.categoryId,
-        account_id: params?.accountId,
+        account_id: params?.unassigned ? undefined : params?.accountId,
+        unassigned: params?.unassigned || undefined,
         from_date: params?.fromDate,
         to_date: params?.toDate,
       },
