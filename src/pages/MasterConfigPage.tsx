@@ -43,6 +43,8 @@ export const MasterConfigPage: React.FC = () => {
   const [editingCategoryColor, setEditingCategoryColor] = useState('');
   const [editingCategoryIcon, setEditingCategoryIcon] = useState('');
   const [accountPendingDelete, setAccountPendingDelete] = useState<{ publicId: string; name: string } | null>(null);
+  const [categoryPendingDelete, setCategoryPendingDelete] = useState<{ publicId: string; name: string } | null>(null);
+  const [deleteCategoryError, setDeleteCategoryError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const [resetStatus, setResetStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
@@ -62,6 +64,8 @@ export const MasterConfigPage: React.FC = () => {
     setEditingCategoryColor('');
     setEditingCategoryIcon('');
     setAccountPendingDelete(null);
+    setCategoryPendingDelete(null);
+    setDeleteCategoryError(null);
     setNewAccountName('');
     setResetStatus('idle');
     setIsConfirmResetOpen(false);
@@ -220,6 +224,25 @@ export const MasterConfigPage: React.FC = () => {
     },
   });
 
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (publicId: string) => spendingService.deleteCategory(publicId),
+    onSuccess: (_, publicId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.spending.categories() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.masterConfig.categories() });
+      if (editingCategoryId === publicId) {
+        setEditingCategoryId(null);
+      }
+      setCategoryPendingDelete(null);
+      setDeleteCategoryError(null);
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        (err instanceof Error ? err.message : 'Failed to delete category');
+      setDeleteCategoryError(msg);
+    },
+  });
+
   const updateSettingsMutation = useMutation({
     mutationFn: () =>
       financeService.updateSettings({
@@ -273,6 +296,11 @@ export const MasterConfigPage: React.FC = () => {
     deleteAccountMutation.mutate(accountPendingDelete.publicId, {
       onSuccess: () => setAccountPendingDelete(null),
     });
+  };
+
+  const confirmDeleteCategory = () => {
+    if (!categoryPendingDelete) return;
+    deleteCategoryMutation.mutate(categoryPendingDelete.publicId);
   };
 
   const performResetDemoData = async () => {
@@ -656,6 +684,7 @@ export const MasterConfigPage: React.FC = () => {
                 <th className="px-4 py-3 text-left font-medium">Icon</th>
                 <th className="px-4 py-3 text-left font-medium">Type</th>
                 <th className="px-4 py-3 text-right font-medium">Edit</th>
+                <th className="px-4 py-3 text-right font-medium">Delete</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -681,11 +710,27 @@ export const MasterConfigPage: React.FC = () => {
                       <Edit2 className="h-4 w-4" />
                     </button>
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="h-9 px-3 text-rose-300 hover:text-rose-200"
+                      onClick={() => {
+                        setDeleteCategoryError(null);
+                        setCategoryPendingDelete({ publicId: category.public_id, name: category.name });
+                      }}
+                      disabled={category.is_system || deleteCategoryMutation.isPending}
+                      title={category.is_system ? 'System categories cannot be deleted' : 'Delete category'}
+                      data-testid={`master-category-delete-${category.public_id}`}
+                    >
+                      Delete
+                    </Button>
+                  </td>
                 </tr>
               ))}
               {categories.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-5 text-slate-400" colSpan={5}>
+                  <td className="px-4 py-5 text-slate-400" colSpan={6}>
                     No categories configured yet.
                   </td>
                 </tr>
@@ -758,6 +803,47 @@ export const MasterConfigPage: React.FC = () => {
               disabled={deleteAccountMutation.isPending}
             >
               {deleteAccountMutation.isPending ? 'Deleting...' : 'Delete account'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!categoryPendingDelete}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCategoryPendingDelete(null);
+            setDeleteCategoryError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete category?</DialogTitle>
+            <DialogDescription>
+              {categoryPendingDelete
+                ? `Delete category "${categoryPendingDelete.name}"? This cannot be undone.`
+                : 'This action cannot be undone.'}
+            </DialogDescription>
+          </DialogHeader>
+          {deleteCategoryError ? (
+            <p className="text-sm text-rose-400" data-testid="master-category-delete-error">
+              {deleteCategoryError}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={() => setCategoryPendingDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="text-rose-300 hover:text-rose-200"
+              onClick={confirmDeleteCategory}
+              disabled={deleteCategoryMutation.isPending}
+              data-testid="master-category-delete-confirm"
+            >
+              {deleteCategoryMutation.isPending ? 'Deleting...' : 'Delete category'}
             </Button>
           </DialogFooter>
         </DialogContent>

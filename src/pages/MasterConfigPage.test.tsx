@@ -26,6 +26,56 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
 
+const commonHandlers = (workspaceId: string, workspaceName: string) => [
+  http.get('*/v1/platform/workspaces/', () =>
+    HttpResponse.json({
+      items: [
+        {
+          public_id: workspaceId,
+          name: workspaceName,
+          description: null,
+          is_active: true,
+          role: 'owner',
+        },
+      ],
+    }),
+  ),
+  http.get(`*/v1/platform/workspaces/${workspaceId}/reset-demo/status`, () =>
+    HttpResponse.json({
+      enabled: false,
+      allowed: false,
+      workspace_public_id: workspaceId,
+      workspace_name: workspaceName,
+      role: 'owner',
+      reason: null,
+    }),
+  ),
+  http.get('*/v1/finance/currencies', () =>
+    HttpResponse.json([{ code: 'USD', name: 'US Dollar', symbol: '$', minor_unit: 2, is_active: true }]),
+  ),
+  http.get('*/v1/finance/accounts', () =>
+    HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+  ),
+  http.get('*/v1/finance/settings', () =>
+    HttpResponse.json({
+      reporting_currency_code: null,
+      currency_display_preference: 'symbol',
+      updated_at: '2026-06-10T00:00:00Z',
+    }),
+  ),
+  http.get('*/v1/finance/settings/user', () =>
+    HttpResponse.json({
+      reporting_currency_override_code: null,
+      currency_display_preference_override: null,
+      workspace_reporting_currency_code: null,
+      workspace_currency_display_preference: 'symbol',
+      effective_reporting_currency_code: null,
+      effective_currency_display_preference: 'symbol',
+      updated_at: '2026-06-10T00:00:00Z',
+    }),
+  ),
+];
+
 describe('MasterConfigPage', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -311,5 +361,128 @@ describe('MasterConfigPage', () => {
     await waitFor(() => {
       expect(capturedPayload).toMatchObject({ default_spending_account_id: 'acc-wallet' });
     });
+  });
+
+  it('deletes an unused category after confirmation', async () => {
+    const workspaceId = '66666666-6666-6666-6666-666666666666';
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+    let deleteCalled = false;
+    let categoryItems = [
+      {
+        public_id: 'cat-groceries',
+        name: 'Groceries',
+        is_system: false,
+        color: '#64748b',
+        icon: null,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ];
+
+    server.use(
+      ...commonHandlers(workspaceId, 'Delta Workspace'),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({ items: categoryItems, total: categoryItems.length, limit: 200, offset: 0 }),
+      ),
+      http.delete('*/v1/spending/categories/cat-groceries', () => {
+        deleteCalled = true;
+        categoryItems = [];
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderWithQuery(<MasterConfigPage />);
+
+    const deleteButton = await screen.findByTestId('master-category-delete-cat-groceries');
+    fireEvent.click(deleteButton);
+
+    const confirmButton = await screen.findByTestId('master-category-delete-confirm');
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => expect(deleteCalled).toBe(true));
+    await waitFor(() =>
+      expect(screen.queryByTestId('master-category-row-cat-groceries')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('shows the conflict reason when deleting a category still in use', async () => {
+    const workspaceId = '77777777-7777-7777-7777-777777777777';
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+
+    server.use(
+      ...commonHandlers(workspaceId, 'Epsilon Workspace'),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'cat-rent',
+              name: 'Rent',
+              is_system: false,
+              color: '#64748b',
+              icon: null,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.delete('*/v1/spending/categories/cat-rent', () =>
+        HttpResponse.json(
+          { detail: 'Cannot delete a category that is in use by transactions, budgets, or recurring rules' },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithQuery(<MasterConfigPage />);
+
+    const deleteButton = await screen.findByTestId('master-category-delete-cat-rent');
+    fireEvent.click(deleteButton);
+
+    const confirmButton = await screen.findByTestId('master-category-delete-confirm');
+    fireEvent.click(confirmButton);
+
+    expect(
+      await screen.findByText(
+        'Cannot delete a category that is in use by transactions, budgets, or recurring rules',
+      ),
+    ).toBeInTheDocument();
+    // The row must remain since the delete was rejected.
+    expect(screen.getByTestId('master-category-row-cat-rent')).toBeInTheDocument();
+  });
+
+  it('disables delete for system categories', async () => {
+    const workspaceId = '88888888-8888-8888-8888-888888888888';
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+
+    server.use(
+      ...commonHandlers(workspaceId, 'Zeta Workspace'),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'cat-uncategorized',
+              name: 'Uncategorized',
+              is_system: true,
+              color: '#64748b',
+              icon: null,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+    );
+
+    renderWithQuery(<MasterConfigPage />);
+
+    const deleteButton = await screen.findByTestId('master-category-delete-cat-uncategorized');
+    expect(deleteButton).toBeDisabled();
   });
 });
