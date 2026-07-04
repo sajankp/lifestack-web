@@ -26,7 +26,7 @@ interface Message {
 }
 
 type RealtimeAgentMessage = {
-  type: 'transcript' | 'tool_call' | 'tool_response' | 'error';
+  type: 'transcript' | 'tool_call' | 'tool_response' | 'error' | 'interrupted';
   content?: string;
   name?: string;
   arguments?: Record<string, unknown>;
@@ -307,6 +307,12 @@ export const VoiceAgentWidget: React.FC = () => {
       }
     } 
     
+    else if (msg.type === 'interrupted') {
+      // Barge-in (spec-059): Gemini stopped generating because the user spoke
+      // over it — flush the audio scheduled ahead of real time.
+      clearAudioQueue();
+    }
+
     else if (msg.type === 'error') {
       setMessages(prev => [...prev, {
         id: Math.random().toString(),
@@ -456,6 +462,9 @@ export const VoiceAgentWidget: React.FC = () => {
       mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
       mediaRecorderRef.current = null;
     }
+    // Mic-off is the local "stop talking" control (spec-059): with the mic
+    // closed the server-side VAD can never fire, so silence playback here.
+    clearAudioQueue();
     setIsRecording(false);
   };
 
@@ -642,8 +651,8 @@ export const VoiceAgentWidget: React.FC = () => {
               <p className="text-xs text-slate-600 max-w-[240px]">
                 You can ask me to:
                 <br />• "Add a task to buy groceries"
-                <br />• "Spent 15 dollars on food"
-                <br />• "Log 1200 dollars brokerage balance"
+                <br />• "Spent 15 dollars on food from my wallet"
+                <br />• "How is my portfolio doing?"
               </p>
             </div>
           )}
@@ -730,6 +739,7 @@ export const VoiceAgentWidget: React.FC = () => {
             <button
               onClick={toggleRecording}
               disabled={isStarting || connectionStatus !== 'connected'}
+              aria-label={isRecording ? 'Stop listening' : 'Start listening'}
               className={`flex h-16 w-16 items-center justify-center rounded-full border transition-all duration-300 active:scale-95 ${
                 isRecording 
                   ? 'bg-rose-500/10 border-rose-500 text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.3)]' 
