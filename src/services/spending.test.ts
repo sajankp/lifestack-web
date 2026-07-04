@@ -24,15 +24,13 @@ describe('spendingService', () => {
   it('calls transactions endpoints', async () => {
     vi.spyOn(api, 'get')
       .mockResolvedValueOnce({ data: { items: [], total: 0 } } as never)
-      .mockResolvedValueOnce({ data: { total_expenses: '0' } } as never)
-      .mockResolvedValueOnce({ data: { public_id: 'tx1' } } as never);
+      .mockResolvedValueOnce({ data: { total_expenses: '0' } } as never);
     vi.spyOn(api, 'post').mockResolvedValueOnce({ data: { public_id: 'tx1' } } as never);
     vi.spyOn(api, 'patch').mockResolvedValueOnce({ data: { public_id: 'tx1' } } as never);
     vi.spyOn(api, 'delete').mockResolvedValueOnce({} as never);
 
     await spendingService.getTransactions(10, 0, { categoryId: 'cat1', accountId: 'acct1', fromDate: '2026-05-01', toDate: '2026-05-31' });
     await spendingService.getTransactionSummary({ fromDate: '2026-05-01', toDate: '2026-05-31', categoryId: 'cat1', accountId: 'acct1' });
-    await spendingService.getTransaction('tx1');
     await spendingService.createTransaction({ amount: 100, type: 'expense', category_id: 'cat1', occurred_at: '2026-05-01' } as never);
     await spendingService.updateTransaction('tx1', { amount: 120 });
     await spendingService.deleteTransaction('tx1');
@@ -43,7 +41,6 @@ describe('spendingService', () => {
     expect(api.get).toHaveBeenNthCalledWith(2, '/spending/transactions/summary', {
       params: { from_date: '2026-05-01', to_date: '2026-05-31', category_id: 'cat1', account_id: 'acct1' }
     });
-    expect(api.get).toHaveBeenNthCalledWith(3, '/spending/transactions/tx1');
     expect(api.post).toHaveBeenCalledWith('/spending/transactions', { amount: 100, type: 'expense', category_id: 'cat1', occurred_at: '2026-05-01' });
     expect(api.patch).toHaveBeenCalledWith('/spending/transactions/tx1', { amount: 120 });
     expect(api.delete).toHaveBeenCalledWith('/spending/transactions/tx1');

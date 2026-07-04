@@ -341,16 +341,6 @@ export const investingService = {
     return InstrumentSchema.parse(response.data);
   },
 
-  getInstrumentConstituents: async (
-    instrumentId: string,
-    asOf: string,
-  ): Promise<InstrumentConstituent[]> => {
-    const response = await api.get(`/investing/instruments/${instrumentId}/constituents`, {
-      params: { as_of: asOf },
-    });
-    return z.array(InstrumentConstituentSchema).default([]).parse(response.data);
-  },
-
   upsertInstrumentConstituents: async (
     instrumentId: string,
     data: InstrumentConstituentUpsert,

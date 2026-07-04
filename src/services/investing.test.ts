@@ -43,7 +43,6 @@ describe('investingService', () => {
     vi.spyOn(api, 'get')
       .mockResolvedValueOnce({ data: { portfolio_value: '0' } } as never)
       .mockResolvedValueOnce({ data: [] } as never)
-      .mockResolvedValueOnce({ data: [] } as never)
       .mockResolvedValueOnce({ data: { exposure: [] } } as never)
       .mockResolvedValueOnce({ data: { overlaps: [] } } as never);
     vi.spyOn(api, 'post')
@@ -55,7 +54,6 @@ describe('investingService', () => {
     await investingService.getInstruments();
     await investingService.createInstrument({} as never);
     await investingService.updateInstrument('i1', { instrument_type: 'etf' });
-    await investingService.getInstrumentConstituents('i1', '2026-05-24');
     await investingService.upsertInstrumentConstituents('i1', {} as never);
     await investingService.getExposureAnalytics('2026-05-24');
     await investingService.getOverlapAnalytics('2026-05-24');
@@ -64,14 +62,11 @@ describe('investingService', () => {
     expect(api.get).toHaveBeenNthCalledWith(2, '/investing/instruments');
     expect(api.post).toHaveBeenNthCalledWith(1, '/investing/instruments', {});
     expect(api.patch).toHaveBeenCalledWith('/investing/instruments/i1', { instrument_type: 'etf' });
-    expect(api.get).toHaveBeenNthCalledWith(3, '/investing/instruments/i1/constituents', {
-      params: { as_of: '2026-05-24' },
-    });
     expect(api.post).toHaveBeenNthCalledWith(2, '/investing/instruments/i1/constituents', {});
-    expect(api.get).toHaveBeenNthCalledWith(4, '/investing/analytics/exposure', {
+    expect(api.get).toHaveBeenNthCalledWith(3, '/investing/analytics/exposure', {
       params: { as_of: '2026-05-24' },
     });
-    expect(api.get).toHaveBeenNthCalledWith(5, '/investing/analytics/overlap', {
+    expect(api.get).toHaveBeenNthCalledWith(4, '/investing/analytics/overlap', {
       params: { as_of: '2026-05-24' },
     });
   });
