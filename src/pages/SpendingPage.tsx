@@ -304,9 +304,17 @@ export const SpendingPage: React.FC = () => {
 
   // Backing the filter's count badge — the `unassigned` list endpoint's
   // `total` is already exactly this count (spec-054), no separate endpoint.
+  // Mirror the active date/category filters so the badge matches the list
+  // shown when the option is selected (the list query above also passes
+  // fromDate/toDate through while the unassigned filter is active).
   const { data: unassignedCountResponse } = useQuery({
-    queryKey: ['transactions', 'unassigned-count'],
-    queryFn: () => spendingService.getTransactions(1, 0, { unassigned: true }),
+    queryKey: ['transactions', 'unassigned-count', fromDate, toDate, selectedCategoryFilter],
+    queryFn: () => spendingService.getTransactions(1, 0, {
+      unassigned: true,
+      categoryId: selectedCategoryFilter || undefined,
+      fromDate: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
+      toDate: toDate ? `${toDate}T23:59:59.999Z` : undefined,
+    }),
   });
   const unassignedTransactionCount = unassignedCountResponse?.total ?? 0;
 

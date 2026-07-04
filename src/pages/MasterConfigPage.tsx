@@ -125,13 +125,19 @@ export const MasterConfigPage: React.FC = () => {
 
   // The default spending account can't be a brokerage account (mirrors the
   // backend's InvestingOrderService brokerage-only check, inverted) and
-  // deactivated accounts aren't eligible either (spec-054).
-  const defaultSpendingAccountOptions = accounts
-    .filter((account) => account.is_active && account.account_type !== 'brokerage')
-    .map((account) => ({
-      value: account.public_id,
-      label: `${account.name} (${account.account_type.replace('_', ' ')})`,
-    }));
+  // deactivated accounts aren't eligible either (spec-054). Keyed off
+  // accountsResponse?.items (not the derived `accounts`) so the memo is
+  // stable across this page's frequent form-input re-renders.
+  const defaultSpendingAccountOptions = useMemo(
+    () =>
+      (accountsResponse?.items ?? [])
+        .filter((account) => account.is_active && account.account_type !== 'brokerage')
+        .map((account) => ({
+          value: account.public_id,
+          label: `${account.name} (${account.account_type.replace('_', ' ')})`,
+        })),
+    [accountsResponse?.items]
+  );
 
   const accountTypeOptions = [
     { value: 'wallet', label: 'Wallet' },
