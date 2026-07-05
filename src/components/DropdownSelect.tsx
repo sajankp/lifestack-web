@@ -86,7 +86,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
           disabled={disabled}
           type="button"
           className={cn(
-            'flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-left text-sm text-slate-100 transition focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-60 hover:bg-slate-900/50',
+            'flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-left text-base sm:text-sm text-slate-100 transition focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-60 hover:bg-slate-900/50',
           )}
         >
           <span className={cn('truncate', !selectedOption && 'text-slate-500')}>

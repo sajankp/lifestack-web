@@ -166,9 +166,11 @@ describe('SpendingPage', () => {
 
     renderWithQuery(<SpendingPage />);
 
-    expect(await screen.findByText('Grocery run')).toBeInTheDocument();
-    expect(await screen.findByText('Food')).toBeInTheDocument();
-    expect(await screen.findByText('My Wallet')).toBeInTheDocument();
+    // Transactions render in two responsive layouts (mobile cards + desktop
+    // table), so this content appears twice in the DOM — assert on all matches.
+    expect((await screen.findAllByText('Grocery run')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Food')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('My Wallet')).length).toBeGreaterThan(0);
   });
 
   it('opens and closes the new transaction modal', async () => {
@@ -330,7 +332,7 @@ describe('SpendingPage', () => {
     const noAccountOption = await screen.findByRole('option', { name: /No account \(1\)/ });
     fireEvent.click(noAccountOption);
 
-    await screen.findByText('legacy row');
+    await screen.findAllByText('legacy row');
   });
 
   it('switches to budgets tab and shows empty state', async () => {

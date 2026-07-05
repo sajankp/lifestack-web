@@ -1084,46 +1084,46 @@ export const SpendingPage: React.FC = () => {
         Transaction rows show their original source currency. Summary cards above are reported in {displayCurrency}.
       </div>
 
-      <div className="mb-6 flex gap-2 border-b border-slate-700/50 pb-px">
+      <div className="mb-6 flex gap-2 overflow-x-auto border-b border-slate-700/50 pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <button
           data-testid="spending-tab-transactions"
           onClick={() => setActiveTab('transactions')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'transactions' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'transactions' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
         >
           Transactions
         </button>
         <button
           data-testid="spending-tab-budgets"
           onClick={() => setActiveTab('budgets')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'budgets' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'budgets' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
         >
           Budgets
         </button>
         <button
           data-testid="spending-tab-recurring"
           onClick={() => setActiveTab('recurring')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'recurring' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'recurring' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
         >
           Recurring rules
         </button>
         <button
           data-testid="spending-tab-transfers"
           onClick={() => setActiveTab('transfers')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'transfers' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'transfers' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
         >
           Transfers
         </button>
         <button
           data-testid="spending-tab-analytics"
           onClick={() => setActiveTab('analytics')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'analytics' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'analytics' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
         >
           Analytics
         </button>
         <button
           data-testid="spending-tab-ledger"
           onClick={() => setActiveTab('ledger')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'ledger' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'ledger' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
         >
           Ledger
         </button>
@@ -1653,7 +1653,7 @@ export const SpendingPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={closeTransactionModal}
-                  className="flex-1 rounded-xl bg-slate-800 px-4 py-3 font-medium text-slate-300 transition-colors hover:bg-slate-700"
+                  className="flex-1 whitespace-nowrap rounded-xl bg-slate-800 px-4 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
                 >
                   Cancel
                 </button>
@@ -1668,7 +1668,7 @@ export const SpendingPage: React.FC = () => {
                     !date ||
                     (!editingTransaction && !accountId)
                   }
-                  className="flex-1 rounded-xl bg-cyan-600 px-4 py-3 font-semibold text-white shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-500 hover:shadow-cyan-500/40 disabled:opacity-50"
+                  className="flex-1 whitespace-nowrap rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-500 hover:shadow-cyan-500/40 disabled:opacity-50"
                 >
                   {(createMutation.isPending || updateMutation.isPending) ? 'Saving...' : 'Save Transaction'}
                 </button>

@@ -25,3 +25,7 @@ dist-ssr
 .env
 coverage/
 test-results/
+
+# Local debug/verification harness (not committed)
+debug/
+e2e-out/
