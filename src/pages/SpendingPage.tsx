@@ -1519,8 +1519,8 @@ export const SpendingPage: React.FC = () => {
             onClick={closeTransactionModal}
           />
           
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10">
               <h3 className="text-lg font-semibold text-white">
                 {editingTransaction ? 'Edit Transaction' : 'New Transaction'}
               </h3>
@@ -1686,8 +1686,8 @@ export const SpendingPage: React.FC = () => {
             onClick={closeBudgetModal}
           />
           
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10">
               <h3 className="text-lg font-semibold text-white">{editingBudgetId ? 'Edit Budget' : 'Set Budget'}</h3>
               <button 
                 onClick={closeBudgetModal}
@@ -1812,8 +1812,8 @@ export const SpendingPage: React.FC = () => {
             className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
             onClick={() => setIsQuickAccountModalOpen(false)}
           />
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10">
               <h3 className="text-lg font-semibold text-white">Create Wallet / Account</h3>
               <button
                 onClick={() => setIsQuickAccountModalOpen(false)}
@@ -1886,8 +1886,8 @@ export const SpendingPage: React.FC = () => {
       {isTransferModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
           <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" onClick={() => setIsTransferModalOpen(false)} />
-          <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+          <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10">
               <h3 className="text-lg font-semibold text-white">Transfer Between Wallets/Accounts</h3>
               <button
                 onClick={() => setIsTransferModalOpen(false)}
@@ -1935,7 +1935,7 @@ export const SpendingPage: React.FC = () => {
                   <DatePicker value={transferDate} onChange={setTransferDate} required />
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
                 <div>
                   <Label className="mb-2 block">FX Rate (optional)</Label>
                   <Input type="number" min="0" step="0.0000000001" value={transferFxRate} onChange={(e) => setTransferFxRate(e.target.value)} />
