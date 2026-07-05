@@ -1,34 +1,53 @@
-export interface Holding {
-  public_id: string;
-  symbol: string;
+import { z } from 'zod';
+
+// ─── Zod Schemas with default values for test resiliency ────────────────────
+// Single source of truth for investing API shapes (G4): response types are
+// derived from these schemas; request payload types stay plain interfaces.
+
+export const InstrumentTypeSchema = z.enum(['stock', 'etf', 'mutual_fund']).default('stock');
+export type InstrumentType = z.infer<typeof InstrumentTypeSchema>;
+
+export const HoldingSchema = z.object({
+  public_id: z.string().default(''),
+  symbol: z.string().default(''),
+  instrument_type: InstrumentTypeSchema.optional(),
+  account_id: z.string().default(''),
+  account_name: z.string().default(''),
+  quantity: z.union([z.number(), z.string()]).default(0),
+  avg_cost: z.union([z.number(), z.string()]).default(0),
+  currency: z.string().default(''),
+  source_type: z.string().optional(),
+  current_price: z.union([z.number(), z.string()]).optional(),
+  current_value: z.union([z.number(), z.string()]).optional(),
+  book_value: z.union([z.number(), z.string()]).optional(),
+  gain_loss: z.union([z.number(), z.string()]).optional(),
+  gain_loss_pct: z.union([z.number(), z.string()]).optional(),
+  created_at: z.string().default(''),
+  updated_at: z.string().default(''),
+});
+
+export type Holding = z.infer<typeof HoldingSchema>;
+
+export interface HoldingUpdate {
+  symbol?: string;
+  quantity?: number;
+  avg_cost?: number;
+  currency?: string;
   instrument_type?: InstrumentType;
-  account_id: string;
-  account_name: string;
-  quantity: number | string;
-  avg_cost: number | string;
-  currency: string;
-  source_type?: string;
-  current_price?: number | string;
-  current_value?: number | string;
-  book_value?: number | string;
-  gain_loss?: number | string;
-  gain_loss_pct?: number | string;
-  created_at: string;
-  updated_at: string;
 }
 
-export type InstrumentType = 'stock' | 'etf' | 'mutual_fund';
+export const InstrumentSchema = z.object({
+  public_id: z.string().default(''),
+  symbol: z.string().default(''),
+  name: z.string().default(''),
+  instrument_type: InstrumentTypeSchema,
+  company_id: z.string().nullable().default(null),
+  is_active: z.boolean().default(true),
+  created_at: z.string().default(''),
+  updated_at: z.string().default(''),
+});
 
-export interface Instrument {
-  public_id: string;
-  symbol: string;
-  name: string;
-  instrument_type: InstrumentType;
-  company_id: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+export type Instrument = z.infer<typeof InstrumentSchema>;
 
 export interface InstrumentCreate {
   symbol: string;
@@ -55,33 +74,31 @@ export interface InstrumentConstituentUpsert {
   constituents: InstrumentConstituentInput[];
 }
 
-export interface InstrumentConstituent {
-  company_id: string;
-  company_name: string;
-  company_ticker: string | null;
-  weight: string;
-  as_of_date: string;
-  source: string;
-}
+export const InstrumentConstituentSchema = z.object({
+  company_id: z.string().default(''),
+  company_name: z.string().default(''),
+  company_ticker: z.string().nullable().default(null),
+  weight: z.string().default('0'),
+  as_of_date: z.string().default(''),
+  source: z.string().default(''),
+});
 
-export interface HoldingUpdate {
-  symbol?: string;
-  quantity?: number;
-  avg_cost?: number;
-  currency?: string;
-  instrument_type?: InstrumentType;
-}
+export type InstrumentConstituent = z.infer<typeof InstrumentConstituentSchema>;
 
-export interface CashBalance {
-  public_id: string;
-  account_id: string;
-  account_name: string;
-  balance: number | string;
-  currency: string;
-  as_of: string;
-  created_at: string;
-  updated_at: string;
-}
+export const CashBalanceSchema = z.object({
+  public_id: z.string().default(''),
+  account_id: z.string().default(''),
+  account_name: z.string().default(''),
+  balance: z.union([z.number(), z.string()]).default(0),
+  currency: z.string().default(''),
+  as_of: z.string().default(''),
+  trigger_type: z.string().nullable().default(null),
+  trigger_ref: z.string().nullable().default(null),
+  created_at: z.string().default(''),
+  updated_at: z.string().default(''),
+});
+
+export type CashBalance = z.infer<typeof CashBalanceSchema>;
 
 export interface CashBalanceCreate {
   account_id: string;
@@ -96,79 +113,152 @@ export interface CashBalanceUpdate {
   as_of?: string;
 }
 
-export interface InvestingSummary {
-  portfolio_value: number | string | null;
-  holdings_count: number;
-  cash_total: number | string | null;
-  currency_breakdown: Record<string, number | string>;
-  daily_change: number | string | null;
-  reporting_currency: string | null;
-  valuation_status: string;
-  fx_rates_used?: Record<string, number | string>;
-}
+export const OrderTypeSchema = z.enum(['buy', 'sell']).default('buy');
+export type OrderType = z.infer<typeof OrderTypeSchema>;
 
-export interface ExposureCompanyRow {
-  company_id: string;
-  company_name: string;
-  company_ticker: string | null;
-  direct_exposure: string;
-  lookthrough_exposure: string;
-}
+export const InvestingOrderSchema = z.object({
+  public_id: z.string().default(''),
+  account_id: z.string().default(''),
+  account_name: z.string().default(''),
+  order_type: OrderTypeSchema,
+  symbol: z.string().default(''),
+  instrument_type: z.string().nullable().default(null),
+  quantity: z.union([z.number(), z.string()]).default(0),
+  price_per_unit: z.union([z.number(), z.string()]).default(0),
+  gross_amount: z.union([z.number(), z.string()]).default(0),
+  brokerage_fee: z.union([z.number(), z.string()]).default(0),
+  tax_amount: z.union([z.number(), z.string()]).default(0),
+  other_fees: z.union([z.number(), z.string()]).default(0),
+  net_amount: z.union([z.number(), z.string()]).default(0),
+  currency: z.string().default(''),
+  exchange_name: z.string().nullable().default(null),
+  occurred_at: z.string().default(''),
+  notes: z.string().nullable().default(null),
+  realized_gain_loss: z.union([z.number(), z.string()]).nullable().default(null),
+  avg_cost_at_sale: z.union([z.number(), z.string()]).nullable().default(null),
+  source_type: z.string().nullable().default(null),
+  created_at: z.string().default(''),
+});
 
-export interface ExposureAnalytics {
-  as_of_date: string;
-  analysis_status: 'complete' | 'partial' | 'unavailable';
-  currency: string | null;
-  fx_as_of: string | null;
-  fx_rates_used: Record<string, number | string>;
-  snapshot_coverage: string;
-  staleness_days: number | null;
-  warnings: string[];
-  display_threshold_pct: string;
-  hidden_exposure_count: number;
-  exposure: ExposureCompanyRow[];
-  total_direct_exposure: string | null;
-  total_lookthrough_exposure: string | null;
-}
+export type InvestingOrder = z.infer<typeof InvestingOrderSchema>;
 
-export interface OverlapRow {
-  company_id: string;
-  company_name: string;
-  company_ticker: string | null;
-  overlap_exposure: string;
-  portfolio_share: string;
-}
-
-export interface OverlapAnalytics {
-  as_of_date: string;
-  analysis_status: 'complete' | 'partial' | 'unavailable';
-  currency: string | null;
-  fx_as_of: string | null;
-  fx_rates_used: Record<string, number | string>;
-  snapshot_coverage: string;
-  warnings: string[];
-  display_threshold_pct: string;
-  hidden_overlap_count: number;
-  top_5_concentration_pct: string;
-  top_10_concentration_pct: string;
-  duplicate_exposure_index: string;
-  overlaps: OverlapRow[];
-}
-
-export interface PerformanceSummary {
-  total_value: number | string;
-  total_cost: number | string;
-  portfolio_value: number | string;
-  invested_value: number | string;
-  cash_total: number | string;
-  total_gain_loss: number | string;
-  total_gain_loss_pct: number | string | null;
-  daily_change: number | string | null;
-  daily_change_pct: number | string | null;
-  snapshot_date: string;
-  previous_snapshot_date: string | null;
+export interface InvestingOrderCreate {
+  account_id: string;
+  order_type: OrderType;
+  symbol: string;
+  quantity: number;
+  price_per_unit: number;
   currency: string;
-  valuation_status: 'current' | 'estimated' | 'empty';
-  holdings_count: number;
-  fx_rates_used?: Record<string, number | string>;
+  brokerage_fee?: number;
+  tax_amount?: number;
+  other_fees?: number;
+  exchange_name?: string;
+  occurred_at: string;
+  notes?: string;
 }
+
+export interface InvestingOrderUpdate {
+  order_type?: OrderType;
+  quantity?: number;
+  price_per_unit?: number;
+  brokerage_fee?: number;
+  tax_amount?: number;
+  other_fees?: number;
+  exchange_name?: string;
+  occurred_at?: string;
+  notes?: string;
+}
+
+export interface InvestingOrderBulkCreate {
+  account_id: string;
+  orders: InvestingOrderCreate[];
+}
+
+export const InvestingSummarySchema = z.object({
+  portfolio_value: z.union([z.number(), z.string()]).nullable().default(null),
+  holdings_count: z.number().default(0),
+  cash_total: z.union([z.number(), z.string()]).nullable().default(null),
+  currency_breakdown: z.record(z.string(), z.union([z.number(), z.string()])).default({}),
+  daily_change: z.union([z.number(), z.string()]).nullable().default(null),
+  reporting_currency: z.string().nullable().default(null),
+  valuation_status: z.string().default(''),
+  fx_rates_used: z.record(z.string(), z.union([z.number(), z.string()])).optional(),
+});
+
+export type InvestingSummary = z.infer<typeof InvestingSummarySchema>;
+
+export const ExposureCompanyRowSchema = z.object({
+  company_id: z.string().default(''),
+  company_name: z.string().default(''),
+  company_ticker: z.string().nullable().default(null),
+  direct_exposure: z.string().default('0'),
+  lookthrough_exposure: z.string().default('0'),
+});
+
+export type ExposureCompanyRow = z.infer<typeof ExposureCompanyRowSchema>;
+
+export const ExposureAnalyticsSchema = z.object({
+  as_of_date: z.string().default(''),
+  analysis_status: z.enum(['complete', 'partial', 'unavailable']).default('complete'),
+  currency: z.string().nullable().default(null),
+  fx_as_of: z.string().nullable().default(null),
+  fx_rates_used: z.record(z.string(), z.union([z.number(), z.string()])).default({}),
+  snapshot_coverage: z.string().default('0'),
+  staleness_days: z.number().nullable().default(null),
+  warnings: z.array(z.string()).default([]),
+  display_threshold_pct: z.string().default('0'),
+  hidden_exposure_count: z.number().default(0),
+  exposure: z.array(ExposureCompanyRowSchema).default([]),
+  total_direct_exposure: z.string().nullable().default(null),
+  total_lookthrough_exposure: z.string().nullable().default(null),
+});
+
+export type ExposureAnalytics = z.infer<typeof ExposureAnalyticsSchema>;
+
+export const OverlapRowSchema = z.object({
+  company_id: z.string().default(''),
+  company_name: z.string().default(''),
+  company_ticker: z.string().nullable().default(null),
+  overlap_exposure: z.string().default('0'),
+  portfolio_share: z.string().default('0'),
+});
+
+export type OverlapRow = z.infer<typeof OverlapRowSchema>;
+
+export const OverlapAnalyticsSchema = z.object({
+  as_of_date: z.string().default(''),
+  analysis_status: z.enum(['complete', 'partial', 'unavailable']).default('complete'),
+  currency: z.string().nullable().default(null),
+  fx_as_of: z.string().nullable().default(null),
+  fx_rates_used: z.record(z.string(), z.union([z.number(), z.string()])).default({}),
+  snapshot_coverage: z.string().default('0'),
+  warnings: z.array(z.string()).default([]),
+  display_threshold_pct: z.string().default('0'),
+  hidden_overlap_count: z.number().default(0),
+  top_5_concentration_pct: z.string().default('0'),
+  top_10_concentration_pct: z.string().default('0'),
+  duplicate_exposure_index: z.string().default('0'),
+  overlaps: z.array(OverlapRowSchema).default([]),
+});
+
+export type OverlapAnalytics = z.infer<typeof OverlapAnalyticsSchema>;
+
+export const PerformanceSummarySchema = z.object({
+  total_value: z.union([z.number(), z.string()]).default(0),
+  total_cost: z.union([z.number(), z.string()]).default(0),
+  portfolio_value: z.union([z.number(), z.string()]).nullable().catch(null).default(null),
+  invested_value: z.union([z.number(), z.string()]).nullable().catch(null).default(null),
+  cash_total: z.union([z.number(), z.string()]).default(0),
+  total_gain_loss: z.union([z.number(), z.string()]).default(0),
+  total_gain_loss_pct: z.union([z.number(), z.string()]).nullable().catch(null).default(null),
+  daily_change: z.union([z.number(), z.string()]).nullable().catch(null).default(null),
+  daily_change_pct: z.union([z.number(), z.string()]).nullable().catch(null).default(null),
+  snapshot_date: z.string().default(''),
+  previous_snapshot_date: z.string().nullable().catch(null).default(null),
+  currency: z.string().default(''),
+  valuation_status: z.enum(['current', 'estimated', 'empty']).default('empty'),
+  holdings_count: z.number().default(0),
+  fx_rates_used: z.record(z.string(), z.union([z.number(), z.string()])).optional(),
+});
+
+export type PerformanceSummary = z.infer<typeof PerformanceSummarySchema>;
