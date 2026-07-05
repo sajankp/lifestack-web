@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Edit2, Plus, Trash2, X } from 'lucide-react';
 import { financeService } from '../../services/finance';
+import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { investingService } from '../../services/investing';
 import type { CashBalance, InvestingOrder, InvestingOrderCreate, OrderType } from '../../services/investing';
 import { formatCurrency, toNumber } from '../../utils/numberFormat';
@@ -26,6 +27,8 @@ import type { CashBalanceCreate } from '../../types/investing';
 import { SortableHeader } from './components';
 import { accountTypeOptions, formatDateTimeLocalInput, type SortDir } from './format';
 
+const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
+
 interface CashTabProps {
   currencyDisplayPreference: 'symbol' | 'code';
   onEditOrder: (order: InvestingOrder) => void;
@@ -43,8 +46,6 @@ export const CashTab: React.FC<CashTabProps> = ({
   deleteOrderPending,
   updateOrderPending,
 }) => {
-  const queryClient = useQueryClient();
-
   const [cashAccountFilter, setCashAccountFilter] = useState('');
   const [cashCurrencyFilter, setCashCurrencyFilter] = useState('');
   const [cashSortCol, setCashSortCol] = useState('account_name');
@@ -94,12 +95,6 @@ export const CashTab: React.FC<CashTabProps> = ({
   const [ordersSortCol, setOrdersSortCol] = useState('occurred_at');
   const [ordersSortDir, setOrdersSortDir] = useState<SortDir>('desc');
   const [ordersOffset, setOrdersOffset] = useState(0);
-
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.investing.all });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.finance.all });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
-  };
 
   const cashRes = useQuery({
     // account_id is a server-side filter (not just client-side), so switching
@@ -179,61 +174,65 @@ export const CashTab: React.FC<CashTabProps> = ({
     enabled: cashAccountFilter !== '',
   });
 
-  const createCashMutation = useMutation({
-    mutationFn: (payload: CashBalanceCreate) => investingService.createCashBalance(payload),
-    onSuccess: () => {
-      setCashForm({
-        account_id: cashForm.account_id,
-        balance: '',
-        currency: cashForm.currency,
-        as_of: formatDateTimeLocalInput(new Date()),
-      });
-      setIsAddCashModalOpen(false);
-      refresh();
+  const createCashMutation = useInvalidatingMutation(
+    (payload: CashBalanceCreate) => investingService.createCashBalance(payload),
+    refreshKeys,
+    {
+      onSuccess: () => {
+        setCashForm({
+          account_id: cashForm.account_id,
+          balance: '',
+          currency: cashForm.currency,
+          as_of: formatDateTimeLocalInput(new Date()),
+        });
+        setIsAddCashModalOpen(false);
+      },
     },
-  });
+  );
 
-  const deleteCashMutation = useMutation({
-    mutationFn: (publicId: string) => investingService.deleteCashBalance(publicId),
-    onSuccess: () => {
-      setPendingDeleteCash(null);
-      refresh();
-    },
-  });
+  const deleteCashMutation = useInvalidatingMutation(
+    (publicId: string) => investingService.deleteCashBalance(publicId),
+    refreshKeys,
+    { onSuccess: () => setPendingDeleteCash(null) },
+  );
 
-  const createAccountMutation = useMutation({
-    mutationFn: () =>
+  const createAccountMutation = useInvalidatingMutation(
+    () =>
       financeService.createAccount({
         name: newAccountName.trim(),
         account_type: newAccountType,
         default_currency_code: selectedCashCurrency,
       }),
-    onSuccess: (created) => {
-      setNewAccountName('');
-      setCashForm((prev) => ({ ...prev, account_id: created.public_id }));
-      refresh();
+    refreshKeys,
+    {
+      onSuccess: (created) => {
+        setNewAccountName('');
+        setCashForm((prev) => ({ ...prev, account_id: created.public_id }));
+      },
     },
-  });
+  );
 
-  const placeOrderMutation = useMutation({
-    mutationFn: (payload: InvestingOrderCreate) => investingService.placeOrder(payload),
-    onSuccess: () => {
-      setOrderForm((prev) => ({
-        ...prev,
-        symbol: '',
-        quantity: '',
-        price_per_unit: '',
-        brokerage_fee: '0',
-        tax_amount: '0',
-        other_fees: '0',
-        exchange_name: '',
-        notes: '',
-        occurred_at: formatDateTimeLocalInput(new Date()),
-      }));
-      setIsPlaceOrderModalOpen(false);
-      refresh();
+  const placeOrderMutation = useInvalidatingMutation(
+    (payload: InvestingOrderCreate) => investingService.placeOrder(payload),
+    refreshKeys,
+    {
+      onSuccess: () => {
+        setOrderForm((prev) => ({
+          ...prev,
+          symbol: '',
+          quantity: '',
+          price_per_unit: '',
+          brokerage_fee: '0',
+          tax_amount: '0',
+          other_fees: '0',
+          exchange_name: '',
+          notes: '',
+          occurred_at: formatDateTimeLocalInput(new Date()),
+        }));
+        setIsPlaceOrderModalOpen(false);
+      },
     },
-  });
+  );
 
   const confirmDeleteCash = () => {
     if (!pendingDeleteCash) return;

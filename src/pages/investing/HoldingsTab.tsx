@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowDownUp, Check, Edit2, Info, RefreshCw, Trash2, X } from 'lucide-react';
 import { financeService } from '../../services/finance';
+import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { investingService } from '../../services/investing';
 import type { InvestingOrder } from '../../services/investing';
 import { formatCurrency, toNumber } from '../../utils/numberFormat';
@@ -29,6 +30,8 @@ import {
   type SortDir,
 } from './format';
 
+const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
+
 interface HoldingsTabProps {
   currencyDisplayPreference: 'symbol' | 'code';
   onEditOrder: (order: InvestingOrder) => void;
@@ -44,8 +47,6 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
   deleteOrderPending,
   updateOrderPending,
 }) => {
-  const queryClient = useQueryClient();
-
   const [holdingsAccountFilter, setHoldingsAccountFilter] = useState('');
   const [holdingsCurrencyFilter, setHoldingsCurrencyFilter] = useState('');
   const [holdingsTypeFilter, setHoldingsTypeFilter] = useState('');
@@ -67,12 +68,6 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
   const [editingPriceHoldingId, setEditingPriceHoldingId] = useState<string | null>(null);
   const [editPriceValue, setEditPriceValue] = useState<string>('');
   const [tradeHistoryHolding, setTradeHistoryHolding] = useState<Holding | null>(null);
-
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.investing.all });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.finance.all });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
-  };
 
   const holdingsRes = useQuery({
     queryKey: queryKeys.investing.holdings(),
@@ -132,8 +127,8 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
     });
   }, [tradeHistoryRes.data]);
 
-  const updateHoldingMutation = useMutation({
-    mutationFn: async (payload: {
+  const updateHoldingMutation = useInvalidatingMutation(
+    async (payload: {
       holding: Holding;
       symbol: string;
       quantity?: number;
@@ -150,38 +145,34 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
       });
       return updatedHolding;
     },
-    onSuccess: () => {
-      setSelectedHolding(null);
-      setIsEditHoldingModalOpen(false);
-      refresh();
+    refreshKeys,
+    {
+      onSuccess: () => {
+        setSelectedHolding(null);
+        setIsEditHoldingModalOpen(false);
+      },
     },
-  });
+  );
 
-  const deleteHoldingMutation = useMutation({
-    mutationFn: (publicId: string) => investingService.deleteHolding(publicId),
-    onSuccess: () => {
-      setPendingDeleteHolding(null);
-      refresh();
-    },
-  });
+  const deleteHoldingMutation = useInvalidatingMutation(
+    (publicId: string) => investingService.deleteHolding(publicId),
+    refreshKeys,
+    { onSuccess: () => setPendingDeleteHolding(null) },
+  );
 
-  const refreshPricesMutation = useMutation({
-    mutationFn: () => investingService.refreshPrices(),
-    onSuccess: () => {
-      refresh();
-    },
-  });
+  const refreshPricesMutation = useInvalidatingMutation(
+    () => investingService.refreshPrices(),
+    refreshKeys,
+  );
 
-  const submitPricesMutation = useMutation({
-    mutationFn: (payload: {
+  const submitPricesMutation = useInvalidatingMutation(
+    (payload: {
       price_date: string;
       prices: Array<{ holding_public_id: string; unit_price: number }>;
     }) => investingService.submitPrices(payload),
-    onSuccess: () => {
-      setEditingPriceHoldingId(null);
-      refresh();
-    },
-  });
+    refreshKeys,
+    { onSuccess: () => setEditingPriceHoldingId(null) },
+  );
 
   const handleStartEditPrice = (h: Holding) => {
     setEditingPriceHoldingId(h.public_id);

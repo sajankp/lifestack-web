@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { BarChart3, Check, Edit2, Layers, Plus, X } from 'lucide-react';
 import { investingService } from '../../services/investing';
+import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { formatCurrency, toNumber } from '../../utils/numberFormat';
 import { DatePicker } from '../../components/DatePicker';
 import { queryKeys } from '../../lib/queryKeys';
@@ -15,13 +16,13 @@ import type {
 } from '../../types/investing';
 import { formatDateInput, instrumentTypeLabel, instrumentTypeOptions } from './format';
 
+const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
+
 interface AnalyticsTabProps {
   currencyDisplayPreference: 'symbol' | 'code';
 }
 
 export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPreference }) => {
-  const queryClient = useQueryClient();
-
   const [analyticsAsOf, setAnalyticsAsOf] = useState(formatDateInput(new Date()));
   const [isCreateInstrumentModalOpen, setIsCreateInstrumentModalOpen] = useState(false);
   const [isSeedConstituentsModalOpen, setIsSeedConstituentsModalOpen] = useState(false);
@@ -38,12 +39,6 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
     name: '',
     instrument_type: 'stock' as InstrumentType,
   });
-
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.investing.all });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.finance.all });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
-  };
 
   const instrumentsRes = useQuery({
     queryKey: queryKeys.investing.instruments(),
@@ -79,42 +74,40 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
     [instruments]
   );
 
-  const createInstrumentMutation = useMutation({
-    mutationFn: (payload: InstrumentCreate) => investingService.createInstrument(payload),
-    onSuccess: (created) => {
-      setInstrumentForm({
-        symbol: '',
-        name: '',
-        instrument_type: created.instrument_type,
-      });
-      setSelectedInstrumentId(created.public_id);
-      setIsCreateInstrumentModalOpen(false);
-      refresh();
+  const createInstrumentMutation = useInvalidatingMutation(
+    (payload: InstrumentCreate) => investingService.createInstrument(payload),
+    refreshKeys,
+    {
+      onSuccess: (created) => {
+        setInstrumentForm({
+          symbol: '',
+          name: '',
+          instrument_type: created.instrument_type,
+        });
+        setSelectedInstrumentId(created.public_id);
+        setIsCreateInstrumentModalOpen(false);
+      },
     },
-  });
+  );
 
-  const updateInstrumentMutation = useMutation({
-    mutationFn: (payload: { publicId: string; name: string; instrument_type: InstrumentType }) =>
+  const updateInstrumentMutation = useInvalidatingMutation(
+    (payload: { publicId: string; name: string; instrument_type: InstrumentType }) =>
       investingService.updateInstrument(payload.publicId, {
         name: payload.name,
         instrument_type: payload.instrument_type,
       }),
-    onSuccess: () => {
-      setEditingInstrumentId(null);
-      refresh();
-    },
-  });
+    refreshKeys,
+    { onSuccess: () => setEditingInstrumentId(null) },
+  );
 
-  const upsertConstituentsMutation = useMutation({
-    mutationFn: async (payload: InstrumentConstituentUpsert) => {
+  const upsertConstituentsMutation = useInvalidatingMutation(
+    async (payload: InstrumentConstituentUpsert) => {
       if (!selectedInstrumentId) return [];
       return investingService.upsertInstrumentConstituents(selectedInstrumentId, payload);
     },
-    onSuccess: () => {
-      setIsSeedConstituentsModalOpen(false);
-      refresh();
-    },
-  });
+    refreshKeys,
+    { onSuccess: () => setIsSeedConstituentsModalOpen(false) },
+  );
 
   const handleStartEditInstrument = (instrument: Instrument) => {
     setEditingInstrumentId(instrument.public_id);

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Landmark, WalletCards, X } from 'lucide-react';
 import { financeService } from '../services/finance';
+import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { investingService } from '../services/investing';
 import type { InvestingOrder, InvestingOrderUpdate, OrderType } from '../services/investing';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
@@ -25,8 +26,9 @@ import { SummaryCard } from './investing/components';
 import { formatDateTimeLocalInput, formatPerformanceMetric, statusLabel } from './investing/format';
 import { queryKeys } from '../lib/queryKeys';
 
+const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
+
 export const InvestingPage: React.FC = () => {
-  const queryClient = useQueryClient();
   const [tab, setTab] = useState<'holdings' | 'cash' | 'analytics'>('holdings');
 
   const summary = useQuery({
@@ -56,12 +58,6 @@ export const InvestingPage: React.FC = () => {
     currencyOptions.includes(userFinanceSettings.effective_reporting_currency_code)
       ? userFinanceSettings.effective_reporting_currency_code
       : null) ?? currencyOptions[0] ?? 'USD';
-
-  const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.investing.all });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.finance.all });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
-  };
 
   // Order editing/deletion is shared between the Holdings tab's Trade History
   // modal and the Cash tab's Orders table, and this modal must stay mounted
@@ -93,23 +89,23 @@ export const InvestingPage: React.FC = () => {
     notes: '',
   });
 
-  const updateOrderMutation = useMutation({
-    mutationFn: ({ publicId, payload }: { publicId: string; payload: InvestingOrderUpdate }) =>
+  const updateOrderMutation = useInvalidatingMutation(
+    ({ publicId, payload }: { publicId: string; payload: InvestingOrderUpdate }) =>
       investingService.updateOrder(publicId, payload),
-    onSuccess: () => {
-      setIsEditOrderModalOpen(false);
-      setSelectedOrder(null);
-      refresh();
+    refreshKeys,
+    {
+      onSuccess: () => {
+        setIsEditOrderModalOpen(false);
+        setSelectedOrder(null);
+      },
     },
-  });
+  );
 
-  const deleteOrderMutation = useMutation({
-    mutationFn: (publicId: string) => investingService.deleteOrder(publicId),
-    onSuccess: () => {
-      setPendingDeleteOrder(null);
-      refresh();
-    },
-  });
+  const deleteOrderMutation = useInvalidatingMutation(
+    (publicId: string) => investingService.deleteOrder(publicId),
+    refreshKeys,
+    { onSuccess: () => setPendingDeleteOrder(null) },
+  );
 
   const handleStartEditOrder = (order: InvestingOrder) => {
     setSelectedOrder(order);
