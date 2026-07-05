@@ -58,8 +58,8 @@ export type ImportErrorSummary = z.infer<typeof ImportErrorSummarySchema>;
 
 export const ImportPreviewRowSchema = z.object({
   row_number: z.number().default(0),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- preview payloads are
-  // module-specific free-form rows rendered directly by ImportsPage.
+  // z.any() (not z.unknown()): preview payloads are module-specific free-form
+  // rows rendered directly by ImportsPage.
   payload_json: z.record(z.string(), z.any()).default({}),
 });
 export type ImportPreviewRow = z.infer<typeof ImportPreviewRowSchema>;
