@@ -62,3 +62,22 @@ Any shared component that renders a floating surface should be treated as an ove
 - Dropdowns, calendars, popovers, command menus, and autocomplete lists must be tested inside modals and narrow containers.
 - If a component depends on absolute positioning, parent clipping rules must be reviewed.
 - When the component system matures, prefer primitives that support portals and robust focus management.
+
+---
+
+## Server-State Conventions (TanStack Query)
+
+- **Query keys** come from `src/lib/queryKeys.ts` — the module-scoped registry
+  (`['module', 'resource', ...params]`). Never inline raw key arrays in pages;
+  invalidation scope depends on the shared prefixes.
+- **Mutations** use `src/hooks/useInvalidatingMutation.ts`:
+  `useInvalidatingMutation(mutationFn, invalidateKeys, { onSuccess })`. It
+  invalidates each key on success (isolating per-key failures) before calling
+  your `onSuccess`. Pages should not hand-roll `useMutation` +
+  `queryClient.invalidateQueries` pairs.
+- **API response shapes** are Zod schemas in `src/types/<module>.ts` — the
+  single source of truth. Services parse every response
+  (`Schema.parse(response.data)`); response types are `z.infer`-derived;
+  request payload types stay plain interfaces. When the backend shape changes,
+  update the schema — a drifted schema fails loudly at the network boundary
+  instead of rendering garbage.
