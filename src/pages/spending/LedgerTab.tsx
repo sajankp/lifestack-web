@@ -221,7 +221,50 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
               <p className="text-slate-400">No transactions for this account yet.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-slate-800">
+            <>
+            {/* Mobile / tablet card list */}
+            <div className="space-y-3 lg:hidden">
+              {(ledger?.items ?? []).map((entry: LedgerEntry) => {
+                const isTransfer = entry.entry_kind === 'transfer_out' || entry.entry_kind === 'transfer_in';
+                const isCredit = entry.entry_kind === 'transfer_in' || entry.type === 'income';
+                const amount = Number(entry.amount);
+                const balance = Number(entry.running_balance);
+                const date = formatDate(entry.occurred_at, { fallback: '—' });
+                const descLabel = isTransfer
+                  ? (entry.description
+                      ? (entry.entry_kind === 'transfer_out' ? `Transfer → ${entry.description}` : `Transfer ← ${entry.description}`)
+                      : (entry.entry_kind === 'transfer_out' ? 'Transfer out' : 'Transfer in'))
+                  : entry.description ?? '—';
+                return (
+                  <div
+                    key={entry.public_id}
+                    className={`rounded-2xl border border-slate-800 p-4 ${isTransfer ? 'bg-slate-800/40' : 'bg-slate-900/40'}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-slate-200">{descLabel}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">{date}{!isTransfer && entry.wallet_name ? ` · ${entry.wallet_name}` : ''}</p>
+                      </div>
+                      <span className={`shrink-0 font-mono text-sm font-semibold ${isCredit ? (isTransfer ? 'text-cyan-400' : 'text-emerald-400') : (isTransfer ? 'text-indigo-400' : 'text-rose-400')}`}>
+                        {isCredit ? '+' : '-'}{formatCurrency(amount, currency, currencyDisplayPreference)}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between border-t border-slate-800 pt-2 text-xs">
+                      {isTransfer ? (
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${entry.entry_kind === 'transfer_out' ? 'bg-indigo-500/15 text-indigo-400' : 'bg-cyan-500/15 text-cyan-400'}`}>
+                          {entry.entry_kind === 'transfer_out' ? 'Transfer out' : 'Transfer in'}
+                        </span>
+                      ) : <span className="text-slate-500">Balance</span>}
+                      <span className={`font-mono ${balance >= 0 ? 'text-slate-200' : 'text-rose-400'}`}>
+                        {formatCurrency(balance, currency, currencyDisplayPreference)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden overflow-x-auto rounded-2xl border border-slate-800 lg:block">
               <table className="w-full text-left text-sm text-slate-300 min-w-[700px]">
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-900/60">
@@ -301,6 +344,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                 </tbody>
               </table>
             </div>
+            </>
           )}
 
           {/* Pagination */}

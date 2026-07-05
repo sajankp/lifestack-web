@@ -445,7 +445,79 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
             </CompactFilterField>
           </CompactFilterBar>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-800/30">
+          {/* Mobile / tablet card list — the wide table is desktop-only.
+              Inline price editing stays on the desktop table; use the edit
+              holding action here. Action buttons use -m testids so the
+              canonical desktop testids resolve to exactly one element. */}
+          <div className="space-y-3 lg:hidden">
+            {sortedHoldings.length === 0 ? (
+              <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">No holdings yet.</div>
+            ) : (
+              sortedHoldings.map((h) => {
+                const gainLoss = toNumber(h.gain_loss ?? 0);
+                const gainLossPct = toNumber(h.gain_loss_pct ?? 0);
+                const isPositive = gainLoss > 0;
+                const isNegative = gainLoss < 0;
+                const colorClass = isPositive ? 'text-green-400' : isNegative ? 'text-red-400' : 'text-slate-400';
+                const sign = isPositive ? '+' : '';
+                const isMF = h.instrument_type === 'mutual_fund';
+                const matchedInstrument = isMF ? instrumentBySymbol.get(h.symbol) : undefined;
+                const displayName = matchedInstrument?.name ?? h.symbol;
+                return (
+                  <div key={h.public_id} className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-white">{displayName}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex rounded border border-slate-600/70 px-2 py-0.5 text-[11px] text-slate-200">{instrumentTypeLabel(h.instrument_type)}</span>
+                          <CurrencyBadge code={h.currency} />
+                          <span className="text-[11px] text-slate-500">{h.account_name}</span>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-semibold text-white">{formatCurrency(h.current_value ?? deriveBookValue(h), h.currency, currencyDisplayPreference)}</p>
+                        <p className={`text-xs font-medium ${colorClass}`}>{sign}{formatCurrency(gainLoss, h.currency, currencyDisplayPreference)} ({sign}{gainLossPct.toFixed(2)}%)</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-700/40 pt-3 text-xs">
+                      <div><span className="block text-slate-500">Qty</span><span className="text-slate-200">{toNumber(h.quantity).toFixed(2)}</span></div>
+                      <div><span className="block text-slate-500">Avg cost</span><span className="text-slate-200">{formatCurrency(h.avg_cost, h.currency, currencyDisplayPreference)}</span></div>
+                      <div><span className="block text-slate-500">Price</span><span className="text-slate-200">{formatCurrency(h.current_price ?? h.avg_cost, h.currency, currencyDisplayPreference)}</span></div>
+                    </div>
+                    <div className="mt-3 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        data-testid={`investing-edit-holding-m-${h.public_id}`}
+                        onClick={() => handleStartEditHolding(h)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600/70 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/60"
+                      >
+                        <Edit2 className="h-4 w-4" /> Edit
+                      </button>
+                      <button
+                        type="button"
+                        data-testid={`investing-holding-trade-history-m-${h.public_id}`}
+                        onClick={() => setTradeHistoryHolding(h)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600/70 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-700/60"
+                      >
+                        <ArrowDownUp className="h-4 w-4" /> History
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deleteHoldingMutation.isPending}
+                        onClick={() => setPendingDeleteHolding(h)}
+                        className="inline-flex items-center rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10 disabled:opacity-60"
+                        title="Delete holding"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="hidden overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-800/30 lg:block">
             <table className="w-full text-left text-sm text-slate-300 min-w-[1000px]">
               <thead className="border-b border-slate-700/50 bg-slate-800/50 text-xs uppercase text-slate-400">
                 <tr>

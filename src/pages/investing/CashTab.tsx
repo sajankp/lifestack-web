@@ -528,8 +528,69 @@ export const CashTab: React.FC<CashTabProps> = ({
             </select>
           </div>
 
-          {/* Orders table */}
-          <div className="overflow-x-auto rounded-xl border border-slate-700/50">
+          {/* Orders — mobile / tablet card list (canonical testids stay on the
+              desktop table so tests resolve to exactly one element). */}
+          <div className="space-y-3 lg:hidden">
+            {ordersRes.isLoading ? (
+              <div className="rounded-xl border border-slate-700/50 p-6 text-center text-sm text-slate-400">Loading…</div>
+            ) : visibleOrders.length === 0 ? (
+              <div className="rounded-xl border border-slate-700/50 p-6 text-center text-sm text-slate-400">No orders for this account yet.</div>
+            ) : (
+              visibleOrders.map((o) => {
+                const fees = toNumber(o.brokerage_fee) + toNumber(o.tax_amount) + toNumber(o.other_fees);
+                const isBuy = o.order_type === 'buy';
+                return (
+                  <div key={o.public_id} className="rounded-xl border border-slate-700/50 bg-slate-900/30 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${isBuy ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                            {isBuy ? 'BUY' : 'SELL'}
+                          </span>
+                          <span className="truncate font-semibold text-white">{o.symbol}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">{formatDate(o.occurred_at, { fallback: 'N/A' })} · {o.account_name}</p>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          type="button"
+                          disabled={deleteOrderPending || updateOrderPending}
+                          onClick={() => onEditOrder(o)}
+                          className="rounded-lg border border-slate-600/70 p-2 text-slate-200 hover:bg-slate-700/60 disabled:opacity-60"
+                          title="Edit order"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deleteOrderPending || updateOrderPending}
+                          onClick={() => onDeleteOrder(o)}
+                          className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10 disabled:opacity-60"
+                          title="Delete order"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-700/40 pt-3 text-xs">
+                      <div><span className="block text-slate-500">Qty × Price</span><span className="text-slate-200">{toNumber(o.quantity).toLocaleString()} × {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference)}</span></div>
+                      <div><span className="block text-slate-500">Net</span><span className="font-medium text-white">{formatCurrency(toNumber(o.net_amount), o.currency, currencyDisplayPreference)}</span></div>
+                      <div>
+                        <span className="block text-slate-500">Realized G/L</span>
+                        {o.realized_gain_loss != null ? (
+                          <span className={toNumber(o.realized_gain_loss) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{formatCurrency(toNumber(o.realized_gain_loss), o.currency, currencyDisplayPreference)}</span>
+                        ) : <span className="text-slate-500">—</span>}
+                      </div>
+                    </div>
+                    {fees > 0 ? <p className="mt-1 text-[11px] text-slate-500">Fees {formatCurrency(fees, o.currency, currencyDisplayPreference)}</p> : null}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Orders table (desktop) */}
+          <div className="hidden overflow-x-auto rounded-xl border border-slate-700/50 lg:block">
             <table data-testid="investing-orders-table" className="w-full text-sm">
               <thead className="border-b border-slate-700/50 bg-slate-800/40">
                 <tr>
@@ -867,7 +928,47 @@ export const CashTab: React.FC<CashTabProps> = ({
           </div>
 
           <div className="space-y-3">
-            <div className="overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-800/30">
+            {/* Mobile / tablet card list */}
+            <div className="space-y-3 lg:hidden">
+              {sortedCashBalances.length === 0 ? (
+                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">No cash balances yet.</div>
+              ) : (
+                sortedCashBalances.map((c) => (
+                  <div key={c.public_id} className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-white">{c.account_name}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {Number.isNaN(new Date(c.as_of).getTime()) ? 'N/A' : new Date(c.as_of).toLocaleString()}
+                        </p>
+                      </div>
+                      <button
+                        disabled={deleteCashMutation.isPending}
+                        onClick={() => setPendingDeleteCash(c)}
+                        className="shrink-0 rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10"
+                        title="Delete cash balance"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-lg font-semibold text-slate-100">{formatCurrency(c.balance, c.currency, currencyDisplayPreference)}</span>
+                      {c.trigger_type ? (
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          c.trigger_type === 'transfer' ? 'bg-blue-500/20 text-blue-300'
+                            : c.trigger_type === 'order' ? 'bg-indigo-500/20 text-indigo-300'
+                            : 'bg-slate-700/50 text-slate-400'
+                        }`}>
+                          {c.trigger_type.charAt(0).toUpperCase() + c.trigger_type.slice(1)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="hidden overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-800/30 lg:block">
               <table className="w-full text-left text-sm text-slate-300 min-w-[600px]">
                 <thead className="border-b border-slate-700/50 bg-slate-800/50 text-xs uppercase text-slate-400">
                   <tr>
@@ -928,7 +1029,42 @@ export const CashTab: React.FC<CashTabProps> = ({
                 Manage in Spending →
               </Link>
             </div>
-            <div className="overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-800/30">
+            {/* Mobile / tablet card list */}
+            <div className="space-y-3 lg:hidden">
+              {transfersRes.isLoading ? (
+                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">Loading…</div>
+              ) : visibleTransfers.length === 0 ? (
+                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">No transfers for this account yet.</div>
+              ) : (
+                visibleTransfers.map((t) => {
+                  const isOut = cashAccountFilter !== ''
+                    ? t.from_account_public_id === cashAccountFilter
+                    : t.from_module === 'investing' && t.to_module === 'spending';
+                  const isIn = cashAccountFilter !== ''
+                    ? t.to_account_public_id === cashAccountFilter
+                    : t.from_module === 'spending' && t.to_module === 'investing';
+                  return (
+                    <div key={t.public_id} className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-slate-400">{formatDate(t.occurred_at, { fallback: 'N/A' })}</span>
+                        {isOut ? (
+                          <span className="inline-flex items-center rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-300">OUT</span>
+                        ) : isIn ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-300">IN</span>
+                        ) : <span className="text-slate-500">—</span>}
+                      </div>
+                      <p className="mt-2 text-sm text-slate-300">{(t.from_account_name ?? '—')} → {(t.to_account_name ?? '—')}</p>
+                      <div className="mt-2 flex items-end justify-between gap-3 text-xs text-slate-400">
+                        <span>Gross <span className="text-slate-200">{formatCurrency(toNumber(t.gross_amount), t.from_currency_code, currencyDisplayPreference)}</span></span>
+                        <span className="text-right">Net <span className="font-semibold text-white">{formatCurrency(toNumber(t.net_amount_received), t.to_currency_code, currencyDisplayPreference)}</span></span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="hidden overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-800/30 lg:block">
               <table className="w-full text-left text-sm text-slate-300 min-w-[600px]">
                 <thead className="border-b border-slate-700/50 bg-slate-800/50 text-xs uppercase text-slate-400">
                   <tr>

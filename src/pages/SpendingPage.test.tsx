@@ -544,8 +544,9 @@ describe('SpendingPage', () => {
     await screen.findByText('Spending Overview');
     fireEvent.click(screen.getByTestId('spending-tab-transfers'));
 
-    expect(await screen.findByText('Monthly top-up')).toBeInTheDocument();
-    expect(await screen.findByText('My Bank')).toBeInTheDocument();
+    // Transfers render in two responsive layouts (mobile cards + desktop table).
+    expect((await screen.findAllByText('Monthly top-up')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('My Bank')).length).toBeGreaterThan(0);
   });
 
   it('blocks saving an edited transfer with an invalid FX fee', async () => {
@@ -603,9 +604,9 @@ describe('SpendingPage', () => {
     renderWithQuery(<SpendingPage />);
     await screen.findByText('Spending Overview');
     fireEvent.click(screen.getByTestId('spending-tab-transfers'));
-    await screen.findByText('Monthly top-up');
+    await screen.findAllByText('Monthly top-up');
 
-    fireEvent.click(screen.getByTitle('Edit transfer'));
+    fireEvent.click(screen.getAllByTitle('Edit transfer')[0]);
     const modalHeading = await screen.findByText('Edit Transfer');
     const modal = modalHeading.closest('div.relative') as HTMLElement;
     expect(modal).not.toBeNull();
@@ -656,9 +657,9 @@ describe('SpendingPage', () => {
     renderWithQuery(<SpendingPage />);
     await screen.findByText('Spending Overview');
     fireEvent.click(screen.getByTestId('spending-tab-transfers'));
-    await screen.findByText('Self transfer edge case');
+    await screen.findAllByText('Self transfer edge case');
 
-    fireEvent.click(screen.getByTitle('Edit transfer'));
+    fireEvent.click(screen.getAllByTitle('Edit transfer')[0]);
     await screen.findByText('Edit Transfer');
 
     expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();

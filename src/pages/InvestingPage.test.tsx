@@ -507,7 +507,9 @@ describe('InvestingPage', () => {
     expect(screen.getByText('Current Value')).toBeInTheDocument();
     expect(screen.getByText('Gain / Loss')).toBeInTheDocument();
 
-    expect(screen.getByText('$180.00')).toBeInTheDocument();
+    // Holdings render in two responsive layouts (mobile cards + desktop table),
+    // so per-holding values appear more than once in the DOM.
+    expect(screen.getAllByText('$180.00').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('$1,800.00').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByTestId('investing-total-gain-loss')).toHaveTextContent('+$300.00 (+20.00%)');
 
@@ -946,8 +948,8 @@ describe('InvestingPage', () => {
     renderWithQuery(<InvestingPage />);
 
     // Wait for the rows to render
-    expect(await screen.findByText('AAPL')).toBeInTheDocument();
-    expect(screen.getByText('SHOP')).toBeInTheDocument();
+    expect((await screen.findAllByText('AAPL')).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('SHOP').length).toBeGreaterThanOrEqual(1);
 
     // Verify converted table footer totals:
     // Book Cost: 10 * 150 (USD) + 20 * 80 * 0.73 (CAD -> USD) = 1500 + 1168 = 2668.00 USD
@@ -1485,7 +1487,7 @@ describe('InvestingPage', () => {
     renderWithQuery(<InvestingPage />);
 
     await screen.findByTestId('investing-holding-row-holding-aapl-id');
-    fireEvent.click(screen.getByTitle('Delete holding'));
+    fireEvent.click(screen.getAllByTitle('Delete holding')[0]);
 
     // Clicking the row action only opens a confirmation dialog — no request yet
     expect(deleteCalled).toBe(false);
