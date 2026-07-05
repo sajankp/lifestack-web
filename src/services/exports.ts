@@ -1,4 +1,5 @@
 import api from './api';
+import { ExportRecordSchema } from '../types/exports';
 import type { ExportCreate, ExportDownload, ExportRecord } from '../types/exports';
 
 const filenameFromDisposition = (contentDisposition: unknown): string | null => {
@@ -10,12 +11,12 @@ const filenameFromDisposition = (contentDisposition: unknown): string | null => 
 export const exportsService = {
   createExport: async (payload: ExportCreate): Promise<ExportRecord> => {
     const response = await api.post('/exports', payload);
-    return response.data;
+    return ExportRecordSchema.parse(response.data);
   },
 
   getExport: async (exportPublicId: string): Promise<ExportRecord> => {
     const response = await api.get(`/exports/${exportPublicId}`);
-    return response.data;
+    return ExportRecordSchema.parse(response.data);
   },
 
   downloadExport: async (exportPublicId: string): Promise<ExportDownload> => {

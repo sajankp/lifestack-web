@@ -508,11 +508,11 @@ describe('SpendingPage', () => {
           items: [
             {
               public_id: 'tfr-001',
-              from_account_id: 'acc-wallet-id',
+              from_account_id: 1,
               from_account_name: 'My Wallet',
               from_account_type: 'wallet',
               from_module: 'spending',
-              to_account_id: 'acc-bank-id',
+              to_account_id: 2,
               to_account_name: 'My Bank',
               to_account_type: 'bank',
               to_module: 'spending',
@@ -549,12 +549,12 @@ describe('SpendingPage', () => {
   it('blocks saving an edited transfer with an invalid FX fee', async () => {
     const transfer = {
       public_id: 'tfr-002',
-      from_account_id: 'acc-wallet-id',
+      from_account_id: 1,
       from_account_public_id: 'acc-wallet-id',
       from_account_name: 'My Wallet',
       from_account_type: 'wallet',
       from_module: 'spending',
-      to_account_id: 'acc-bank-id',
+      to_account_id: 2,
       to_account_public_id: 'acc-bank-id',
       to_account_name: 'My Bank',
       to_account_type: 'bank',
@@ -621,12 +621,12 @@ describe('SpendingPage', () => {
   it('disables Save Changes on the edit-transfer form when source and destination accounts are the same', async () => {
     const transfer = {
       public_id: 'tfr-003',
-      from_account_id: 'acc-wallet-id',
+      from_account_id: 1,
       from_account_public_id: 'acc-wallet-id',
       from_account_name: 'My Wallet',
       from_account_type: 'wallet',
       from_module: 'spending',
-      to_account_id: 'acc-wallet-id',
+      to_account_id: 1,
       to_account_public_id: 'acc-wallet-id',
       to_account_name: 'My Wallet',
       to_account_type: 'wallet',

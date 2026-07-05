@@ -1,31 +1,36 @@
-export interface NotificationItem {
-  public_id: string;
-  category: string;
-  severity: string;
-  title: string;
-  body: string | null;
-  module: string;
-  entity_type: string | null;
-  entity_public_id: string | null;
-  is_read: boolean;
-  read_at: string | null;
-  created_at: string;
-}
+import { z } from 'zod';
 
-export interface NotificationPreference {
-  category: string;
-  channel_in_app: boolean;
-  channel_email: boolean;
-  channel_push: boolean;
-  is_muted: boolean;
-}
+export const NotificationItemSchema = z.object({
+  public_id: z.string().default(''),
+  category: z.string().default(''),
+  severity: z.string().default('info'),
+  title: z.string().default(''),
+  body: z.string().nullable().default(null),
+  module: z.string().default(''),
+  entity_type: z.string().nullable().default(null),
+  entity_public_id: z.string().nullable().default(null),
+  is_read: z.boolean().default(false),
+  read_at: z.string().nullable().default(null),
+  created_at: z.string().default(''),
+});
+export type NotificationItem = z.infer<typeof NotificationItemSchema>;
 
-export interface PushSubscriptionInfo {
-  public_id: string;
-  endpoint_hint: string;
-  device_label: string | null;
-  is_active: boolean;
-  last_success_at: string | null;
-  last_failure_at: string | null;
-  created_at: string;
-}
+export const NotificationPreferenceSchema = z.object({
+  category: z.string().default(''),
+  channel_in_app: z.boolean().default(true),
+  channel_email: z.boolean().default(false),
+  channel_push: z.boolean().default(false),
+  is_muted: z.boolean().default(false),
+});
+export type NotificationPreference = z.infer<typeof NotificationPreferenceSchema>;
+
+export const PushSubscriptionInfoSchema = z.object({
+  public_id: z.string().default(''),
+  endpoint_hint: z.string().default(''),
+  device_label: z.string().nullable().default(null),
+  is_active: z.boolean().default(true),
+  last_success_at: z.string().nullable().default(null),
+  last_failure_at: z.string().nullable().default(null),
+  created_at: z.string().default(''),
+});
+export type PushSubscriptionInfo = z.infer<typeof PushSubscriptionInfoSchema>;

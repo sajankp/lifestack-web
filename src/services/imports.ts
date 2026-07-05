@@ -1,11 +1,18 @@
+import type { z } from 'zod';
 import api from './api';
-import type { PaginatedResponse } from '../types/common';
+import { paginatedSchema } from '../types/common';
+import {
+  ImportBatchSchema,
+  ImportCommitResponseSchema,
+  ImportValidateResponseSchema,
+} from '../types/imports';
 import type {
-  ImportBatch,
   ImportCommitResponse,
   ImportModule,
   ImportValidateResponse,
 } from '../types/imports';
+
+const PaginatedImportsSchema = paginatedSchema(ImportBatchSchema);
 
 export const importsService = {
   downloadTemplate: async (module: ImportModule): Promise<string> => {
@@ -25,22 +32,22 @@ export const importsService = {
       form.append('target_account_id', targetAccountId);
     }
     const response = await api.post('/imports', form);
-    return response.data;
+    return ImportValidateResponseSchema.parse(response.data);
   },
 
   commitImport: async (importPublicId: string): Promise<ImportCommitResponse> => {
     const response = await api.post(`/imports/${importPublicId}/commit`);
-    return response.data;
+    return ImportCommitResponseSchema.parse(response.data);
   },
 
-  listImports: async (limit: number = 20, offset: number = 0): Promise<PaginatedResponse<ImportBatch>> => {
+  listImports: async (limit: number = 20, offset: number = 0): Promise<z.infer<typeof PaginatedImportsSchema>> => {
     const response = await api.get('/imports', { params: { limit, offset } });
-    return response.data;
+    return PaginatedImportsSchema.parse(response.data);
   },
 
   getImportDetail: async (importPublicId: string): Promise<ImportValidateResponse> => {
     const response = await api.get(`/imports/${importPublicId}`);
-    return response.data;
+    return ImportValidateResponseSchema.parse(response.data);
   },
 
   deleteImport: async (importPublicId: string): Promise<void> => {

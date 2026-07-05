@@ -1,5 +1,16 @@
+import { z } from 'zod';
 import api from './api';
-import type { PaginatedResponse } from '../types/common';
+import { paginatedSchema } from '../types/common';
+import {
+  AccountBalanceResponseSchema,
+  AccountSchema,
+  CapitalTransferSchema,
+  CurrencySchema,
+  NetWorthDataSchema,
+  ReconciliationSummarySchema,
+  UserFinanceSettingSchema,
+  WorkspaceFinanceSettingSchema,
+} from '../types/finance';
 import type {
   Account,
   AccountBalanceResponse,
@@ -17,28 +28,31 @@ import type {
   WorkspaceFinanceSettingUpdate,
 } from '../types/finance';
 
+const PaginatedAccountsSchema = paginatedSchema(AccountSchema);
+const PaginatedTransfersSchema = paginatedSchema(CapitalTransferSchema);
+
 export const financeService = {
   getCurrencies: async (): Promise<Currency[]> => {
     const response = await api.get('/finance/currencies');
-    return response.data;
+    return z.array(CurrencySchema).parse(response.data);
   },
 
   getAccounts: async (
     limit: number = 200,
     offset: number = 0,
-  ): Promise<PaginatedResponse<Account>> => {
+  ): Promise<z.infer<typeof PaginatedAccountsSchema>> => {
     const response = await api.get('/finance/accounts', { params: { limit, offset } });
-    return response.data;
+    return PaginatedAccountsSchema.parse(response.data);
   },
 
   createAccount: async (data: AccountCreate): Promise<Account> => {
     const response = await api.post('/finance/accounts', data);
-    return response.data;
+    return AccountSchema.parse(response.data);
   },
 
   updateAccount: async (publicId: string, data: AccountUpdate): Promise<Account> => {
     const response = await api.patch(`/finance/accounts/${publicId}`, data);
-    return response.data;
+    return AccountSchema.parse(response.data);
   },
 
   deleteAccount: async (publicId: string): Promise<void> => {
@@ -47,40 +61,40 @@ export const financeService = {
 
   getSettings: async (): Promise<WorkspaceFinanceSetting> => {
     const response = await api.get('/finance/settings');
-    return response.data;
+    return WorkspaceFinanceSettingSchema.parse(response.data);
   },
 
   updateSettings: async (data: WorkspaceFinanceSettingUpdate): Promise<WorkspaceFinanceSetting> => {
     const response = await api.patch('/finance/settings', data);
-    return response.data;
+    return WorkspaceFinanceSettingSchema.parse(response.data);
   },
 
   getUserSettings: async (): Promise<UserFinanceSetting> => {
     const response = await api.get('/finance/settings/user');
-    return response.data;
+    return UserFinanceSettingSchema.parse(response.data);
   },
 
   updateUserSettings: async (data: UserFinanceSettingUpdate): Promise<UserFinanceSetting> => {
     const response = await api.patch('/finance/settings/user', data);
-    return response.data;
+    return UserFinanceSettingSchema.parse(response.data);
   },
 
-  createTransfer: async (data: CapitalTransferCreate) => {
+  createTransfer: async (data: CapitalTransferCreate): Promise<CapitalTransfer> => {
     const response = await api.post('/finance/transfers', data);
-    return response.data;
+    return CapitalTransferSchema.parse(response.data);
   },
 
   getTransfers: async (
     limit: number = 50,
     offset: number = 0,
-  ): Promise<PaginatedResponse<CapitalTransfer>> => {
+  ): Promise<z.infer<typeof PaginatedTransfersSchema>> => {
     const response = await api.get('/finance/transfers', { params: { limit, offset } });
-    return response.data;
+    return PaginatedTransfersSchema.parse(response.data);
   },
 
   updateTransfer: async (publicId: string, data: CapitalTransferUpdate): Promise<CapitalTransfer> => {
     const response = await api.patch(`/finance/transfers/${publicId}`, data);
-    return response.data;
+    return CapitalTransferSchema.parse(response.data);
   },
 
   deleteTransfer: async (publicId: string): Promise<void> => {
@@ -89,16 +103,16 @@ export const financeService = {
 
   getAccountBalance: async (publicId: string): Promise<AccountBalanceResponse> => {
     const response = await api.get(`/finance/accounts/${publicId}/balance`);
-    return response.data;
+    return AccountBalanceResponseSchema.parse(response.data);
   },
 
   getAccountReconciliation: async (publicId: string): Promise<ReconciliationSummary> => {
     const response = await api.get(`/finance/accounts/${publicId}/reconciliation`);
-    return response.data;
+    return ReconciliationSummarySchema.parse(response.data);
   },
 
   getNetWorth: async (): Promise<NetWorthData> => {
     const response = await api.get('/finance/net-worth');
-    return response.data;
+    return NetWorthDataSchema.parse(response.data);
   },
 };

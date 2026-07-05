@@ -17,7 +17,10 @@ describe('importsService', () => {
   });
 
   it('calls template/list/detail endpoints', async () => {
-    (api.get as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
+    (api.get as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ data: 'csv,template' })
+      .mockResolvedValueOnce({ data: { items: [], total: 0, limit: 20, offset: 0 } })
+      .mockResolvedValueOnce({ data: { import_batch: {}, errors: [] } });
 
     await importsService.downloadTemplate('spending-transactions');
     await importsService.listImports(20, 0);
@@ -31,7 +34,9 @@ describe('importsService', () => {
   });
 
   it('calls upload, commit, and delete endpoints', async () => {
-    (api.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
+    (api.post as unknown as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ data: { import_batch: {}, errors: [] } })
+      .mockResolvedValueOnce({ data: { import_batch: {}, inserted_rows: 0 } });
     (api.delete as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
 
     const file = new File(['a,b\n1,2'], 'sample.csv', { type: 'text/csv' });
