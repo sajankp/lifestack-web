@@ -488,16 +488,18 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                       <button
                         type="button"
                         data-testid={`investing-edit-holding-m-${h.public_id}`}
+                        disabled={deleteHoldingMutation.isPending}
                         onClick={() => handleStartEditHolding(h)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600/70 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/60"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600/70 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/60 disabled:opacity-60"
                       >
                         <Edit2 className="h-4 w-4" /> Edit
                       </button>
                       <button
                         type="button"
                         data-testid={`investing-holding-trade-history-m-${h.public_id}`}
+                        disabled={deleteHoldingMutation.isPending}
                         onClick={() => setTradeHistoryHolding(h)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600/70 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-700/60"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600/70 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-700/60 disabled:opacity-60"
                       >
                         <ArrowDownUp className="h-4 w-4" /> History
                       </button>

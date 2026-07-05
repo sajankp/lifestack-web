@@ -117,7 +117,8 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
                 <div className="mt-3 flex justify-end gap-2 border-t border-slate-700/40 pt-3">
                   <button
                     onClick={() => onEdit(tx)}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-slate-400 transition-all hover:bg-cyan-500/10 hover:text-cyan-400"
+                    disabled={isDeletePending}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-slate-400 transition-all hover:bg-cyan-500/10 hover:text-cyan-400 disabled:opacity-50"
                   >
                     <Edit2 className="h-4 w-4" /> Edit
                   </button>

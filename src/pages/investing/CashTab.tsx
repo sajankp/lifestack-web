@@ -939,7 +939,7 @@ export const CashTab: React.FC<CashTabProps> = ({
                       <div className="min-w-0">
                         <p className="truncate font-medium text-white">{c.account_name}</p>
                         <p className="mt-0.5 text-xs text-slate-500">
-                          {Number.isNaN(new Date(c.as_of).getTime()) ? 'N/A' : new Date(c.as_of).toLocaleString()}
+                          {Number.isNaN(new Date(c.as_of).getTime()) ? 'N/A' : new Date(c.as_of).toLocaleString(undefined, { timeZone: 'UTC' })}
                         </p>
                       </div>
                       <button
@@ -986,7 +986,7 @@ export const CashTab: React.FC<CashTabProps> = ({
                       <tr key={c.public_id}>
                         <td className="px-4 py-3 text-white">{c.account_name}</td>
                         <td className="px-4 py-3">{formatCurrency(c.balance, c.currency, currencyDisplayPreference)}</td>
-                        <td className="px-4 py-3">{Number.isNaN(new Date(c.as_of).getTime()) ? "N/A" : new Date(c.as_of).toLocaleString()}</td>
+                        <td className="px-4 py-3">{Number.isNaN(new Date(c.as_of).getTime()) ? "N/A" : new Date(c.as_of).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
                         <td className="px-4 py-3">
                           {c.trigger_type && (
                             <span
