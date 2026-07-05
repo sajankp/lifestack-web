@@ -290,4 +290,127 @@ describe('ImportsPage', () => {
       expect(uploadedTargetAccountId).toBe('acc-checking');
     });
   });
+
+  it('requires a brokerage target account for CAMS CAS and hides the template button', async () => {
+    server.use(
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-checking',
+              name: 'Checking',
+              account_type: 'bank',
+              default_currency_code: 'USD',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+            {
+              public_id: 'acc-zerodha',
+              name: 'Zerodha',
+              account_type: 'brokerage',
+              default_currency_code: 'INR',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 2,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+    );
+
+    renderWithQuery(<ImportsPage />);
+    fireEvent.click(screen.getByText('New Import'));
+
+    fireEvent.change(screen.getByTestId('imports-module-select'), {
+      target: { value: 'investing-cams-cas' },
+    });
+
+    expect(screen.queryByTestId('imports-download-template')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('imports-target-account-brokerage')).toBeInTheDocument();
+    expect(screen.queryByTestId('imports-file-password')).not.toBeInTheDocument();
+
+    const file = new File(['%PDF-1.4'], 'cas.pdf', { type: 'application/pdf' });
+    fireEvent.change(screen.getByTestId('imports-file-input'), { target: { files: [file] } });
+
+    // No target account selected yet — upload stays disabled.
+    expect(screen.getByTestId('imports-upload-validate')).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('imports-target-account-brokerage'));
+    fireEvent.click(await screen.findByRole('option', { name: /Zerodha/ }));
+
+    expect(screen.getByTestId('imports-upload-validate')).not.toBeDisabled();
+  });
+
+  it('sends target_account_id and file_password for a Demat CAS upload', async () => {
+    let uploadedModule: string | null = null;
+    let uploadedTargetAccountId: string | null = null;
+    let uploadedPassword: string | null = null;
+
+    server.use(
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-zerodha',
+              name: 'Zerodha',
+              account_type: 'brokerage',
+              default_currency_code: 'INR',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.post('*/v1/imports', async ({ request }) => {
+        const formData = await request.formData();
+        uploadedModule = formData.get('module') as string;
+        uploadedTargetAccountId = formData.get('target_account_id') as string | null;
+        uploadedPassword = formData.get('file_password') as string | null;
+        return HttpResponse.json({
+          import_batch: {
+            public_id: '99999999-9999-9999-9999-999999999997',
+            status: 'validated',
+            module: 'investing-demat-cas',
+            total_rows: 1,
+            valid_rows: 1,
+            error_rows: 0,
+            filename: 'cas.pdf',
+          },
+          errors: [],
+        });
+      }),
+    );
+
+    renderWithQuery(<ImportsPage />);
+    fireEvent.click(screen.getByText('New Import'));
+
+    fireEvent.change(screen.getByTestId('imports-module-select'), {
+      target: { value: 'investing-demat-cas' },
+    });
+
+    fireEvent.click(await screen.findByTestId('imports-target-account-brokerage'));
+    fireEvent.click(await screen.findByRole('option', { name: /Zerodha/ }));
+
+    fireEvent.change(screen.getByTestId('imports-file-password'), {
+      target: { value: 'ABCDE1234F' },
+    });
+
+    const file = new File(['%PDF-1.4'], 'cas.pdf', { type: 'application/pdf' });
+    fireEvent.change(screen.getByTestId('imports-file-input'), { target: { files: [file] } });
+    fireEvent.click(screen.getByTestId('imports-upload-validate'));
+
+    await waitFor(() => {
+      expect(uploadedModule).toBe('investing-demat-cas');
+    });
+    expect(uploadedTargetAccountId).toBe('acc-zerodha');
+    expect(uploadedPassword).toBe('ABCDE1234F');
+  });
 });

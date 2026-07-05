@@ -2,10 +2,9 @@ import { z } from 'zod';
 
 // Request-side union: what the UI can ask for.
 // 'investing-holdings' is kept for backward-compat rendering of historic import_batches rows.
-// NOTE: the backend also supports 'investing-cams-cas' (spec-056) — not yet
-// offered by ImportsPage, which is why response schemas below keep `module`
-// as a plain string instead of an enum.
-export type ImportModule = 'spending-transactions' | 'spending-budgets' | 'investing-holdings' | 'investing-constituents' | 'investing-orders' | 'finance-transfers';
+// Response schemas below keep `module` as a plain string, not this enum, so
+// a historic row from a module this union doesn't (yet) list still renders.
+export type ImportModule = 'spending-transactions' | 'spending-budgets' | 'investing-holdings' | 'investing-constituents' | 'investing-orders' | 'finance-transfers' | 'investing-cams-cas' | 'investing-demat-cas';
 
 export const ImportStatusSchema = z.enum([
   'uploaded',
@@ -69,6 +68,12 @@ export const ImportValidateResponseSchema = z.object({
   errors: z.array(ImportErrorItemSchema).default([]),
   error_summary: ImportErrorSummarySchema.optional(),
   preview_rows: z.array(ImportPreviewRowSchema).optional(),
+  // PDF-parser advisory metadata (CAMS CAS spec-056, Demat CAS spec-060):
+  // rows the parser recognized but didn't turn into a preview row (with a
+  // reason), and price/quantity discontinuities that look like an
+  // un-applied corporate action.
+  skipped: z.array(z.record(z.string(), z.unknown())).default([]),
+  corporate_action_suspected: z.array(z.record(z.string(), z.unknown())).default([]),
 });
 export type ImportValidateResponse = z.infer<typeof ImportValidateResponseSchema>;
 

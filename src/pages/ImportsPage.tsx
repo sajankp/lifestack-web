@@ -15,7 +15,22 @@ const MODULE_OPTIONS: Array<{ value: ImportModule; label: string; testId?: strin
   { value: 'investing-constituents', label: 'Investing Constituents' },
   { value: 'investing-orders', label: 'Investing Orders', testId: 'import-type-investing-orders' },
   { value: 'finance-transfers', label: 'Account Transfers', testId: 'import-type-finance-transfers' },
+  {
+    value: 'investing-cams-cas',
+    label: 'CAMS CAS (Mutual Funds)',
+    testId: 'import-type-investing-cams-cas',
+  },
+  {
+    value: 'investing-demat-cas',
+    label: 'Demat CAS (Holdings Verification)',
+    testId: 'import-type-investing-demat-cas',
+  },
 ];
+
+// PDF-based imports (spec-056, spec-060): no CSV template, a required
+// brokerage target account, and — for Demat CAS only — a statement password.
+const PDF_MODULES: ReadonlySet<ImportModule> = new Set(['investing-cams-cas', 'investing-demat-cas']);
+const isPdfModule = (m: ImportModule | ''): m is ImportModule => PDF_MODULES.has(m as ImportModule);
 
 const lifecycleCopy = (status: string) => {
   if (status === 'completed') {
@@ -41,6 +56,7 @@ export const ImportsPage: React.FC = () => {
   const [module, setModule] = useState<ImportModule | ''>('');
   const [file, setFile] = useState<File | null>(null);
   const [targetAccountId, setTargetAccountId] = useState('');
+  const [filePassword, setFilePassword] = useState('');
   const [selectedImportId, setSelectedImportId] = useState<string | null>(null);
   const [latestValidation, setLatestValidation] = useState<ImportValidateResponse | null>(null);
   const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
@@ -62,6 +78,14 @@ export const ImportsPage: React.FC = () => {
           value: account.public_id,
           label: `${account.name} (${account.account_type.replace('_', ' ')})`,
         })),
+    [accountsResponse?.items]
+  );
+  // CAMS/Demat CAS PDFs can only target a brokerage account (backend-enforced).
+  const brokerageAccountOptions = useMemo(
+    () =>
+      (accountsResponse?.items ?? [])
+        .filter((account) => account.is_active && account.account_type === 'brokerage')
+        .map((account) => ({ value: account.public_id, label: account.name })),
     [accountsResponse?.items]
   );
 
@@ -114,10 +138,12 @@ export const ImportsPage: React.FC = () => {
       if (!module) {
         throw new Error('Module is required');
       }
+      const needsTargetAccount = module === 'spending-transactions' || isPdfModule(module);
       return importsService.uploadAndValidate(
         module,
         file as File,
-        module === 'spending-transactions' ? targetAccountId || undefined : undefined
+        needsTargetAccount ? targetAccountId || undefined : undefined,
+        module === 'investing-demat-cas' ? filePassword || undefined : undefined
       );
     },
     onSuccess: (data) => {
@@ -125,6 +151,7 @@ export const ImportsPage: React.FC = () => {
       setSelectedImportId(data.import_batch.public_id);
       setFile(null);
       setTargetAccountId('');
+      setFilePassword('');
       setUploadError(null);
       setIsUploadModalOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['imports', 'list'] });
@@ -138,7 +165,16 @@ export const ImportsPage: React.FC = () => {
       return;
     }
     const fileExt = file.name.toLowerCase();
-    if (!fileExt.endsWith('.csv') && !fileExt.endsWith('.xlsx')) {
+    if (isPdfModule(module)) {
+      if (!fileExt.endsWith('.pdf')) {
+        setUploadError('Invalid file format. Please upload a PDF file.');
+        return;
+      }
+      if (!targetAccountId) {
+        setUploadError('Select a target brokerage account.');
+        return;
+      }
+    } else if (!fileExt.endsWith('.csv') && !fileExt.endsWith('.xlsx')) {
       setUploadError('Invalid file format. Please upload a CSV or XLSX file.');
       return;
     }
@@ -239,6 +275,9 @@ export const ImportsPage: React.FC = () => {
                   onChange={(e) => {
                     setModule(e.target.value as ImportModule);
                     setTargetAccountId('');
+                    setFilePassword('');
+                    setFile(null);
+                    setUploadError(null);
                   }}
                   className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-white text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 >
@@ -275,13 +314,59 @@ export const ImportsPage: React.FC = () => {
                 </div>
               )}
 
+              {isPdfModule(module) && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-slate-300">
+                    Target brokerage account
+                  </label>
+                  <DropdownSelect
+                    testId="imports-target-account-brokerage"
+                    value={targetAccountId}
+                    onChange={setTargetAccountId}
+                    options={brokerageAccountOptions}
+                    placeholder="Select a brokerage account"
+                    showSearch
+                    sortByLabel
+                  />
+                  <p className="text-xs text-slate-500">
+                    Every {module === 'investing-cams-cas' ? 'transaction' : 'holding'} in the
+                    statement is bound to this account.
+                  </p>
+                </div>
+              )}
+
+              {module === 'investing-demat-cas' && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-slate-300">
+                    Statement password
+                  </label>
+                  <input
+                    data-testid="imports-file-password"
+                    type="password"
+                    value={filePassword}
+                    onChange={(e) => setFilePassword(e.target.value)}
+                    placeholder="PAN-derived password printed on your NSDL statement"
+                    className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-white text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Used in memory only to open the PDF — never stored or logged.
+                  </p>
+                </div>
+              )}
+
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-semibold text-slate-300">Choose CSV/Excel File</label>
+                <label className="text-sm font-semibold text-slate-300">
+                  {isPdfModule(module) ? 'Choose PDF File' : 'Choose CSV/Excel File'}
+                </label>
                 <input
                   data-testid="imports-file-input"
                   key={file ? `selected-${file.name}-${file.lastModified}` : 'no-file-selected'}
                   type="file"
-                  accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  accept={
+                    isPdfModule(module)
+                      ? '.pdf,application/pdf'
+                      : '.csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                  }
                   onChange={(e) => {
                     setFile(e.target.files?.[0] ?? null);
                     setUploadError(null);
@@ -291,21 +376,28 @@ export const ImportsPage: React.FC = () => {
               </div>
 
               <div className="flex gap-3 pt-3">
-                <button
-                  data-testid="imports-download-template"
-                  type="button"
-                  onClick={() => void handleTemplateDownload()}
-                  disabled={!module || isDownloadingTemplate}
-                  className="flex-1 h-10 rounded-lg border border-slate-600 bg-slate-900 px-4 text-xs font-semibold text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isDownloadingTemplate ? 'Downloading...' : 'Download template'}
-                </button>
+                {!isPdfModule(module) && (
+                  <button
+                    data-testid="imports-download-template"
+                    type="button"
+                    onClick={() => void handleTemplateDownload()}
+                    disabled={!module || isDownloadingTemplate}
+                    className="flex-1 h-10 rounded-lg border border-slate-600 bg-slate-900 px-4 text-xs font-semibold text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isDownloadingTemplate ? 'Downloading...' : 'Download template'}
+                  </button>
+                )}
 
                 <button
                   data-testid="imports-upload-validate"
                   type="button"
                   onClick={handleUpload}
-                  disabled={!module || !file || uploadMutation.isPending}
+                  disabled={
+                    !module ||
+                    !file ||
+                    uploadMutation.isPending ||
+                    (isPdfModule(module) && !targetAccountId)
+                  }
                   className="flex-1 h-10 rounded-lg bg-cyan-600 px-4 text-xs font-semibold text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {uploadMutation.isPending ? 'Validating...' : 'Upload + validate'}
@@ -410,6 +502,13 @@ export const ImportsPage: React.FC = () => {
                 </div>
               ) : null}
 
+              {activeDetail.import_batch.module === 'investing-demat-cas' ? (
+                <p className="mb-2 text-xs text-slate-500">
+                  Committing writes a read-only verification record — it never creates or
+                  changes a holding, order, or cash balance.
+                </p>
+              ) : null}
+
               <button
                 data-testid="imports-commit"
                 type="button"
@@ -459,7 +558,8 @@ export const ImportsPage: React.FC = () => {
                               <th className="px-3 py-2 text-left">Date</th>
                             </>
                           )}
-                          {activeDetail.import_batch.module === 'investing-orders' && (
+                          {(activeDetail.import_batch.module === 'investing-orders' ||
+                            activeDetail.import_batch.module === 'investing-cams-cas') && (
                             <>
                               <th className="px-3 py-2 text-left">Date</th>
                               <th className="px-3 py-2 text-left">Type</th>
@@ -468,6 +568,15 @@ export const ImportsPage: React.FC = () => {
                               <th className="px-3 py-2 text-left">Qty</th>
                               <th className="px-3 py-2 text-left">Price</th>
                               <th className="px-3 py-2 text-left">Currency</th>
+                            </>
+                          )}
+                          {activeDetail.import_batch.module === 'investing-demat-cas' && (
+                            <>
+                              <th className="px-3 py-2 text-left">ISIN</th>
+                              <th className="px-3 py-2 text-left">Security</th>
+                              <th className="px-3 py-2 text-left">Status</th>
+                              <th className="px-3 py-2 text-left">Depository Qty</th>
+                              <th className="px-3 py-2 text-left">Lifestack Qty</th>
                             </>
                           )}
                           {activeDetail.import_batch.module === 'finance-transfers' && (
@@ -517,7 +626,8 @@ export const ImportsPage: React.FC = () => {
                                 <td className="px-3 py-2">{row.payload_json.as_of_date}</td>
                               </>
                             )}
-                            {activeDetail.import_batch.module === 'investing-orders' && (
+                            {(activeDetail.import_batch.module === 'investing-orders' ||
+                              activeDetail.import_batch.module === 'investing-cams-cas') && (
                               <>
                                 <td className="px-3 py-2 whitespace-nowrap">
                                   {formatDate(row.payload_json.occurred_at)}
@@ -532,6 +642,32 @@ export const ImportsPage: React.FC = () => {
                                 <td className="px-3 py-2">{row.payload_json.quantity}</td>
                                 <td className="px-3 py-2">{row.payload_json.price_per_unit}</td>
                                 <td className="px-3 py-2 uppercase">{row.payload_json.currency}</td>
+                              </>
+                            )}
+                            {activeDetail.import_batch.module === 'investing-demat-cas' && (
+                              <>
+                                <td className="px-3 py-2 font-semibold text-white">{row.payload_json.isin}</td>
+                                <td className="px-3 py-2">{row.payload_json.security_name ?? '-'}</td>
+                                <td className="px-3 py-2 uppercase whitespace-nowrap">
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                      row.payload_json.status === 'match'
+                                        ? 'bg-emerald-950 text-emerald-300'
+                                        : row.payload_json.status === 'quantity_drift'
+                                          ? 'bg-amber-950 text-amber-300'
+                                          : 'bg-rose-950 text-rose-300'
+                                    }`}
+                                  >
+                                    {String(row.payload_json.status).replace('_', ' ')}
+                                  </span>
+                                  {row.payload_json.corporate_action_suspected ? (
+                                    <span className="ml-1 rounded bg-amber-950 px-1.5 py-0.5 text-[10px] text-amber-300">
+                                      split?
+                                    </span>
+                                  ) : null}
+                                </td>
+                                <td className="px-3 py-2">{row.payload_json.depository_quantity ?? '-'}</td>
+                                <td className="px-3 py-2">{row.payload_json.lifestack_quantity ?? '-'}</td>
                               </>
                             )}
                             {activeDetail.import_batch.module === 'finance-transfers' && (
@@ -556,6 +692,36 @@ export const ImportsPage: React.FC = () => {
                     </table>
                   </div>
                 </div>
+              ) : null}
+
+              {activeDetail.corporate_action_suspected && activeDetail.corporate_action_suspected.length > 0 ? (
+                <div className="mb-4 rounded-lg border border-amber-800/50 bg-amber-950/20 p-3 text-sm">
+                  <p className="mb-1 font-semibold text-amber-300">
+                    Possible un-applied corporate action
+                  </p>
+                  <p className="mb-2 text-xs text-amber-200/80">
+                    A price or quantity jump this large usually means a split, reverse split, or
+                    bonus issue was never recorded. Record it under Investing → Corporate Actions.
+                  </p>
+                  <ul className="space-y-1 text-xs text-amber-100">
+                    {activeDetail.corporate_action_suspected.map((entry, idx) => (
+                      <li key={idx}>{JSON.stringify(entry)}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {activeDetail.skipped && activeDetail.skipped.length > 0 ? (
+                <details className="mb-4 rounded-lg border border-slate-700 bg-slate-800/30 p-3 text-sm">
+                  <summary className="cursor-pointer font-semibold text-slate-300">
+                    {activeDetail.skipped.length} row{activeDetail.skipped.length === 1 ? '' : 's'} skipped
+                  </summary>
+                  <ul className="mt-2 space-y-1 text-xs text-slate-400">
+                    {activeDetail.skipped.map((entry, idx) => (
+                      <li key={idx}>{JSON.stringify(entry)}</li>
+                    ))}
+                  </ul>
+                </details>
               ) : null}
 
               {errors.length > 0 ? (

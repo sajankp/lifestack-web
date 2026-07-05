@@ -23,13 +23,17 @@ export const importsService = {
   uploadAndValidate: async (
     module: ImportModule,
     file: File,
-    targetAccountId?: string
+    targetAccountId?: string,
+    filePassword?: string
   ): Promise<ImportValidateResponse> => {
     const form = new FormData();
     form.append('module', module);
     form.append('file', file);
     if (targetAccountId) {
       form.append('target_account_id', targetAccountId);
+    }
+    if (filePassword) {
+      form.append('file_password', filePassword);
     }
     const response = await api.post('/imports', form);
     return ImportValidateResponseSchema.parse(response.data);
