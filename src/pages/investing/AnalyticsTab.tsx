@@ -102,7 +102,9 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
 
   const upsertConstituentsMutation = useInvalidatingMutation(
     async (payload: InstrumentConstituentUpsert) => {
-      if (!selectedInstrumentId) return [];
+      if (!selectedInstrumentId) {
+        throw new Error('No instrument selected');
+      }
       return investingService.upsertInstrumentConstituents(selectedInstrumentId, payload);
     },
     refreshKeys,
