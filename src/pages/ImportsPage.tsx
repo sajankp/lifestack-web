@@ -32,6 +32,13 @@ const MODULE_OPTIONS: Array<{ value: ImportModule; label: string; testId?: strin
 const PDF_MODULES: ReadonlySet<ImportModule> = new Set(['investing-cams-cas', 'investing-demat-cas']);
 const isPdfModule = (m: ImportModule | ''): m is ImportModule => PDF_MODULES.has(m as ImportModule);
 
+// Renders a skipped-row / corporate-action-suspected advisory entry as
+// readable "key: value" pairs instead of a raw JSON blob.
+const formatAdvisoryEntry = (entry: Record<string, unknown>): string =>
+  Object.entries(entry)
+    .map(([key, value]) => `${key}: ${String(value)}`)
+    .join(', ');
+
 const lifecycleCopy = (status: string) => {
   if (status === 'completed') {
     return {
@@ -658,7 +665,9 @@ export const ImportsPage: React.FC = () => {
                                           : 'bg-rose-950 text-rose-300'
                                     }`}
                                   >
-                                    {String(row.payload_json.status).replace('_', ' ')}
+                                    {row.payload_json.status
+                                      ? String(row.payload_json.status).replace(/_/g, ' ')
+                                      : '-'}
                                   </span>
                                   {row.payload_json.corporate_action_suspected ? (
                                     <span className="ml-1 rounded bg-amber-950 px-1.5 py-0.5 text-[10px] text-amber-300">
@@ -705,7 +714,7 @@ export const ImportsPage: React.FC = () => {
                   </p>
                   <ul className="space-y-1 text-xs text-amber-100">
                     {activeDetail.corporate_action_suspected.map((entry, idx) => (
-                      <li key={idx}>{JSON.stringify(entry)}</li>
+                      <li key={idx}>{formatAdvisoryEntry(entry)}</li>
                     ))}
                   </ul>
                 </div>
@@ -718,7 +727,7 @@ export const ImportsPage: React.FC = () => {
                   </summary>
                   <ul className="mt-2 space-y-1 text-xs text-slate-400">
                     {activeDetail.skipped.map((entry, idx) => (
-                      <li key={idx}>{JSON.stringify(entry)}</li>
+                      <li key={idx}>{formatAdvisoryEntry(entry)}</li>
                     ))}
                   </ul>
                 </details>
