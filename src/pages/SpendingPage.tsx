@@ -19,6 +19,7 @@ import type {
   RecurringFrequency,
   Transaction,
   TransactionCreate,
+  TransactionSort,
   TransactionType,
   TransactionUpdate,
 } from '../types/spending';
@@ -138,6 +139,15 @@ const setLastUsedAccountId = (accountId: string) => {
 // the backend's `unassigned=true` param, not a real account id.
 const UNASSIGNED_ACCOUNT_FILTER_VALUE = '__unassigned__';
 
+// Sort options for the transactions list. Values mirror the API's
+// TransactionSort enum; sorting is applied server-side so it holds across pages.
+const TRANSACTION_SORT_OPTIONS: { value: TransactionSort; label: string }[] = [
+  { value: 'date_desc', label: 'Date (newest first)' },
+  { value: 'date_asc', label: 'Date (oldest first)' },
+  { value: 'amount_desc', label: 'Amount (high to low)' },
+  { value: 'amount_asc', label: 'Amount (low to high)' },
+];
+
 export const SpendingPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -160,6 +170,7 @@ export const SpendingPage: React.FC = () => {
   const selectedMonth = useMemo(() => fromDate.slice(0, 7), [fromDate]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('');
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('');
+  const [txSort, setTxSort] = useState<TransactionSort>('date_desc');
 
   // Tabs
   const [activeTab, setActiveTab] = useState<'transactions' | 'budgets' | 'recurring' | 'transfers' | 'analytics' | 'ledger'>('transactions');
@@ -292,13 +303,14 @@ export const SpendingPage: React.FC = () => {
   const isUnassignedFilterActive = selectedAccountFilter === UNASSIGNED_ACCOUNT_FILTER_VALUE;
 
   const { data: transactionsResponse, isLoading: isTxLoading } = useQuery({
-    queryKey: queryKeys.spending.transactions(txOffset, fromDate, toDate, selectedCategoryFilter, selectedAccountFilter),
+    queryKey: queryKeys.spending.transactions(txOffset, fromDate, toDate, selectedCategoryFilter, selectedAccountFilter, txSort),
     queryFn: () => spendingService.getTransactions(limit, txOffset, {
       categoryId: selectedCategoryFilter || undefined,
       accountId: isUnassignedFilterActive ? undefined : selectedAccountFilter || undefined,
       unassigned: isUnassignedFilterActive,
       fromDate: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
       toDate: toDate ? `${toDate}T23:59:59.999Z` : undefined,
+      sort: txSort,
     }),
   });
   const transactions = transactionsResponse?.items;
@@ -989,6 +1001,7 @@ export const SpendingPage: React.FC = () => {
           setToDate(end.toISOString().split('T')[0]);
           setSelectedCategoryFilter('');
           setSelectedAccountFilter('');
+          setTxSort('date_desc');
           setTxOffset(0);
           setBudgetOffset(0);
         }}
@@ -1032,6 +1045,18 @@ export const SpendingPage: React.FC = () => {
             placeholder="All accounts"
             clearLabel="All accounts"
             showSearch
+          />
+        </CompactFilterField>
+        <CompactFilterField label="Sort by">
+          <DropdownSelect
+            testId="spending-sort"
+            value={txSort}
+            onChange={(value) => {
+              setTxSort(value as TransactionSort);
+              setTxOffset(0);
+            }}
+            options={TRANSACTION_SORT_OPTIONS}
+            placeholder="Sort by"
           />
         </CompactFilterField>
       </CompactFilterBar>

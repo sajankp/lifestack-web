@@ -31,6 +31,10 @@ export interface CategoryUpdate {
 export const TransactionTypeSchema = z.enum(['income', 'expense']).default('expense');
 export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 
+// Sort options accepted by GET /spending/transactions (mirror of the API's
+// TransactionSort enum). `date_*` sorts by transaction date, `amount_*` by amount.
+export type TransactionSort = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
+
 export const SourceMetadataSchema = z.object({
   source_type: z.enum(['manual', 'imported', 'synced', 'assistant', 'extracted']).default('manual'),
   source_ref: z.string().nullable().default(null),

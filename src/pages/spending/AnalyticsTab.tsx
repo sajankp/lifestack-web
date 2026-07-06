@@ -153,11 +153,15 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-700/50 bg-slate-800/20 p-4">
         <div>
           <h4 className="text-base font-semibold text-white">Analysis Window</h4>
-          <p className="text-xs text-slate-400">Comparing trends ending in {formatMonthLabel(selectedMonth)}</p>
+          <p className="text-xs text-slate-400">
+            {rangeMonths === 1
+              ? `Showing ${formatMonthLabel(selectedMonth)}`
+              : `Comparing trends ending in ${formatMonthLabel(selectedMonth)}`}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-slate-400">Duration:</span>
-          {[3, 6, 12].map((m) => (
+          {[1, 3, 6, 12].map((m) => (
             <button
               key={m}
               onClick={() => setRangeMonths(m)}
@@ -167,7 +171,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                   : 'bg-slate-800/40 text-slate-400 border border-transparent hover:bg-slate-800/80 hover:text-slate-200'
               }`}
             >
-              {m} Months
+              {m === 1 ? 'This Month' : `${m} Months`}
             </button>
           ))}
         </div>

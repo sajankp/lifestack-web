@@ -29,14 +29,14 @@ describe('spendingService', () => {
     vi.spyOn(api, 'patch').mockResolvedValueOnce({ data: { public_id: 'tx1' } } as never);
     vi.spyOn(api, 'delete').mockResolvedValueOnce({} as never);
 
-    await spendingService.getTransactions(10, 0, { categoryId: 'cat1', accountId: 'acct1', fromDate: '2026-05-01', toDate: '2026-05-31' });
+    await spendingService.getTransactions(10, 0, { categoryId: 'cat1', accountId: 'acct1', fromDate: '2026-05-01', toDate: '2026-05-31', sort: 'amount_desc' });
     await spendingService.getTransactionSummary({ fromDate: '2026-05-01', toDate: '2026-05-31', categoryId: 'cat1', accountId: 'acct1' });
     await spendingService.createTransaction({ amount: 100, type: 'expense', category_id: 'cat1', occurred_at: '2026-05-01' } as never);
     await spendingService.updateTransaction('tx1', { amount: 120 });
     await spendingService.deleteTransaction('tx1');
 
     expect(api.get).toHaveBeenNthCalledWith(1, '/spending/transactions', {
-      params: { limit: 10, offset: 0, category_id: 'cat1', account_id: 'acct1', from_date: '2026-05-01', to_date: '2026-05-31' }
+      params: { limit: 10, offset: 0, category_id: 'cat1', account_id: 'acct1', from_date: '2026-05-01', to_date: '2026-05-31', sort: 'amount_desc' }
     });
     expect(api.get).toHaveBeenNthCalledWith(2, '/spending/transactions/summary', {
       params: { from_date: '2026-05-01', to_date: '2026-05-31', category_id: 'cat1', account_id: 'acct1' }

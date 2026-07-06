@@ -335,6 +335,32 @@ describe('SpendingPage', () => {
     await screen.findAllByText('legacy row');
   });
 
+  it('defaults transactions sort to newest date and updates the query when changed', async () => {
+    const sortValues: (string | null)[] = [];
+    server.use(
+      http.get('*/v1/spending/transactions', ({ request }) => {
+        const url = new URL(request.url);
+        // Only record the main list query (the unassigned-count query omits sort).
+        if (url.searchParams.get('unassigned') !== 'true') {
+          sortValues.push(url.searchParams.get('sort'));
+        }
+        return HttpResponse.json(EMPTY_PAGE);
+      }),
+      ...baseHandlers,
+    );
+
+    renderWithQuery(<SpendingPage />);
+    await screen.findByText('Spending Overview');
+
+    await waitFor(() => expect(sortValues).toContain('date_desc'));
+
+    fireEvent.click(screen.getByTestId('spending-sort'));
+    const amountOption = await screen.findByRole('option', { name: /Amount \(high to low\)/ });
+    fireEvent.click(amountOption);
+
+    await waitFor(() => expect(sortValues).toContain('amount_desc'));
+  });
+
   it('switches to budgets tab and shows empty state', async () => {
     server.use(...baseHandlers);
     renderWithQuery(<SpendingPage />);

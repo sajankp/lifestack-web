@@ -30,6 +30,7 @@ import type {
   SpendingTrendResponse,
   Transaction,
   TransactionCreate,
+  TransactionSort,
   TransactionSummary,
   TransactionUpdate,
   UpcomingPreviewResponse,
@@ -100,6 +101,7 @@ export const spendingService = {
       unassigned?: boolean;
       fromDate?: string;
       toDate?: string;
+      sort?: TransactionSort;
     }
   ): Promise<z.infer<typeof PaginatedTransactionsSchema>> => {
     const response = await api.get('/spending/transactions', {
@@ -111,6 +113,7 @@ export const spendingService = {
         unassigned: params?.unassigned || undefined,
         from_date: params?.fromDate,
         to_date: params?.toDate,
+        sort: params?.sort,
       },
     });
     return PaginatedTransactionsSchema.parse(response.data);
