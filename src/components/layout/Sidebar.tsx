@@ -28,7 +28,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
       </div>
-      <ul className="space-y-1">
+      <ul className="flex-1 space-y-1 overflow-y-auto">
         {NAV_LINKS.map(({ to, label, testId, icon: Icon }) => (
           <li key={to}>
             <NavLink

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownUp, Check, Edit2, Info, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowDownUp, ArrowUp, Check, Edit2, Info, RefreshCw, Trash2, X } from 'lucide-react';
 import { financeService } from '../../services/finance';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { investingService } from '../../services/investing';
@@ -12,6 +12,7 @@ import { queryKeys } from '../../lib/queryKeys';
 import { DropdownSelect } from '../../components/DropdownSelect';
 import { CurrencyBadge } from '../../components/finance/Badges';
 import { Button } from '../../components/ui/button';
+import { ToggleSwitch } from '../../components/ui/toggle-switch';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,22 @@ import {
 } from './format';
 
 const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
+
+// Mobile sort options. Values mirror the desktop SortableHeader `col` props
+// (and the sortedHoldings switch), so the mobile dropdown and the desktop
+// column-header clicks drive the exact same state — they never disagree.
+const HOLDINGS_SORT_OPTIONS = [
+  { value: 'symbol', label: 'Symbol' },
+  { value: 'instrument_type', label: 'Asset Type' },
+  { value: 'account_name', label: 'Account' },
+  { value: 'currency', label: 'Currency' },
+  { value: 'quantity', label: 'Qty' },
+  { value: 'avg_cost', label: 'Avg Cost' },
+  { value: 'book_value', label: 'Book Value' },
+  { value: 'current_price', label: 'Unit Price' },
+  { value: 'current_value', label: 'Current Value' },
+  { value: 'gain_loss', label: 'Gain / Loss' },
+];
 
 interface HoldingsTabProps {
   currencyDisplayPreference: 'symbol' | 'code';
@@ -432,16 +449,12 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
               />
             </CompactFilterField>
             <CompactFilterField label="Book Value">
-              <label className="flex h-9 items-center gap-2 rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 text-sm text-white cursor-pointer">
-                <input
-                  type="checkbox"
-                  data-testid="investing-holdings-hide-zero-book-value"
-                  checked={hideZeroBookValue}
-                  onChange={(e) => setHideZeroBookValue(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-500 bg-slate-900 text-cyan-500 focus:ring-cyan-500"
-                />
-                Hide zero book value
-              </label>
+              <ToggleSwitch
+                testId="investing-holdings-hide-zero-book-value"
+                checked={hideZeroBookValue}
+                onChange={setHideZeroBookValue}
+                label="Hide zero book value"
+              />
             </CompactFilterField>
           </CompactFilterBar>
 
@@ -453,7 +466,33 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
             {sortedHoldings.length === 0 ? (
               <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">No holdings yet.</div>
             ) : (
-              sortedHoldings.map((h) => {
+              <>
+              {/* Mobile sort control — the desktop equivalent is clicking a
+                  column header, which the card layout has no room for. Drives
+                  the same holdingsSortCol / holdingsSortDir state. */}
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <p className="mb-1 text-xs text-slate-400">Sort by</p>
+                  <DropdownSelect
+                    testId="investing-holdings-sort-mobile"
+                    value={holdingsSortCol}
+                    options={HOLDINGS_SORT_OPTIONS}
+                    onChange={setHoldingsSortCol}
+                    placeholder="Sort by"
+                  />
+                </div>
+                <button
+                  type="button"
+                  data-testid="investing-holdings-sort-dir-mobile"
+                  onClick={() => setHoldingsSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+                  className="flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 text-sm text-slate-200 hover:bg-slate-700/60"
+                  title={holdingsSortDir === 'asc' ? 'Ascending' : 'Descending'}
+                >
+                  {holdingsSortDir === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                  {holdingsSortDir === 'asc' ? 'Asc' : 'Desc'}
+                </button>
+              </div>
+              {sortedHoldings.map((h) => {
                 const gainLoss = toNumber(h.gain_loss ?? 0);
                 const gainLossPct = toNumber(h.gain_loss_pct ?? 0);
                 const isPositive = gainLoss > 0;
@@ -515,7 +554,8 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                     </div>
                   </div>
                 );
-              })
+              })}
+              </>
             )}
           </div>
 

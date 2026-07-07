@@ -82,7 +82,7 @@ export function MobileNavDrawer({
         </div>
 
         {/* Links */}
-        <ul className="flex-1 space-y-1">
+        <ul className="flex-1 space-y-1 overflow-y-auto">
           {NAV_LINKS.map(({ to, label, testId }) => (
             <li key={to}>
               <NavLink

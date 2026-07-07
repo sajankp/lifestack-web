@@ -513,6 +513,15 @@ describe('InvestingPage', () => {
     expect(screen.getAllByText('$1,800.00').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByTestId('investing-total-gain-loss')).toHaveTextContent('+$300.00 (+20.00%)');
 
+    // Mobile sort control — the desktop layout sorts via column-header clicks,
+    // which the card layout has no room for, so mobile gets a Sort by dropdown
+    // plus a direction toggle that share the same sort state.
+    expect(screen.getByTestId('investing-holdings-sort-mobile')).toBeInTheDocument();
+    const sortDirToggle = screen.getByTestId('investing-holdings-sort-dir-mobile');
+    expect(sortDirToggle).toHaveTextContent('Asc');
+    fireEvent.click(sortDirToggle);
+    expect(sortDirToggle).toHaveTextContent('Desc');
+
     // Test Refresh button
     const refreshBtn = screen.getByTestId('investing-refresh-prices-btn');
     fireEvent.click(refreshBtn);
