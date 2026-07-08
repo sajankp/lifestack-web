@@ -268,4 +268,26 @@ describe('Capture panel verification', () => {
 
     expect(screen.getByText('Error: Insufficient permissions to write todo')).toBeVisible();
   });
+
+  it('never leaks the tool name into the transcript when a successful response has no summary', () => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: 'tool_response',
+          name: 'create_todo_task',
+          status: 'success',
+          result: {
+            entity_type: 'todo',
+            entity_public_id: '789-uuid',
+          },
+        }),
+      });
+    });
+
+    expect(screen.getByText('Saved — view in app')).toBeVisible();
+    expect(screen.queryByText(/create_todo_task/)).toBeNull();
+  });
 });

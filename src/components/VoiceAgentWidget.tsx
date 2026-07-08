@@ -376,8 +376,8 @@ export const VoiceAgentWidget: React.FC = () => {
             id: Math.random().toString(),
             role: 'event',
             type: 'tool_response',
-            content: isSuccess 
-              ? (summary || `Executed ${msg.name} successfully.`) 
+            content: isSuccess
+              ? (summary || 'Saved — view in app')
               : `Error: ${msg.result?.message || 'Unknown error'}`,
             timestamp: new Date(),
             status: msg.status,

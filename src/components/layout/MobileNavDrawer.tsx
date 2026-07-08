@@ -120,27 +120,35 @@ export function MobileNavDrawer({
               <ul className="space-y-1">
                 {NAV_LINKS.filter((link) => link.section === section).map(({ to, label, testId }) => (
                   <li key={to}>
-                    <NavLink
-                      to={to}
-                      end={to === '/'}
-                      data-testid={`${testId}-mobile`}
-                      onClick={(e) => {
-                        onClose();
-                        if (to === '/capture') {
-                          e.preventDefault();
+                    {to === '/capture' ? (
+                      <button
+                        type="button"
+                        data-testid={`${testId}-mobile`}
+                        onClick={() => {
+                          onClose();
                           setIsOpen(true);
+                        }}
+                        className="block w-full rounded-lg bg-transparent px-3 py-2.5 text-left text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                      >
+                        {label}
+                      </button>
+                    ) : (
+                      <NavLink
+                        to={to}
+                        end={to === '/'}
+                        data-testid={`${testId}-mobile`}
+                        onClick={onClose}
+                        className={({ isActive }) =>
+                          `block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                            isActive
+                              ? 'bg-cyan-500/10 text-cyan-300'
+                              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                          }`
                         }
-                      }}
-                      className={({ isActive }) =>
-                        `block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                          isActive
-                            ? 'bg-cyan-500/10 text-cyan-300'
-                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                        }`
-                      }
-                    >
-                      {label}
-                    </NavLink>
+                      >
+                        {label}
+                      </NavLink>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -46,22 +46,29 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <ul className="space-y-1">
               {NAV_LINKS.filter((link) => link.section === section).map(({ to, label, testId, icon: Icon }) => (
                 <li key={to}>
-                  <NavLink
-                    to={to}
-                    end={to === '/'}
-                    data-testid={testId}
-                    title={collapsed ? label : undefined}
-                    className={({ isActive }) => navLinkClass(isActive, collapsed)}
-                    onClick={(e) => {
-                      if (to === '/capture') {
-                        e.preventDefault();
-                        setIsOpen(true);
-                      }
-                    }}
-                  >
-                    <Icon className={`shrink-0 ${collapsed ? 'h-5 w-5' : 'h-4 w-4 mr-3'}`} />
-                    {!collapsed && <span>{label}</span>}
-                  </NavLink>
+                  {to === '/capture' ? (
+                    <button
+                      type="button"
+                      data-testid={testId}
+                      title={collapsed ? label : undefined}
+                      className={`w-full bg-transparent text-left ${navLinkClass(false, collapsed)}`}
+                      onClick={() => setIsOpen(true)}
+                    >
+                      <Icon className={`shrink-0 ${collapsed ? 'h-5 w-5' : 'h-4 w-4 mr-3'}`} />
+                      {!collapsed && <span>{label}</span>}
+                    </button>
+                  ) : (
+                    <NavLink
+                      to={to}
+                      end={to === '/'}
+                      data-testid={testId}
+                      title={collapsed ? label : undefined}
+                      className={({ isActive }) => navLinkClass(isActive, collapsed)}
+                    >
+                      <Icon className={`shrink-0 ${collapsed ? 'h-5 w-5' : 'h-4 w-4 mr-3'}`} />
+                      {!collapsed && <span>{label}</span>}
+                    </NavLink>
+                  )}
                 </li>
               ))}
             </ul>
