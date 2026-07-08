@@ -146,7 +146,7 @@ describe('InvestingPage', () => {
     holdingsTabTrigger.focus();
     fireEvent.keyDown(holdingsTabTrigger, { key: 'Enter', code: 'Enter' });
     const placeOrderLinks = await screen.findAllByRole('link', { name: /place your first order/i });
-    expect(placeOrderLinks[0]).toHaveAttribute('href', '/investing?tab=cash&order=1');
+    expect(placeOrderLinks[0]).toHaveAttribute('href', '/investing?tab=orders&order=1');
   });
 
   it.skip('creates an account and submits a holding using selected account/currency', async () => {
@@ -1784,9 +1784,9 @@ describe('InvestingPage', () => {
     renderWithQuery(<InvestingPage />);
 
     await screen.findByText('Investing');
-    const cashTab = screen.getByTestId('investing-tab-cash');
-    cashTab.focus();
-    fireEvent.keyDown(cashTab, { key: 'Enter', code: 'Enter' });
+    const ordersTab = screen.getByTestId('investing-tab-orders');
+    ordersTab.focus();
+    fireEvent.keyDown(ordersTab, { key: 'Enter', code: 'Enter' });
 
     const growwRow = await screen.findByTestId('investing-order-row-order-groww-id');
     expect(growwRow).toHaveTextContent('Groww');
@@ -1910,7 +1910,7 @@ describe('InvestingPage', () => {
     expect(screen.getByTestId('investing-transfers-manage-link')).toHaveAttribute('href', '/spending?tab=ledger');
   });
 
-  it('opens the Cash tab and the Place Order modal directly from a ?tab=cash&order=1 deep link', async () => {
+  it('opens the Orders tab and the Place Order modal directly from a ?tab=orders&order=1 deep link', async () => {
     server.use(
       http.get('*/v1/investing/holdings', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
@@ -1982,9 +1982,9 @@ describe('InvestingPage', () => {
       ),
     );
 
-    renderAtPath(<InvestingPage />, '/investing?tab=cash&order=1');
+    renderAtPath(<InvestingPage />, '/investing?tab=orders&order=1');
 
-    expect(await screen.findByTestId('investing-cash-heading')).toBeInTheDocument();
+    expect(await screen.findByTestId('investing-orders-heading')).toBeInTheDocument();
     expect(await screen.findByTestId('order-symbol')).toBeInTheDocument();
   });
 
@@ -2068,7 +2068,7 @@ describe('InvestingPage', () => {
     const placeOrderLinks = await screen.findAllByRole('link', { name: /place your first order/i });
     fireEvent.click(placeOrderLinks[0]);
 
-    expect(await screen.findByTestId('investing-cash-heading')).toBeInTheDocument();
+    expect(await screen.findByTestId('investing-orders-heading')).toBeInTheDocument();
     expect(await screen.findByTestId('order-symbol')).toBeInTheDocument();
   });
 });

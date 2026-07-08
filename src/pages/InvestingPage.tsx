@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { HoldingsTab } from './investing/HoldingsTab';
+import { OrdersTab } from './investing/OrdersTab';
 import { CashTab } from './investing/CashTab';
 import { AnalyticsTab } from './investing/AnalyticsTab';
 import { SummaryCard } from './investing/components';
@@ -30,16 +31,16 @@ import { queryKeys } from '../lib/queryKeys';
 
 const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
 
-const VALID_TABS = ['holdings', 'cash', 'analytics'] as const;
+const VALID_TABS = ['holdings', 'orders', 'cash', 'analytics'] as const;
 
 export const InvestingPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
-  const [tab, setTab] = useState<'holdings' | 'cash' | 'analytics'>(
+  const [tab, setTab] = useState<'holdings' | 'orders' | 'cash' | 'analytics'>(
     (VALID_TABS as readonly string[]).includes(requestedTab ?? '') ? (requestedTab as typeof VALID_TABS[number]) : 'holdings',
   );
 
-  // The Holdings empty state deep-links here as ?tab=cash&order=1 to open
+  // The Holdings empty state deep-links here as ?tab=orders&order=1 to open
   // the Place Order flow directly; consume the params once, then strip them.
   // Place Order itself is hoisted to this page (reachable from every tab —
   // UX-REVIEW P2 item 13), so this just opens the page-level modal state.
@@ -453,10 +454,11 @@ export const InvestingPage: React.FC = () => {
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={(value) => setTab(value as 'holdings' | 'cash' | 'analytics')}>
+      <Tabs value={tab} onValueChange={(value) => setTab(value as 'holdings' | 'orders' | 'cash' | 'analytics')}>
         <div className="-mx-1 mb-6 overflow-x-auto px-1 pb-1">
           <TabsList className="min-w-max">
             <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-holdings" value="holdings">Holdings</TabsTrigger>
+            <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-orders" value="orders">Orders</TabsTrigger>
             <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-cash" value="cash">Cash</TabsTrigger>
             <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-analytics" value="analytics">Analytics</TabsTrigger>
           </TabsList>
@@ -472,8 +474,8 @@ export const InvestingPage: React.FC = () => {
           />
         </TabsContent>
 
-        <TabsContent value="cash" className="space-y-6">
-          <CashTab
+        <TabsContent value="orders" className="space-y-6">
+          <OrdersTab
             currencyDisplayPreference={currencyDisplayPreference}
             onEditOrder={handleStartEditOrder}
             onDeleteOrder={setPendingDeleteOrder}
@@ -481,6 +483,10 @@ export const InvestingPage: React.FC = () => {
             updateOrderPending={updateOrderMutation.isPending}
             onOpenPlaceOrder={openPlaceOrderModal}
           />
+        </TabsContent>
+
+        <TabsContent value="cash" className="space-y-6">
+          <CashTab currencyDisplayPreference={currencyDisplayPreference} />
         </TabsContent>
 
         <TabsContent value="analytics">

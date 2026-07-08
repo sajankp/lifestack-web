@@ -474,7 +474,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
               <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">
                 <span>No holdings yet.</span>
                 <Link
-                  to="/investing?tab=cash&order=1"
+                  to="/investing?tab=orders&order=1"
                   className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:bg-cyan-500 transition-colors"
                 >
                   <Plus className="h-4 w-4" />
@@ -601,7 +601,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                       <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-400">
                         <span>No holdings yet.</span>
                         <Link
-                          to="/investing?tab=cash&order=1"
+                          to="/investing?tab=orders&order=1"
                           className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:bg-cyan-500 transition-colors"
                         >
                           <Plus className="h-4 w-4" />
