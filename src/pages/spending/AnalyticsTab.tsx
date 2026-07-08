@@ -552,7 +552,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-semibold text-slate-200">{item.category_name}</span>
                       <span className={`text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>
-                        {item.status.replace('_', ' ')}
+                        {item.status?.replace(/_/g, ' ') || ''}
                       </span>
                     </div>
 
@@ -602,7 +602,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-semibold text-slate-200">{item.category_group_name}</span>
                         <span className={`text-[10px] font-bold uppercase tracking-wider ${statusColor}`}>
-                          {item.status.replace('_', ' ')}
+                          {item.status?.replace(/_/g, ' ') || ''}
                         </span>
                       </div>
 

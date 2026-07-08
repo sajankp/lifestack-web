@@ -934,6 +934,9 @@ export const MasterConfigPage: React.FC = () => {
             {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
           </Button>
         </div>
+        {createGroupMutation.isError ? (
+          <p className="mt-2 text-sm text-rose-400">Failed to create group. Please try again.</p>
+        ) : null}
 
         {editingGroupId ? (
           <div data-testid="master-group-editor" className="mt-4 rounded-xl border border-slate-700 bg-slate-950/60 p-4">

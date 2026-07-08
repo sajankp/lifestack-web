@@ -79,9 +79,13 @@ const budgetFormSchema = z
         return !Number.isNaN(num) && Number.isFinite(num) && num > 0;
       }, 'Budget must be a valid positive number'),
   })
-  .refine((values) => (values.scope === 'category' ? !!values.categoryId : !!values.groupId), {
-    message: 'Select a category or group',
+  .refine((values) => (values.scope === 'category' ? !!values.categoryId : true), {
+    message: 'Select a category',
     path: ['categoryId'],
+  })
+  .refine((values) => (values.scope === 'group' ? !!values.groupId : true), {
+    message: 'Select a category group',
+    path: ['groupId'],
   })
   .refine((values) => !values.endMonth || values.endMonth >= values.startMonth, {
     message: 'End month must be on or after the start month',
@@ -199,6 +203,7 @@ export const SpendingPage: React.FC = () => {
   const [changeAmountValue, setChangeAmountValue] = useState('');
   const [changeAmountFromMonth, setChangeAmountFromMonth] = useState('');
   const [isChangeAmountOpen, setIsChangeAmountOpen] = useState(false);
+  const [changeAmountError, setChangeAmountError] = useState<string | null>(null);
   const [txOffset, setTxOffset] = useState(0);
   const [budgetOffset, setBudgetOffset] = useState(0);
   const [recurringOffset, setRecurringOffset] = useState(0);
@@ -788,6 +793,7 @@ export const SpendingPage: React.FC = () => {
     setIsChangeAmountOpen(false);
     setChangeAmountValue('');
     setChangeAmountFromMonth('');
+    setChangeAmountError(null);
     resetBudgetForm({
       scope: 'category',
       categoryId: '',
@@ -946,10 +952,16 @@ export const SpendingPage: React.FC = () => {
 
   const handleChangeBudgetAmount = () => {
     if (!editingBudgetId || !changeAmountValue || !changeAmountFromMonth) return;
+    const parsedAmount = parseFloat(changeAmountValue);
+    if (Number.isNaN(parsedAmount) || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setChangeAmountError('Enter a valid positive amount');
+      return;
+    }
+    setChangeAmountError(null);
     changeBudgetAmountMutation.mutate({
       id: editingBudgetId,
       data: {
-        amount: parseFloat(changeAmountValue),
+        amount: parsedAmount,
         from_month: `${changeAmountFromMonth}-01`,
       },
     });
@@ -973,6 +985,7 @@ export const SpendingPage: React.FC = () => {
     setIsChangeAmountOpen(false);
     setChangeAmountValue('');
     setChangeAmountFromMonth(selectedMonth);
+    setChangeAmountError(null);
     resetBudgetForm({
       scope: b.category_group_id ? 'group' : 'category',
       categoryId: b.category_id ?? '',
@@ -1869,8 +1882,8 @@ export const SpendingPage: React.FC = () => {
                         />
                       )}
                     />
-                    {budgetErrors.categoryId ? (
-                      <p className="mt-2 text-sm text-rose-400">{budgetErrors.categoryId.message}</p>
+                    {budgetErrors.groupId ? (
+                      <p className="mt-2 text-sm text-rose-400">{budgetErrors.groupId.message}</p>
                     ) : null}
                   </div>
                 ) : (
@@ -2012,7 +2025,9 @@ export const SpendingPage: React.FC = () => {
                             />
                           </div>
                         </div>
-                        {changeBudgetAmountMutation.isError ? (
+                        {changeAmountError ? (
+                          <p className="text-sm text-rose-400">{changeAmountError}</p>
+                        ) : changeBudgetAmountMutation.isError ? (
                           <p className="text-sm text-rose-400">
                             Failed to change amount. The new month must be after this budget's start month.
                           </p>
