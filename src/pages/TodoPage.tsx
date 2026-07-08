@@ -514,8 +514,9 @@ export const TodoPage: React.FC = () => {
         value={searchParams.get('tab') || 'tasks'}
         onValueChange={(value) => {
           setSearchParams((params) => {
-            params.set('tab', value);
-            return params;
+            const nextParams = new URLSearchParams(params);
+            nextParams.set('tab', value);
+            return nextParams;
           });
         }}
         className="w-full"
