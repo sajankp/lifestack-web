@@ -82,11 +82,16 @@ Today the web app focuses on the personal OS foundation:
 - Weekly summaries view
 - Quick capture flow (todo + spending)
 - Bulk CSV imports flow (transactions, budgets, holdings)
+- Data exports page (`/exports`) for JSON/CSV/Zip requests and download status
+- Settings page (`/settings`, `MasterConfigPage`) for workspace/account/category configuration
 - Recurring rules UX for todo and spending
 - Authentication and session handling
 - Responsive app shell with mobile navigation
 - Real workspace name/role display from the platform API
 - Shared loading, empty, and error states on key daily-use pages
+- Voice agent widget (`VoiceAgentWidget`, always mounted in the app shell layout) for voice/text capture via the backend capture API
+- PWA/installable shell with push notifications: service worker (`public/sw.js`), web app manifest (`public/manifest.webmanifest`), and push subscription management (`PushSubscriptionSettings`, wired into the Notifications page)
+- Page decomposition: large feature pages (Spending, Investing) are split into focused `*Tab` components under `src/pages/spending/` and `src/pages/investing/`
 
 The current implementation is intentionally centered on a single-user personal workflow before expanding into later-stage domains.
 
@@ -94,9 +99,9 @@ The current implementation is intentionally centered on a single-user personal w
 
 ## Future Product Tracks
 
-These tracks are planned product direction, not current web functionality:
+These tracks are planned product direction, not current web functionality. (Voice/AI capture and PWA/push are already shipped — see "What Works Today" — and are not listed here.)
 
-- **Mobile companion:** quick capture, notifications, camera upload, background sync, and health-app sync review.
+- **Mobile companion:** camera upload, background sync, and native health-app sync review.
 - **Health tracking:** sleep, weight, vitals, labs, symptoms, medications, and workouts, with manual entry before health-app sync.
 - **Medication reminders:** schedules, adherence check-ins, refill notes, and dashboard follow-up tasks.
 - **Document intelligence:** upload, extraction review, source-linked records, and privacy-focused lifecycle controls.
@@ -119,6 +124,8 @@ Settings and master configuration should stay lean and low-traffic: useful for r
 - Zustand for auth/session state
 - TanStack Query for server state
 - Shared UI components for consistent module experiences
+- Installable PWA shell: service worker (`public/sw.js`), web app manifest (`public/manifest.webmanifest`), and `src/pwa.ts` registration/update handling
+- Web push subscription management (`PushSubscriptionSettings`) wired into the Notifications page
 
 The frontend mirrors backend module boundaries rather than inventing a separate product model. As the product grows, new surfaces should still feel like one coherent operating system.
 
@@ -222,7 +229,6 @@ The current browser E2E suite in this repo focuses on frontend behavior. The ful
 - Remaining follow-up:
   - seeded deterministic test data and cross-repo CI gate
   - screenshot/accessibility pass for responsive layouts
-  - continued decomposition of large feature pages into smaller feature components/hooks
 
 ---
 

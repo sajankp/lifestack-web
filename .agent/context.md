@@ -9,7 +9,7 @@
 - State management: Zustand
 - HTTP client: Axios with interceptors
 - Styling: Tailwind CSS + shadcn/ui components
-- API validation: Zod schemas (in services that have been migrated)
+- API validation: Zod schemas (all domain services parse responses)
 - Package manager: npm
 
 ## Quick Commands
