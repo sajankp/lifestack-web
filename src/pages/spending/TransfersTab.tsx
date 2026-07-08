@@ -145,7 +145,7 @@ export const TransfersTab: React.FC<TransfersTabProps> = ({
                               className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300"
                             >
                               Fees {formatCurrency(
-                                Number(t.fx_fee_amount) + Number(t.platform_fee_amount) + Number(t.tax_amount),
+                                Number(t.fx_fee_amount ?? 0) + Number(t.platform_fee_amount ?? 0) + Number(t.tax_amount ?? 0),
                                 t.from_currency_code,
                                 currencyDisplayPreference,
                               )}

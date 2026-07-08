@@ -10,7 +10,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   general: 'General',
 };
 
-export function categoryLabel(category: string): string {
+export function categoryLabel(category: string | null | undefined): string {
+  if (!category) return '';
   if (CATEGORY_LABELS[category]) return CATEGORY_LABELS[category];
   return category
     .split('_')

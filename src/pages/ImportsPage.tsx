@@ -69,8 +69,10 @@ const IMPORT_STATUS_LABELS: Record<string, string> = {
   failed_commit: 'Apply failed',
 };
 
-const importStatusLabel = (status: string): string =>
-  IMPORT_STATUS_LABELS[status] ?? status.replace(/_/g, ' ');
+const importStatusLabel = (status: string | null | undefined): string => {
+  if (!status) return '';
+  return IMPORT_STATUS_LABELS[status] ?? status.replace(/_/g, ' ');
+};
 
 export const ImportsPage: React.FC = () => {
   const queryClient = useQueryClient();
