@@ -7,6 +7,7 @@ import {
   CapitalTransferSchema,
   CurrencySchema,
   NetWorthDataSchema,
+  NetWorthHistoryItemSchema,
   ReconciliationSummarySchema,
   UserFinanceSettingSchema,
   WorkspaceFinanceSettingSchema,
@@ -21,6 +22,7 @@ import type {
   CapitalTransferUpdate,
   Currency,
   NetWorthData,
+  NetWorthHistoryItem,
   ReconciliationSummary,
   UserFinanceSetting,
   UserFinanceSettingUpdate,
@@ -114,5 +116,15 @@ export const financeService = {
   getNetWorth: async (): Promise<NetWorthData> => {
     const response = await api.get('/finance/net-worth');
     return NetWorthDataSchema.parse(response.data);
+  },
+
+  getNetWorthHistory: async (
+    fromDate?: string,
+    toDate?: string,
+  ): Promise<NetWorthHistoryItem[]> => {
+    const response = await api.get('/finance/net-worth/history', {
+      params: { from_date: fromDate, to_date: toDate },
+    });
+    return z.array(NetWorthHistoryItemSchema).parse(response.data);
   },
 };

@@ -193,3 +193,14 @@ export const NetWorthDataSchema = z.object({
   fx_as_of: z.string().nullable().default(null),
 });
 export type NetWorthData = z.infer<typeof NetWorthDataSchema>;
+
+export const NetWorthHistoryItemSchema = z.object({
+  snapshot_date: z.string().default(''),
+  reporting_currency: z.string().default(''),
+  holdings_value: z.string().default('0'),
+  investing_cash: z.string().default('0'),
+  spending_cash: z.string().default('0'),
+  total_net_worth: z.string().default('0'),
+});
+export type NetWorthHistoryItem = z.infer<typeof NetWorthHistoryItemSchema>;
+

@@ -7,6 +7,7 @@ import { formatDate } from '../utils/dateFormat';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { queryKeys } from '../lib/queryKeys';
+import type { NetWorthHistoryItem } from '../types/finance';
 
 const accountTypeLabel = (type: string): string => {
   switch (type) {
@@ -83,6 +84,176 @@ const SummaryCard: React.FC<{
   </div>
 );
 
+const NetWorthHistoryChart: React.FC<{
+  history: NetWorthHistoryItem[] | undefined;
+  currency: string | null;
+}> = ({ history, currency }) => {
+  if (!history || history.length < 2) {
+    return (
+      <div className="rounded-2xl border border-slate-700/60 bg-slate-800/40 p-8 text-center">
+        <TrendingUp className="mx-auto mb-3 h-8 w-8 text-slate-500" />
+        <h3 className="font-semibold text-slate-300">History builds from here</h3>
+        <p className="mt-1 text-sm text-slate-500 max-w-sm mx-auto">
+          We've started tracking your net worth today. Once daily snapshots accumulate, a stacked area trend chart will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  const width = 800;
+  const height = 280;
+  const paddingX = 40;
+  const paddingY = 20;
+
+  // Convert string values to numbers
+  const points = history.map(item => ({
+    dateStr: item.snapshot_date,
+    spending: parseFloat(item.spending_cash || '0'),
+    investing: parseFloat(item.investing_cash || '0'),
+    holdings: parseFloat(item.holdings_value || '0'),
+    total: parseFloat(item.total_net_worth || '0'),
+  }));
+
+  const maxVal = Math.max(...points.map(p => p.total), 1);
+
+  const getX = (index: number) => {
+    return paddingX + (index / (points.length - 1)) * (width - 2 * paddingX);
+  };
+
+  const getY = (val: number) => {
+    const scale = (height - 2 * paddingY) / maxVal;
+    return height - paddingY - val * scale;
+  };
+
+  // Stack 3: Total (Spending + Investing + Holdings)
+  const pathTotal = points.map((p, i) => `${getX(i)},${getY(p.total)}`).join(' L ');
+  const areaTotal = `M ${getX(0)},${height - paddingY} L ${pathTotal} L ${getX(points.length - 1)},${height - paddingY} Z`;
+
+  // Stack 2: Spending + Investing
+  const pathInvest = points.map((p, i) => `${getX(i)},${getY(p.spending + p.investing)}`).join(' L ');
+  const areaInvest = `M ${getX(0)},${height - paddingY} L ${pathInvest} L ${getX(points.length - 1)},${height - paddingY} Z`;
+
+  // Stack 1: Spending
+  const pathSpend = points.map((p, i) => `${getX(i)},${getY(p.spending)}`).join(' L ');
+  const areaSpend = `M ${getX(0)},${height - paddingY} L ${pathSpend} L ${getX(points.length - 1)},${height - paddingY} Z`;
+
+  const formatShortDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatShortValue = (val: number) => {
+    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+    if (val >= 1_000) return `${(val / 1_000).toFixed(0)}k`;
+    return val.toFixed(0);
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-700/60 bg-slate-800/30 p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-300">Net worth history</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Stacked breakdown over time {currency ? `(${currency})` : ''}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
+          <div className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            <span>Holdings</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
+            <span>Investing Cash</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-cyan-500" />
+            <span>Spending Cash</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="h-0.5 w-4 bg-white" />
+            <span className="text-slate-300">Total Net Worth</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative w-full overflow-x-auto">
+        <svg className="w-full min-w-[640px]" viewBox={`0 0 ${width} ${height}`}>
+          <defs>
+            <linearGradient id="colorHoldings" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+              <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+            </linearGradient>
+            <linearGradient id="colorInvesting" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#6366f1" stopOpacity={0.5} />
+              <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+            </linearGradient>
+            <linearGradient id="colorSpending" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.6} />
+              <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
+            </linearGradient>
+          </defs>
+
+          {/* Grid lines */}
+          <line x1={paddingX} y1={getY(maxVal)} x2={width - paddingX} y2={getY(maxVal)} stroke="#334155" strokeDasharray="3 3" />
+          <line x1={paddingX} y1={getY(maxVal / 2)} x2={width - paddingX} y2={getY(maxVal / 2)} stroke="#334155" strokeDasharray="3 3" />
+          <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} stroke="#334155" />
+
+          {/* Value labels */}
+          <text x={paddingX - 8} y={getY(maxVal) + 4} textAnchor="end" className="text-[10px] fill-slate-500 font-medium">
+            {formatShortValue(maxVal)}
+          </text>
+          <text x={paddingX - 8} y={getY(maxVal / 2) + 4} textAnchor="end" className="text-[10px] fill-slate-500 font-medium">
+            {formatShortValue(maxVal / 2)}
+          </text>
+          <text x={paddingX - 8} y={height - paddingY + 4} textAnchor="end" className="text-[10px] fill-slate-500 font-medium">
+            0
+          </text>
+
+          {/* Stacked Areas */}
+          <path d={areaTotal} fill="url(#colorHoldings)" />
+          <path d={areaInvest} fill="url(#colorInvesting)" />
+          <path d={areaSpend} fill="url(#colorSpending)" />
+
+          {/* Divider lines between stacks */}
+          <path d={`M ${pathTotal}`} fill="none" stroke="#10b981" strokeWidth={1} strokeOpacity={0.5} />
+          <path d={`M ${pathInvest}`} fill="none" stroke="#6366f1" strokeWidth={1} strokeOpacity={0.5} />
+          <path d={`M ${pathSpend}`} fill="none" stroke="#06b6d4" strokeWidth={1} strokeOpacity={0.5} />
+
+          {/* White line on top for Total Net Worth */}
+          <path d={`M ${pathTotal}`} fill="none" stroke="#ffffff" strokeWidth={2} />
+
+          {/* Dot anchors */}
+          {points.map((p, i) => (
+            <g key={i} className="group cursor-pointer">
+              <circle cx={getX(i)} cy={getY(p.total)} r={4} fill="#ffffff" stroke="#1e293b" strokeWidth={1.5} />
+            </g>
+          ))}
+
+          {/* X Axis Labels */}
+          {points.length > 0 && (
+            <>
+              <text x={getX(0)} y={height - paddingY + 16} textAnchor="start" className="text-[10px] fill-slate-500 font-medium">
+                {formatShortDate(points[0].dateStr)}
+              </text>
+              {points.length > 2 && (
+                <text x={getX(Math.floor(points.length / 2))} y={height - paddingY + 16} textAnchor="middle" className="text-[10px] fill-slate-500 font-medium">
+                  {formatShortDate(points[Math.floor(points.length / 2)].dateStr)}
+                </text>
+              )}
+              <text x={getX(points.length - 1)} y={height - paddingY + 16} textAnchor="end" className="text-[10px] fill-slate-500 font-medium">
+                {formatShortDate(points[points.length - 1].dateStr)}
+              </text>
+            </>
+          )}
+        </svg>
+      </div>
+    </div>
+  );
+};
+
 export const NetWorthPage: React.FC = () => {
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.netWorth.summary(),
@@ -91,6 +262,14 @@ export const NetWorthPage: React.FC = () => {
   });
 
   const rc = data?.reporting_currency ?? null;
+  const isEmpty = data?.valuation_status === 'empty';
+
+  const { data: historyData } = useQuery({
+    queryKey: queryKeys.netWorth.history(),
+    queryFn: () => financeService.getNetWorthHistory(),
+    staleTime: 60_000,
+    enabled: !isEmpty && !!rc,
+  });
 
   const summaryCards = [
     {
@@ -152,7 +331,6 @@ export const NetWorthPage: React.FC = () => {
     );
   }
 
-  const isEmpty = data?.valuation_status === 'empty';
   const spendingAccounts = data?.spending_accounts ?? [];
   const brokerageCashAccounts = data?.investing_accounts ?? [];
 
@@ -183,6 +361,11 @@ export const NetWorthPage: React.FC = () => {
               <SummaryCard key={card.label} {...card} />
             ))}
           </div>
+
+          {/* History Chart */}
+          {rc && (
+            <NetWorthHistoryChart history={historyData} currency={rc} />
+          )}
 
           {/* Investing breakdown */}
           {(data?.investing_cash_total != null || data?.holdings_value != null) && (
