@@ -76,6 +76,8 @@ Today the web app focuses on the personal OS foundation:
 - Todo management
 - Spending tracking
 - Investing tracking
+- Net worth page with a stacked-area history chart (spending cash, investing cash, holdings value over time)
+- Category groups and recurring date-ranged budgets with a dashboard budget-spotlight section
 - Notifications inbox and unread indicators
 - Weekly summaries view
 - Quick capture flow (todo + spending)
@@ -189,10 +191,11 @@ The UI goal is not just "good CRUD." It is to help users notice what matters, de
   - recurring transaction rule management
   - upcoming recurring preview support from backend
 
-### Dashboard budget remaining
-- The dashboard `Budget remaining` card is computed from:
-  - `spending.month_budget - spending.month_spent`
-- `month_budget` is sourced from monthly budgets for the current month. If no monthly budget exists, UI should show `N/A`.
+### Dashboard budget spotlight
+- Replaced the single-category `Budget remaining` card (spec-064, web#86). The dashboard now renders a `Budget spotlight` section from `spending.budget_spotlight`: one card per category-group budget showing utilization %, spent-of-budget, and daily-amount-left, colored by `status` (`ok` / `warning` / `exceeded`). Renders nothing when there are no group budgets.
+
+### Net worth history
+- The Net Worth page (`src/pages/NetWorthPage.tsx`) renders a stacked-area chart from `GET /finance/net-worth/history` (spec-065), showing spending cash, investing cash, and holdings value per day for the last 90 days by default (query params `from_date`/`to_date`, capped at 365 days server-side). History rows are backfilled by the daily `net_worth_snapshot` job and opportunistically by every `GET /finance/net-worth` read for the current day.
 
 ---
 
