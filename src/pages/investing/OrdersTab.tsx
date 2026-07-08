@@ -95,14 +95,20 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
     <div className="space-y-6">
       <CompactFilterBar
         title="Order filters"
-        onReset={() => setOrdersAccountFilter('')}
+        onReset={() => {
+          setOrdersAccountFilter('');
+          setOrdersOffset(0);
+        }}
       >
         <CompactFilterField label="Account">
           <DropdownSelect
             testId="investing-orders-account-filter"
             value={ordersAccountFilter}
             options={accountDropdownOptions}
-            onChange={setOrdersAccountFilter}
+            onChange={(value) => {
+              setOrdersAccountFilter(value);
+              setOrdersOffset(0);
+            }}
             placeholder="All accounts"
             clearLabel="All accounts"
           />
