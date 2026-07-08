@@ -47,6 +47,7 @@ import { DateRangePicker } from '../components/DateRangePicker';
 import { CompactFilterBar, CompactFilterField } from '../components/filters/CompactFilterBar';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
+import { TransferModal } from '../components/finance/TransferModal';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -55,7 +56,6 @@ import { formatDate } from '../utils/dateFormat';
 import { TransactionsTab } from './spending/TransactionsTab';
 import { BudgetsTab } from './spending/BudgetsTab';
 import { RecurringTab } from './spending/RecurringTab';
-import { TransfersTab } from './spending/TransfersTab';
 import { AnalyticsTab } from './spending/AnalyticsTab';
 import { LedgerTab } from './spending/LedgerTab';
 import {
@@ -194,9 +194,18 @@ export const SpendingPage: React.FC = () => {
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('');
   const [txSort, setTxSort] = useState<TransactionSort>('date_desc');
 
+  // Budgets has its own month picker — it must NOT derive from (or be
+  // filtered by) the Transactions date-range/category/account filter bar,
+  // which used to leak into "spent this month" (UX-REVIEW P2 item 4).
+  const [budgetsMonth, setBudgetsMonth] = useState(() => getCurrentMonthValue());
+  const budgetsMonthRange = useMemo(() => monthValueToDateRange(budgetsMonth), [budgetsMonth]);
+
   // Tabs — deep-linkable via ?tab= so dashboard cues can land on the right one.
-  type SpendingTab = 'transactions' | 'budgets' | 'recurring' | 'transfers' | 'analytics' | 'ledger';
-  const SPENDING_TABS: SpendingTab[] = ['transactions', 'budgets', 'recurring', 'transfers', 'analytics', 'ledger'];
+  // "Transfers" was merged into "Account activity" (formerly Ledger) — the
+  // ledger already rendered transfer_in/out rows; it now also carries their
+  // edit/delete affordances (UX-REVIEW Theme 3 / spec: money-movement restructure).
+  type SpendingTab = 'transactions' | 'budgets' | 'recurring' | 'analytics' | 'ledger';
+  const SPENDING_TABS: SpendingTab[] = ['transactions', 'budgets', 'recurring', 'analytics', 'ledger'];
   const [activeTab, setActiveTab] = useState<SpendingTab>(() => {
     const requested = new URLSearchParams(window.location.search).get('tab');
     return (SPENDING_TABS as string[]).includes(requested ?? '') ? (requested as SpendingTab) : 'transactions';
@@ -217,7 +226,6 @@ export const SpendingPage: React.FC = () => {
   const [txOffset, setTxOffset] = useState(0);
   const [budgetOffset, setBudgetOffset] = useState(0);
   const [recurringOffset, setRecurringOffset] = useState(0);
-  const [transferOffset, setTransferOffset] = useState(0);
   const limit = 50;
   const monthRange = useMemo(() => monthValueToDateRange(selectedMonth), [selectedMonth]);
   const monthFilterOptions = useMemo(() => buildMonthOptions(), []);
@@ -237,17 +245,10 @@ export const SpendingPage: React.FC = () => {
     publicId: string;
     description: string;
   } | null>(null);
-  const [transferFromAccountId, setTransferFromAccountId] = useState('');
-  const [transferToAccountId, setTransferToAccountId] = useState('');
-  const [transferAmount, setTransferAmount] = useState('');
-  const [transferFxRate, setTransferFxRate] = useState('');
-  const [transferFxFee, setTransferFxFee] = useState('0');
-  const [transferPlatformFee, setTransferPlatformFee] = useState('0');
-  const [transferTax, setTransferTax] = useState('0');
-  const [transferNotes, setTransferNotes] = useState('');
-  const [transferDate, setTransferDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Edit / delete transfer state
+  // Edit / delete transfer state — create now lives in the shared
+  // <TransferModal>; edit/delete stay page-local since only the merged
+  // Account activity tab here lists historical transfers to act on.
   const [editingTransfer, setEditingTransfer] = useState<import('../types/finance').CapitalTransfer | null>(null);
   const [editTransferFromId, setEditTransferFromId] = useState('');
   const [editTransferToId, setEditTransferToId] = useState('');
@@ -405,13 +406,25 @@ export const SpendingPage: React.FC = () => {
   );
 
   const { data: budgetsResponse, isLoading: isBudgetsLoading } = useQuery({
-    queryKey: queryKeys.spending.budgets(budgetOffset, selectedMonth),
-    queryFn: () => spendingService.getBudgets(limit, budgetOffset, monthRange.monthStart),
-    enabled: monthRange.isValid,
+    queryKey: queryKeys.spending.budgets(budgetOffset, budgetsMonth),
+    queryFn: () => spendingService.getBudgets(limit, budgetOffset, budgetsMonthRange.monthStart),
+    enabled: budgetsMonthRange.isValid,
   });
   // The API's month_start query param already filters by range containment
   // (spec-064), so budgetsResponse.items are exactly this month's budgets.
   const budgets = useMemo(() => budgetsResponse?.items ?? [], [budgetsResponse]);
+
+  // Budgets' "spent this month" must reflect the budget's own month, not the
+  // Transactions tab's free date-range/category/account filters — those used
+  // to leak in via the shared summaryResponse below (UX-REVIEW P2 item 4).
+  const { data: budgetsSummaryResponse } = useQuery({
+    queryKey: queryKeys.spending.summary('budgets-scope', budgetsMonth),
+    queryFn: () => spendingService.getTransactionSummary({
+      fromDate: budgetsMonthRange.fromDate,
+      toDate: budgetsMonthRange.toDate,
+    }),
+    enabled: budgetsMonthRange.isValid,
+  });
 
   const createMutation = useInvalidatingMutation(
     (newTx: TransactionCreate) => spendingService.createTransaction(newTx),
@@ -459,9 +472,12 @@ export const SpendingPage: React.FC = () => {
     queryKey: queryKeys.spending.recurring(recurringOffset),
     queryFn: () => spendingService.getRecurring(limit, recurringOffset, true),
   });
-  const { data: transfersResponse, isLoading: isTransfersLoading } = useQuery({
-    queryKey: ['finance', 'transfers', transferOffset],
-    queryFn: () => financeService.getTransfers(limit, transferOffset),
+  // Fetched (unpaginated, generously capped) purely to build a public_id
+  // lookup so the merged Account activity tab can offer edit/delete on the
+  // transfer_in/transfer_out rows it already renders from the ledger.
+  const { data: transfersResponse } = useQuery({
+    queryKey: queryKeys.finance.transfers('lookup'),
+    queryFn: () => financeService.getTransfers(500, 0),
   });
   const { data: userFinanceSettings } = useQuery({
     queryKey: ['finance', 'settings', 'user'],
@@ -504,7 +520,10 @@ export const SpendingPage: React.FC = () => {
   const currencyDisplayPreference =
     userFinanceSettings?.effective_currency_display_preference ?? 'symbol';
   const recurringItems = recurringResponse?.items ?? [];
-  const transferItems = transfersResponse?.items ?? [];
+  const transferByPublicId = useMemo(
+    () => new Map((transfersResponse?.items ?? []).map((t) => [t.public_id, t])),
+    [transfersResponse]
+  );
 
   const {
     control: recurringControl,
@@ -553,85 +572,6 @@ export const SpendingPage: React.FC = () => {
     {
       successMessage: 'Recurring rule deactivated',
       errorMessage: 'Failed to deactivate recurring rule. Please try again.',
-    },
-  );
-  const createTransferMutation = useInvalidatingMutation(
-    () => {
-      const from = transferAccountById.get(transferFromAccountId);
-      const to = transferAccountById.get(transferToAccountId);
-      if (!from || !to) {
-        throw new Error('Transfer accounts are required');
-      }
-      const fromModule = from.account_type === 'brokerage' ? 'investing' : 'spending';
-      const toModule = to.account_type === 'brokerage' ? 'investing' : 'spending';
-      const gross = Number(transferAmount);
-      if (Number.isNaN(gross) || !Number.isFinite(gross) || gross <= 0) {
-        throw new Error('Gross amount must be a valid positive number');
-      }
-      const fxFee = transferFxFee ? Number(transferFxFee) : 0;
-      const platformFee = transferPlatformFee ? Number(transferPlatformFee) : 0;
-      const tax = transferTax ? Number(transferTax) : 0;
-
-      if (Number.isNaN(fxFee) || !Number.isFinite(fxFee) || fxFee < 0) {
-        throw new Error('FX fee must be a valid non-negative number');
-      }
-      if (Number.isNaN(platformFee) || !Number.isFinite(platformFee) || platformFee < 0) {
-        throw new Error('Platform fee must be a valid non-negative number');
-      }
-      if (Number.isNaN(tax) || !Number.isFinite(tax) || tax < 0) {
-        throw new Error('Tax must be a valid non-negative number');
-      }
-
-      let parsedFxRate = null;
-      let rateNum = 1;
-      if (transferFxRate) {
-        const rate = Number(transferFxRate);
-        if (Number.isNaN(rate) || !Number.isFinite(rate) || rate <= 0) {
-          throw new Error('FX rate must be a valid positive number');
-        }
-        parsedFxRate = rate.toFixed(10);
-        rateNum = rate;
-      }
-
-      const net = Math.max(0, gross * rateNum - fxFee - platformFee - tax);
-      const parsedTransferDate = new Date(transferDate);
-      if (Number.isNaN(parsedTransferDate.getTime())) {
-        throw new Error('Invalid transfer date');
-      }
-
-      return financeService.createTransfer({
-        from_module: fromModule,
-        to_module: toModule,
-        from_account_id: from.public_id,
-        to_account_id: to.public_id,
-        from_currency_code: from.default_currency_code,
-        to_currency_code: to.default_currency_code,
-        gross_amount: gross.toFixed(2),
-        fx_rate_used: parsedFxRate,
-        fx_fee_amount: fxFee.toFixed(2),
-        platform_fee_amount: platformFee.toFixed(2),
-        tax_amount: tax.toFixed(2),
-        net_amount_received: net.toFixed(2),
-        occurred_at: parsedTransferDate.toISOString(),
-        notes: transferNotes || null,
-      });
-    },
-    [queryKeys.dashboard.all, queryKeys.finance.transfers()],
-    {
-      successMessage: 'Transfer created',
-      onSuccess: () => {
-        setIsTransferModalOpen(false);
-        setTransferFromAccountId('');
-        setTransferToAccountId('');
-        setTransferAmount('');
-        setTransferFxRate('');
-        setTransferFxFee('0');
-        setTransferPlatformFee('0');
-        setTransferTax('0');
-        setTransferNotes('');
-        setTransferDate(new Date().toISOString().split('T')[0]);
-        setTransferOffset(0);
-      },
     },
   );
 
@@ -691,7 +631,7 @@ export const SpendingPage: React.FC = () => {
         notes: editTransferNotes || null,
       });
     },
-    [queryKeys.finance.transfers(), queryKeys.dashboard.all],
+    [queryKeys.finance.all, queryKeys.spending.all, queryKeys.investing.all, queryKeys.dashboard.all],
     {
       successMessage: 'Transfer updated',
       errorMessage: false,
@@ -713,7 +653,7 @@ export const SpendingPage: React.FC = () => {
       if (!deletingTransfer) throw new Error('No transfer selected');
       return financeService.deleteTransfer(deletingTransfer.public_id);
     },
-    [queryKeys.finance.transfers(), queryKeys.dashboard.all],
+    [queryKeys.finance.all, queryKeys.spending.all, queryKeys.investing.all, queryKeys.dashboard.all],
     {
       successMessage: 'Transfer deleted',
       errorMessage: false,
@@ -762,7 +702,6 @@ export const SpendingPage: React.FC = () => {
       errorMessage: false,
       onSuccess: (created) => {
         setAccountId(created.public_id);
-        if (!transferFromAccountId) setTransferFromAccountId(created.public_id);
         setNewAccountName('');
         setNewAccountType('wallet');
         setNewAccountCurrency(created.default_currency_code);
@@ -1060,15 +999,15 @@ export const SpendingPage: React.FC = () => {
 
   const spentByCategory = useMemo(() => {
     return new Map(
-      (summaryResponse?.category_totals ?? []).map((entry) => [entry.category_id, Number(entry.total)])
+      (budgetsSummaryResponse?.category_totals ?? []).map((entry) => [entry.category_id, Number(entry.total)])
     );
-  }, [summaryResponse]);
+  }, [budgetsSummaryResponse]);
 
   // Group spend summed client-side from category totals, which carry
   // category_group_id (spec-064 — group budgets have no dedicated summary endpoint).
   const spentByGroup = useMemo(() => {
     const totals = new Map<string, number>();
-    for (const entry of summaryResponse?.category_totals ?? []) {
+    for (const entry of budgetsSummaryResponse?.category_totals ?? []) {
       const category = categories?.find((c) => c.public_id === entry.category_id);
       if (!category?.category_group_id) continue;
       totals.set(
@@ -1077,7 +1016,7 @@ export const SpendingPage: React.FC = () => {
       );
     }
     return totals;
-  }, [summaryResponse, categories]);
+  }, [budgetsSummaryResponse, categories]);
 
   const isLoading = isCatsLoading || isTxLoading || isBudgetsLoading || isSummaryLoading;
 
@@ -1189,19 +1128,29 @@ export const SpendingPage: React.FC = () => {
             showSearch
           />
         </CompactFilterField>
-        <CompactFilterField label="Sort by">
-          <DropdownSelect
-            testId="spending-sort"
-            value={txSort}
-            onChange={(value) => {
-              setTxSort(value as TransactionSort);
-              setTxOffset(0);
-            }}
-            options={TRANSACTION_SORT_OPTIONS}
-            placeholder="Sort by"
-          />
-        </CompactFilterField>
+        {/* Sort only affects the Transactions tab's row order — scoped here
+            instead of the shared bar so it doesn't imply an effect on
+            Budgets/Recurring/Analytics (UX-REVIEW P2 item 4). */}
+        {activeTab === 'transactions' ? (
+          <CompactFilterField label="Sort by">
+            <DropdownSelect
+              testId="spending-sort"
+              value={txSort}
+              onChange={(value) => {
+                setTxSort(value as TransactionSort);
+                setTxOffset(0);
+              }}
+              options={TRANSACTION_SORT_OPTIONS}
+              placeholder="Sort by"
+            />
+          </CompactFilterField>
+        ) : null}
       </CompactFilterBar>
+      {activeTab === 'budgets' || activeTab === 'recurring' || activeTab === 'analytics' ? (
+        <div className="-mt-4 mb-6 text-xs text-slate-500">
+          Date range, category, and account filters above apply to the summary cards and Transactions/Account activity tabs — not this tab.
+        </div>
+      ) : null}
 
       {/* Summary Cards */}
       <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -1274,13 +1223,6 @@ export const SpendingPage: React.FC = () => {
           Recurring rules
         </button>
         <button
-          data-testid="spending-tab-transfers"
-          onClick={() => setActiveTab('transfers')}
-          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'transfers' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
-        >
-          Transfers
-        </button>
-        <button
           data-testid="spending-tab-analytics"
           onClick={() => setActiveTab('analytics')}
           className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'analytics' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
@@ -1300,9 +1242,9 @@ export const SpendingPage: React.FC = () => {
         <div className="flex min-h-[300px] items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-600 border-t-cyan-500" />
         </div>
-      ) : isTransfersLoading && activeTab === 'transfers' ? (
+      ) : isBudgetsLoading && activeTab === 'budgets' ? (
         <SkeletonList rows={4} />
-      ) : isLoading && activeTab !== 'recurring' && activeTab !== 'analytics' && activeTab !== 'ledger' ? (
+      ) : isLoading && activeTab !== 'recurring' && activeTab !== 'budgets' && activeTab !== 'analytics' && activeTab !== 'ledger' ? (
         <SkeletonList rows={5} />
       ) : activeTab === 'transactions' ? (
         <TransactionsTab
@@ -1320,20 +1262,32 @@ export const SpendingPage: React.FC = () => {
           onAddFirst={openTransactionModalForNew}
         />
       ) : activeTab === 'budgets' ? (
-        <BudgetsTab
-          budgets={budgets}
-          budgetsResponse={budgetsResponse}
-          monthLabel={monthRange.label}
-          spentByCategory={spentByCategory}
-          spentByGroup={spentByGroup}
-          displayCurrency={displayCurrency}
-          currencyDisplayPreference={currencyDisplayPreference}
-          getCategoryTheme={getCategoryTheme}
-          getGroupTheme={getGroupTheme}
-          onEdit={openBudgetModalForEdit}
-          onPageChange={setBudgetOffset}
-          onAddFirst={openBudgetModalForNew}
-        />
+        <div className="space-y-4">
+          <div className="flex min-w-[220px] max-w-[260px] flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Month</label>
+            <DropdownSelect
+              testId="spending-budgets-month"
+              value={budgetsMonth}
+              onChange={(value) => { setBudgetsMonth(value); setBudgetOffset(0); }}
+              options={monthFilterOptions}
+              placeholder="Select month"
+            />
+          </div>
+          <BudgetsTab
+            budgets={budgets}
+            budgetsResponse={budgetsResponse}
+            monthLabel={budgetsMonthRange.label}
+            spentByCategory={spentByCategory}
+            spentByGroup={spentByGroup}
+            displayCurrency={displayCurrency}
+            currencyDisplayPreference={currencyDisplayPreference}
+            getCategoryTheme={getCategoryTheme}
+            getGroupTheme={getGroupTheme}
+            onEdit={openBudgetModalForEdit}
+            onPageChange={setBudgetOffset}
+            onAddFirst={openBudgetModalForNew}
+          />
+        </div>
       ) : activeTab === 'recurring' ? (
         <RecurringTab
           recurringItems={recurringItems}
@@ -1349,16 +1303,6 @@ export const SpendingPage: React.FC = () => {
           onCancelDeactivate={() => setRecurringPendingDeactivate(null)}
           onConfirmDeactivate={confirmDeactivateRecurring}
           onPageChange={setRecurringOffset}
-        />
-      ) : activeTab === 'transfers' ? (
-        <TransfersTab
-          transferItems={transferItems}
-          transfersResponse={transfersResponse}
-          currencyDisplayPreference={currencyDisplayPreference}
-          onEdit={openEditTransfer}
-          onRequestDelete={(t) => { setDeletingTransfer(t); setDeleteTransferError(null); }}
-          onPageChange={setTransferOffset}
-          onAddFirst={() => setIsTransferModalOpen(true)}
         />
       ) : activeTab === 'analytics' ? (
         <AnalyticsTab
@@ -1378,6 +1322,10 @@ export const SpendingPage: React.FC = () => {
           currencyDisplayPreference={currencyDisplayPreference}
           fromDate={fromDate}
           toDate={toDate}
+          transferByPublicId={transferByPublicId}
+          onEditTransfer={openEditTransfer}
+          onRequestDeleteTransfer={(t) => { setDeletingTransfer(t); setDeleteTransferError(null); }}
+          onAddTransfer={() => setIsTransferModalOpen(true)}
         />
       ) : null}
 
@@ -2194,105 +2142,15 @@ export const SpendingPage: React.FC = () => {
         </div>
       )}
 
-      {isTransferModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" onClick={() => setIsTransferModalOpen(false)} />
-          <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
-              <h3 className="text-lg font-semibold text-white">Transfer Between Wallets/Accounts</h3>
-              <button
-                onClick={() => setIsTransferModalOpen(false)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form
-              className="space-y-4 p-6"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!transferFromAccountId || !transferToAccountId || !transferAmount) return;
-                createTransferMutation.mutate();
-              }}
-            >
-              <div>
-                <Label className="mb-2 block">From</Label>
-                <DropdownSelect value={transferFromAccountId} onChange={setTransferFromAccountId} options={transferAccountOptions} placeholder="Select source account" showSearch sortByLabel />
-              </div>
-              <div>
-                <Label className="mb-2 block">To</Label>
-                <DropdownSelect value={transferToAccountId} onChange={setTransferToAccountId} options={transferAccountOptions} placeholder="Select destination account" showSearch sortByLabel />
-              </div>
-              <div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNewAccountCurrency(displayCurrency || 'USD');
-                    setIsQuickAccountModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-cyan-400 hover:text-cyan-300"
-                >
-                  <Landmark className="h-3.5 w-3.5" />
-                  Need another account? Create one now
-                </button>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <Label className="mb-2 block">Amount</Label>
-                  <Input type="number" min="0.01" step="0.01" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} placeholder="0.00" required />
-                </div>
-                <div>
-                  <Label className="mb-2 block">Date</Label>
-                  <DatePicker value={transferDate} onChange={setTransferDate} required />
-                </div>
-              </div>
-              <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-                <div>
-                  <Label className="mb-2 block">FX Rate (optional)</Label>
-                  <Input type="number" min="0" step="0.0000000001" value={transferFxRate} onChange={(e) => setTransferFxRate(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="mb-2 block">FX Fee</Label>
-                  <Input type="number" min="0" step="0.01" value={transferFxFee} onChange={(e) => setTransferFxFee(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="mb-2 block">Platform Fee</Label>
-                  <Input type="number" min="0" step="0.01" value={transferPlatformFee} onChange={(e) => setTransferPlatformFee(e.target.value)} />
-                </div>
-                <div>
-                  <Label className="mb-2 block">Tax</Label>
-                  <Input type="number" min="0" step="0.01" value={transferTax} onChange={(e) => setTransferTax(e.target.value)} />
-                </div>
-              </div>
-              <p className="text-xs text-slate-400">
-                Same-currency transfer: FX rate can be empty. Cross-currency transfer: provide FX rate and optional fee/tax charges.
-              </p>
-              <div>
-                <Label className="mb-2 block">Notes (optional)</Label>
-                <Input value={transferNotes} onChange={(e) => setTransferNotes(e.target.value)} placeholder="e.g. Top-up to wallet" />
-              </div>
-              <div className="mt-6 flex gap-3">
-                <Button type="button" variant="secondary" className="flex-1" onClick={() => setIsTransferModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  disabled={
-                    createTransferMutation.isPending ||
-                    !transferFromAccountId ||
-                    !transferToAccountId ||
-                    !transferAmount ||
-                    transferFromAccountId === transferToAccountId
-                  }
-                >
-                  {createTransferMutation.isPending ? 'Transferring...' : 'Create Transfer'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <TransferModal
+        open={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        accounts={allAccounts}
+        onCreateAccount={() => {
+          setNewAccountCurrency(displayCurrency || 'USD');
+          setIsQuickAccountModalOpen(true);
+        }}
+      />
 
       {/* Edit Transfer Modal */}
       {editingTransfer && (

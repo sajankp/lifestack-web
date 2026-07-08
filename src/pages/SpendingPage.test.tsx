@@ -64,6 +64,15 @@ const WORKSPACE_SETTINGS = {
 
 const EMPTY_PAGE = { items: [], total: 0, limit: 50, offset: 0 };
 const EMPTY_SUMMARY = { income_total: 0, expense_total: 0, net_total: 0, category_totals: [] };
+const EMPTY_LEDGER = {
+  account_public_id: ACCOUNT.public_id,
+  account_name: ACCOUNT.name,
+  account_currency: 'USD',
+  opening_balance: '0',
+  closing_balance: '0',
+  total_entries: 0,
+  items: [],
+};
 
 // baseHandlers is used as fallback — always pass custom overrides FIRST in server.use()
 const baseHandlers = [
@@ -80,6 +89,26 @@ const baseHandlers = [
   http.get('*/v1/finance/transfers', () => HttpResponse.json(EMPTY_PAGE)),
   http.get('*/v1/finance/settings/user', () => HttpResponse.json(USER_SETTINGS)),
   http.get('*/v1/finance/settings', () => HttpResponse.json(WORKSPACE_SETTINGS)),
+  http.get('*/v1/spending/accounts/*/ledger', () => HttpResponse.json(EMPTY_LEDGER)),
+  http.get('*/v1/finance/accounts/*/balance', () =>
+    HttpResponse.json({
+      account_public_id: ACCOUNT.public_id,
+      account_name: ACCOUNT.name,
+      account_type: ACCOUNT.account_type,
+      currency_code: 'USD',
+      spending_balance: '0',
+      transaction_count: 0,
+      transfer_count: 0,
+    }),
+  ),
+  http.get('*/v1/finance/accounts/*/reconciliation', () =>
+    HttpResponse.json({
+      projected_balance: '0',
+      snapshot_balance: null,
+      discrepancy: null,
+      snapshot_as_of: null,
+    }),
+  ),
 ];
 
 // jsdom doesn't implement these browser APIs used by Radix/cmdk
@@ -522,17 +551,18 @@ describe('SpendingPage', () => {
     expect(deleteCalled).toBe(true);
   });
 
-  it('switches to transfers tab and shows empty state', async () => {
+  it('shows the Account activity (merged transfers) tab with no entries', async () => {
     server.use(...baseHandlers);
     renderWithQuery(<SpendingPage />);
 
     await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-transfers'));
+    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
+    fireEvent.change(screen.getByTestId('ledger-account-select'), { target: { value: ACCOUNT.public_id } });
 
-    expect(await screen.findByText('No transfers yet')).toBeInTheDocument();
+    expect(await screen.findByText('No transactions for this account yet.')).toBeInTheDocument();
   });
 
-  it('switches to transfers tab and shows transfer rows', async () => {
+  it('shows a transfer row on the Account activity tab', async () => {
     server.use(
       http.get('*/v1/finance/transfers', () =>
         HttpResponse.json({
@@ -566,16 +596,37 @@ describe('SpendingPage', () => {
           offset: 0,
         }),
       ),
+      http.get('*/v1/spending/accounts/*/ledger', () =>
+        HttpResponse.json({
+          ...EMPTY_LEDGER,
+          total_entries: 1,
+          items: [
+            {
+              public_id: 'tfr-001',
+              entry_kind: 'transfer_out',
+              account_id: ACCOUNT.public_id,
+              amount: '200.00',
+              type: null,
+              occurred_at: '2026-06-20T00:00:00Z',
+              description: 'Monthly top-up',
+              running_balance: '-200.00',
+              source_type: 'transfer',
+              created_at: '2026-06-20T00:00:00Z',
+            },
+          ],
+        }),
+      ),
       ...baseHandlers,
     );
 
     renderWithQuery(<SpendingPage />);
     await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-transfers'));
+    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
+    fireEvent.change(screen.getByTestId('ledger-account-select'), { target: { value: ACCOUNT.public_id } });
 
-    // Transfers render in two responsive layouts (mobile cards + desktop table).
-    expect((await screen.findAllByText('Monthly top-up')).length).toBeGreaterThan(0);
-    expect((await screen.findAllByText('My Bank')).length).toBeGreaterThan(0);
+    // Transfer rows render in two responsive layouts (mobile cards + desktop table).
+    expect((await screen.findAllByText('Transfer → Monthly top-up')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByTitle('Edit transfer')).length).toBeGreaterThan(0);
   });
 
   it('blocks saving an edited transfer with an invalid FX fee', async () => {
@@ -627,13 +678,34 @@ describe('SpendingPage', () => {
           offset: 0,
         }),
       ),
+      http.get('*/v1/spending/accounts/*/ledger', () =>
+        HttpResponse.json({
+          ...EMPTY_LEDGER,
+          total_entries: 1,
+          items: [
+            {
+              public_id: 'tfr-002',
+              entry_kind: 'transfer_out',
+              account_id: ACCOUNT.public_id,
+              amount: '200.00',
+              type: null,
+              occurred_at: '2026-06-20T00:00:00Z',
+              description: 'Monthly top-up',
+              running_balance: '-200.00',
+              source_type: 'transfer',
+              created_at: '2026-06-20T00:00:00Z',
+            },
+          ],
+        }),
+      ),
       ...baseHandlers,
     );
 
     renderWithQuery(<SpendingPage />);
     await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-transfers'));
-    await screen.findAllByText('Monthly top-up');
+    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
+    fireEvent.change(screen.getByTestId('ledger-account-select'), { target: { value: ACCOUNT.public_id } });
+    await screen.findAllByText('Transfer → Monthly top-up');
 
     fireEvent.click(screen.getAllByTitle('Edit transfer')[0]);
     const modalHeading = await screen.findByText('Edit Transfer');
@@ -680,13 +752,34 @@ describe('SpendingPage', () => {
       http.get('*/v1/finance/transfers', () =>
         HttpResponse.json({ items: [transfer], total: 1, limit: 50, offset: 0 }),
       ),
+      http.get('*/v1/spending/accounts/*/ledger', () =>
+        HttpResponse.json({
+          ...EMPTY_LEDGER,
+          total_entries: 1,
+          items: [
+            {
+              public_id: 'tfr-003',
+              entry_kind: 'transfer_out',
+              account_id: ACCOUNT.public_id,
+              amount: '200.00',
+              type: null,
+              occurred_at: '2026-06-20T00:00:00Z',
+              description: 'Self transfer edge case',
+              running_balance: '-200.00',
+              source_type: 'transfer',
+              created_at: '2026-06-20T00:00:00Z',
+            },
+          ],
+        }),
+      ),
       ...baseHandlers,
     );
 
     renderWithQuery(<SpendingPage />);
     await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-transfers'));
-    await screen.findAllByText('Self transfer edge case');
+    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
+    fireEvent.change(screen.getByTestId('ledger-account-select'), { target: { value: ACCOUNT.public_id } });
+    await screen.findAllByText('Transfer → Self transfer edge case');
 
     fireEvent.click(screen.getAllByTitle('Edit transfer')[0]);
     await screen.findByText('Edit Transfer');

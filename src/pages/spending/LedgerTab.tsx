@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Landmark, Wallet } from 'lucide-react';
+import { ArrowRightLeft, Edit2, Landmark, Trash2, Wallet } from 'lucide-react';
 import { SkeletonList } from '../../components/ui/FeedbackStates';
 import { Pagination } from '../../components/Pagination';
 import { spendingService } from '../../services/spending';
@@ -8,7 +8,7 @@ import { financeService } from '../../services/finance';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
 import type { LedgerEntry } from '../../types/spending';
-import type { ReconciliationSummary } from '../../types/finance';
+import type { CapitalTransfer, ReconciliationSummary } from '../../types/finance';
 
 interface LedgerTabProps {
   accounts: Array<{ public_id: string; name: string; account_type: string; default_currency_code: string }>;
@@ -20,6 +20,11 @@ interface LedgerTabProps {
   currencyDisplayPreference: 'symbol' | 'code';
   fromDate?: string;
   toDate?: string;
+  /** Looked up by public_id to find the full transfer record behind a transfer_in/out ledger row. */
+  transferByPublicId?: Map<string, CapitalTransfer>;
+  onEditTransfer?: (transfer: CapitalTransfer) => void;
+  onRequestDeleteTransfer?: (transfer: CapitalTransfer) => void;
+  onAddTransfer?: () => void;
 }
 
 // Reconciliation card: compares projected ledger balance to cash snapshot
@@ -99,6 +104,10 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
   currencyDisplayPreference,
   fromDate,
   toDate,
+  transferByPublicId,
+  onEditTransfer,
+  onRequestDeleteTransfer,
+  onAddTransfer,
 }) => {
   const selectedAccount = accounts.find((a) => a.public_id === selectedAccountId) ?? null;
 
@@ -138,24 +147,37 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-xl font-semibold text-white">Account activity</h3>
-          <p className="text-sm text-slate-400 mt-0.5">Transaction-by-transaction running balance for a spending account</p>
+          <p className="text-sm text-slate-400 mt-0.5">Transaction and transfer history with a running balance for a spending account</p>
         </div>
 
-        {/* Account selector */}
-        <div className="flex min-w-[220px] flex-col gap-1">
-          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Select Account</label>
-          <select
-            value={selectedAccountId}
-            onChange={(e) => onAccountChange(e.target.value)}
-            className="h-10 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-          >
-            <option value="">— Pick an account —</option>
-            {accounts.map((a) => (
-              <option key={a.public_id} value={a.public_id}>
-                {a.name} ({a.account_type.replace('_', ' ')})
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          {onAddTransfer ? (
+            <button
+              onClick={onAddTransfer}
+              className="flex h-10 items-center gap-2 rounded-lg border border-slate-700/50 bg-slate-800 px-4 text-sm font-medium text-white hover:bg-slate-700 transition-colors"
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+              Transfer
+            </button>
+          ) : null}
+
+          {/* Account selector */}
+          <div className="flex min-w-[220px] flex-col gap-1">
+            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Select Account</label>
+            <select
+              data-testid="ledger-account-select"
+              value={selectedAccountId}
+              onChange={(e) => onAccountChange(e.target.value)}
+              className="h-10 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            >
+              <option value="">— Pick an account —</option>
+              {accounts.map((a) => (
+                <option key={a.public_id} value={a.public_id}>
+                  {a.name} ({a.account_type.replace('_', ' ')})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -259,6 +281,24 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                         {formatCurrency(balance, currency, currencyDisplayPreference)}
                       </span>
                     </div>
+                    {isTransfer && transferByPublicId?.has(entry.public_id) ? (
+                      <div className="mt-2 flex items-center justify-end gap-1 border-t border-slate-800 pt-2">
+                        <button
+                          onClick={() => onEditTransfer?.(transferByPublicId.get(entry.public_id)!)}
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+                          title="Edit transfer"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => onRequestDeleteTransfer?.(transferByPublicId.get(entry.public_id)!)}
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-900/40 hover:text-red-400"
+                          title="Delete transfer"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -273,11 +313,13 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Debit</th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Credit</th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Balance</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
                   {(ledger?.items ?? []).map((entry: LedgerEntry) => {
                     const isTransfer = entry.entry_kind === 'transfer_out' || entry.entry_kind === 'transfer_in';
+                    const relatedTransfer = isTransfer ? transferByPublicId?.get(entry.public_id) : undefined;
                     const isCredit = entry.entry_kind === 'transfer_in' || entry.type === 'income';
                     const amount = Number(entry.amount);
                     const balance = Number(entry.running_balance);
@@ -336,6 +378,26 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                           <span className={balance >= 0 ? 'text-slate-200' : 'text-rose-400'}>
                             {formatCurrency(balance, currency, currencyDisplayPreference)}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {relatedTransfer ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => onEditTransfer?.(relatedTransfer)}
+                                className="rounded p-1.5 text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
+                                title="Edit transfer"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => onRequestDeleteTransfer?.(relatedTransfer)}
+                                className="rounded p-1.5 text-slate-400 hover:bg-red-900/40 hover:text-red-400 transition-colors"
+                                title="Delete transfer"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : null}
                         </td>
                       </tr>
                     );
