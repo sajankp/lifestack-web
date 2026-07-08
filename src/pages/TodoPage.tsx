@@ -510,7 +510,16 @@ export const TodoPage: React.FC = () => {
         </div>
       )}
 
-      <Tabs defaultValue="tasks" className="w-full">
+      <Tabs
+        value={searchParams.get('tab') || 'tasks'}
+        onValueChange={(value) => {
+          setSearchParams((params) => {
+            params.set('tab', value);
+            return params;
+          });
+        }}
+        className="w-full"
+      >
         <TabsList className="mb-6">
           <TabsTrigger value="tasks" data-testid="todo-tab-tasks">Tasks</TabsTrigger>
           <TabsTrigger value="recurring" data-testid="todo-tab-recurring">Recurring todos</TabsTrigger>

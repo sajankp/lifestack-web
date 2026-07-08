@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { Building2, LogOut, X } from 'lucide-react';
 import type { WorkspaceInfo } from '../../services/platform';
 import { NAV_LINKS, NAV_SECTIONS, ROLE_BADGE, SETTINGS_LINK } from './constants';
+import { useCaptureStore } from '../../store/captureStore';
 
 interface MobileNavDrawerProps {
   open: boolean;
@@ -27,6 +28,7 @@ export function MobileNavDrawer({
   onLogout,
   isLoggingOut,
 }: MobileNavDrawerProps) {
+  const setIsOpen = useCaptureStore((state) => state.setIsOpen);
   // Trap scroll when open
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
@@ -122,7 +124,13 @@ export function MobileNavDrawer({
                       to={to}
                       end={to === '/'}
                       data-testid={`${testId}-mobile`}
-                      onClick={onClose}
+                      onClick={(e) => {
+                        onClose();
+                        if (to === '/capture') {
+                          e.preventDefault();
+                          setIsOpen(true);
+                        }
+                      }}
                       className={({ isActive }) =>
                         `block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                           isActive

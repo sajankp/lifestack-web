@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../components/ui/toast';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { useCaptureStore } from '../store/captureStore';
 
 import { VoiceAgentWidget } from './VoiceAgentWidget';
 
@@ -80,14 +82,25 @@ const renderWidget = () => {
   return render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <VoiceAgentWidget />
+        <MemoryRouter>
+          <VoiceAgentWidget />
+        </MemoryRouter>
       </ToastProvider>
     </QueryClientProvider>,
   );
 };
 
 const openPanelAndGetSocket = (): FakeWebSocket => {
-  fireEvent.click(screen.getByRole('button', { name: 'Open voice copilot' }));
+  // Trigger click to open panel
+  fireEvent.click(screen.getByRole('button', { name: 'Open capture panel' }));
+  
+  // Connection should be lazy; expect no websocket connection on open
+  expect(sockets).toHaveLength(0);
+
+  // Focus input to trigger connection
+  const input = screen.getByPlaceholderText('Type a message to capture...');
+  fireEvent.focus(input);
+
   expect(sockets).toHaveLength(1);
   const ws = sockets[0];
   act(() => {
@@ -103,7 +116,7 @@ const playServerAudio = (ws: FakeWebSocket) => {
   });
 };
 
-describe('VoiceAgentWidget interruption handling (spec-059)', () => {
+describe('Capture panel verification', () => {
   let originalScrollIntoView: typeof window.HTMLElement.prototype.scrollIntoView;
 
   beforeEach(() => {
@@ -122,6 +135,8 @@ describe('VoiceAgentWidget interruption handling (spec-059)', () => {
         }),
       },
     });
+    // Reset state store
+    useCaptureStore.setState({ isOpen: false });
   });
 
   afterEach(() => {
@@ -158,5 +173,99 @@ describe('VoiceAgentWidget interruption handling (spec-059)', () => {
     await screen.findByRole('button', { name: 'Start listening' });
 
     expect(createdSources[0].stop).toHaveBeenCalled();
+  });
+
+  it('toggles panel open/closed and focuses input on Ctrl+K shortcut', async () => {
+    renderWidget();
+    expect(useCaptureStore.getState().isOpen).toBe(false);
+    
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { ctrlKey: true, key: 'k' }));
+    });
+    expect(useCaptureStore.getState().isOpen).toBe(true);
+    
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { ctrlKey: true, key: 'k' }));
+    });
+    expect(useCaptureStore.getState().isOpen).toBe(false);
+  });
+
+  it('hides the trigger button if the showLauncher preference is false in localStorage', () => {
+    localStorage.setItem('lifestack:show-capture-launcher:null', 'false');
+    
+    renderWidget();
+    expect(screen.queryByRole('button', { name: 'Open capture panel' })).toBeNull();
+    
+    localStorage.removeItem('lifestack:show-capture-launcher:null');
+  });
+
+  it('renders a confirmation card when a mutating tool response succeeds', async () => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: 'tool_response',
+          name: 'create_todo_task',
+          status: 'success',
+          result: {
+            entity_type: 'todo',
+            entity_public_id: '123-uuid',
+            summary: "Added todo 'Buy milk'",
+          },
+        }),
+      });
+    });
+
+    expect(screen.getByText('Todo')).toBeVisible();
+    expect(screen.getByText("Added todo 'Buy milk'")).toBeVisible();
+    const viewLink = screen.getByRole('link', { name: 'View →' });
+    expect(viewLink).toHaveAttribute('href', '/todo?id=123-uuid');
+  });
+
+  it('falls back to a generic card when entity_type is unknown', () => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: 'tool_response',
+          name: 'log_some_random_thing',
+          status: 'success',
+          result: {
+            entity_type: 'unknown_type',
+            entity_public_id: '456-uuid',
+            summary: 'Saved customized thing',
+          },
+        }),
+      });
+    });
+
+    expect(screen.getByText('Item')).toBeVisible();
+    expect(screen.getByText('Saved customized thing')).toBeVisible();
+    const viewLink = screen.getByRole('link', { name: 'View →' });
+    expect(viewLink).toHaveAttribute('href', '/dashboard');
+  });
+
+  it('renders an error alert when the tool execution fails', () => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: 'tool_response',
+          name: 'create_todo_task',
+          status: 'error',
+          result: {
+            message: 'Insufficient permissions to write todo',
+          },
+        }),
+      });
+    });
+
+    expect(screen.getByText('Error: Insufficient permissions to write todo')).toBeVisible();
   });
 });

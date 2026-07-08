@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   CheckSquare,
+  Mic,
   CreditCard,
   TrendingUp,
   PieChart,
@@ -22,6 +23,7 @@ export type NavSection = 'Overview' | 'Life' | 'Money' | 'Tools';
 export const NAV_LINKS = [
   { to: '/', label: 'Dashboard', testId: 'nav-dashboard', icon: LayoutDashboard, section: 'Overview' as NavSection },
   { to: '/todo', label: 'Todos', testId: 'nav-todo', icon: CheckSquare, section: 'Life' as NavSection },
+  { to: '/capture', label: 'Capture', testId: 'nav-capture', icon: Mic, section: 'Life' as NavSection },
   { to: '/spending', label: 'Spending', testId: 'nav-spending', icon: CreditCard, section: 'Money' as NavSection },
   { to: '/investing', label: 'Investing', testId: 'nav-investing', icon: TrendingUp, section: 'Money' as NavSection },
   { to: '/net-worth', label: 'Net Worth', testId: 'nav-net-worth', icon: PieChart, section: 'Money' as NavSection },

@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { NAV_LINKS, NAV_SECTIONS, SETTINGS_LINK } from './constants';
+import { useCaptureStore } from '../../store/captureStore';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -8,6 +9,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+  const setIsOpen = useCaptureStore((state) => state.setIsOpen);
   const navLinkClass = (isActive: boolean, collapsedState: boolean) =>
     `flex items-center rounded-lg py-2 text-sm font-medium transition-colors ${
       collapsedState ? 'justify-center px-0' : 'px-3'
@@ -50,6 +52,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     data-testid={testId}
                     title={collapsed ? label : undefined}
                     className={({ isActive }) => navLinkClass(isActive, collapsed)}
+                    onClick={(e) => {
+                      if (to === '/capture') {
+                        e.preventDefault();
+                        setIsOpen(true);
+                      }
+                    }}
                   >
                     <Icon className={`shrink-0 ${collapsed ? 'h-5 w-5' : 'h-4 w-4 mr-3'}`} />
                     {!collapsed && <span>{label}</span>}
