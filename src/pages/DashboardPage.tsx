@@ -60,6 +60,8 @@ export const DashboardPage: React.FC = () => {
     data: briefingData,
     isLoading: isBriefingLoading,
     isError: isBriefingError,
+    refetch: refetchBriefing,
+    isFetching: isBriefingFetching,
   } = useQuery({
     queryKey: queryKeys.dashboard.briefing(),
     queryFn: () => dashboardService.getBriefing(),
@@ -125,10 +127,11 @@ export const DashboardPage: React.FC = () => {
             onClick={() => {
               void refetch();
               void refetchInsights();
+              void refetchBriefing();
             }}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
           >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isFetching || isBriefingFetching ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         )}

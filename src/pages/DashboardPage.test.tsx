@@ -325,4 +325,29 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('Dashboard')).toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-briefing')).not.toBeInTheDocument();
   });
+
+  it('falls back to the all-clear state when all_clear is false but lines is empty', async () => {
+    // Defensive fallback: a malformed or stale API response shouldn't ever
+    // render an empty card with just the "Today" header.
+    server.use(
+      emptyNotifications(),
+      minimalSummary(),
+      http.get('*/v1/dashboard/briefing', () =>
+        HttpResponse.json({
+          generated_at: '2026-05-24T10:00:00Z',
+          all_clear: false,
+          reporting_currency: 'USD',
+          lines: [],
+        }),
+      ),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByText('Today')).toBeInTheDocument();
+    expect(
+      await screen.findByText('All clear — nothing needs your attention today.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-briefing-line')).not.toBeInTheDocument();
+  });
 });

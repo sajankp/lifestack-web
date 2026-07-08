@@ -43,7 +43,7 @@ export const BriefingCard: React.FC<BriefingCardProps> = ({ isLoading, isError, 
         <div className="mt-4">
           <SkeletonList rows={3} />
         </div>
-      ) : allClear ? (
+      ) : allClear || !lines || lines.length === 0 ? (
         <div
           data-testid="dashboard-briefing-all-clear"
           className="mt-4 flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-4 text-emerald-200"
