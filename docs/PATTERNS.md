@@ -10,7 +10,7 @@
 The UI control should match the domain concept, not just the raw transport type. If the domain concept is "month" or "budget period", do not expose a generic day-level date control unless the user is actually allowed to pick any day.
 
 **Pattern:**
-- Use a month/year selector when the backend stores a canonical `month_start`.
+- Use a month/year selector when the backend stores a canonical month field (e.g. `start_month` for budgets).
 - Use a full date picker only when day-level precision is meaningful to the user.
 - Treat a generic `<input type="date">` for month-only workflows as an interim control, not the target UX.
 
@@ -21,9 +21,9 @@ When the backend enforces specific date constraints (for example, "must be the 1
 ```typescript
 // Frontend normalization in SpendingPage.tsx
 const handleSave = () => {
-  // Always normalize to the 1st of the month for budgets
+  // Always normalize to the 1st of the month for budget start/end
   const normalizedDate = budgetMonth.substring(0, 7) + "-01";
-  await api.saveBudget({ ...data, month_start: normalizedDate });
+  await api.saveBudget({ ...data, start_month: normalizedDate });
 };
 ```
 
@@ -40,8 +40,8 @@ Forms should be designed from API semantics, not just field names or primitive t
 - `409 Conflict`: the request shape is valid, but it violates a domain uniqueness or state rule. The UI should surface a recovery path such as "edit existing", "view existing", or a clear explanatory message.
 
 For the spending budget flow specifically:
-- `month_start` is a month-level domain concept with a canonical day of `01`.
-- attempting to create the same category/month pair should be treated as a conflict-aware UX branch, not a generic failure case.
+- `start_month` / `end_month` are month-level domain concepts with a canonical day of `01`.
+- Attempting to create a duplicate budget (same scope + overlapping date range) should be treated as a conflict-aware UX branch, not a generic failure case.
 
 ### Modal and Dropdown Overflow
 Modals containing absolute-positioned elements (like `DropdownSelect`) should not use `overflow-hidden` on their main container, as this will clip the dropdown list. Use `overflow-visible` (default) instead.
