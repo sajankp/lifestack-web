@@ -23,13 +23,17 @@ interface OnboardingChecklistProps {
 
 const dismissalKey = (workspaceId: string) => `lifestack:onboarding-dismissed:${workspaceId}`;
 
+const workspaceStorageKey = (workspaceId: string | null) => workspaceId ?? '__none__';
+
 export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = ({ workspaceId, steps }) => {
   // Dismissal is read directly from localStorage during render (it's a plain
-  // synchronous read, not a subscription), then mirrored into state only so
-  // the "Dismiss" click can trigger a re-render without a page reload.
-  const [sessionDismissed, setSessionDismissed] = useState(false);
+  // synchronous read, not a subscription), then mirrored into state — keyed
+  // by workspace — only so the "Dismiss" click can trigger a re-render
+  // without a page reload. Keying by workspace stops a dismissal in one
+  // workspace from suppressing the checklist after switching to another.
+  const [sessionDismissedByWorkspace, setSessionDismissedByWorkspace] = useState<Record<string, boolean>>({});
   const persistedDismissed = workspaceId ? window.localStorage.getItem(dismissalKey(workspaceId)) === '1' : false;
-  const dismissed = sessionDismissed || persistedDismissed;
+  const dismissed = sessionDismissedByWorkspace[workspaceStorageKey(workspaceId)] || persistedDismissed;
 
   const requiredSteps = steps.filter((step) => !step.optional);
   const allRequiredDone = requiredSteps.length > 0 && requiredSteps.every((step) => step.done);
@@ -39,7 +43,7 @@ export const OnboardingChecklist: React.FC<OnboardingChecklistProps> = ({ worksp
   const doneCount = steps.filter((step) => step.done).length;
 
   const handleDismiss = () => {
-    setSessionDismissed(true);
+    setSessionDismissedByWorkspace((prev) => ({ ...prev, [workspaceStorageKey(workspaceId)]: true }));
     if (workspaceId) {
       window.localStorage.setItem(dismissalKey(workspaceId), '1');
     }

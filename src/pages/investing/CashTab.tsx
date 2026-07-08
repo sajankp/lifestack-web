@@ -37,7 +37,6 @@ interface CashTabProps {
   deleteOrderPending: boolean;
   updateOrderPending: boolean;
   autoOpenOrder?: boolean;
-  onAutoOpenOrderHandled?: () => void;
 }
 
 const ORDERS_PAGE_SIZE = 50;
@@ -49,7 +48,6 @@ export const CashTab: React.FC<CashTabProps> = ({
   deleteOrderPending,
   updateOrderPending,
   autoOpenOrder,
-  onAutoOpenOrderHandled,
 }) => {
   const [cashAccountFilter, setCashAccountFilter] = useState('');
   const [cashCurrencyFilter, setCashCurrencyFilter] = useState('');
@@ -73,10 +71,9 @@ export const CashTab: React.FC<CashTabProps> = ({
   // open the order flow directly instead of leaving the user to find it.
   useEffect(() => {
     if (autoOpenOrder) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to an external ?order=1 deep link, not derived render state
       setIsPlaceOrderModalOpen(true);
-      onAutoOpenOrderHandled?.();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenOrder]);
   const [orderForm, setOrderForm] = useState<{
     order_type: OrderType;

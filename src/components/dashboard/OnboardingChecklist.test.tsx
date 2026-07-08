@@ -79,4 +79,22 @@ describe('OnboardingChecklist', () => {
 
     expect(screen.getByText('Get started')).toBeInTheDocument();
   });
+
+  it('does not carry an in-session dismissal over to a different workspace after switching without unmounting', () => {
+    // Regression test: dismissing in workspace A while the component stays
+    // mounted (e.g. the user switches workspaces via the header, which
+    // re-renders DashboardPage rather than remounting it) must not suppress
+    // the checklist for workspace B.
+    const { rerender } = renderChecklist('ws-1', baseSteps);
+
+    fireEvent.click(screen.getByTestId('dashboard-onboarding-dismiss'));
+    expect(screen.queryByText('Get started')).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <OnboardingChecklist workspaceId="ws-2" steps={baseSteps} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Get started')).toBeInTheDocument();
+  });
 });

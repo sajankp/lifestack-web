@@ -52,8 +52,7 @@ export const InvestingPage: React.FC = () => {
         return params;
       }, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [requestedTab, shouldAutoOpenOrder, setSearchParams]);
 
   const summary = useQuery({
     queryKey: queryKeys.investing.summary(),
