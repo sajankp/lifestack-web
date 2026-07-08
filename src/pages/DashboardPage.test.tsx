@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../components/ui/toast';
+import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 
 import { DashboardPage } from './DashboardPage';
@@ -10,7 +12,13 @@ const renderWithQuery = (ui: React.ReactNode) => {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
 };
 
 const emptyNotifications = () =>
@@ -71,8 +79,9 @@ describe('DashboardPage', () => {
     expect(screen.getByText('$84.50 of $100.00')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-portfolio-value')).toHaveTextContent('$1,680.00');
     expect(screen.getByText('Invested $1,500.00 · Gain +$180.00 (+12.00%)')).toBeInTheDocument();
-    expect(screen.getByText('-$20.00 (-1.18%)')).toBeInTheDocument();
-    expect(screen.getByText('2026-05-24 · current')).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-portfolio-value').closest('a')).toHaveAttribute('href', '/investing');
+    expect(screen.getByTestId('dashboard-data-as-of')).toHaveTextContent('Data as of');
+    expect(screen.queryByText('Status')).not.toBeInTheDocument();
   });
 
   it('shows no budget spotlight when there are no covering group budgets', async () => {

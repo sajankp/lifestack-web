@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../components/ui/toast';
 import { http, HttpResponse } from 'msw';
 
 import { ExportsPage } from './ExportsPage';
@@ -13,7 +14,11 @@ const renderWithQuery = (ui: React.ReactNode) => {
       mutations: { retry: false },
     },
   });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>,
+  );
 };
 
 const readyExport = {
@@ -78,6 +83,9 @@ describe('ExportsPage', () => {
     fireEvent.click(screen.getByTestId('exports-create'));
     expect(await screen.findByTestId('exports-status')).toHaveTextContent('ready');
     fireEvent.click(screen.getByTestId('exports-delete'));
+    expect(await screen.findByRole('dialog')).toHaveTextContent(/Delete export\?/i);
+    expect(deletedExportId).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(deletedExportId).toBe(readyExport.public_id));
     expect(screen.queryByTestId('exports-status')).not.toBeInTheDocument();

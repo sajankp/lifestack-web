@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../components/ui/toast';
 import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 
@@ -16,7 +17,9 @@ const renderWithQuery = (ui: React.ReactNode) => {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>{ui}</MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 };
@@ -644,7 +647,7 @@ describe('SpendingPage', () => {
     fireEvent.change(fxFeeInput, { target: { value: '-1' } });
     fireEvent.submit(form);
 
-    expect(await screen.findByText('FX fee must be a valid non-negative number')).toBeInTheDocument();
+    expect(await within(modal).findByText('FX fee must be a valid non-negative number')).toBeInTheDocument();
   });
 
   it('disables Save Changes on the edit-transfer form when source and destination accounts are the same', async () => {

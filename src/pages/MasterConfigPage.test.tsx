@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../components/ui/toast';
 import { http, HttpResponse } from 'msw';
 
 import { MasterConfigPage } from './MasterConfigPage';
@@ -14,7 +15,11 @@ const renderWithQuery = (ui: React.ReactNode) => {
       mutations: { retry: false },
     },
   });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>,
+  );
 };
 
 beforeAll(() => {
@@ -163,6 +168,9 @@ describe('MasterConfigPage', () => {
 
     renderWithQuery(<MasterConfigPage />);
 
+    const dangerTab = await screen.findByTestId('settings-tab-danger');
+    dangerTab.focus();
+    fireEvent.keyDown(dangerTab, { key: 'Enter', code: 'Enter' });
     expect(await screen.findByText('Beta Workspace')).toBeInTheDocument();
     const resetButton = screen.getByTestId('master-demo-reset-button');
     await waitFor(() => expect(resetButton).not.toBeDisabled());
@@ -245,6 +253,9 @@ describe('MasterConfigPage', () => {
 
     renderWithQuery(<MasterConfigPage />);
 
+    const dangerTab = await screen.findByTestId('settings-tab-danger');
+    dangerTab.focus();
+    fireEvent.keyDown(dangerTab, { key: 'Enter', code: 'Enter' });
     expect(await screen.findByTestId('master-demo-reset-section')).toBeInTheDocument();
     expect(await screen.findByText('insufficient_role')).toBeInTheDocument();
     expect(screen.getByTestId('master-demo-reset-button')).toBeDisabled();
@@ -375,6 +386,78 @@ describe('MasterConfigPage', () => {
     });
   });
 
+  it('splits settings into tabs and labels the account status action Activate/Deactivate', async () => {
+    const workspaceId = '55555555-5555-5555-5555-555555555555';
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+
+    server.use(
+      http.get('*/v1/platform/workspaces/', () =>
+        HttpResponse.json({
+          items: [
+            { public_id: workspaceId, name: 'Delta Workspace', description: null, is_active: true, role: 'owner' },
+          ],
+        }),
+      ),
+      http.get(`*/v1/platform/workspaces/${workspaceId}/reset-demo/status`, () =>
+        HttpResponse.json({
+          enabled: true,
+          allowed: true,
+          workspace_public_id: workspaceId,
+          workspace_name: 'Delta Workspace',
+          role: 'owner',
+          reason: null,
+        }),
+      ),
+      http.get('*/v1/finance/currencies', () => HttpResponse.json([])),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-active',
+              name: 'Active Wallet',
+              account_type: 'wallet',
+              default_currency_code: 'USD',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/settings', () =>
+        HttpResponse.json({ reporting_currency_code: null, currency_display_preference: 'symbol', updated_at: '2026-06-10T00:00:00Z' }),
+      ),
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          reporting_currency_override_code: null,
+          currency_display_preference_override: null,
+          workspace_reporting_currency_code: null,
+          workspace_currency_display_preference: 'symbol',
+          effective_reporting_currency_code: null,
+          effective_currency_display_preference: 'symbol',
+          updated_at: '2026-06-10T00:00:00Z',
+        }),
+      ),
+      http.get('*/v1/spending/categories', () => HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 })),
+      http.get('*/v1/spending/category-groups', () => HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 })),
+    );
+
+    renderWithQuery(<MasterConfigPage />);
+
+    expect(await screen.findByText('Settings')).toBeInTheDocument();
+    expect(screen.queryByText('Master Configuration')).not.toBeInTheDocument();
+
+    const accountsTab = await screen.findByTestId('settings-tab-accounts');
+    accountsTab.focus();
+    fireEvent.keyDown(accountsTab, { key: 'Enter', code: 'Enter' });
+
+    expect(await screen.findByTestId('master-account-row-acc-active')).toHaveTextContent('Deactivate');
+    expect(screen.queryByText('Toggle')).not.toBeInTheDocument();
+  });
+
   it('deletes an unused category after confirmation', async () => {
     const workspaceId = '66666666-6666-6666-6666-666666666666';
     useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
@@ -405,6 +488,9 @@ describe('MasterConfigPage', () => {
 
     renderWithQuery(<MasterConfigPage />);
 
+    const categoriesTab = await screen.findByTestId('settings-tab-categories');
+    categoriesTab.focus();
+    fireEvent.keyDown(categoriesTab, { key: 'Enter', code: 'Enter' });
     const deleteButton = await screen.findByTestId('master-category-delete-cat-groceries');
     fireEvent.click(deleteButton);
 
@@ -451,6 +537,9 @@ describe('MasterConfigPage', () => {
 
     renderWithQuery(<MasterConfigPage />);
 
+    const categoriesTab = await screen.findByTestId('settings-tab-categories');
+    categoriesTab.focus();
+    fireEvent.keyDown(categoriesTab, { key: 'Enter', code: 'Enter' });
     const deleteButton = await screen.findByTestId('master-category-delete-cat-rent');
     fireEvent.click(deleteButton);
 
@@ -494,6 +583,9 @@ describe('MasterConfigPage', () => {
 
     renderWithQuery(<MasterConfigPage />);
 
+    const categoriesTab = await screen.findByTestId('settings-tab-categories');
+    categoriesTab.focus();
+    fireEvent.keyDown(categoriesTab, { key: 'Enter', code: 'Enter' });
     const deleteButton = await screen.findByTestId('master-category-delete-cat-uncategorized');
     expect(deleteButton).not.toBeDisabled();
   });

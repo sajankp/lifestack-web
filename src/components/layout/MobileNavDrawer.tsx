@@ -1,14 +1,19 @@
 import { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Building2, X } from 'lucide-react';
+import { Building2, LogOut, X } from 'lucide-react';
 import type { WorkspaceInfo } from '../../services/platform';
-import { NAV_LINKS, ROLE_BADGE } from './constants';
+import { NAV_LINKS, NAV_SECTIONS, ROLE_BADGE, SETTINGS_LINK } from './constants';
 
 interface MobileNavDrawerProps {
   open: boolean;
   onClose: () => void;
   username: string;
   workspace?: WorkspaceInfo;
+  workspaces: WorkspaceInfo[];
+  onSelectWorkspace: (workspaceId: string) => void;
+  isSelectingWorkspace: boolean;
+  onLogout: () => void;
+  isLoggingOut: boolean;
 }
 
 export function MobileNavDrawer({
@@ -16,6 +21,11 @@ export function MobileNavDrawer({
   onClose,
   username,
   workspace,
+  workspaces,
+  onSelectWorkspace,
+  isSelectingWorkspace,
+  onLogout,
+  isLoggingOut,
 }: MobileNavDrawerProps) {
   // Trap scroll when open
   useEffect(() => {
@@ -57,7 +67,7 @@ export function MobileNavDrawer({
           </button>
         </div>
 
-        {/* Workspace pill */}
+        {/* Workspace switcher */}
         {workspace && (
           <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2.5 space-y-1">
             <div className="flex items-center gap-1.5">
@@ -65,7 +75,24 @@ export function MobileNavDrawer({
               <p className="text-xs text-slate-400 uppercase tracking-widest">Workspace</p>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-sm font-semibold text-slate-100">{workspace.name}</p>
+              {workspaces.length > 1 ? (
+                <select
+                  aria-label="Active workspace"
+                  data-testid="mobile-workspace-select"
+                  value={workspace.public_id}
+                  onChange={(event) => onSelectWorkspace(event.target.value)}
+                  disabled={isSelectingWorkspace}
+                  className="w-full bg-transparent text-sm font-semibold text-slate-100 outline-none"
+                >
+                  {workspaces.map((item) => (
+                    <option key={item.public_id} value={item.public_id} className="bg-slate-900">
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="truncate text-sm font-semibold text-slate-100">{workspace.name}</p>
+              )}
               {roleBadge && (
                 <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${roleBadge}`}>
                   {workspace.role}
@@ -82,27 +109,62 @@ export function MobileNavDrawer({
         </div>
 
         {/* Links */}
-        <ul className="flex-1 space-y-1 overflow-y-auto">
-          {NAV_LINKS.map(({ to, label, testId }) => (
-            <li key={to}>
-              <NavLink
-                to={to}
-                end={to === '/'}
-                data-testid={`${testId}-mobile`}
-                onClick={onClose}
-                className={({ isActive }) =>
-                  `block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-cyan-500/10 text-cyan-300'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`
-                }
-              >
-                {label}
-              </NavLink>
-            </li>
+        <div className="flex-1 space-y-4 overflow-y-auto">
+          {NAV_SECTIONS.map((section) => (
+            <div key={section}>
+              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+                {section}
+              </p>
+              <ul className="space-y-1">
+                {NAV_LINKS.filter((link) => link.section === section).map(({ to, label, testId }) => (
+                  <li key={to}>
+                    <NavLink
+                      to={to}
+                      end={to === '/'}
+                      data-testid={`${testId}-mobile`}
+                      onClick={onClose}
+                      className={({ isActive }) =>
+                        `block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-cyan-500/10 text-cyan-300'
+                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        }`
+                      }
+                    >
+                      {label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
+
+        {/* Settings + logout, pinned at the bottom */}
+        <div className="mt-4 space-y-1 border-t border-slate-800 pt-4">
+          <NavLink
+            to={SETTINGS_LINK.to}
+            data-testid={`${SETTINGS_LINK.testId}-mobile`}
+            onClick={onClose}
+            className={({ isActive }) =>
+              `block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                isActive ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`
+            }
+          >
+            {SETTINGS_LINK.label}
+          </NavLink>
+          <button
+            type="button"
+            data-testid="mobile-logout"
+            onClick={onLogout}
+            disabled={isLoggingOut}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-rose-300 transition-colors hover:bg-rose-500/10 hover:text-rose-200 disabled:opacity-60"
+          >
+            <LogOut className="h-4 w-4" />
+            {isLoggingOut ? 'Logging out...' : 'Logout'}
+          </button>
+        </div>
       </div>
     </>
   );

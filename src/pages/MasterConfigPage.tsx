@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Edit2 } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { spendingService } from '../services/spending';
 import { platformService } from '../services/platform';
@@ -10,6 +10,7 @@ import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useActiveWorkspace } from '../hooks/useActiveWorkspace';
 import {
   Dialog,
@@ -450,16 +451,25 @@ export const MasterConfigPage: React.FC = () => {
   return (
     <PageShell className="space-y-6">
       <PageHero
-        title="Master Configuration"
+        title="Settings"
         subtitle="Manage shared setup for spending and investing: currencies, accounts, categories, and recurrence anchors."
       />
 
+      <Tabs defaultValue="currency">
+        <TabsList>
+          <TabsTrigger value="currency" data-testid="settings-tab-currency">Currency & Display</TabsTrigger>
+          <TabsTrigger value="accounts" data-testid="settings-tab-accounts">Accounts</TabsTrigger>
+          <TabsTrigger value="categories" data-testid="settings-tab-categories">Categories & Groups</TabsTrigger>
+          <TabsTrigger value="danger" data-testid="settings-tab-danger">Danger zone</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="currency" className="space-y-6">
       <section data-testid="master-workspace-settings" className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
         <h2 className="text-lg font-semibold text-white">Workspace Currency</h2>
         <p className="mt-1 text-sm text-slate-400">
           This reporting currency drives default display in dashboard and spending. Investing still supports native multi-currency holdings.
         </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr,1fr,1fr,auto]">
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr,1fr,auto]">
           <DropdownSelect
             testId="master-workspace-currency"
             value={reportingCurrency}
@@ -475,19 +485,6 @@ export const MasterConfigPage: React.FC = () => {
             options={[...currencyDisplayPreferenceOptions]}
             placeholder="Display preference"
           />
-          <label className="space-y-1 text-sm text-slate-300">
-            <span>Minimum constituent weight (%)</span>
-            <input
-              data-testid="master-lookthrough-threshold"
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              value={lookthroughMinWeightPct}
-              onChange={(event) => setLookthroughMinWeightPct(event.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-slate-100"
-            />
-          </label>
           <Button
             data-testid="master-workspace-save"
             type="button"
@@ -497,10 +494,6 @@ export const MasterConfigPage: React.FC = () => {
             {updateSettingsMutation.isPending ? 'Saving...' : 'Save'}
           </Button>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
-          Constituents below this portfolio weight are hidden from detail lists only. Totals,
-          concentration, and overlap calculations still use every constituent.
-        </p>
         <div className="mt-4 border-t border-slate-800 pt-4">
           <Label className="text-sm text-slate-300">Default spending account</Label>
           <p className="mt-1 text-xs text-slate-500">
@@ -517,6 +510,37 @@ export const MasterConfigPage: React.FC = () => {
               showSearch
             />
           </div>
+        </div>
+      </section>
+
+      <section data-testid="master-investing-settings" className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
+        <h2 className="text-lg font-semibold text-white">Investing</h2>
+        <p className="mt-1 text-sm text-slate-400">
+          Constituents below this portfolio weight are hidden from detail lists only. Totals,
+          concentration, and overlap calculations still use every constituent.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr,auto] max-w-md">
+          <label className="space-y-1 text-sm text-slate-300">
+            <span>Minimum constituent weight (%)</span>
+            <input
+              data-testid="master-lookthrough-threshold"
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={lookthroughMinWeightPct}
+              onChange={(event) => setLookthroughMinWeightPct(event.target.value)}
+              className="h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-slate-100"
+            />
+          </label>
+          <Button
+            type="button"
+            className="self-end"
+            onClick={() => updateSettingsMutation.mutate()}
+            disabled={updateSettingsMutation.isPending}
+          >
+            {updateSettingsMutation.isPending ? 'Saving...' : 'Save'}
+          </Button>
         </div>
       </section>
 
@@ -557,7 +581,9 @@ export const MasterConfigPage: React.FC = () => {
           </p>
         ) : null}
       </section>
+        </TabsContent>
 
+        <TabsContent value="accounts" className="space-y-6">
       <section data-testid="master-accounts-section" className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
         <h2 className="text-lg font-semibold text-white">Accounts and Wallets</h2>
         <p className="mt-1 text-sm text-slate-400">
@@ -720,7 +746,7 @@ export const MasterConfigPage: React.FC = () => {
                         }
                         disabled={toggleAccountActiveMutation.isPending}
                       >
-                        Toggle
+                        {account.is_active ? 'Deactivate' : 'Activate'}
                       </Button>
                     </div>
                   </td>
@@ -737,13 +763,15 @@ export const MasterConfigPage: React.FC = () => {
           </table>
         </div>
       </section>
+        </TabsContent>
 
+        <TabsContent value="categories" className="space-y-6">
       <section data-testid="master-categories-section" className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-white">Categories and Recurrence</h2>
+            <h2 className="text-lg font-semibold text-white">Categories</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Categories and recurring rule operations stay in Spending for now; this section gives quick visibility.
+              Rename, recolor, regroup, and merge spending categories. Recurring rules are managed in Spending.
             </p>
           </div>
           <Button
@@ -1050,11 +1078,22 @@ export const MasterConfigPage: React.FC = () => {
           </table>
         </div>
       </section>
+        </TabsContent>
 
+        <TabsContent value="danger" className="space-y-6">
       {currentWorkspace ? (
-        <section data-testid="master-demo-reset-section" className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
-          <h2 className="text-lg font-semibold text-white">Demo Data & Reset</h2>
-          <p className="mt-1 text-sm text-slate-400">
+        <details
+          data-testid="master-demo-reset-section"
+          className="group rounded-2xl border border-rose-900/50 bg-rose-950/10 p-6"
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-lg font-semibold text-rose-200">
+              <AlertTriangle className="h-5 w-5" />
+              Demo Data & Reset
+            </span>
+            <ChevronDown className="h-4 w-4 text-rose-300 transition-transform group-open:rotate-180" />
+          </summary>
+          <p className="mt-3 text-sm text-rose-200/80">
             Reset <strong>{currentWorkspace.name}</strong> to seed a clean, deterministic mock dataset (including demo transactions, budgets, instruments, holdings, and notifications). <strong>Warning:</strong> This will delete all current accounts, transactions, and holdings in this workspace.
           </p>
           <div className="mt-4">
@@ -1089,8 +1128,10 @@ export const MasterConfigPage: React.FC = () => {
               </div>
             )}
           </div>
-        </section>
+        </details>
       ) : null}
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!accountPendingDelete} onOpenChange={(open) => !open && setAccountPendingDelete(null)}>
         <DialogContent className="max-w-md">

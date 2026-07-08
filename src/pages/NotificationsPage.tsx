@@ -8,7 +8,10 @@ import { notificationsService } from '../services/notifications';
 import type { NotificationItem } from '../types/notifications';
 import { Pagination } from '../components/Pagination';
 import { SkeletonList, EmptyState, ErrorBanner } from '../components/ui/FeedbackStates';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { queryKeys } from '../lib/queryKeys';
+import { formatDateTime } from '../utils/dateFormat';
+import { categoryLabel } from '../utils/notificationLabels';
 
 const NotificationRow: React.FC<{ n: NotificationItem }> = ({ n }) => {
   const queryClient = useQueryClient();
@@ -24,13 +27,11 @@ const NotificationRow: React.FC<{ n: NotificationItem }> = ({ n }) => {
     <article className={`rounded-xl border p-4 ${n.is_read ? 'border-slate-800 bg-slate-900/40' : 'border-cyan-800 bg-cyan-950/40'}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-slate-400">{n.category} · {n.severity}</p>
+          <p className="text-sm text-slate-400">{categoryLabel(n.category)} · {n.severity}</p>
           <h3 className="font-semibold text-white">{n.title}</h3>
           {n.body ? <p className="mt-1 text-sm text-slate-300">{n.body}</p> : null}
           <p className="mt-2 text-xs text-slate-500">
-            {!Number.isNaN(new Date(n.created_at).getTime())
-              ? new Date(n.created_at).toLocaleString(undefined, { timeZone: 'UTC' })
-              : 'N/A'}
+            {formatDateTime(n.created_at, { utc: false })}
           </p>
         </div>
         {!n.is_read ? (
@@ -109,61 +110,74 @@ export const NotificationsPage: React.FC = () => {
         )}
       />
 
-      <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-6">
-        <div>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">Preferences</h2>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {displayedPreferences?.map((pref) => (
-              <div key={pref.category} className="rounded-lg border border-slate-700 bg-slate-900/50 p-3 text-sm">
-                <p className="font-semibold text-white">{pref.category}</p>
-                <p className="text-slate-400">In-app: {pref.channel_in_app ? 'On' : 'Off'} | Muted: {pref.is_muted ? 'Yes' : 'No'}</p>
-                <label className="mt-2 flex items-center gap-2 text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={pref.channel_push}
-                    disabled={togglePushMutation.isPending}
-                    onChange={(e) =>
-                      togglePushMutation.mutate({ category: pref.category, channel_push: e.target.checked })
-                    }
-                  />
-                  Push notifications
-                </label>
+      <Tabs defaultValue="inbox">
+        <TabsList>
+          <TabsTrigger value="inbox" data-testid="notifications-tab-inbox">Inbox</TabsTrigger>
+          <TabsTrigger value="settings" data-testid="notifications-tab-settings">Preferences & Devices</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="inbox">
+          {isLoading ? (
+            <SkeletonList rows={5} />
+          ) : isError ? (
+            <ErrorBanner
+              message="Failed to load notifications. Please try again."
+              onRetry={() => void refetch()}
+            />
+          ) : data?.items?.length ? (
+            <>
+              <div className="space-y-3">
+                {data.items.map((n) => (
+                  <NotificationRow key={n.public_id} n={n} />
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="mt-4">
+                <Pagination total={data.total} limit={data.limit} offset={data.offset} onPageChange={setOffset} />
+              </div>
+            </>
+          ) : (
+            <EmptyState
+              icon={<Bell className="h-6 w-6" />}
+              title="No notifications yet"
+              description="Notifications appear here when budget guardrails fire, recurring tasks trigger, or important events occur in your workspace."
+            />
+          )}
+        </TabsContent>
 
-        <div>
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">Devices</h2>
-          <PushSubscriptionSettings />
-        </div>
-      </section>
+        <TabsContent value="settings">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-6">
+            <div>
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">Preferences</h2>
+              <p className="mb-3 text-xs text-slate-500">
+                Push notifications can be toggled per category. All categories are always shown in-app.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {displayedPreferences?.map((pref) => (
+                  <div key={pref.category} className="rounded-lg border border-slate-700 bg-slate-900/50 p-3 text-sm">
+                    <p className="font-semibold text-white">{categoryLabel(pref.category)}</p>
+                    <label className="mt-2 flex items-center gap-2 text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={pref.channel_push}
+                        disabled={togglePushMutation.isPending}
+                        onChange={(e) =>
+                          togglePushMutation.mutate({ category: pref.category, channel_push: e.target.checked })
+                        }
+                      />
+                      Push notifications
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-      {isLoading ? (
-        <SkeletonList rows={5} />
-      ) : isError ? (
-        <ErrorBanner
-          message="Failed to load notifications. Please try again."
-          onRetry={() => void refetch()}
-        />
-      ) : data?.items?.length ? (
-        <>
-          <div className="space-y-3">
-            {data.items.map((n) => (
-              <NotificationRow key={n.public_id} n={n} />
-            ))}
-          </div>
-          <div className="mt-4">
-            <Pagination total={data.total} limit={data.limit} offset={data.offset} onPageChange={setOffset} />
-          </div>
-        </>
-      ) : (
-        <EmptyState
-          icon={<Bell className="h-6 w-6" />}
-          title="No notifications yet"
-          description="Notifications appear here when budget guardrails fire, recurring tasks trigger, or important events occur in your workspace."
-        />
-      )}
+            <div>
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">Devices</h2>
+              <PushSubscriptionSettings />
+            </div>
+          </section>
+        </TabsContent>
+      </Tabs>
     </PageShell>
   );
 };

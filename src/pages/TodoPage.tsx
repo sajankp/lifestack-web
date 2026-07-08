@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Circle, Edit2, Plus, Trash2, X } from 'lucide-react';
 
@@ -10,6 +11,7 @@ import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { Pagination } from '../components/Pagination';
 import { SkeletonList } from '../components/ui/FeedbackStates';
+import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { queryKeys } from '../lib/queryKeys';
 import { todoService } from '../services/todo';
@@ -124,6 +126,7 @@ const formatUtcDate = (value: string | null | undefined): string | null => {
 };
 
 export const TodoPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [taskForm, setTaskForm] = useState({
     title: '',
     description: '',
@@ -132,6 +135,8 @@ export const TodoPage: React.FC = () => {
     priority: 'low' as TodoPriority,
   });
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [pendingDeleteTodoId, setPendingDeleteTodoId] = useState<string | null>(null);
+  const [pendingDeleteRuleId, setPendingDeleteRuleId] = useState<string | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [offset, setOffset] = useState(0);
   const limit = 50;
@@ -163,6 +168,19 @@ export const TodoPage: React.FC = () => {
     queryFn: () => todoService.getRecurringRules(true, 100, 0),
   });
 
+  // Header "+ Todo" quick-add navigates here with ?new=1; open the create
+  // modal once, then strip the param so back/refresh doesn't reopen it.
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      openNewTaskModal();
+      setSearchParams((params) => {
+        params.delete('new');
+        return params;
+      }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const createMutation = useInvalidatingMutation(
     (newTodo: TodoCreate) => todoService.createTodo(newTodo),
     [queryKeys.todo.list(), queryKeys.dashboard.all],
@@ -178,29 +196,40 @@ export const TodoPage: React.FC = () => {
   const toggleMutation = useInvalidatingMutation(
     (todo: Todo) => todoService.updateTodo(todo.public_id, { completed: !todo.completed }),
     [queryKeys.todo.list(), queryKeys.dashboard.all],
+    { successMessage: false, errorMessage: 'Could not update that task. Please try again.' },
   );
 
   const deleteMutation = useInvalidatingMutation(
     (id: string) => todoService.deleteTodo(id),
     [queryKeys.todo.list(), queryKeys.dashboard.all],
+    {
+      successMessage: 'Task deleted',
+      errorMessage: 'Could not delete that task. Please try again.',
+      onSuccess: () => setPendingDeleteTodoId(null),
+    },
   );
 
   const createRuleMutation = useInvalidatingMutation(
     (payload: RecurringTodoCreate) => todoService.createRecurringRule(payload),
     [queryKeys.todo.recurring()],
-    { onSuccess: closeRecurringModal },
+    { successMessage: 'Recurring todo created', onSuccess: closeRecurringModal },
   );
 
   const updateRuleMutation = useInvalidatingMutation(
     (payload: { id: string; data: Omit<RecurringTodoCreate, 'anchor_date'> }) =>
       todoService.updateRecurringRule(payload.id, payload.data),
     [queryKeys.todo.recurring()],
-    { onSuccess: closeRecurringModal },
+    { successMessage: 'Recurring todo updated', onSuccess: closeRecurringModal },
   );
 
   const deleteRuleMutation = useInvalidatingMutation(
     (id: string) => todoService.deleteRecurringRule(id),
     [queryKeys.todo.recurring()],
+    {
+      successMessage: 'Recurring todo deleted',
+      errorMessage: 'Could not delete that recurring todo. Please try again.',
+      onSuccess: () => setPendingDeleteRuleId(null),
+    },
   );
 
   function closeTaskModal() {
@@ -575,8 +604,9 @@ export const TodoPage: React.FC = () => {
                         </button>
                         <button
                           type="button"
+                          data-testid={`todo-delete-${todo.public_id}`}
                           disabled={deleteMutation.isPending}
-                          onClick={() => deleteMutation.mutate(todo.public_id)}
+                          onClick={() => setPendingDeleteTodoId(todo.public_id)}
                           className="rounded p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-500 disabled:opacity-50"
                           title="Delete task"
                         >
@@ -657,8 +687,9 @@ export const TodoPage: React.FC = () => {
                         </button>
                         <button
                           type="button"
+                          data-testid={`todo-recurring-delete-${rule.public_id}`}
                           disabled={deleteRuleMutation.isPending}
-                          onClick={() => deleteRuleMutation.mutate(rule.public_id)}
+                          onClick={() => setPendingDeleteRuleId(rule.public_id)}
                           className="rounded p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-500 disabled:opacity-50"
                           title="Delete recurring todo"
                         >
@@ -816,6 +847,36 @@ export const TodoPage: React.FC = () => {
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={!!pendingDeleteTodoId}
+        onOpenChange={(open) => !open && setPendingDeleteTodoId(null)}
+        title="Delete task?"
+        description={(() => {
+          const todo = todosResponse?.items.find((t) => t.public_id === pendingDeleteTodoId);
+          return todo ? `Delete "${todo.title}"? This cannot be undone.` : 'This cannot be undone.';
+        })()}
+        isPending={deleteMutation.isPending}
+        isError={deleteMutation.isError}
+        errorMessage="Could not delete that task. Please try again."
+        onConfirm={() => pendingDeleteTodoId && deleteMutation.mutate(pendingDeleteTodoId)}
+      />
+
+      <ConfirmDialog
+        open={!!pendingDeleteRuleId}
+        onOpenChange={(open) => !open && setPendingDeleteRuleId(null)}
+        title="Delete recurring todo?"
+        description={(() => {
+          const rule = recurringResponse?.items.find((r) => r.public_id === pendingDeleteRuleId);
+          return rule
+            ? `Delete the recurring rule "${rule.title}"? Future occurrences will stop being generated.`
+            : 'Future occurrences will stop being generated.';
+        })()}
+        isPending={deleteRuleMutation.isPending}
+        isError={deleteRuleMutation.isError}
+        errorMessage="Could not delete that recurring todo. Please try again."
+        onConfirm={() => pendingDeleteRuleId && deleteRuleMutation.mutate(pendingDeleteRuleId)}
+      />
     </PageShell>
   );
 };

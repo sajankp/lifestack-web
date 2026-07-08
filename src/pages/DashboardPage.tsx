@@ -1,24 +1,20 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardService } from '../services/dashboard';
-import { summariesService } from '../services/summaries';
 import { financeService } from '../services/finance';
 import { notificationsService } from '../services/notifications';
-import { RefreshCw, AlertCircle, Clock3, CircleAlert, PiggyBank, Wallet, BriefcaseBusiness, Lightbulb } from 'lucide-react';
+import { RefreshCw, AlertCircle, Clock3, CircleAlert, PiggyBank, Wallet, BriefcaseBusiness, Lightbulb, ArrowRight } from 'lucide-react';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
-import { formatDate, formatDateTime } from '../utils/dateFormat';
+import { formatDateTime } from '../utils/dateFormat';
 import { queryKeys } from '../lib/queryKeys';
 
 export const DashboardPage: React.FC = () => {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: queryKeys.dashboard.summary(),
     queryFn: () => dashboardService.getSummary(),
-  });
-  const { data: latestSummary } = useQuery({
-    queryKey: queryKeys.summaries.weeklyLatest(),
-    queryFn: () => summariesService.latestWeekly(),
   });
   const { data: userFinanceSettings } = useQuery({
     queryKey: queryKeys.finance.settings('user'),
@@ -41,10 +37,6 @@ export const DashboardPage: React.FC = () => {
   const generatedAt = data?.system.generated_at
     ? formatDateTime(data.system.generated_at, { utc: false, fallback: '' }) || null
     : null;
-  const latestWeeklyStartLabel = formatDate(
-    latestSummary?.week_start ? `${latestSummary.week_start}T00:00:00Z` : null,
-    { fallback: 'N/A' },
-  );
   const budgetSpotlight = data?.spending.budget_spotlight ?? [];
   const portfolioGainLabel =
     data?.investing.total_gain_loss != null
@@ -92,6 +84,7 @@ export const DashboardPage: React.FC = () => {
           <>
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               <MetricCard
+                to="/todo"
                 label="Open todos"
                 value={data.todos.open_count.toString()}
                 note={`${data.todos.overdue_count} overdue`}
@@ -99,6 +92,7 @@ export const DashboardPage: React.FC = () => {
                 accent="from-cyan-500/25 to-sky-500/10"
               />
               <MetricCard
+                to="/spending?tab=budgets"
                 label="This month spent"
                 value={formatCurrency(data.spending.month_spent, displayCurrency, currencyDisplayPreference)}
                 note={budgetSpotlight.length > 0 ? `${budgetSpotlight.length} group budget${budgetSpotlight.length > 1 ? 's' : ''} tracked below` : 'No group budgets set'}
@@ -106,6 +100,7 @@ export const DashboardPage: React.FC = () => {
                 accent="from-emerald-500/25 to-teal-500/10"
               />
               <MetricCard
+                to="/investing"
                 label="Portfolio value"
                 value={data.investing.portfolio_value != null
                   ? formatCurrency(data.investing.portfolio_value, displayCurrency, currencyDisplayPreference)
@@ -169,48 +164,68 @@ export const DashboardPage: React.FC = () => {
               return (
                 <div className="mt-6 grid gap-4 md:grid-cols-2">
                   {overdueCount > 0 && (
-                    <div className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-950/20 p-4 text-rose-200">
+                    <Link
+                      to="/todo"
+                      data-testid="dashboard-cue-overdue-todos"
+                      className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-950/20 p-4 text-rose-200 transition hover:border-rose-500/40 hover:bg-rose-950/30"
+                    >
                       <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5 animate-pulse" />
-                      <div>
+                      <div className="flex-1">
                         <p className="font-semibold text-rose-100">Overdue Tasks</p>
                         <p className="mt-1 text-sm text-rose-300/90">
-                          You have {overdueCount} task{overdueCount > 1 ? 's' : ''} overdue. Check your todo list to update or complete them.
+                          You have {overdueCount} task{overdueCount > 1 ? 's' : ''} overdue. View your todo list to update or complete them.
                         </p>
                       </div>
-                    </div>
+                      <ArrowRight className="h-4 w-4 shrink-0 mt-0.5 text-rose-400" />
+                    </Link>
                   )}
                   {guardrailAlerts > 0 && (
-                    <div className="flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-950/20 p-4 text-amber-200">
+                    <Link
+                      to="/spending?tab=budgets"
+                      data-testid="dashboard-cue-budget-guardrails"
+                      className="flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-950/20 p-4 text-amber-200 transition hover:border-amber-500/40 hover:bg-amber-950/30"
+                    >
                       <AlertCircle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-                      <div>
+                      <div className="flex-1">
                         <p className="font-semibold text-amber-100">Budget Guardrails Triggered</p>
                         <p className="mt-1 text-sm text-amber-300/90">
                           {guardrailAlerts} active budget alert{guardrailAlerts > 1 ? 's' : ''} require attention. Spending in some categories exceeds guardrail thresholds.
                         </p>
                       </div>
-                    </div>
+                      <ArrowRight className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+                    </Link>
                   )}
                   {overspentCategories.length > 0 && (
-                    <div className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-950/20 p-4 text-rose-200">
+                    <Link
+                      to="/spending?tab=budgets"
+                      data-testid="dashboard-cue-overspent-budgets"
+                      className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-950/20 p-4 text-rose-200 transition hover:border-rose-500/40 hover:bg-rose-950/30"
+                    >
                       <AlertCircle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
-                      <div>
+                      <div className="flex-1">
                         <p className="font-semibold text-rose-100">Overspent Budgets</p>
                         <p className="mt-1 text-sm text-rose-300/90">
                           You have exceeded monthly budget limits in: {overspentCategories.map(c => c.name || 'Unknown').join(', ')}.
                         </p>
                       </div>
-                    </div>
+                      <ArrowRight className="h-4 w-4 shrink-0 mt-0.5 text-rose-400" />
+                    </Link>
                   )}
                   {isValuationStale && (
-                    <div className="flex items-start gap-3 rounded-2xl border border-blue-500/20 bg-blue-950/20 p-4 text-blue-200">
+                    <Link
+                      to="/investing"
+                      data-testid="dashboard-cue-valuation-alert"
+                      className="flex items-start gap-3 rounded-2xl border border-blue-500/20 bg-blue-950/20 p-4 text-blue-200 transition hover:border-blue-500/40 hover:bg-blue-950/30"
+                    >
                       <AlertCircle className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-                      <div>
+                      <div className="flex-1">
                         <p className="font-semibold text-blue-100">Valuation Alert</p>
                         <p className="mt-1 text-sm text-blue-300/90">
                           Portfolio valuation status is '{data.investing.valuation_status}'. Some asset holdings or exchange rates may not reflect real-time prices.
                         </p>
                       </div>
-                    </div>
+                      <ArrowRight className="h-4 w-4 shrink-0 mt-0.5 text-blue-400" />
+                    </Link>
                   )}
                 </div>
               );
@@ -221,9 +236,19 @@ export const DashboardPage: React.FC = () => {
                 data-testid="dashboard-insights"
                 className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl shadow-black/10"
               >
-                <div className="flex items-center gap-3">
-                  <Lightbulb className="h-5 w-5 text-cyan-400" />
-                  <h2 className="text-xl font-semibold">Insights</h2>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Lightbulb className="h-5 w-5 text-cyan-400" />
+                    <h2 className="text-xl font-semibold">Insights</h2>
+                  </div>
+                  <Link
+                    to="/notifications"
+                    data-testid="dashboard-insights-view-all"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-cyan-400 hover:text-cyan-300"
+                  >
+                    View all
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
                 {isInsightsLoading ? (
                   <div className="mt-4 flex justify-center py-4">
@@ -242,19 +267,20 @@ export const DashboardPage: React.FC = () => {
                     {insights.map((insight) => {
                       const isWarning = insight.severity === 'warning';
                       return (
-                        <div
+                        <Link
                           key={insight.public_id}
+                          to="/notifications"
                           data-testid="dashboard-insight-card"
-                          className={`flex items-start gap-3 rounded-2xl border p-4 ${
+                          className={`flex items-start gap-3 rounded-2xl border p-4 transition ${
                             isWarning
-                              ? 'border-amber-500/20 bg-amber-950/20 text-amber-200'
-                              : 'border-cyan-500/20 bg-cyan-950/20 text-cyan-200'
+                              ? 'border-amber-500/20 bg-amber-950/20 text-amber-200 hover:border-amber-500/40 hover:bg-amber-950/30'
+                              : 'border-cyan-500/20 bg-cyan-950/20 text-cyan-200 hover:border-cyan-500/40 hover:bg-cyan-950/30'
                           }`}
                         >
                           <AlertCircle
                             className={`h-5 w-5 shrink-0 mt-0.5 ${isWarning ? 'text-amber-400' : 'text-cyan-400'}`}
                           />
-                          <div>
+                          <div className="flex-1">
                             <p className={`font-semibold ${isWarning ? 'text-amber-100' : 'text-cyan-100'}`}>
                               {insight.title}
                             </p>
@@ -264,7 +290,7 @@ export const DashboardPage: React.FC = () => {
                               </p>
                             ) : null}
                           </div>
-                        </div>
+                        </Link>
                       );
                     })}
                   </div>
@@ -272,62 +298,15 @@ export const DashboardPage: React.FC = () => {
               </section>
             </div>
 
-            <div className="mt-6">
-              <section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl shadow-black/10">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-semibold">Status</h2>
-                    <p className="mt-1 text-sm text-slate-400">The dashboard reflects the latest backend summary.</p>
-                  </div>
-                  {generatedAt ? (
-                    <div className="inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1 text-xs text-slate-300">
-                      <Clock3 className="h-3.5 w-3.5" />
-                      Updated {generatedAt}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <StatRow label="Next due items" value={data.todos.next_due_items.length.toString()} />
-                  <StatRow label="Active budget alerts" value={data.todos.active_guardrail_todo_count.toString()} />
-                  <StatRow
-                    label="Top overspent categories"
-                    value={data.spending.top_overspent_categories.length.toString()}
-                  />
-                  <StatRow
-                    label="Daily portfolio change"
-                    value={data.investing.daily_change != null
-                      ? formatPerformanceMetric(
-                          data.investing.daily_change,
-                          data.investing.daily_change_pct,
-                          displayCurrency,
-                          currencyDisplayPreference,
-                        )
-                      : 'N/A'}
-                  />
-                  <StatRow
-                    label="Investment cash"
-                    value={data.investing.cash_total != null
-                      ? formatCurrency(data.investing.cash_total, displayCurrency, currencyDisplayPreference)
-                      : 'N/A'}
-                  />
-                  <StatRow
-                    label="Portfolio valuation"
-                    value={data.investing.snapshot_date
-                      ? `${data.investing.snapshot_date} · ${data.investing.valuation_status}`
-                      : 'N/A'}
-                  />
-                  <StatRow
-                    label="Latest weekly summary"
-                    value={latestWeeklyStartLabel}
-                  />
-                  <StatRow
-                    label="Summary status"
-                    value={`${data.todos.status} / ${data.spending.status} / ${data.investing.status}`}
-                  />
-                </div>
-              </section>
-            </div>
+            {generatedAt ? (
+              <p
+                data-testid="dashboard-data-as-of"
+                className="mt-6 inline-flex items-center gap-2 text-xs text-slate-500"
+              >
+                <Clock3 className="h-3.5 w-3.5" />
+                Data as of {generatedAt}
+              </p>
+            ) : null}
           </>
         ) : null}
       </PageShell>
@@ -335,6 +314,7 @@ export const DashboardPage: React.FC = () => {
 };
 
 type MetricCardProps = {
+  to: string;
   label: string;
   value: string;
   note: string;
@@ -343,24 +323,20 @@ type MetricCardProps = {
   testId?: string;
 };
 
-const MetricCard = ({ label, value, note, icon, accent, testId }: MetricCardProps) => (
-  <div className={`relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br ${accent} p-6 shadow-xl shadow-black/10`}>
+const MetricCard = ({ to, label, value, note, icon, accent, testId }: MetricCardProps) => (
+  <Link
+    to={to}
+    className={`group relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br ${accent} p-6 shadow-xl shadow-black/10 transition hover:border-slate-600`}
+  >
     <div className="flex items-start justify-between gap-4">
       <div>
         <p className="text-sm uppercase tracking-[0.24em] text-slate-400">{label}</p>
         <p data-testid={testId} className="mt-3 text-3xl font-bold tracking-tight text-white">{value}</p>
         <p className="mt-2 text-sm text-slate-300">{note}</p>
       </div>
-      <div className="rounded-2xl border border-white/10 bg-white/10 p-3 text-white">{icon}</div>
+      <div className="rounded-2xl border border-white/10 bg-white/10 p-3 text-white transition group-hover:bg-white/20">{icon}</div>
     </div>
-  </div>
-);
-
-const StatRow = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-    <p className="text-sm text-slate-400">{label}</p>
-    <p className="mt-2 text-xl font-semibold text-white">{value}</p>
-  </div>
+  </Link>
 );
 
 const formatPerformanceMetric = (

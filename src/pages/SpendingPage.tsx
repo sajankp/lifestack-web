@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { SkeletonList } from '../components/ui/FeedbackStates';
+import { ConfirmDialog } from '../components/ui/confirm-dialog';
+import { useToast } from '../components/ui/toast';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { queryKeys } from '../lib/queryKeys';
 import { spendingService } from '../services/spending';
@@ -166,7 +168,10 @@ const TRANSACTION_SORT_OPTIONS: { value: TransactionSort; label: string }[] = [
 ];
 
 export const SpendingPage: React.FC = () => {
+  const { showToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pendingDeleteTransactionId, setPendingDeleteTransactionId] = useState<string | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -189,8 +194,13 @@ export const SpendingPage: React.FC = () => {
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('');
   const [txSort, setTxSort] = useState<TransactionSort>('date_desc');
 
-  // Tabs
-  const [activeTab, setActiveTab] = useState<'transactions' | 'budgets' | 'recurring' | 'transfers' | 'analytics' | 'ledger'>('transactions');
+  // Tabs — deep-linkable via ?tab= so dashboard cues can land on the right one.
+  type SpendingTab = 'transactions' | 'budgets' | 'recurring' | 'transfers' | 'analytics' | 'ledger';
+  const SPENDING_TABS: SpendingTab[] = ['transactions', 'budgets', 'recurring', 'transfers', 'analytics', 'ledger'];
+  const [activeTab, setActiveTab] = useState<SpendingTab>(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab');
+    return (SPENDING_TABS as string[]).includes(requested ?? '') ? (requested as SpendingTab) : 'transactions';
+  });
 
   // Ledger tab state
   const [ledgerAccountId, setLedgerAccountId] = useState('');
@@ -406,37 +416,42 @@ export const SpendingPage: React.FC = () => {
   const createMutation = useInvalidatingMutation(
     (newTx: TransactionCreate) => spendingService.createTransaction(newTx),
     [queryKeys.spending.transactions(), queryKeys.spending.summary(), queryKeys.dashboard.all],
-    { onSuccess: () => closeTransactionModal() },
+    { successMessage: 'Transaction created', onSuccess: () => closeTransactionModal() },
   );
 
   const updateMutation = useInvalidatingMutation(
     ({ id, data }: { id: string; data: TransactionUpdate }) => spendingService.updateTransaction(id, data),
     [queryKeys.spending.transactions(), queryKeys.spending.summary(), queryKeys.dashboard.all],
-    { onSuccess: () => closeTransactionModal() },
+    { successMessage: 'Transaction updated', onSuccess: () => closeTransactionModal() },
   );
 
   const deleteMutation = useInvalidatingMutation(
     (id: string) => spendingService.deleteTransaction(id),
     [queryKeys.spending.transactions(), queryKeys.spending.summary(), queryKeys.dashboard.all],
+    {
+      successMessage: 'Transaction deleted',
+      errorMessage: 'Could not delete that transaction. Please try again.',
+      onSuccess: () => setPendingDeleteTransactionId(null),
+    },
   );
 
   const createBudgetMutation = useInvalidatingMutation(
     (newBudget: BudgetCreate) => spendingService.createBudget(newBudget),
     [queryKeys.spending.budgets(), queryKeys.dashboard.all],
-    { onSuccess: () => closeBudgetModal() },
+    { successMessage: 'Budget created', errorMessage: false, onSuccess: () => closeBudgetModal() },
   );
 
   const updateBudgetMutation = useInvalidatingMutation(
     ({ id, data }: { id: string; data: BudgetUpdate }) => spendingService.updateBudget(id, data),
     [queryKeys.spending.budgets(), queryKeys.dashboard.all],
-    { onSuccess: () => closeBudgetModal() },
+    { successMessage: 'Budget updated', errorMessage: false, onSuccess: () => closeBudgetModal() },
   );
 
   const changeBudgetAmountMutation = useInvalidatingMutation(
     ({ id, data }: { id: string; data: BudgetChangeAmountRequest }) =>
       spendingService.changeBudgetAmount(id, data),
     [queryKeys.spending.budgets(), queryKeys.dashboard.all],
-    { onSuccess: () => closeBudgetModal() },
+    { successMessage: 'Budget amount updated', errorMessage: false, onSuccess: () => closeBudgetModal() },
   );
 
   // ----- Recurring Queries & Mutations -----
@@ -458,6 +473,19 @@ export const SpendingPage: React.FC = () => {
   });
   const defaultSpendingAccountId = workspaceFinanceSettings?.default_spending_account_id ?? null;
 
+  // Header "+ Spending" quick-add navigates here with ?new=1; open the
+  // create modal once, then strip the param so back/refresh doesn't reopen it.
+  React.useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      openTransactionModalForNew();
+      setSearchParams((params) => {
+        params.delete('new');
+        return params;
+      }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   // If the workspace default (or accounts list) is still loading when the
   // "new transaction" modal opens, pre-fill it reactively once it arrives
   // instead of leaving the field stuck empty (spec-054).
@@ -470,6 +498,9 @@ export const SpendingPage: React.FC = () => {
   }, [isModalOpen, editingTransaction, accountId, defaultSpendingAccountId, accountById]);
 
   const displayCurrency = userFinanceSettings?.effective_reporting_currency_code ?? 'USD';
+  // Amounts are stored in the selected account's currency, not the reporting
+  // currency — prefix the input with whichever the user has actually chosen.
+  const transactionAmountCurrency = accountById.get(accountId)?.default_currency_code || displayCurrency;
   const currencyDisplayPreference =
     userFinanceSettings?.effective_currency_display_preference ?? 'symbol';
   const recurringItems = recurringResponse?.items ?? [];
@@ -506,24 +537,22 @@ export const SpendingPage: React.FC = () => {
   const createRecurringMutation = useInvalidatingMutation(
     (data: RecurringTransactionCreate) => spendingService.createRecurring(data),
     [queryKeys.spending.recurring()],
-    { onSuccess: () => closeRecurringModal() },
+    { successMessage: 'Recurring transaction created', errorMessage: false, onSuccess: () => closeRecurringModal() },
   );
 
   const updateRecurringMutation = useInvalidatingMutation(
     ({ id, data }: { id: string; data: RecurringTransactionUpdate }) =>
       spendingService.updateRecurring(id, data),
     [queryKeys.spending.recurring()],
-    { onSuccess: () => closeRecurringModal() },
+    { successMessage: 'Recurring transaction updated', errorMessage: false, onSuccess: () => closeRecurringModal() },
   );
 
   const deactivateRecurringMutation = useInvalidatingMutation(
     (id: string) => spendingService.deleteRecurring(id),
     [queryKeys.spending.recurring()],
     {
-      onError: (error) => {
-        console.error('Failed to deactivate recurring rule:', error);
-        alert('Failed to deactivate recurring rule. Please try again.');
-      },
+      successMessage: 'Recurring rule deactivated',
+      errorMessage: 'Failed to deactivate recurring rule. Please try again.',
     },
   );
   const createTransferMutation = useInvalidatingMutation(
@@ -589,6 +618,7 @@ export const SpendingPage: React.FC = () => {
     },
     [queryKeys.dashboard.all, queryKeys.finance.transfers()],
     {
+      successMessage: 'Transfer created',
       onSuccess: () => {
         setIsTransferModalOpen(false);
         setTransferFromAccountId('');
@@ -663,6 +693,8 @@ export const SpendingPage: React.FC = () => {
     },
     [queryKeys.finance.transfers(), queryKeys.dashboard.all],
     {
+      successMessage: 'Transfer updated',
+      errorMessage: false,
       onSuccess: () => {
         setEditingTransfer(null);
         setEditTransferError(null);
@@ -683,6 +715,8 @@ export const SpendingPage: React.FC = () => {
     },
     [queryKeys.finance.transfers(), queryKeys.dashboard.all],
     {
+      successMessage: 'Transfer deleted',
+      errorMessage: false,
       onSuccess: () => {
         setDeletingTransfer(null);
         setDeleteTransferError(null);
@@ -724,6 +758,8 @@ export const SpendingPage: React.FC = () => {
       }),
     [queryKeys.finance.accounts(), queryKeys.finance.accounts('spending')],
     {
+      successMessage: 'Account created',
+      errorMessage: false,
       onSuccess: (created) => {
         setAccountId(created.public_id);
         if (!transferFromAccountId) setTransferFromAccountId(created.public_id);
@@ -740,6 +776,8 @@ export const SpendingPage: React.FC = () => {
       spendingService.createCategory({ name: data.name, icon: data.icon || null }),
     [queryKeys.spending.categories()],
     {
+      successMessage: 'Category created',
+      errorMessage: false,
       onSuccess: () => {
         setNewCategoryName('');
         setNewCategoryIcon('');
@@ -756,12 +794,12 @@ export const SpendingPage: React.FC = () => {
     if (!amount || !categoryId || !type || !date || (!editingTransaction && !accountId)) return;
     const parsedAmount = parseFloat(amount);
     if (Number.isNaN(parsedAmount) || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      alert('Please enter a valid positive amount.');
+      showToast('Please enter a valid positive amount.', 'error');
       return;
     }
     const parsedTransactionDate = new Date(date);
     if (Number.isNaN(parsedTransactionDate.getTime())) {
-      alert('Please enter a valid transaction date.');
+      showToast('Please enter a valid transaction date.', 'error');
       return;
     }
     const payload: TransactionCreate = {
@@ -1254,7 +1292,7 @@ export const SpendingPage: React.FC = () => {
           onClick={() => setActiveTab('ledger')}
           className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'ledger' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
         >
-          Ledger
+          Account activity
         </button>
       </div>
 
@@ -1276,7 +1314,7 @@ export const SpendingPage: React.FC = () => {
           currencyDisplayPreference={currencyDisplayPreference}
           getCategoryTheme={getCategoryTheme}
           onEdit={openTransactionModalForEdit}
-          onDelete={deleteMutation.mutate}
+          onDelete={setPendingDeleteTransactionId}
           onPageChange={setTxOffset}
           isDeletePending={deleteMutation.isPending}
         />
@@ -1687,7 +1725,7 @@ export const SpendingPage: React.FC = () => {
                 <div>
                   <label className="mb-2 block text-sm font-medium text-slate-300">Amount</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">{displayCurrency}</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">{transactionAmountCurrency}</span>
                     <Input
                       data-testid="spending-transaction-amount"
                       type="number"
@@ -2475,6 +2513,20 @@ export const SpendingPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDeleteTransactionId}
+        onOpenChange={(open) => !open && setPendingDeleteTransactionId(null)}
+        title="Delete transaction?"
+        description={(() => {
+          const tx = (transactions ?? []).find((t) => t.public_id === pendingDeleteTransactionId);
+          return tx ? `Delete "${tx.description || 'this transaction'}"? This cannot be undone.` : 'This cannot be undone.';
+        })()}
+        isPending={deleteMutation.isPending}
+        isError={deleteMutation.isError}
+        errorMessage="Could not delete that transaction. Please try again."
+        onConfirm={() => pendingDeleteTransactionId && deleteMutation.mutate(pendingDeleteTransactionId)}
+      />
     </PageShell>
   );
 };

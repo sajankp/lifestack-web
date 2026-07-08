@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../components/ui/toast';
 import { http, HttpResponse } from 'msw';
 
 import { ImportsPage } from './ImportsPage';
@@ -13,7 +14,11 @@ const renderWithQuery = (ui: React.ReactNode) => {
       mutations: { retry: false },
     },
   });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>,
+  );
 };
 
 beforeAll(() => {
@@ -214,6 +219,9 @@ describe('ImportsPage', () => {
     fireEvent.click(await screen.findByTestId(`imports-list-item-${importId}`));
     expect(await screen.findByTestId('imports-delete')).toHaveTextContent('Roll back import');
     fireEvent.click(screen.getByTestId('imports-delete'));
+    expect(await screen.findByRole('dialog')).toHaveTextContent(/Roll back import\?/i);
+    expect(deletedImportId).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back' }));
 
     await waitFor(() => expect(deletedImportId).toBe(importId));
     expect(screen.queryByTestId('imports-delete')).not.toBeInTheDocument();

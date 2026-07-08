@@ -78,6 +78,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
     (payload: InstrumentCreate) => investingService.createInstrument(payload),
     refreshKeys,
     {
+      successMessage: 'Instrument created',
+      errorMessage: false,
       onSuccess: (created) => {
         setInstrumentForm({
           symbol: '',
@@ -97,7 +99,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
         instrument_type: payload.instrument_type,
       }),
     refreshKeys,
-    { onSuccess: () => setEditingInstrumentId(null) },
+    { successMessage: 'Instrument updated', onSuccess: () => setEditingInstrumentId(null) },
   );
 
   const upsertConstituentsMutation = useInvalidatingMutation(
@@ -108,7 +110,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
       return investingService.upsertInstrumentConstituents(selectedInstrumentId, payload);
     },
     refreshKeys,
-    { onSuccess: () => setIsSeedConstituentsModalOpen(false) },
+    { successMessage: 'Breakdown saved', errorMessage: false, onSuccess: () => setIsSeedConstituentsModalOpen(false) },
   );
 
   const handleStartEditInstrument = (instrument: Instrument) => {
@@ -182,7 +184,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
     <>
       <div className="space-y-6">
         <div data-testid="investing-analytics-heading" className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="font-semibold text-white text-base">Look-through Analytics</h3>
+          <h3 className="font-semibold text-white text-base">Analytics</h3>
           <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
             <button
               type="button"
@@ -546,12 +548,12 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                   type="submit"
                   className="flex-1 h-10 rounded-lg bg-cyan-600 px-4 text-xs font-semibold text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
                 >
-                  {upsertConstituentsMutation.isPending ? 'Upserting...' : 'Upsert constituents'}
+                  {upsertConstituentsMutation.isPending ? 'Saving...' : 'Save breakdown'}
                 </button>
               </div>
               {upsertConstituentsMutation.isError && (
                 <p className="text-xs text-rose-300 text-center">
-                  {(upsertConstituentsMutation.error as Error)?.message ?? 'Failed to upsert constituents'}
+                  {(upsertConstituentsMutation.error as Error)?.message ?? 'Failed to save breakdown'}
                 </p>
               )}
             </form>

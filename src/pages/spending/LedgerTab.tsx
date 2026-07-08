@@ -137,7 +137,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
     <div className="animate-in fade-in duration-300 space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-xl font-semibold text-white">Account Ledger</h3>
+          <h3 className="text-xl font-semibold text-white">Account activity</h3>
           <p className="text-sm text-slate-400 mt-0.5">Transaction-by-transaction running balance for a spending account</p>
         </div>
 

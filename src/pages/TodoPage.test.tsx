@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../components/ui/toast';
+import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 import { vi } from 'vitest';
 
@@ -14,7 +16,13 @@ const renderWithQuery = (ui: React.ReactNode) => {
       mutations: { retry: false },
     },
   });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
 };
 
 beforeAll(() => {
@@ -137,6 +145,55 @@ describe('TodoPage', () => {
       due_date: new Date('2026-06-20T17:30:00').toISOString(),
       priority: 'high',
     });
+  });
+
+  it('requires confirmation before deleting a todo, and shows a toast on success', async () => {
+    let deleteCalled = false;
+
+    server.use(
+      http.get('*/v1/todo/', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'todo-1',
+              title: 'Review budget',
+              description: null,
+              due_date: null,
+              priority: 'medium',
+              completed: false,
+              created_at: '2026-06-13T00:00:00Z',
+              updated_at: '2026-06-13T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 50,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/todo/recurring/', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 100, offset: 0 }),
+      ),
+      http.delete('*/v1/todo/todo-1', () => {
+        deleteCalled = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderWithQuery(<TodoPage />);
+
+    expect(await screen.findByText('Review budget')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('todo-delete-todo-1'));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/Delete task\?/i);
+    expect(deleteCalled).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(deleteCalled).toBe(true);
+    });
+    expect(await screen.findByText('Task deleted')).toBeInTheDocument();
   });
 
   it('defaults recurring todos to low priority and supports recurring edits', async () => {

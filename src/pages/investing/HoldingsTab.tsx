@@ -13,6 +13,7 @@ import { DropdownSelect } from '../../components/DropdownSelect';
 import { CurrencyBadge } from '../../components/finance/Badges';
 import { Button } from '../../components/ui/button';
 import { ToggleSwitch } from '../../components/ui/toggle-switch';
+import { SkeletonList } from '../../components/ui/FeedbackStates';
 import {
   Dialog,
   DialogContent,
@@ -164,6 +165,8 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
     },
     refreshKeys,
     {
+      successMessage: 'Holding updated',
+      errorMessage: false,
       onSuccess: () => {
         setSelectedHolding(null);
         setIsEditHoldingModalOpen(false);
@@ -174,12 +177,13 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
   const deleteHoldingMutation = useInvalidatingMutation(
     (publicId: string) => investingService.deleteHolding(publicId),
     refreshKeys,
-    { onSuccess: () => setPendingDeleteHolding(null) },
+    { successMessage: 'Holding deleted', errorMessage: false, onSuccess: () => setPendingDeleteHolding(null) },
   );
 
   const refreshPricesMutation = useInvalidatingMutation(
     () => investingService.refreshPrices(),
     refreshKeys,
+    { successMessage: 'Prices refreshed' },
   );
 
   const submitPricesMutation = useInvalidatingMutation(
@@ -188,7 +192,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
       prices: Array<{ holding_public_id: string; unit_price: number }>;
     }) => investingService.submitPrices(payload),
     refreshKeys,
-    { onSuccess: () => setEditingPriceHoldingId(null) },
+    { successMessage: 'Prices submitted', onSuccess: () => setEditingPriceHoldingId(null) },
   );
 
   const handleStartEditPrice = (h: Holding) => {
@@ -463,7 +467,9 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
               holding action here. Action buttons use -m testids so the
               canonical desktop testids resolve to exactly one element. */}
           <div className="space-y-3 lg:hidden">
-            {sortedHoldings.length === 0 ? (
+            {holdingsRes.isLoading ? (
+              <SkeletonList rows={3} />
+            ) : sortedHoldings.length === 0 ? (
               <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">No holdings yet.</div>
             ) : (
               <>
@@ -577,7 +583,9 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
-                {sortedHoldings.length === 0 ? (
+                {holdingsRes.isLoading ? (
+                  <tr><td className="px-4 py-6 text-slate-400" colSpan={11}>Loading holdings…</td></tr>
+                ) : sortedHoldings.length === 0 ? (
                   <tr><td className="px-4 py-6 text-slate-400" colSpan={11}>No holdings yet.</td></tr>
                 ) : (
                   sortedHoldings.map((h) => {

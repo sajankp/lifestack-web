@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../components/ui/toast';
 import { http, HttpResponse } from 'msw';
 
 import { WeeklySummariesPage } from './WeeklySummariesPage';
@@ -9,7 +10,9 @@ const renderPage = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <WeeklySummariesPage />
+      <ToastProvider>
+        <WeeklySummariesPage />
+      </ToastProvider>
     </QueryClientProvider>,
   );
 };

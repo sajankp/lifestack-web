@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, BellOff, Smartphone } from 'lucide-react';
 import { notificationsService } from '../services/notifications';
 import { queryKeys } from '../lib/queryKeys';
+import { friendlyDeviceLabel } from '../utils/deviceLabel';
 
 // Web Push applicationServerKey must be a Uint8Array, not the base64url
 // string the server hands back.
@@ -126,7 +127,7 @@ export const PushSubscriptionSettings: React.FC = () => {
             >
               <div className="flex items-center gap-2 text-slate-300">
                 <Smartphone className="h-4 w-4 text-slate-500" />
-                <span>{sub.device_label || sub.endpoint_hint}</span>
+                <span>{friendlyDeviceLabel(sub.device_label) || sub.endpoint_hint}</span>
                 {!sub.is_active ? (
                   <span className="rounded bg-rose-950/50 px-1.5 py-0.5 text-xs text-rose-300">
                     inactive

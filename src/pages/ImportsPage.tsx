@@ -4,6 +4,8 @@ import { Plus, X } from 'lucide-react';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { DropdownSelect } from '../components/DropdownSelect';
+import { ConfirmDialog } from '../components/ui/confirm-dialog';
+import { useToast } from '../components/ui/toast';
 import { importsService } from '../services/imports';
 import { financeService } from '../services/finance';
 import type { ImportErrorItem, ImportModule, ImportValidateResponse } from '../types/imports';
@@ -58,8 +60,22 @@ const lifecycleCopy = (status: string) => {
   };
 };
 
+const IMPORT_STATUS_LABELS: Record<string, string> = {
+  uploaded: 'Uploaded',
+  validated: 'Validated',
+  failed_validation: 'Validation failed',
+  committing: 'Applying',
+  completed: 'Completed',
+  failed_commit: 'Apply failed',
+};
+
+const importStatusLabel = (status: string): string =>
+  IMPORT_STATUS_LABELS[status] ?? status.replace(/_/g, ' ');
+
 export const ImportsPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [module, setModule] = useState<ImportModule | ''>('');
   const [file, setFile] = useState<File | null>(null);
   const [targetAccountId, setTargetAccountId] = useState('');
@@ -197,7 +213,9 @@ export const ImportsPage: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['imports', 'list'] }),
         queryClient.invalidateQueries({ queryKey: ['imports', 'detail', importPublicId] }),
       ]);
+      showToast('Import applied', 'success');
     },
+    onError: () => showToast('Apply failed. Refresh import details and retry.', 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -207,10 +225,12 @@ export const ImportsPage: React.FC = () => {
         setSelectedImportId(null);
         setLatestValidation(null);
       }
+      setIsDeleteConfirmOpen(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['imports', 'list'] }),
         queryClient.invalidateQueries({ queryKey: ['imports', 'detail', importPublicId] }),
       ]);
+      showToast('Import removed', 'success');
     },
   });
 
@@ -442,7 +462,7 @@ export const ImportsPage: React.FC = () => {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-white">{item.filename}</span>
-                  <span className="text-xs uppercase text-slate-300">{item.status.replace('_', ' ')}</span>
+                  <span className="text-xs text-slate-300">{importStatusLabel(item.status)}</span>
                 </div>
                 <p className="mt-1 text-xs text-slate-400">
                   {item.module} • rows {item.valid_rows}/{item.total_rows} valid • errors {item.error_rows}
@@ -474,24 +494,19 @@ export const ImportsPage: React.FC = () => {
                         data-testid="imports-delete"
                         type="button"
                         disabled={!canDelete || deleteMutation.isPending}
-                        onClick={() => deleteMutation.mutate(activeDetail.import_batch.public_id)}
+                        onClick={() => setIsDeleteConfirmOpen(true)}
                         className="h-10 rounded-lg border border-rose-500/50 px-4 text-sm font-semibold text-rose-200 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {deleteMutation.isPending ? 'Deleting...' : lifecycle.action}
                       </button>
                     </div>
-                    {deleteMutation.isError ? (
-                      <p className="mt-3 text-sm text-rose-300">
-                        Delete or rollback failed. Refresh import details and retry.
-                      </p>
-                    ) : null}
                   </div>
                 );
               })()}
 
               <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/40 p-3 text-sm text-slate-200">
                 <p>Module: <span className="font-semibold">{activeDetail.import_batch.module}</span></p>
-                <p>Status: <span className="font-semibold uppercase">{activeDetail.import_batch.status.replace(/_/g, ' ')}</span></p>
+                <p>Status: <span className="font-semibold">{importStatusLabel(activeDetail.import_batch.status)}</span></p>
                 <p>Rows: {activeDetail.import_batch.valid_rows}/{activeDetail.import_batch.total_rows} valid</p>
                 {activeDetail.error_summary ? (
                   <p>
@@ -502,16 +517,16 @@ export const ImportsPage: React.FC = () => {
 
               {activeDetail.import_batch.status === 'failed_commit' ? (
                 <div className="mb-4 rounded-lg border border-rose-700/50 bg-rose-950/40 p-3 text-sm">
-                  <p className="mb-1 font-semibold text-rose-300">Commit failed</p>
+                  <p className="mb-1 font-semibold text-rose-300">Apply failed</p>
                   <p className="text-rose-200">
-                    {activeDetail.import_batch.commit_error || 'An unexpected error occurred during commit.'}
+                    {activeDetail.import_batch.commit_error || 'An unexpected error occurred while applying the import.'}
                   </p>
                 </div>
               ) : null}
 
               {activeDetail.import_batch.module === 'investing-demat-cas' ? (
                 <p className="mb-2 text-xs text-slate-500">
-                  Committing writes a read-only verification record — it never creates or
+                  Applying writes a read-only verification record — it never creates or
                   changes a holding, order, or cash balance.
                 </p>
               ) : null}
@@ -523,11 +538,11 @@ export const ImportsPage: React.FC = () => {
                 onClick={() => commitMutation.mutate(activeDetail.import_batch.public_id)}
                 className="mb-4 h-10 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {commitMutation.isPending ? 'Committing...' : 'Commit import'}
+                {commitMutation.isPending ? 'Applying...' : 'Apply import'}
               </button>
               {commitMutation.isError ? (
                 <p className="mb-4 text-sm text-rose-300">
-                  Commit failed. Refresh import details and retry.
+                  Apply failed. Refresh import details and retry.
                 </p>
               ) : null}
 
@@ -763,6 +778,23 @@ export const ImportsPage: React.FC = () => {
           ) : null}
         </section>
       </div>
+
+      <ConfirmDialog
+        open={isDeleteConfirmOpen}
+        onOpenChange={setIsDeleteConfirmOpen}
+        title={activeDetail?.import_batch.status === 'completed' ? 'Roll back import?' : 'Delete import batch?'}
+        description={
+          activeDetail
+            ? lifecycleCopy(activeDetail.import_batch.status).description
+            : 'This cannot be undone.'
+        }
+        confirmLabel={activeDetail?.import_batch.status === 'completed' ? 'Roll back' : 'Delete'}
+        pendingLabel={activeDetail?.import_batch.status === 'completed' ? 'Rolling back…' : 'Deleting…'}
+        isPending={deleteMutation.isPending}
+        isError={deleteMutation.isError}
+        errorMessage="Delete or rollback failed. Refresh import details and retry."
+        onConfirm={() => activeDetail && deleteMutation.mutate(activeDetail.import_batch.public_id)}
+      />
     </PageShell>
   );
 };

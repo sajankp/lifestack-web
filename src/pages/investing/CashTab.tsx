@@ -15,6 +15,7 @@ import { DropdownSelect } from '../../components/DropdownSelect';
 import { Combobox } from '../../components/Combobox';
 import { Pagination } from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
+import { SkeletonList } from '../../components/ui/FeedbackStates';
 import {
   Dialog,
   DialogContent,
@@ -178,6 +179,7 @@ export const CashTab: React.FC<CashTabProps> = ({
     (payload: CashBalanceCreate) => investingService.createCashBalance(payload),
     refreshKeys,
     {
+      successMessage: 'Cash balance added',
       onSuccess: () => {
         setCashForm({
           account_id: cashForm.account_id,
@@ -193,7 +195,7 @@ export const CashTab: React.FC<CashTabProps> = ({
   const deleteCashMutation = useInvalidatingMutation(
     (publicId: string) => investingService.deleteCashBalance(publicId),
     refreshKeys,
-    { onSuccess: () => setPendingDeleteCash(null) },
+    { successMessage: 'Cash balance deleted', errorMessage: false, onSuccess: () => setPendingDeleteCash(null) },
   );
 
   const createAccountMutation = useInvalidatingMutation(
@@ -205,6 +207,7 @@ export const CashTab: React.FC<CashTabProps> = ({
       }),
     refreshKeys,
     {
+      successMessage: 'Account created',
       onSuccess: (created) => {
         setNewAccountName('');
         setCashForm((prev) => ({ ...prev, account_id: created.public_id }));
@@ -216,6 +219,8 @@ export const CashTab: React.FC<CashTabProps> = ({
     (payload: InvestingOrderCreate) => investingService.placeOrder(payload),
     refreshKeys,
     {
+      successMessage: 'Order placed',
+      errorMessage: false,
       onSuccess: () => {
         setOrderForm((prev) => ({
           ...prev,
@@ -490,7 +495,12 @@ export const CashTab: React.FC<CashTabProps> = ({
               onClick={() => {
                 setIsPlaceOrderModalOpen(true);
                 if (!orderForm.account_id && brokerageAccounts.length > 0) {
-                  setOrderForm((prev) => ({ ...prev, account_id: brokerageAccounts[0].public_id }));
+                  const defaultAccount = brokerageAccounts[0];
+                  setOrderForm((prev) => ({
+                    ...prev,
+                    account_id: defaultAccount.public_id,
+                    currency: defaultAccount.default_currency_code || prev.currency,
+                  }));
                 }
               }}
               className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
@@ -738,7 +748,14 @@ export const CashTab: React.FC<CashTabProps> = ({
                       testId="order-account-select"
                       options={brokerageAccountOptions}
                       value={orderForm.account_id}
-                      onChange={(v) => setOrderForm((prev) => ({ ...prev, account_id: v }))}
+                      onChange={(v) => {
+                        const selectedAccount = brokerageAccounts.find((a) => a.public_id === v);
+                        setOrderForm((prev) => ({
+                          ...prev,
+                          account_id: v,
+                          currency: selectedAccount?.default_currency_code || prev.currency,
+                        }));
+                      }}
                       placeholder="Select brokerage account"
                     />
                   </div>
@@ -930,7 +947,9 @@ export const CashTab: React.FC<CashTabProps> = ({
           <div className="space-y-3">
             {/* Mobile / tablet card list */}
             <div className="space-y-3 lg:hidden">
-              {sortedCashBalances.length === 0 ? (
+              {cashRes.isLoading ? (
+                <SkeletonList rows={3} />
+              ) : sortedCashBalances.length === 0 ? (
                 <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">No cash balances yet.</div>
               ) : (
                 sortedCashBalances.map((c) => (
@@ -979,7 +998,9 @@ export const CashTab: React.FC<CashTabProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
-                  {sortedCashBalances.length === 0 ? (
+                  {cashRes.isLoading ? (
+                    <tr><td className="px-4 py-6 text-slate-400" colSpan={4}>Loading cash balances…</td></tr>
+                  ) : sortedCashBalances.length === 0 ? (
                     <tr><td className="px-4 py-6 text-slate-400" colSpan={4}>No cash balances yet.</td></tr>
                   ) : (
                     sortedCashBalances.map((c) => (

@@ -94,6 +94,8 @@ export const InvestingPage: React.FC = () => {
       investingService.updateOrder(publicId, payload),
     refreshKeys,
     {
+      successMessage: 'Order updated',
+      errorMessage: false,
       onSuccess: () => {
         setIsEditOrderModalOpen(false);
         setSelectedOrder(null);
@@ -104,7 +106,7 @@ export const InvestingPage: React.FC = () => {
   const deleteOrderMutation = useInvalidatingMutation(
     (publicId: string) => investingService.deleteOrder(publicId),
     refreshKeys,
-    { onSuccess: () => setPendingDeleteOrder(null) },
+    { successMessage: 'Order deleted', errorMessage: false, onSuccess: () => setPendingDeleteOrder(null) },
   );
 
   const handleStartEditOrder = (order: InvestingOrder) => {
@@ -296,7 +298,7 @@ export const InvestingPage: React.FC = () => {
           <TabsList className="min-w-max">
             <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-holdings" value="holdings">Holdings</TabsTrigger>
             <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-cash" value="cash">Cash</TabsTrigger>
-            <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-analytics" value="analytics">Look-through Analytics</TabsTrigger>
+            <TabsTrigger className="min-w-fit sm:min-w-[8rem]" data-testid="investing-tab-analytics" value="analytics">Analytics</TabsTrigger>
           </TabsList>
         </div>
 

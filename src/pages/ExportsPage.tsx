@@ -4,6 +4,8 @@ import { Plus, X } from 'lucide-react';
 
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
+import { ConfirmDialog } from '../components/ui/confirm-dialog';
+import { useToast } from '../components/ui/toast';
 import { exportsService } from '../services/exports';
 import type { ExportFormat, ExportModule, ExportRecord } from '../types/exports';
 
@@ -44,10 +46,12 @@ const formatDateTime = (value: string | null | undefined) => {
 
 export const ExportsPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [format, setFormat] = useState<ExportFormat>('json');
   const [modules, setModules] = useState<ExportModule[]>(['todo', 'spending', 'investing']);
   const [currentExport, setCurrentExport] = useState<ExportRecord | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const detailQuery = useQuery({
     queryKey: ['exports', 'detail', currentExport?.public_id],
@@ -77,7 +81,12 @@ export const ExportsPage: React.FC = () => {
     mutationFn: (publicId: string) => exportsService.deleteExport(publicId),
     onSuccess: async (_, publicId) => {
       setCurrentExport(null);
+      setIsDeleteConfirmOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['exports', 'detail', publicId] });
+      showToast('Export deleted', 'success');
+    },
+    onError: () => {
+      showToast('Delete failed. Pending exports cannot be deleted until they complete.', 'error');
     },
   });
 
@@ -238,7 +247,7 @@ export const ExportsPage: React.FC = () => {
                   data-testid="exports-delete"
                   type="button"
                   disabled={activeExport.status === 'pending' || deleteMutation.isPending}
-                  onClick={() => deleteMutation.mutate(activeExport.public_id)}
+                  onClick={() => setIsDeleteConfirmOpen(true)}
                   className="h-10 rounded-lg border border-rose-500/50 px-4 text-sm font-semibold text-rose-200 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {deleteMutation.isPending ? 'Deleting...' : 'Delete export'}
@@ -248,15 +257,21 @@ export const ExportsPage: React.FC = () => {
               {downloadMutation.isError ? (
                 <p className="mt-3 text-sm text-rose-300 text-right">Download failed. Refresh status and try again.</p>
               ) : null}
-              {deleteMutation.isError ? (
-                <p className="mt-3 text-sm text-rose-300 text-right">
-                  Delete failed. Pending exports cannot be deleted until they complete.
-                </p>
-              ) : null}
             </>
           )}
         </section>
       </div>
+
+      <ConfirmDialog
+        open={isDeleteConfirmOpen}
+        onOpenChange={setIsDeleteConfirmOpen}
+        title="Delete export?"
+        description="This deletes the export artifact permanently. You can create a new export any time."
+        isPending={deleteMutation.isPending}
+        isError={deleteMutation.isError}
+        errorMessage="Delete failed. Pending exports cannot be deleted until they complete."
+        onConfirm={() => activeExport && deleteMutation.mutate(activeExport.public_id)}
+      />
     </PageShell>
   );
 };

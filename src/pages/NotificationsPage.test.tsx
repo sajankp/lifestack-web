@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../components/ui/toast';
 import { http, HttpResponse } from 'msw';
 
 import { NotificationsPage } from './NotificationsPage';
@@ -13,7 +14,11 @@ const renderWithQuery = (ui: React.ReactNode) => {
       mutations: { retry: false },
     },
   });
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>,
+  );
 };
 
 const NOTIFICATION = {
@@ -56,18 +61,24 @@ describe('NotificationsPage', () => {
 
     renderWithQuery(<NotificationsPage />);
 
-    expect(await screen.findByText('budget')).toBeInTheDocument();
-    expect(screen.getAllByText('In-app: On | Muted: No').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('system')).toBeInTheDocument();
-    expect(screen.getByText('In-app: Off | Muted: Yes')).toBeInTheDocument();
+    const settingsTab = await screen.findByTestId('notifications-tab-settings');
+    settingsTab.focus();
+    fireEvent.keyDown(settingsTab, { key: 'Enter', code: 'Enter' });
+
+    expect(await screen.findByText('Budget alerts')).toBeInTheDocument();
+    expect(screen.getByText('System')).toBeInTheDocument();
+    expect(screen.queryByText(/In-app:/)).not.toBeInTheDocument();
   });
 
   it('always shows a default todo_reminder preference row (spec-052)', async () => {
     server.use(...baseHandlers);
     renderWithQuery(<NotificationsPage />);
 
-    expect(await screen.findByText('todo_reminder')).toBeInTheDocument();
-    expect(screen.getByText('In-app: On | Muted: No')).toBeInTheDocument();
+    const settingsTab = await screen.findByTestId('notifications-tab-settings');
+    settingsTab.focus();
+    fireEvent.keyDown(settingsTab, { key: 'Enter', code: 'Enter' });
+
+    expect(await screen.findByText('Todo reminders')).toBeInTheDocument();
   });
 
   it('renders notification items', async () => {
@@ -82,7 +93,7 @@ describe('NotificationsPage', () => {
 
     expect(await screen.findByText('Budget exceeded')).toBeInTheDocument();
     expect(screen.getByText('Food budget exceeded by 20%')).toBeInTheDocument();
-    expect(screen.getByText('budget · warning')).toBeInTheDocument();
+    expect(screen.getByText('Budget alerts · warning')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mark read' })).toBeInTheDocument();
   });
 

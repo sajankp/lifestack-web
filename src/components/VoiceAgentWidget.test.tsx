@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../components/ui/toast';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { VoiceAgentWidget } from './VoiceAgentWidget';
@@ -78,7 +79,9 @@ const renderWidget = () => {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <VoiceAgentWidget />
+      <ToastProvider>
+        <VoiceAgentWidget />
+      </ToastProvider>
     </QueryClientProvider>,
   );
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from '../components/ui/toast';
 import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 
@@ -16,7 +17,9 @@ const renderWithQuery = (ui: React.ReactNode) => {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>{ui}</MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 };
@@ -379,7 +382,7 @@ describe('InvestingPage', () => {
     renderWithQuery(<InvestingPage />);
 
     await screen.findByText('Investing');
-    const analyticsTab = await screen.findByRole('tab', { name: 'Look-through Analytics' });
+    const analyticsTab = await screen.findByRole('tab', { name: 'Analytics' });
     analyticsTab.focus();
     fireEvent.keyDown(analyticsTab, { key: 'Enter', code: 'Enter' });
 

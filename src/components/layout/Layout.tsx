@@ -5,7 +5,6 @@ import {
   Bell,
   Building2,
   ChevronDown,
-  LogOut,
   Menu,
   Plus,
   UserCircle2,
@@ -125,6 +124,11 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         onClose={() => setMobileNavOpen(false)}
         username={user?.username ?? user?.email ?? 'You'}
         workspace={workspace}
+        workspaces={workspaces}
+        onSelectWorkspace={selectWorkspace}
+        isSelectingWorkspace={isSelectingWorkspace}
+        onLogout={handleLogout}
+        isLoggingOut={isLoggingOut}
       />
 
       <main className="flex flex-1 flex-col text-slate-100 min-w-0">
@@ -180,9 +184,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               )}
 
               {/* Quick-add shortcuts (≥lg only) */}
-              <div className="hidden items-center gap-2 xl:flex">
+              <div className="hidden items-center gap-2 lg:flex">
                 <Link
-                  to="/todo"
+                  to="/todo?new=1"
                   data-testid="header-quick-todo"
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 text-xs font-semibold text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
                 >
@@ -190,7 +194,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   Todo
                 </Link>
                 <Link
-                  to="/spending"
+                  to="/spending?new=1"
                   data-testid="header-quick-spending"
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 text-xs font-semibold text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
                 >
@@ -254,7 +258,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     to="/settings"
                     className="block rounded-lg px-3 py-2 text-sm text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
                   >
-                    Workspace Settings
+                    Settings
                   </Link>
                   <Link
                     to="/notifications"
@@ -272,15 +276,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   </button>
                 </div>
               </details>
-
-              <button
-                data-testid="header-logout"
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
             </div>
           </div>
         </header>

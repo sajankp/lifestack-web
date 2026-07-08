@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, Building2, Landmark, PieChart, TrendingUp, Wallet } from 'lucide-react';
 import { financeService } from '../services/finance';
@@ -32,10 +33,17 @@ const StatusBanner: React.FC<{ status: string; reportingCurrency: string | null 
 }) => {
   if (status === 'ok' || status === 'empty') return null;
 
-  let message = '';
+  let message: React.ReactNode = null;
   if (status === 'no_reporting_currency') {
-    message =
-      'Configure a reporting currency in Master Config to see converted totals across all accounts.';
+    message = (
+      <>
+        Configure a reporting currency in{' '}
+        <Link to="/settings" className="font-semibold underline hover:text-amber-200">
+          Settings
+        </Link>{' '}
+        to see converted totals across all accounts.
+      </>
+    );
   } else if (status === 'partial') {
     message = reportingCurrency
       ? `Some balances could not be converted to ${reportingCurrency} — FX rates may be missing for one or more currencies.`
