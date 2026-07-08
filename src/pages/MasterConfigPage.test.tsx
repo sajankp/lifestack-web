@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { ToastProvider } from '../components/ui/toast';
 import { http, HttpResponse } from 'msw';
 
@@ -17,7 +18,9 @@ const renderWithQuery = (ui: React.ReactNode) => {
   });
   return render(
     <QueryClientProvider client={client}>
-      <ToastProvider>{ui}</ToastProvider>
+      <ToastProvider>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 };

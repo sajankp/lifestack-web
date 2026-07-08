@@ -24,6 +24,22 @@ const renderWithQuery = (ui: React.ReactNode) => {
   );
 };
 
+const renderAtPath = (ui: React.ReactNode, path: string) => {
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>
+        <MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>
+      </ToastProvider>
+    </QueryClientProvider>,
+  );
+};
+
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
@@ -124,6 +140,14 @@ describe('InvestingPage', () => {
       'flex-col',
       'sm:flex-row',
     );
+
+    // First-run: empty Holdings links straight into the order flow instead
+    // of leaving the user to hunt for "Place Order" on another tab.
+    const holdingsTabTrigger = screen.getByTestId('investing-tab-holdings');
+    holdingsTabTrigger.focus();
+    fireEvent.keyDown(holdingsTabTrigger, { key: 'Enter', code: 'Enter' });
+    const placeOrderLinks = await screen.findAllByRole('link', { name: /place your first order/i });
+    expect(placeOrderLinks[0]).toHaveAttribute('href', '/investing?tab=cash&order=1');
   });
 
   it.skip('creates an account and submits a holding using selected account/currency', async () => {
@@ -1885,5 +1909,83 @@ describe('InvestingPage', () => {
     expect(transferRow).toHaveTextContent('HDFC Bank');
     expect(transferRow).toHaveTextContent('Groww');
     expect(screen.getByTestId('investing-transfers-manage-link')).toHaveAttribute('href', '/spending');
+  });
+
+  it('opens the Cash tab and the Place Order modal directly from a ?tab=cash&order=1 deep link', async () => {
+    server.use(
+      http.get('*/v1/investing/holdings', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/investing/cash-balances', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '11111111-1111-1111-1111-111111111111',
+              name: 'Groww',
+              account_type: 'brokerage',
+              default_currency_code: 'INR',
+              is_active: true,
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/currencies', () =>
+        HttpResponse.json([
+          { code: 'INR', name: 'Indian Rupee', symbol: 'Rs', minor_unit: 2, is_active: true },
+        ]),
+      ),
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          reporting_currency_override_code: null,
+          currency_display_preference_override: null,
+          workspace_reporting_currency_code: 'USD',
+          workspace_currency_display_preference: 'symbol',
+          effective_reporting_currency_code: 'USD',
+          effective_currency_display_preference: 'symbol',
+          updated_at: '2026-05-24T00:00:00Z',
+        }),
+      ),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: null,
+          holdings_count: 0,
+          cash_total: null,
+          currency_breakdown: {},
+          daily_change: null,
+          reporting_currency: null,
+          valuation_status: 'single_currency_native',
+        }),
+      ),
+      http.get('*/v1/investing/performance/summary', () =>
+        HttpResponse.json({
+          total_value: '0',
+          total_cost: '0',
+          total_gain_loss: '0',
+          total_gain_loss_pct: '0',
+          snapshot_date: '2026-05-24',
+          currency: 'USD',
+        }),
+      ),
+      http.get('*/v1/investing/instruments', () => HttpResponse.json([])),
+      http.get('*/v1/investing/orders', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 }),
+      ),
+      http.get('*/v1/finance/transfers', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+    );
+
+    renderAtPath(<InvestingPage />, '/investing?tab=cash&order=1');
+
+    expect(await screen.findByTestId('investing-cash-heading')).toBeInTheDocument();
+    expect(await screen.findByTestId('order-symbol')).toBeInTheDocument();
   });
 });

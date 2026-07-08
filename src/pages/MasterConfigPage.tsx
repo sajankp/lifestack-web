@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown, Edit2 } from 'lucide-react';
 import { financeService } from '../services/finance';
@@ -23,8 +24,31 @@ import {
 import { Label } from '../components/ui/label';
 import { queryKeys } from '../lib/queryKeys';
 
+const SETTINGS_TABS = ['currency', 'accounts', 'categories', 'danger'] as const;
+type SettingsTab = (typeof SETTINGS_TABS)[number];
+
 export const MasterConfigPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>(
+    (SETTINGS_TABS as readonly string[]).includes(requestedTab ?? '') ? (requestedTab as SettingsTab) : 'currency',
+  );
+
+  // Deep links (e.g. from the Dashboard onboarding checklist or the Net
+  // Worth currency banner) land here with ?tab=accounts; sync once, then
+  // strip the param so it doesn't fight manual tab clicks afterward.
+  React.useEffect(() => {
+    if (requestedTab && (SETTINGS_TABS as readonly string[]).includes(requestedTab)) {
+      setActiveSettingsTab(requestedTab as SettingsTab);
+      setSearchParams((params) => {
+        params.delete('tab');
+        return params;
+      }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedTab]);
+
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card'>('wallet');
   const [newAccountCurrency, setNewAccountCurrency] = useState('');
@@ -455,7 +479,7 @@ export const MasterConfigPage: React.FC = () => {
         subtitle="Manage shared setup for spending and investing: currencies, accounts, categories, and recurrence anchors."
       />
 
-      <Tabs defaultValue="currency">
+      <Tabs value={activeSettingsTab} onValueChange={(value) => setActiveSettingsTab(value as SettingsTab)}>
         <TabsList>
           <TabsTrigger value="currency" data-testid="settings-tab-currency">Currency & Display</TabsTrigger>
           <TabsTrigger value="accounts" data-testid="settings-tab-accounts">Accounts</TabsTrigger>

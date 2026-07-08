@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRightLeft, Edit2, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Edit2, Plus, Trash2 } from 'lucide-react';
 import { Pagination } from '../../components/Pagination';
 import { AccountTypeBadge } from '../../components/finance/Badges';
 import { formatCurrency } from '../../utils/numberFormat';
@@ -14,6 +14,7 @@ interface TransfersTabProps {
   onEdit: (t: CapitalTransfer) => void;
   onRequestDelete: (t: CapitalTransfer) => void;
   onPageChange: (offset: number) => void;
+  onAddFirst?: () => void;
 }
 
 export const TransfersTab: React.FC<TransfersTabProps> = ({
@@ -23,6 +24,7 @@ export const TransfersTab: React.FC<TransfersTabProps> = ({
   onEdit,
   onRequestDelete,
   onPageChange,
+  onAddFirst,
 }) => {
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
@@ -34,6 +36,15 @@ export const TransfersTab: React.FC<TransfersTabProps> = ({
           </div>
           <h3 className="mb-2 text-lg font-medium text-white">No transfers yet</h3>
           <p className="text-slate-400">Create an account-to-account transfer from the Transfer button above.</p>
+          {onAddFirst ? (
+            <button
+              onClick={onAddFirst}
+              className="mt-6 flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-cyan-500 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Add First Transfer
+            </button>
+          ) : null}
         </div>
       ) : (
         <>

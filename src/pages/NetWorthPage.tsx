@@ -38,7 +38,7 @@ const StatusBanner: React.FC<{ status: string; reportingCurrency: string | null 
     message = (
       <>
         Configure a reporting currency in{' '}
-        <Link to="/settings" className="font-semibold underline hover:text-amber-200">
+        <Link to="/settings?tab=currency" className="font-semibold underline hover:text-amber-200">
           Settings
         </Link>{' '}
         to see converted totals across all accounts.

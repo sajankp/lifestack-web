@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Edit2, Tag, Trash2, Wallet } from 'lucide-react';
+import { Calendar, Edit2, Plus, Tag, Trash2, Wallet } from 'lucide-react';
 import { Pagination } from '../../components/Pagination';
 import { AccountTypeBadge, CurrencyBadge } from '../../components/finance/Badges';
 import { formatCurrency } from '../../utils/numberFormat';
@@ -20,6 +20,7 @@ interface TransactionsTabProps {
   onDelete: (publicId: string) => void;
   onPageChange: (offset: number) => void;
   isDeletePending?: boolean;
+  onAddFirst?: () => void;
 }
 
 export const TransactionsTab: React.FC<TransactionsTabProps> = ({
@@ -34,6 +35,7 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
   onDelete,
   onPageChange,
   isDeletePending,
+  onAddFirst,
 }) => {
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
@@ -45,6 +47,15 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
           </div>
           <h3 className="mb-2 text-lg font-medium text-white">No transactions yet</h3>
           <p className="text-slate-400">Start tracking your spending by adding a new transaction.</p>
+          {onAddFirst ? (
+            <button
+              onClick={onAddFirst}
+              className="mt-6 flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-cyan-500 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Add First Transaction
+            </button>
+          ) : null}
         </div>
       ) : (
         <>

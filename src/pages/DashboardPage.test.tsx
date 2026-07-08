@@ -184,4 +184,68 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Recurring charge detected: Gym')).toBeInTheDocument();
     expect(screen.getAllByTestId('dashboard-insight-card')).toHaveLength(2);
   });
+
+  const emptyPaginated = (total = 0) => ({ items: [], total, limit: 1, offset: 0 });
+
+  it('shows the get-started checklist with incomplete steps for a brand-new workspace', async () => {
+    server.use(
+      emptyNotifications(),
+      minimalSummary(),
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          reporting_currency_override_code: null,
+          currency_display_preference_override: null,
+          workspace_reporting_currency_code: null,
+          workspace_currency_display_preference: 'symbol',
+          effective_reporting_currency_code: null,
+          effective_currency_display_preference: 'symbol',
+          updated_at: '2026-05-24T00:00:00Z',
+        }),
+      ),
+      http.get('*/v1/finance/accounts', () => HttpResponse.json(emptyPaginated())),
+      http.get('*/v1/todo/', () => HttpResponse.json(emptyPaginated())),
+      http.get('*/v1/spending/transactions', () => HttpResponse.json(emptyPaginated())),
+      http.get('*/v1/notifications/push-subscriptions', () => HttpResponse.json([])),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByText('Get started')).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-onboarding-step-currency')).toHaveAttribute(
+      'href',
+      '/settings?tab=currency',
+    );
+    expect(screen.getByTestId('dashboard-onboarding-step-account')).toHaveAttribute(
+      'href',
+      '/settings?tab=accounts',
+    );
+    expect(screen.getByText('0 of 4 steps done')).toBeInTheDocument();
+  });
+
+  it('hides the get-started checklist once currency, an account, and an activity all exist', async () => {
+    server.use(
+      emptyNotifications(),
+      minimalSummary(),
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          reporting_currency_override_code: null,
+          currency_display_preference_override: null,
+          workspace_reporting_currency_code: 'USD',
+          workspace_currency_display_preference: 'symbol',
+          effective_reporting_currency_code: 'USD',
+          effective_currency_display_preference: 'symbol',
+          updated_at: '2026-05-24T00:00:00Z',
+        }),
+      ),
+      http.get('*/v1/finance/accounts', () => HttpResponse.json(emptyPaginated(1))),
+      http.get('*/v1/todo/', () => HttpResponse.json(emptyPaginated(1))),
+      http.get('*/v1/spending/transactions', () => HttpResponse.json(emptyPaginated())),
+      http.get('*/v1/notifications/push-subscriptions', () => HttpResponse.json([])),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByText('Dashboard')).toBeInTheDocument();
+    expect(screen.queryByText('Get started')).not.toBeInTheDocument();
+  });
 });

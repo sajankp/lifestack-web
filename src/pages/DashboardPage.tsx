@@ -4,12 +4,17 @@ import { useQuery } from '@tanstack/react-query';
 import { dashboardService } from '../services/dashboard';
 import { financeService } from '../services/finance';
 import { notificationsService } from '../services/notifications';
+import { spendingService } from '../services/spending';
+import { todoService } from '../services/todo';
 import { RefreshCw, AlertCircle, Clock3, CircleAlert, PiggyBank, Wallet, BriefcaseBusiness, Lightbulb, ArrowRight } from 'lucide-react';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
+import { OnboardingChecklist } from '../components/dashboard/OnboardingChecklist';
+import type { OnboardingChecklistStep } from '../components/dashboard/OnboardingChecklist';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
 import { formatDateTime } from '../utils/dateFormat';
 import { queryKeys } from '../lib/queryKeys';
+import { useWorkspaceStore } from '../store/workspaceStore';
 
 export const DashboardPage: React.FC = () => {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -29,6 +34,28 @@ export const DashboardPage: React.FC = () => {
     queryKey: queryKeys.dashboard.insights(),
     queryFn: () => notificationsService.list(5, 0, { category: 'insight', is_read: false }),
   });
+  const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
+
+  // Cheap existence probes for the onboarding checklist — each only asks for
+  // the paginated `total`, not the records themselves, so they're safe to
+  // fetch alongside the dashboard summary without a heavier dedicated endpoint.
+  const { data: accountsData } = useQuery({
+    queryKey: queryKeys.finance.accounts('dashboard-checklist'),
+    queryFn: () => financeService.getAccounts(1, 0),
+  });
+  const { data: todosData } = useQuery({
+    queryKey: queryKeys.todo.list('dashboard-checklist'),
+    queryFn: () => todoService.getTodos(undefined, 1, 0),
+  });
+  const { data: transactionsData } = useQuery({
+    queryKey: queryKeys.spending.transactions('dashboard-checklist'),
+    queryFn: () => spendingService.getTransactions(1, 0),
+  });
+  const { data: pushSubscriptions } = useQuery({
+    queryKey: queryKeys.notifications.pushSubscriptions(),
+    queryFn: () => notificationsService.listPushSubscriptions(),
+  });
+
   const insights = insightsData?.items ?? [];
   const displayCurrency = userFinanceSettings?.effective_reporting_currency_code ?? 'USD';
   const currencyDisplayPreference =
@@ -47,6 +74,37 @@ export const DashboardPage: React.FC = () => {
           currencyDisplayPreference,
         )
       : 'N/A';
+
+  const checklistSteps: OnboardingChecklistStep[] = [
+    {
+      id: 'currency',
+      label: 'Set your reporting currency',
+      done: Boolean(userFinanceSettings?.workspace_reporting_currency_code),
+      to: '/settings?tab=currency',
+    },
+    {
+      id: 'account',
+      label: 'Add your first account',
+      done: (accountsData?.total ?? 0) > 0,
+      to: '/settings?tab=accounts',
+    },
+    {
+      id: 'activity',
+      label: 'Add your first transaction or todo',
+      done: (transactionsData?.total ?? 0) > 0 || (todosData?.total ?? 0) > 0,
+      actions: [
+        { label: 'Add transaction', to: '/spending?new=1' },
+        { label: 'Add todo', to: '/todo?new=1' },
+      ],
+    },
+    {
+      id: 'push',
+      label: 'Enable push reminders',
+      done: (pushSubscriptions?.length ?? 0) > 0,
+      to: '/notifications',
+      optional: true,
+    },
+  ];
 
   return (
     <PageShell>
@@ -82,6 +140,8 @@ export const DashboardPage: React.FC = () => {
           </div>
         ) : data ? (
           <>
+            <OnboardingChecklist workspaceId={activeWorkspaceId} steps={checklistSteps} />
+
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               <MetricCard
                 to="/todo"

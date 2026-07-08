@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Tag, Target, Users } from 'lucide-react';
+import { Edit2, Plus, Tag, Target, Users } from 'lucide-react';
 import { Pagination } from '../../components/Pagination';
 import { formatCurrency } from '../../utils/numberFormat';
 import type { PaginatedResponse } from '../../types/common';
@@ -18,6 +18,7 @@ interface BudgetsTabProps {
   getGroupTheme: (groupId: string | null) => { name: string; color: string; icon: string | null };
   onEdit: (budget: Budget) => void;
   onPageChange: (offset: number) => void;
+  onAddFirst?: () => void;
 }
 
 export const BudgetsTab: React.FC<BudgetsTabProps> = ({
@@ -32,6 +33,7 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
   getGroupTheme,
   onEdit,
   onPageChange,
+  onAddFirst,
 }) => {
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
@@ -43,6 +45,15 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
           </div>
           <h3 className="mb-2 text-lg font-medium text-white">No budgets set</h3>
           <p className="text-slate-400">Set a budget to track your limits.</p>
+          {onAddFirst ? (
+            <button
+              onClick={onAddFirst}
+              className="mt-6 flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-cyan-500 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Add First Budget
+            </button>
+          ) : null}
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

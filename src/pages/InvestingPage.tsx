@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Landmark, WalletCards, X } from 'lucide-react';
 import { financeService } from '../services/finance';
@@ -28,8 +29,31 @@ import { queryKeys } from '../lib/queryKeys';
 
 const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
 
+const VALID_TABS = ['holdings', 'cash', 'analytics'] as const;
+
 export const InvestingPage: React.FC = () => {
-  const [tab, setTab] = useState<'holdings' | 'cash' | 'analytics'>('holdings');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const [tab, setTab] = useState<'holdings' | 'cash' | 'analytics'>(
+    (VALID_TABS as readonly string[]).includes(requestedTab ?? '') ? (requestedTab as typeof VALID_TABS[number]) : 'holdings',
+  );
+
+  // The Holdings empty state deep-links here as ?tab=cash&order=1 to open
+  // the Place Order flow directly; consume the params once, then strip them.
+  const shouldAutoOpenOrder = searchParams.get('order') === '1';
+  React.useEffect(() => {
+    if (requestedTab || shouldAutoOpenOrder) {
+      if (requestedTab && (VALID_TABS as readonly string[]).includes(requestedTab)) {
+        setTab(requestedTab as typeof VALID_TABS[number]);
+      }
+      setSearchParams((params) => {
+        params.delete('tab');
+        params.delete('order');
+        return params;
+      }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const summary = useQuery({
     queryKey: queryKeys.investing.summary(),
@@ -319,6 +343,7 @@ export const InvestingPage: React.FC = () => {
             onDeleteOrder={setPendingDeleteOrder}
             deleteOrderPending={deleteOrderMutation.isPending}
             updateOrderPending={updateOrderMutation.isPending}
+            autoOpenOrder={shouldAutoOpenOrder}
           />
         </TabsContent>
 

@@ -1317,6 +1317,7 @@ export const SpendingPage: React.FC = () => {
           onDelete={setPendingDeleteTransactionId}
           onPageChange={setTxOffset}
           isDeletePending={deleteMutation.isPending}
+          onAddFirst={openTransactionModalForNew}
         />
       ) : activeTab === 'budgets' ? (
         <BudgetsTab
@@ -1331,6 +1332,7 @@ export const SpendingPage: React.FC = () => {
           getGroupTheme={getGroupTheme}
           onEdit={openBudgetModalForEdit}
           onPageChange={setBudgetOffset}
+          onAddFirst={openBudgetModalForNew}
         />
       ) : activeTab === 'recurring' ? (
         <RecurringTab
@@ -1356,6 +1358,7 @@ export const SpendingPage: React.FC = () => {
           onEdit={openEditTransfer}
           onRequestDelete={(t) => { setDeletingTransfer(t); setDeleteTransferError(null); }}
           onPageChange={setTransferOffset}
+          onAddFirst={() => setIsTransferModalOpen(true)}
         />
       ) : activeTab === 'analytics' ? (
         <AnalyticsTab

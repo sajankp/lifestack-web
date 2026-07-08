@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDown, ArrowDownUp, ArrowUp, Check, Edit2, Info, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowDownUp, ArrowUp, Check, Edit2, Info, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { financeService } from '../../services/finance';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { investingService } from '../../services/investing';
@@ -470,7 +471,16 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
             {holdingsRes.isLoading ? (
               <SkeletonList rows={3} />
             ) : sortedHoldings.length === 0 ? (
-              <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">No holdings yet.</div>
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">
+                <span>No holdings yet.</span>
+                <Link
+                  to="/investing?tab=cash&order=1"
+                  className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:bg-cyan-500 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Place your first order
+                </Link>
+              </div>
             ) : (
               <>
               {/* Mobile sort control — the desktop equivalent is clicking a
@@ -586,7 +596,20 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                 {holdingsRes.isLoading ? (
                   <tr><td className="px-4 py-6 text-slate-400" colSpan={11}>Loading holdings…</td></tr>
                 ) : sortedHoldings.length === 0 ? (
-                  <tr><td className="px-4 py-6 text-slate-400" colSpan={11}>No holdings yet.</td></tr>
+                  <tr>
+                    <td className="px-4 py-6" colSpan={11}>
+                      <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-400">
+                        <span>No holdings yet.</span>
+                        <Link
+                          to="/investing?tab=cash&order=1"
+                          className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:bg-cyan-500 transition-colors"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Place your first order
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
                 ) : (
                   sortedHoldings.map((h) => {
                     const gainLoss = toNumber(h.gain_loss ?? 0);
