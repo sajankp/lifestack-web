@@ -756,21 +756,15 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
       </div>
 
       {/* Trade History Modal */}
-      {tradeHistoryHolding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/60 bg-slate-900 p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">
+      <Dialog open={!!tradeHistoryHolding} onOpenChange={(open) => !open && setTradeHistoryHolding(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          {tradeHistoryHolding && (
+            <>
+            <DialogHeader className="mb-5">
+              <DialogTitle>
                 Trade History — {tradeHistoryHolding.symbol} ({tradeHistoryHolding.account_name})
-              </h2>
-              <button
-                type="button"
-                onClick={() => setTradeHistoryHolding(null)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+              </DialogTitle>
+            </DialogHeader>
             <div className="max-h-[60vh] overflow-y-auto overflow-x-auto rounded-xl border border-slate-700/50">
               <table data-testid="investing-trade-history-table" className="w-full text-sm">
                 <thead className="border-b border-slate-700/50 bg-slate-800/40">
@@ -853,35 +847,26 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Holding Modal */}
-      {isEditHoldingModalOpen && selectedHolding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => {
-              setIsEditHoldingModalOpen(false);
-              setSelectedHolding(null);
-            }}
-          />
-          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-4">
-              <h2 className="text-lg font-semibold text-white">Edit Holding</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditHoldingModalOpen(false);
-                  setSelectedHolding(null);
-                }}
-                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-                title="Close dialog"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+      <Dialog
+        open={isEditHoldingModalOpen && !!selectedHolding}
+        onOpenChange={(open) => {
+          if (open) return;
+          setIsEditHoldingModalOpen(false);
+          setSelectedHolding(null);
+        }}
+      >
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          {isEditHoldingModalOpen && selectedHolding && (
+            <>
+            <DialogHeader className="mb-4 border-b border-slate-800 pb-4">
+              <DialogTitle>Edit Holding</DialogTitle>
+            </DialogHeader>
 
             <form
               data-testid="investing-edit-holding-form"
@@ -1021,9 +1006,10 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!pendingDeleteHolding}

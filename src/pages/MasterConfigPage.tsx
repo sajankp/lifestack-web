@@ -24,6 +24,7 @@ import {
 import { Label } from '../components/ui/label';
 import { queryKeys } from '../lib/queryKeys';
 import { ToggleSwitch } from '../components/ui/toggle-switch';
+import { accountTypeOptions } from '../utils/accountTypes';
 
 const SETTINGS_TABS = ['currency', 'accounts', 'categories', 'danger'] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
@@ -218,13 +219,6 @@ export const MasterConfigPage: React.FC = () => {
     [accountsResponse?.items]
   );
 
-  const accountTypeOptions = [
-    { value: 'wallet', label: 'Wallet' },
-    { value: 'bank', label: 'Bank' },
-    { value: 'card', label: 'Card' },
-    { value: 'gift_card', label: 'Gift Card' },
-    { value: 'brokerage', label: 'Brokerage' },
-  ] as const;
   const currencyDisplayPreferenceOptions = [
     { value: 'symbol', label: 'Symbol first ($1,250.00)' },
     { value: 'code', label: 'Code first (USD 1,250.00)' },

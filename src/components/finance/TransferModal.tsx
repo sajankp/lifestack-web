@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
 import { DropdownSelect } from '../DropdownSelect';
 import { DatePicker } from '../DatePicker';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { queryKeys } from '../../lib/queryKeys';
 import { financeService } from '../../services/finance';
@@ -136,21 +136,12 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     },
   );
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-      <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
-          <h3 className="text-lg font-semibold text-white">Transfer Between Wallets/Accounts</h3>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
+          <DialogTitle>Transfer Between Wallets/Accounts</DialogTitle>
+        </DialogHeader>
         <form
           className="space-y-4 p-6"
           onSubmit={(e) => {
@@ -232,7 +223,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRightLeft, Plus, Trash2, X } from 'lucide-react';
+import { ArrowRightLeft, Plus, Trash2 } from 'lucide-react';
 import { financeService } from '../../services/finance';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { investingService } from '../../services/investing';
@@ -16,6 +16,7 @@ import { Combobox } from '../../components/Combobox';
 import { Button } from '../../components/ui/button';
 import { SkeletonList } from '../../components/ui/FeedbackStates';
 import { TransferModal } from '../../components/finance/TransferModal';
+import { QuickCreateAccountForm } from '../../components/finance/QuickCreateAccountForm';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,7 @@ import {
 } from '../../components/ui/dialog';
 import type { CashBalanceCreate } from '../../types/investing';
 import { SortableHeader } from './components';
-import { accountTypeOptions, formatDateTimeLocalInput, type SortDir } from './format';
+import { formatDateTimeLocalInput, type SortDir } from './format';
 
 const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
 
@@ -559,25 +560,12 @@ export const CashTab: React.FC<CashTabProps> = ({
       </div>
 
       {/* Add Cash Modal */}
-      {isAddCashModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => setIsAddCashModalOpen(false)}
-          />
-          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <h2 className="text-lg font-semibold text-white">Add Cash Balance</h2>
-              <button
-                type="button"
-                onClick={() => setIsAddCashModalOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                title="Close dialog"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
+      <Dialog open={isAddCashModalOpen} onOpenChange={(open) => !open && setIsAddCashModalOpen(false)}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-4 mb-4 border-b border-slate-800">
+            <DialogTitle>Add Cash Balance</DialogTitle>
+          </DialogHeader>
+          {isAddCashModalOpen && (
             <form onSubmit={onCreateCash} className="space-y-4">
               {accountOptions.length === 0 ? (
                 <div className="rounded-lg border border-amber-600/40 bg-amber-500/10 p-3 text-xs text-amber-200 animate-none">
@@ -649,45 +637,20 @@ export const CashTab: React.FC<CashTabProps> = ({
                 </button>
               </div>
 
-              {/* Quick create account sub-form */}
-              <div className="mt-4 border-t border-slate-800 pt-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Quick Create Account</p>
-                <div className="grid grid-cols-2 gap-4 items-end">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold text-slate-300">Account Name</label>
-                    <input
-                      data-testid="investing-account-name"
-                      className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                      placeholder="Account name"
-                      value={newAccountName}
-                      onChange={(e) => setNewAccountName(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold text-slate-300">Account Type</label>
-                    <DropdownSelect
-                      testId="investing-account-type"
-                      value={newAccountType}
-                      options={[...accountTypeOptions]}
-                      onChange={(value) => setNewAccountType(value as 'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card')}
-                      placeholder="Account type"
-                    />
-                  </div>
-                </div>
-                <button
-                  data-testid="investing-account-create"
-                  type="button"
-                  disabled={!newAccountName.trim() || createAccountMutation.isPending}
-                  onClick={() => createAccountMutation.mutate()}
-                  className="mt-3 w-full h-10 rounded-lg border border-slate-700 px-4 text-xs font-semibold text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
-                >
-                  Create account
-                </button>
-              </div>
+              <QuickCreateAccountForm
+                name={newAccountName}
+                onNameChange={setNewAccountName}
+                type={newAccountType}
+                onTypeChange={setNewAccountType}
+                onSubmit={() => createAccountMutation.mutate()}
+                isPending={createAccountMutation.isPending}
+                isError={createAccountMutation.isError}
+                testIdPrefix="investing-account"
+              />
             </form>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!pendingDeleteCash}

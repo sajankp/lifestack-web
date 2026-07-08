@@ -64,13 +64,7 @@ export const formatPerformanceMetric = (
   return `${sign}${formatCurrency(numericAmount, currency, preference)}${percentageLabel}`;
 };
 
-export const accountTypeOptions = [
-  { value: 'brokerage', label: 'Brokerage' },
-  { value: 'bank', label: 'Bank' },
-  { value: 'wallet', label: 'Wallet' },
-  { value: 'card', label: 'Card' },
-  { value: 'gift_card', label: 'Gift Card' },
-] as const;
+export { accountTypeOptions } from '../../utils/accountTypes';
 
 export const instrumentTypeOptions = [
   { value: 'stock', label: 'Stock' },

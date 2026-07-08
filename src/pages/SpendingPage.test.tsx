@@ -709,7 +709,7 @@ describe('SpendingPage', () => {
 
     fireEvent.click(screen.getAllByTitle('Edit transfer')[0]);
     const modalHeading = await screen.findByText('Edit Transfer');
-    const modal = modalHeading.closest('div.relative') as HTMLElement;
+    const modal = modalHeading.closest('[role="dialog"]') as HTMLElement;
     expect(modal).not.toBeNull();
     const form = modal.querySelector('form') as HTMLFormElement;
     expect(form).not.toBeNull();

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Landmark, Plus, WalletCards, X } from 'lucide-react';
+import { Landmark, Plus, WalletCards } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { investingService } from '../services/investing';
@@ -497,19 +497,12 @@ export const InvestingPage: React.FC = () => {
       {/* Place Order Modal — hoisted to the page (not the Cash tab) so it's
           reachable via the hero button from every tab, not just Cash
           (UX-REVIEW P2 item 13: "Investing's core action is buried"). */}
-      {isPlaceOrderModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/60 bg-slate-900 p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Place Order</h2>
-              <button
-                type="button"
-                onClick={() => setIsPlaceOrderModalOpen(false)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      <Dialog open={isPlaceOrderModalOpen} onOpenChange={(open) => !open && setIsPlaceOrderModalOpen(false)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="mb-5">
+            <DialogTitle>Place Order</DialogTitle>
+          </DialogHeader>
+          {isPlaceOrderModalOpen && (
             <form onSubmit={onPlaceOrder} className="space-y-4">
               <div data-testid="order-type-toggle" className="flex rounded-lg border border-slate-700/60 overflow-hidden">
                 {(['buy', 'sell'] as const).map((t) => (
@@ -713,36 +706,29 @@ export const InvestingPage: React.FC = () => {
                 </p>
               )}
             </form>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Order Modal — kept outside TabsContent so it stays mounted when
           triggered from the Trade History modal (which lives on the Holdings
           tab); Radix unmounts inactive TabsContent, so nesting it under the
           Orders tab made it a no-op when opened from elsewhere. */}
-      {isEditOrderModalOpen && selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => {
-              setIsEditOrderModalOpen(false);
-              setSelectedOrder(null);
-              setEditOrderFormError('');
-            }}
-          />
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/60 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Edit Order — {selectedOrder.symbol}</h2>
-              <button
-                type="button"
-                onClick={() => { setIsEditOrderModalOpen(false); setSelectedOrder(null); setEditOrderFormError(''); }}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
-                title="Close dialog"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      <Dialog
+        open={isEditOrderModalOpen && !!selectedOrder}
+        onOpenChange={(open) => {
+          if (open) return;
+          setIsEditOrderModalOpen(false);
+          setSelectedOrder(null);
+          setEditOrderFormError('');
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          {isEditOrderModalOpen && selectedOrder && (
+            <>
+            <DialogHeader className="mb-5">
+              <DialogTitle>Edit Order — {selectedOrder.symbol}</DialogTitle>
+            </DialogHeader>
             <form onSubmit={onUpdateOrder} className="space-y-4">
               {/* Buy / Sell toggle */}
               <div className="flex rounded-lg border border-slate-700/60 overflow-hidden">
@@ -875,9 +861,10 @@ export const InvestingPage: React.FC = () => {
                 </p>
               )}
             </form>
-          </div>
-        </div>
-      )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!pendingDeleteOrder}

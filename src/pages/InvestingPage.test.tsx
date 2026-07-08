@@ -1400,7 +1400,7 @@ describe('InvestingPage', () => {
     fireEvent.click(screen.getByTestId('investing-trade-history-edit-order-1'));
 
     const modalHeading = await screen.findByText('Edit Order — AAPL');
-    const modal = modalHeading.closest('div.relative') as HTMLElement;
+    const modal = modalHeading.closest('[role="dialog"]') as HTMLElement;
     expect(modal).not.toBeNull();
     const form = modal.querySelector('form') as HTMLFormElement;
     expect(form).not.toBeNull();

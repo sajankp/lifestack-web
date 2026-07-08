@@ -8,6 +8,7 @@ import { DatePicker } from '../../components/DatePicker';
 import { queryKeys } from '../../lib/queryKeys';
 import { DropdownSelect } from '../../components/DropdownSelect';
 import { Combobox } from '../../components/Combobox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import type {
   Instrument,
   InstrumentConstituentUpsert,
@@ -419,25 +420,12 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
       </div>
 
       {/* Create Instrument Modal */}
-      {isCreateInstrumentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => setIsCreateInstrumentModalOpen(false)}
-          />
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <h2 className="text-lg font-semibold text-white">Create Instrument</h2>
-              <button
-                type="button"
-                onClick={() => setIsCreateInstrumentModalOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                title="Close dialog"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
+      <Dialog open={isCreateInstrumentModalOpen} onOpenChange={(open) => !open && setIsCreateInstrumentModalOpen(false)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-4 mb-4 border-b border-slate-800">
+            <DialogTitle>Create Instrument</DialogTitle>
+          </DialogHeader>
+          {isCreateInstrumentModalOpen && (
             <form onSubmit={onCreateInstrument} className="space-y-4">
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-semibold text-slate-300">Symbol (e.g. VTI)</label>
@@ -499,30 +487,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                 </p>
               )}
             </form>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Seed Constituents Modal */}
-      {isSeedConstituentsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => setIsSeedConstituentsModalOpen(false)}
-          />
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <h2 className="text-lg font-semibold text-white">Seed Constituents</h2>
-              <button
-                type="button"
-                onClick={() => setIsSeedConstituentsModalOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                title="Close dialog"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
+      <Dialog open={isSeedConstituentsModalOpen} onOpenChange={(open) => !open && setIsSeedConstituentsModalOpen(false)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-4 mb-4 border-b border-slate-800">
+            <DialogTitle>Seed Constituents</DialogTitle>
+          </DialogHeader>
+          {isSeedConstituentsModalOpen && (
             <form onSubmit={onUpsertConstituents} className="space-y-4">
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-semibold text-slate-300">Select Pooled Instrument</label>
@@ -570,9 +545,9 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                 </p>
               )}
             </form>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

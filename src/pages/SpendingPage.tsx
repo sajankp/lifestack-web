@@ -34,7 +34,6 @@ import {
   Plus,
   Trash2,
   Tag,
-  X,
   Target,
   RefreshCw,
   ArrowRightLeft,
@@ -48,9 +47,12 @@ import { CompactFilterBar, CompactFilterField } from '../components/filters/Comp
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { TransferModal } from '../components/finance/TransferModal';
+import { QuickCreateAccountForm } from '../components/finance/QuickCreateAccountForm';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import type { AccountType } from '../types/finance';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { formatCurrency } from '../utils/numberFormat';
 import { formatDate } from '../utils/dateFormat';
 import { TransactionsTab } from './spending/TransactionsTab';
@@ -239,7 +241,7 @@ export const SpendingPage: React.FC = () => {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryIcon, setNewCategoryIcon] = useState('');
   const [newAccountName, setNewAccountName] = useState('');
-  const [newAccountType, setNewAccountType] = useState<'bank' | 'wallet' | 'card' | 'gift_card'>('wallet');
+  const [newAccountType, setNewAccountType] = useState<AccountType>('wallet');
   const [newAccountCurrency, setNewAccountCurrency] = useState('USD');
   const [recurringPendingDeactivate, setRecurringPendingDeactivate] = useState<{
     publicId: string;
@@ -323,13 +325,6 @@ export const SpendingPage: React.FC = () => {
     () => new Map(allAccounts.map((account) => [account.public_id, account])),
     [allAccounts]
   );
-  const accountTypeOptions: Array<{ value: 'bank' | 'wallet' | 'card' | 'gift_card'; label: string }> = [
-    { value: 'wallet', label: 'Wallet' },
-    { value: 'bank', label: 'Bank' },
-    { value: 'card', label: 'Card' },
-    { value: 'gift_card', label: 'Gift Card' },
-  ];
-
   const {
     control: budgetControl,
     register: registerBudgetField,
@@ -1330,25 +1325,12 @@ export const SpendingPage: React.FC = () => {
       ) : null}
 
       {/* Recurring Modal */}
-      {isRecurringModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
-            onClick={closeRecurringModal}
-          />
-          <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
-              <h3 className="text-lg font-semibold text-white">
-                {editingRecurring ? 'Edit Recurring Rule' : 'New Recurring Rule'}
-              </h3>
-              <button
-                onClick={closeRecurringModal}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+      <Dialog open={isRecurringModalOpen} onOpenChange={(open) => !open && closeRecurringModal()}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
+            <DialogTitle>{editingRecurring ? 'Edit Recurring Rule' : 'New Recurring Rule'}</DialogTitle>
+          </DialogHeader>
+          {isRecurringModalOpen && (
             <form onSubmit={handleRecurringSubmit(handleSaveRecurring)} className="space-y-5 p-6">
               {(createRecurringMutation.isError || updateRecurringMutation.isError) && (
                 <div className="rounded-xl border bg-red-500/10 border-red-500/50 p-3 text-sm text-red-400">
@@ -1628,30 +1610,16 @@ export const SpendingPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-          <div 
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" 
-            onClick={closeTransactionModal}
-          />
-          
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
-              <h3 className="text-lg font-semibold text-white">
-                {editingTransaction ? 'Edit Transaction' : 'New Transaction'}
-              </h3>
-              <button 
-                onClick={closeTransactionModal}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
+      <Dialog open={isModalOpen} onOpenChange={(open) => !open && closeTransactionModal()}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
+            <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'New Transaction'}</DialogTitle>
+          </DialogHeader>
+          {isModalOpen && (
             <form onSubmit={handleSaveTransaction} className="p-6">
               <div className="space-y-5">
                 {/* Type Selection */}
@@ -1735,13 +1703,27 @@ export const SpendingPage: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setNewAccountCurrency(displayCurrency || 'USD');
-                      setIsQuickAccountModalOpen(true);
+                      setIsQuickAccountModalOpen((open) => !open);
                     }}
                     className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-cyan-400 hover:text-cyan-300"
                   >
                     <Landmark className="h-3.5 w-3.5" />
-                    Create account
+                    {isQuickAccountModalOpen ? 'Cancel new account' : 'Create account'}
                   </button>
+                  {isQuickAccountModalOpen && (
+                    <QuickCreateAccountForm
+                      name={newAccountName}
+                      onNameChange={setNewAccountName}
+                      type={newAccountType}
+                      onTypeChange={setNewAccountType}
+                      currency={newAccountCurrency}
+                      onCurrencyChange={setNewAccountCurrency}
+                      onSubmit={() => createAccountMutation.mutate()}
+                      isPending={createAccountMutation.isPending}
+                      isError={createAccountMutation.isError}
+                      testIdPrefix="spending-account"
+                    />
+                  )}
                 </div>
 
                 {/* Date */}
@@ -1794,29 +1776,17 @@ export const SpendingPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Budget Modal */}
-      {isBudgetModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-          <div 
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" 
-            onClick={closeBudgetModal}
-          />
-          
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
-              <h3 className="text-lg font-semibold text-white">{editingBudgetId ? 'Edit Budget' : 'Set Budget'}</h3>
-              <button 
-                onClick={closeBudgetModal}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
+      <Dialog open={isBudgetModalOpen} onOpenChange={(open) => !open && closeBudgetModal()}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
+            <DialogTitle>{editingBudgetId ? 'Edit Budget' : 'Set Budget'}</DialogTitle>
+          </DialogHeader>
+          {isBudgetModalOpen && (
             <form onSubmit={handleBudgetSubmit(handleSaveBudget)} className="p-6">
               {(createBudgetMutation.isError || updateBudgetMutation.isError) && (
                 <div className="mb-4 rounded-xl relative border bg-red-500/10 border-red-500/50 p-3 text-sm text-red-500 font-medium">
@@ -2059,88 +2029,9 @@ export const SpendingPage: React.FC = () => {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-
-
-      {isQuickAccountModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-0">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
-            onClick={() => setIsQuickAccountModalOpen(false)}
-          />
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
-              <h3 className="text-lg font-semibold text-white">Create Wallet / Account</h3>
-              <button
-                onClick={() => setIsQuickAccountModalOpen(false)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form
-              className="space-y-4 p-6"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (createAccountMutation.isPending || !newAccountName.trim()) return;
-                createAccountMutation.mutate();
-              }}
-            >
-              <div>
-                <Label className="mb-2 block">Account Name</Label>
-                <Input
-                  value={newAccountName}
-                  onChange={(e) => setNewAccountName(e.target.value)}
-                  placeholder="e.g. Main Wallet"
-                />
-              </div>
-              <div>
-                <Label className="mb-2 block">Type</Label>
-                <DropdownSelect
-                  value={newAccountType}
-                  onChange={(value) => setNewAccountType(value as 'bank' | 'wallet' | 'card' | 'gift_card')}
-                  options={accountTypeOptions}
-                  placeholder="Select account type"
-                />
-              </div>
-              <div>
-                <Label className="mb-2 block">Default Currency</Label>
-                <Input
-                  value={newAccountCurrency}
-                  onChange={(e) => setNewAccountCurrency(e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase())}
-                  placeholder="USD"
-                  maxLength={3}
-                />
-              </div>
-              {createAccountMutation.isError ? (
-                <p className="text-sm text-rose-400">
-                  Failed to create account. Check fields and try again.
-                </p>
-              ) : null}
-              <div className="mt-6 flex gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => setIsQuickAccountModalOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  disabled={createAccountMutation.isPending || !newAccountName.trim() || newAccountCurrency.trim().length !== 3}
-                >
-                  {createAccountMutation.isPending ? 'Creating...' : 'Create Account'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       <TransferModal
         open={isTransferModalOpen}
@@ -2153,16 +2044,12 @@ export const SpendingPage: React.FC = () => {
       />
 
       {/* Edit Transfer Modal */}
-      {editingTransfer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" onClick={() => setEditingTransfer(null)} />
-          <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-              <h3 className="text-lg font-semibold text-white">Edit Transfer</h3>
-              <button onClick={() => setEditingTransfer(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      <Dialog open={!!editingTransfer} onOpenChange={(open) => !open && setEditingTransfer(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="border-b border-slate-800 px-6 py-4">
+            <DialogTitle>Edit Transfer</DialogTitle>
+          </DialogHeader>
+          {editingTransfer && (
             <form
               className="space-y-4 p-6"
               onSubmit={(e) => {
@@ -2260,16 +2147,15 @@ export const SpendingPage: React.FC = () => {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Transfer Confirmation */}
-      {deletingTransfer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity" onClick={() => setDeletingTransfer(null)} />
-          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="p-6 space-y-4">
+      <Dialog open={!!deletingTransfer} onOpenChange={(open) => !open && setDeletingTransfer(null)}>
+        <DialogContent className="max-w-md">
+          {deletingTransfer && (
+            <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <div className="rounded-full bg-red-500/10 p-2.5">
                   <Trash2 className="h-5 w-5 text-red-400" />
@@ -2313,26 +2199,16 @@ export const SpendingPage: React.FC = () => {
                 </Button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
-      {isManageCategoriesOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-0">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
-            onClick={() => setIsManageCategoriesOpen(false)}
-          />
-          <div className="relative w-full max-w-sm rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-              <h3 className="text-lg font-semibold text-white">Manage Categories</h3>
-              <button
-                onClick={() => setIsManageCategoriesOpen(false)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      <Dialog open={isManageCategoriesOpen} onOpenChange={(open) => !open && setIsManageCategoriesOpen(false)}>
+        <DialogContent className="max-w-sm p-0">
+          <DialogHeader className="border-b border-slate-800 px-6 py-4">
+            <DialogTitle>Manage Categories</DialogTitle>
+          </DialogHeader>
+          {isManageCategoriesOpen && (
             <form
               className="space-y-4 p-6"
               onSubmit={(e) => {
@@ -2371,9 +2247,9 @@ export const SpendingPage: React.FC = () => {
                 {createCategoryMutation.isPending ? 'Creating...' : 'Create Category'}
               </button>
             </form>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={!!pendingDeleteTransactionId}

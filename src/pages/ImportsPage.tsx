@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { DropdownSelect } from '../components/DropdownSelect';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { useToast } from '../components/ui/toast';
 import { importsService } from '../services/imports';
 import { financeService } from '../services/finance';
@@ -276,25 +277,12 @@ export const ImportsPage: React.FC = () => {
         )}
       />
 
-      {isUploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => setIsUploadModalOpen(false)}
-          />
-          <div className="relative w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <h2 className="text-lg font-semibold text-white">New Import</h2>
-              <button
-                type="button"
-                onClick={() => setIsUploadModalOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                title="Close dialog"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
+      <Dialog open={isUploadModalOpen} onOpenChange={(open) => !open && setIsUploadModalOpen(false)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-4 mb-4 border-b border-slate-800">
+            <DialogTitle>New Import</DialogTitle>
+          </DialogHeader>
+          {isUploadModalOpen && (
             <div className="space-y-4">
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-semibold text-slate-300">Select module</label>
@@ -439,9 +427,9 @@ export const ImportsPage: React.FC = () => {
                 <p className="mt-2 text-sm text-rose-300">Import validation failed to submit. Check file and try again.</p>
               ) : null}
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Circle, Edit2, Plus, Trash2, X } from 'lucide-react';
+import { CheckCircle2, Circle, Edit2, Plus, Trash2 } from 'lucide-react';
 
 import { DropdownSelect } from '../components/DropdownSelect';
 import { CompactFilterBar, CompactFilterField } from '../components/filters/CompactFilterBar';
@@ -12,6 +12,7 @@ import { PageShell } from '../components/layout/PageShell';
 import { Pagination } from '../components/Pagination';
 import { SkeletonList } from '../components/ui/FeedbackStates';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { queryKeys } from '../lib/queryKeys';
 import { todoService } from '../services/todo';
@@ -403,24 +404,12 @@ export const TodoPage: React.FC = () => {
         )}
       />
 
-      {isTaskModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={closeTaskModal}
-          />
-          <div className="relative w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
-              <h2 className="text-lg font-semibold text-white">{editingTodo ? 'Edit task' : 'New task'}</h2>
-              <button
-                type="button"
-                onClick={closeTaskModal}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                title="Close dialog"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+      <Dialog open={isTaskModalOpen} onOpenChange={(open) => !open && closeTaskModal()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader className="border-b border-slate-800 pb-4 mb-4">
+            <DialogTitle>{editingTodo ? 'Edit task' : 'New task'}</DialogTitle>
+          </DialogHeader>
+          {isTaskModalOpen && (
             <form onSubmit={handleSaveTask} className="space-y-4">
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-semibold text-slate-300">What needs to be done?</label>
@@ -506,9 +495,9 @@ export const TodoPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Tabs
         value={searchParams.get('tab') || 'tasks'}
@@ -715,25 +704,12 @@ export const TodoPage: React.FC = () => {
         </TabsContent>
       </Tabs>
 
-      {isRecurringModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
-            onClick={closeRecurringModal}
-          />
-          <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
-              <h3 className="text-lg font-semibold text-white">
-                {editingRecurringRule ? 'Edit recurring todo' : 'Create recurring todo'}
-              </h3>
-              <button
-                type="button"
-                onClick={closeRecurringModal}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+      <Dialog open={isRecurringModalOpen} onOpenChange={(open) => !open && closeRecurringModal()}>
+        <DialogContent className="max-w-lg p-0">
+          <DialogHeader className="border-b border-slate-800 px-5 py-4">
+            <DialogTitle>{editingRecurringRule ? 'Edit recurring todo' : 'Create recurring todo'}</DialogTitle>
+          </DialogHeader>
+          {isRecurringModalOpen && (
             <form onSubmit={handleSaveRule} className="space-y-4 p-5">
               <input
                 data-testid="todo-recurring-title"
@@ -854,9 +830,9 @@ export const TodoPage: React.FC = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      ) : null}
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={!!pendingDeleteTodoId}
