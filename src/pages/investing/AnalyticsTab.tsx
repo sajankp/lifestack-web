@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3, Check, Edit2, Layers, Plus, X } from 'lucide-react';
+import { BarChart3, Check, ChevronDown, Edit2, Layers, Plus, Settings2, X } from 'lucide-react';
 import { investingService } from '../../services/investing';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { formatCurrency, toNumber } from '../../utils/numberFormat';
@@ -183,9 +183,22 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
   return (
     <>
       <div className="space-y-6">
-        <div data-testid="investing-analytics-heading" className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div data-testid="investing-analytics-heading" className="mb-2">
           <h3 className="font-semibold text-white text-base">Analytics</h3>
-          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
+        </div>
+
+        {/* Instrument/constituent authoring is workspace setup, not a daily
+            analytics action — tucked behind an Advanced disclosure so it
+            doesn't compete with the read-only analytics below (UX-REVIEW D5). */}
+        <details className="group rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-sm font-semibold text-slate-300">
+              <Settings2 className="h-4 w-4" />
+              Advanced
+            </span>
+            <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-4 grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
             <button
               type="button"
               onClick={() => setIsCreateInstrumentModalOpen(true)}
@@ -203,7 +216,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
               Seed Constituents
             </button>
           </div>
-        </div>
+        </details>
 
         <div className="grid gap-6 lg:grid-cols-4">
           <div className="lg:col-span-1 space-y-4">

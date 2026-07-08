@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Landmark, WalletCards, X } from 'lucide-react';
+import { Landmark, Plus, WalletCards, X } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { investingService } from '../services/investing';
-import type { InvestingOrder, InvestingOrderUpdate, OrderType } from '../services/investing';
+import type { InvestingOrder, InvestingOrderCreate, InvestingOrderUpdate, OrderType } from '../services/investing';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
 import { CurrencyBadge } from '../components/finance/Badges';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Button } from '../components/ui/button';
+import { DropdownSelect } from '../components/DropdownSelect';
 import {
   Dialog,
   DialogContent,
@@ -40,11 +41,17 @@ export const InvestingPage: React.FC = () => {
 
   // The Holdings empty state deep-links here as ?tab=cash&order=1 to open
   // the Place Order flow directly; consume the params once, then strip them.
+  // Place Order itself is hoisted to this page (reachable from every tab —
+  // UX-REVIEW P2 item 13), so this just opens the page-level modal state.
   const shouldAutoOpenOrder = searchParams.get('order') === '1';
+  const [isPlaceOrderModalOpen, setIsPlaceOrderModalOpen] = useState(false);
   React.useEffect(() => {
     if (requestedTab || shouldAutoOpenOrder) {
       if (requestedTab && (VALID_TABS as readonly string[]).includes(requestedTab)) {
         setTab(requestedTab as typeof VALID_TABS[number]);
+      }
+      if (shouldAutoOpenOrder) {
+        setIsPlaceOrderModalOpen(true);
       }
       setSearchParams((params) => {
         params.delete('tab');
@@ -81,6 +88,125 @@ export const InvestingPage: React.FC = () => {
     currencyOptions.includes(userFinanceSettings.effective_reporting_currency_code)
       ? userFinanceSettings.effective_reporting_currency_code
       : null) ?? currencyOptions[0] ?? 'USD';
+  const currencyDropdownOptions = currencyOptions.map((code) => ({ value: code, label: code }));
+
+  const accountsRes = useQuery({
+    queryKey: queryKeys.finance.accounts(),
+    queryFn: () => financeService.getAccounts(200, 0),
+  });
+  const brokerageAccounts = useMemo(
+    () => (accountsRes.data?.items ?? []).filter((a) => a.account_type === 'brokerage'),
+    [accountsRes.data],
+  );
+  const brokerageAccountOptions = useMemo(
+    () => brokerageAccounts.map((a) => ({ value: a.public_id, label: a.name })),
+    [brokerageAccounts],
+  );
+
+  const [orderForm, setOrderForm] = useState<{
+    order_type: OrderType;
+    account_id: string;
+    symbol: string;
+    quantity: string;
+    price_per_unit: string;
+    currency: string;
+    brokerage_fee: string;
+    tax_amount: string;
+    other_fees: string;
+    exchange_name: string;
+    occurred_at: string;
+    notes: string;
+  }>({
+    order_type: 'buy',
+    account_id: '',
+    symbol: '',
+    quantity: '',
+    price_per_unit: '',
+    currency: 'USD',
+    brokerage_fee: '0',
+    tax_amount: '0',
+    other_fees: '0',
+    exchange_name: '',
+    occurred_at: formatDateTimeLocalInput(new Date()),
+    notes: '',
+  });
+
+  const openPlaceOrderModal = () => {
+    setIsPlaceOrderModalOpen(true);
+    if (!orderForm.account_id && brokerageAccounts.length > 0) {
+      const defaultAccount = brokerageAccounts[0];
+      setOrderForm((prev) => ({
+        ...prev,
+        account_id: defaultAccount.public_id,
+        currency: defaultAccount.default_currency_code || prev.currency,
+      }));
+    }
+  };
+
+  const placeOrderMutation = useInvalidatingMutation(
+    (payload: InvestingOrderCreate) => investingService.placeOrder(payload),
+    refreshKeys,
+    {
+      successMessage: 'Order placed',
+      errorMessage: false,
+      onSuccess: () => {
+        setOrderForm((prev) => ({
+          ...prev,
+          symbol: '',
+          quantity: '',
+          price_per_unit: '',
+          brokerage_fee: '0',
+          tax_amount: '0',
+          other_fees: '0',
+          exchange_name: '',
+          notes: '',
+          occurred_at: formatDateTimeLocalInput(new Date()),
+        }));
+        setIsPlaceOrderModalOpen(false);
+      },
+    },
+  );
+
+  const orderQty = Number(orderForm.quantity);
+  const orderPrice = Number(orderForm.price_per_unit);
+  const orderGross = Number.isFinite(orderQty) && Number.isFinite(orderPrice) ? orderQty * orderPrice : 0;
+  const orderFees =
+    Number(orderForm.brokerage_fee || 0) +
+    Number(orderForm.tax_amount || 0) +
+    Number(orderForm.other_fees || 0);
+  const orderNet = orderForm.order_type === 'buy' ? orderGross + orderFees : orderGross - orderFees;
+
+  const onPlaceOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    const brokerageFee = orderForm.brokerage_fee ? Number(orderForm.brokerage_fee) : 0;
+    const taxAmount = orderForm.tax_amount ? Number(orderForm.tax_amount) : 0;
+    const otherFees = orderForm.other_fees ? Number(orderForm.other_fees) : 0;
+    const occurredAtDate = new Date(orderForm.occurred_at);
+    if (
+      !orderForm.account_id ||
+      !orderForm.symbol ||
+      !Number.isFinite(orderQty) || orderQty <= 0 ||
+      !Number.isFinite(orderPrice) || orderPrice <= 0 ||
+      (orderForm.brokerage_fee && !Number.isFinite(brokerageFee)) || brokerageFee < 0 ||
+      (orderForm.tax_amount && !Number.isFinite(taxAmount)) || taxAmount < 0 ||
+      (orderForm.other_fees && !Number.isFinite(otherFees)) || otherFees < 0 ||
+      Number.isNaN(occurredAtDate.getTime())
+    ) return;
+    placeOrderMutation.mutate({
+      account_id: orderForm.account_id,
+      order_type: orderForm.order_type,
+      symbol: orderForm.symbol.trim().toUpperCase(),
+      quantity: orderQty,
+      price_per_unit: orderPrice,
+      currency: orderForm.currency,
+      brokerage_fee: brokerageFee,
+      tax_amount: taxAmount,
+      other_fees: otherFees,
+      exchange_name: orderForm.exchange_name || undefined,
+      occurred_at: occurredAtDate.toISOString(),
+      notes: orderForm.notes || undefined,
+    });
+  };
 
   // Order editing/deletion is shared between the Holdings tab's Trade History
   // modal and the Cash tab's Orders table, and this modal must stay mounted
@@ -219,6 +345,17 @@ export const InvestingPage: React.FC = () => {
       <PageHero
         title="Investing"
         subtitle="Manage holdings and cash balances for your workspace."
+        actions={(
+          <button
+            type="button"
+            data-testid="investing-hero-place-order"
+            onClick={openPlaceOrderModal}
+            className="flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-5 font-semibold text-white shadow-lg transition-all hover:bg-indigo-500 active:scale-95"
+          >
+            <Plus className="h-5 w-5" />
+            Place Order
+          </button>
+        )}
       />
 
       <div className="mb-6 grid gap-6 md:grid-cols-2 xl:grid-cols-5">
@@ -342,7 +479,7 @@ export const InvestingPage: React.FC = () => {
             onDeleteOrder={setPendingDeleteOrder}
             deleteOrderPending={deleteOrderMutation.isPending}
             updateOrderPending={updateOrderMutation.isPending}
-            autoOpenOrder={shouldAutoOpenOrder}
+            onOpenPlaceOrder={openPlaceOrderModal}
           />
         </TabsContent>
 
@@ -350,6 +487,229 @@ export const InvestingPage: React.FC = () => {
           <AnalyticsTab currencyDisplayPreference={currencyDisplayPreference} />
         </TabsContent>
       </Tabs>
+
+      {/* Place Order Modal — hoisted to the page (not the Cash tab) so it's
+          reachable via the hero button from every tab, not just Cash
+          (UX-REVIEW P2 item 13: "Investing's core action is buried"). */}
+      {isPlaceOrderModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/60 bg-slate-900 p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white">Place Order</h2>
+              <button
+                type="button"
+                onClick={() => setIsPlaceOrderModalOpen(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={onPlaceOrder} className="space-y-4">
+              <div data-testid="order-type-toggle" className="flex rounded-lg border border-slate-700/60 overflow-hidden">
+                {(['buy', 'sell'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setOrderForm((prev) => ({ ...prev, order_type: t }))}
+                    className={`flex-1 py-2 text-sm font-semibold transition-colors ${
+                      orderForm.order_type === t
+                        ? t === 'buy'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-rose-600 text-white'
+                        : 'bg-slate-800 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {t.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="mb-1 block text-xs text-slate-400">Brokerage Account</label>
+                  <DropdownSelect
+                    testId="order-account-select"
+                    options={brokerageAccountOptions}
+                    value={orderForm.account_id}
+                    onChange={(v) => {
+                      const selectedAccount = brokerageAccounts.find((a) => a.public_id === v);
+                      setOrderForm((prev) => ({
+                        ...prev,
+                        account_id: v,
+                        currency: selectedAccount?.default_currency_code || prev.currency,
+                      }));
+                    }}
+                    placeholder="Select brokerage account"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Symbol</label>
+                  <input
+                    data-testid="order-symbol"
+                    type="text"
+                    required
+                    value={orderForm.symbol}
+                    onChange={(e) => setOrderForm((prev) => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
+                    placeholder="AAPL"
+                    className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Currency</label>
+                  <DropdownSelect
+                    data-testid="order-currency"
+                    options={currencyDropdownOptions}
+                    value={orderForm.currency}
+                    onChange={(v) => setOrderForm((prev) => ({ ...prev, currency: v }))}
+                    placeholder="USD"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Quantity</label>
+                  <input
+                    data-testid="order-quantity"
+                    type="number"
+                    required
+                    min="0.00000001"
+                    step="any"
+                    value={orderForm.quantity}
+                    onChange={(e) => setOrderForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Price per unit</label>
+                  <input
+                    data-testid="order-price"
+                    type="number"
+                    required
+                    min="0.000001"
+                    step="any"
+                    value={orderForm.price_per_unit}
+                    onChange={(e) => setOrderForm((prev) => ({ ...prev, price_per_unit: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Brokerage fee</label>
+                  <input
+                    data-testid="order-brokerage-fee"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={orderForm.brokerage_fee}
+                    onChange={(e) => setOrderForm((prev) => ({ ...prev, brokerage_fee: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Tax / STT</label>
+                  <input
+                    data-testid="order-tax"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={orderForm.tax_amount}
+                    onChange={(e) => setOrderForm((prev) => ({ ...prev, tax_amount: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Other fees</label>
+                  <input
+                    data-testid="order-other-fees"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={orderForm.other_fees}
+                    onChange={(e) => setOrderForm((prev) => ({ ...prev, other_fees: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Exchange (optional)</label>
+                  <input
+                    data-testid="order-exchange"
+                    type="text"
+                    value={orderForm.exchange_name}
+                    onChange={(e) => setOrderForm((prev) => ({ ...prev, exchange_name: e.target.value }))}
+                    placeholder="NSE / NASDAQ"
+                    className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="mb-1 block text-xs text-slate-400">Trade date & time</label>
+                  <input
+                    data-testid="order-date"
+                    type="datetime-local"
+                    value={orderForm.occurred_at}
+                    onChange={(e) => setOrderForm((prev) => ({ ...prev, occurred_at: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="mb-1 block text-xs text-slate-400">Notes (optional)</label>
+                  <input
+                    data-testid="order-notes"
+                    type="text"
+                    value={orderForm.notes}
+                    onChange={(e) => setOrderForm((prev) => ({ ...prev, notes: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Gross amount</span>
+                  <span data-testid="order-gross-amount" className="text-white font-medium">
+                    {formatCurrency(orderGross, orderForm.currency, currencyDisplayPreference)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Total fees</span>
+                  <span data-testid="order-total-fees" className="text-white">
+                    {formatCurrency(orderFees, orderForm.currency, currencyDisplayPreference)}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-slate-700/50 pt-2">
+                  <span className="font-semibold text-white">Net {orderForm.order_type === 'buy' ? 'cost' : 'proceeds'}</span>
+                  <span data-testid="order-net-amount" className="font-semibold text-white">
+                    {formatCurrency(orderNet, orderForm.currency, currencyDisplayPreference)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPlaceOrderModalOpen(false)}
+                  className="flex-1 rounded-lg border border-slate-600/70 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  data-testid="order-submit"
+                  type="submit"
+                  disabled={placeOrderMutation.isPending || !orderForm.account_id || !orderForm.symbol || !orderQty || !orderPrice}
+                  className="flex-1 rounded-lg bg-indigo-600 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {placeOrderMutation.isPending ? 'Placing…' : `Place ${orderForm.order_type === 'buy' ? 'Buy' : 'Sell'} Order`}
+                </button>
+              </div>
+
+              {placeOrderMutation.isError && (
+                <p className="text-sm text-rose-400">
+                  {(placeOrderMutation.error as { response?: { data?: { detail?: string } } })
+                    ?.response?.data?.detail ??
+                    (placeOrderMutation.error as Error)?.message ??
+                    'Failed to place order'}
+                </p>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Edit Order Modal — kept outside TabsContent so it stays mounted when
           triggered from the Trade History modal (which lives on the Holdings

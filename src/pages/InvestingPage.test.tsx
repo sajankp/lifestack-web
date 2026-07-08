@@ -136,10 +136,9 @@ describe('InvestingPage', () => {
     const analyticsTab = screen.getByTestId('investing-tab-analytics');
     analyticsTab.focus();
     fireEvent.keyDown(analyticsTab, { key: 'Enter', code: 'Enter' });
-    expect(await screen.findByTestId('investing-analytics-heading')).toHaveClass(
-      'flex-col',
-      'sm:flex-row',
-    );
+    // Create Instrument / Seed Constituents moved behind an Advanced
+    // disclosure (UX-REVIEW D5), so the heading row is just the title now.
+    expect(await screen.findByTestId('investing-analytics-heading')).toHaveTextContent('Analytics');
 
     // First-run: empty Holdings links straight into the order flow instead
     // of leaving the user to hunt for "Place Order" on another tab.
@@ -1908,7 +1907,7 @@ describe('InvestingPage', () => {
     const transferRow = await screen.findByTestId('investing-transfer-row-transfer-1');
     expect(transferRow).toHaveTextContent('HDFC Bank');
     expect(transferRow).toHaveTextContent('Groww');
-    expect(screen.getByTestId('investing-transfers-manage-link')).toHaveAttribute('href', '/spending');
+    expect(screen.getByTestId('investing-transfers-manage-link')).toHaveAttribute('href', '/spending?tab=ledger');
   });
 
   it('opens the Cash tab and the Place Order modal directly from a ?tab=cash&order=1 deep link', async () => {

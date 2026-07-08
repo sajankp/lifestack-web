@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Edit2, Plus, Trash2, X } from 'lucide-react';
+import { ArrowRightLeft, Edit2, Plus, Trash2, X } from 'lucide-react';
 import { financeService } from '../../services/finance';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { investingService } from '../../services/investing';
-import type { CashBalance, InvestingOrder, InvestingOrderCreate, OrderType } from '../../services/investing';
+import type { CashBalance, InvestingOrder } from '../../services/investing';
 import { formatCurrency, toNumber } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
 import { DateTimePicker } from '../../components/DateTimePicker';
@@ -16,6 +16,7 @@ import { Combobox } from '../../components/Combobox';
 import { Pagination } from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { SkeletonList } from '../../components/ui/FeedbackStates';
+import { TransferModal } from '../../components/finance/TransferModal';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +37,10 @@ interface CashTabProps {
   onDeleteOrder: (order: InvestingOrder) => void;
   deleteOrderPending: boolean;
   updateOrderPending: boolean;
-  autoOpenOrder?: boolean;
+  /** Place Order is hoisted to the Investing page hero so it's reachable
+      from every tab (UX-REVIEW P2 item 13) — this section still lists
+      orders, but opens the page-level modal instead of owning its own. */
+  onOpenPlaceOrder: () => void;
 }
 
 const ORDERS_PAGE_SIZE = 50;
@@ -47,7 +51,7 @@ export const CashTab: React.FC<CashTabProps> = ({
   onDeleteOrder,
   deleteOrderPending,
   updateOrderPending,
-  autoOpenOrder,
+  onOpenPlaceOrder,
 }) => {
   const [cashAccountFilter, setCashAccountFilter] = useState('');
   const [cashCurrencyFilter, setCashCurrencyFilter] = useState('');
@@ -64,44 +68,7 @@ export const CashTab: React.FC<CashTabProps> = ({
   const [pendingDeleteCash, setPendingDeleteCash] = useState<CashBalance | null>(null);
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card'>('brokerage');
-
-  const [isPlaceOrderModalOpen, setIsPlaceOrderModalOpen] = useState(false);
-
-  // The Holdings tab's empty state deep-links here (?tab=cash&order=1) to
-  // open the order flow directly instead of leaving the user to find it.
-  useEffect(() => {
-    if (autoOpenOrder) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to an external ?order=1 deep link, not derived render state
-      setIsPlaceOrderModalOpen(true);
-    }
-  }, [autoOpenOrder]);
-  const [orderForm, setOrderForm] = useState<{
-    order_type: OrderType;
-    account_id: string;
-    symbol: string;
-    quantity: string;
-    price_per_unit: string;
-    currency: string;
-    brokerage_fee: string;
-    tax_amount: string;
-    other_fees: string;
-    exchange_name: string;
-    occurred_at: string;
-    notes: string;
-  }>({
-    order_type: 'buy',
-    account_id: '',
-    symbol: '',
-    quantity: '',
-    price_per_unit: '',
-    currency: 'USD',
-    brokerage_fee: '0',
-    tax_amount: '0',
-    other_fees: '0',
-    exchange_name: '',
-    occurred_at: formatDateTimeLocalInput(new Date()),
-    notes: '',
-  });
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [orderSymbolFilter, setOrderSymbolFilter] = useState('');
   const [orderTypeFilter, setOrderTypeFilter] = useState<'' | 'buy' | 'sell'>('');
   const [ordersSortCol, setOrdersSortCol] = useState('occurred_at');
@@ -138,15 +105,6 @@ export const CashTab: React.FC<CashTabProps> = ({
     () => accounts.map((acc) => ({ value: acc.public_id, label: acc.name })),
     [accounts]
   );
-  const brokerageAccounts = useMemo(
-    () => accounts.filter((a) => a.account_type === 'brokerage'),
-    [accounts]
-  );
-  const brokerageAccountOptions = useMemo(
-    () => brokerageAccounts.map((a) => ({ value: a.public_id, label: a.name })),
-    [brokerageAccounts]
-  );
-
   const userFinanceSettingsRes = useQuery({
     queryKey: queryKeys.finance.settings('user'),
     queryFn: () => financeService.getUserSettings(),
@@ -222,30 +180,6 @@ export const CashTab: React.FC<CashTabProps> = ({
       onSuccess: (created) => {
         setNewAccountName('');
         setCashForm((prev) => ({ ...prev, account_id: created.public_id }));
-      },
-    },
-  );
-
-  const placeOrderMutation = useInvalidatingMutation(
-    (payload: InvestingOrderCreate) => investingService.placeOrder(payload),
-    refreshKeys,
-    {
-      successMessage: 'Order placed',
-      errorMessage: false,
-      onSuccess: () => {
-        setOrderForm((prev) => ({
-          ...prev,
-          symbol: '',
-          quantity: '',
-          price_per_unit: '',
-          brokerage_fee: '0',
-          tax_amount: '0',
-          other_fees: '0',
-          exchange_name: '',
-          notes: '',
-          occurred_at: formatDateTimeLocalInput(new Date()),
-        }));
-        setIsPlaceOrderModalOpen(false);
       },
     },
   );
@@ -327,47 +261,6 @@ export const CashTab: React.FC<CashTabProps> = ({
       ),
     [transfers, cashAccountFilter]
   );
-
-  const orderQty = Number(orderForm.quantity);
-  const orderPrice = Number(orderForm.price_per_unit);
-  const orderGross = Number.isFinite(orderQty) && Number.isFinite(orderPrice) ? orderQty * orderPrice : 0;
-  const orderFees =
-    Number(orderForm.brokerage_fee || 0) +
-    Number(orderForm.tax_amount || 0) +
-    Number(orderForm.other_fees || 0);
-  const orderNet = orderForm.order_type === 'buy' ? orderGross + orderFees : orderGross - orderFees;
-
-  const onPlaceOrder = (e: React.FormEvent) => {
-    e.preventDefault();
-    const brokerageFee = orderForm.brokerage_fee ? Number(orderForm.brokerage_fee) : 0;
-    const taxAmount = orderForm.tax_amount ? Number(orderForm.tax_amount) : 0;
-    const otherFees = orderForm.other_fees ? Number(orderForm.other_fees) : 0;
-    const occurredAtDate = new Date(orderForm.occurred_at);
-    if (
-      !orderForm.account_id ||
-      !orderForm.symbol ||
-      !Number.isFinite(orderQty) || orderQty <= 0 ||
-      !Number.isFinite(orderPrice) || orderPrice <= 0 ||
-      (orderForm.brokerage_fee && !Number.isFinite(brokerageFee)) || brokerageFee < 0 ||
-      (orderForm.tax_amount && !Number.isFinite(taxAmount)) || taxAmount < 0 ||
-      (orderForm.other_fees && !Number.isFinite(otherFees)) || otherFees < 0 ||
-      Number.isNaN(occurredAtDate.getTime())
-    ) return;
-    placeOrderMutation.mutate({
-      account_id: orderForm.account_id,
-      order_type: orderForm.order_type,
-      symbol: orderForm.symbol.trim().toUpperCase(),
-      quantity: orderQty,
-      price_per_unit: orderPrice,
-      currency: orderForm.currency,
-      brokerage_fee: brokerageFee,
-      tax_amount: taxAmount,
-      other_fees: otherFees,
-      exchange_name: orderForm.exchange_name || undefined,
-      occurred_at: occurredAtDate.toISOString(),
-      notes: orderForm.notes || undefined,
-    });
-  };
 
   const onCreateCash = (e: React.FormEvent) => {
     e.preventDefault();
@@ -503,17 +396,7 @@ export const CashTab: React.FC<CashTabProps> = ({
             <button
               type="button"
               data-testid="investing-place-order-btn"
-              onClick={() => {
-                setIsPlaceOrderModalOpen(true);
-                if (!orderForm.account_id && brokerageAccounts.length > 0) {
-                  const defaultAccount = brokerageAccounts[0];
-                  setOrderForm((prev) => ({
-                    ...prev,
-                    account_id: defaultAccount.public_id,
-                    currency: defaultAccount.default_currency_code || prev.currency,
-                  }));
-                }
-              }}
+              onClick={onOpenPlaceOrder}
               className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
               <Plus className="h-4 w-4" />
@@ -717,229 +600,6 @@ export const CashTab: React.FC<CashTabProps> = ({
           />
         </div>
 
-        {/* Place Order Modal */}
-        {isPlaceOrderModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/60 bg-slate-900 p-6 shadow-2xl">
-              <div className="mb-5 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white">Place Order</h2>
-                <button
-                  type="button"
-                  onClick={() => setIsPlaceOrderModalOpen(false)}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <form onSubmit={onPlaceOrder} className="space-y-4">
-                {/* Buy / Sell toggle */}
-                <div data-testid="order-type-toggle" className="flex rounded-lg border border-slate-700/60 overflow-hidden">
-                  {(['buy', 'sell'] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setOrderForm((prev) => ({ ...prev, order_type: t }))}
-                      className={`flex-1 py-2 text-sm font-semibold transition-colors ${
-                        orderForm.order_type === t
-                          ? t === 'buy'
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-rose-600 text-white'
-                          : 'bg-slate-800 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      {t.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <label className="mb-1 block text-xs text-slate-400">Brokerage Account</label>
-                    <DropdownSelect
-                      testId="order-account-select"
-                      options={brokerageAccountOptions}
-                      value={orderForm.account_id}
-                      onChange={(v) => {
-                        const selectedAccount = brokerageAccounts.find((a) => a.public_id === v);
-                        setOrderForm((prev) => ({
-                          ...prev,
-                          account_id: v,
-                          currency: selectedAccount?.default_currency_code || prev.currency,
-                        }));
-                      }}
-                      placeholder="Select brokerage account"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-400">Symbol</label>
-                    <input
-                      data-testid="order-symbol"
-                      type="text"
-                      required
-                      value={orderForm.symbol}
-                      onChange={(e) => setOrderForm((prev) => ({ ...prev, symbol: e.target.value.toUpperCase() }))}
-                      placeholder="AAPL"
-                      className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white placeholder:text-slate-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-400">Currency</label>
-                    <DropdownSelect
-                      data-testid="order-currency"
-                      options={currencyDropdownOptions}
-                      value={orderForm.currency}
-                      onChange={(v) => setOrderForm((prev) => ({ ...prev, currency: v }))}
-                      placeholder="USD"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-400">Quantity</label>
-                    <input
-                      data-testid="order-quantity"
-                      type="number"
-                      required
-                      min="0.00000001"
-                      step="any"
-                      value={orderForm.quantity}
-                      onChange={(e) => setOrderForm((prev) => ({ ...prev, quantity: e.target.value }))}
-                      className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-400">Price per unit</label>
-                    <input
-                      data-testid="order-price"
-                      type="number"
-                      required
-                      min="0.000001"
-                      step="any"
-                      value={orderForm.price_per_unit}
-                      onChange={(e) => setOrderForm((prev) => ({ ...prev, price_per_unit: e.target.value }))}
-                      className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-400">Brokerage fee</label>
-                    <input
-                      data-testid="order-brokerage-fee"
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={orderForm.brokerage_fee}
-                      onChange={(e) => setOrderForm((prev) => ({ ...prev, brokerage_fee: e.target.value }))}
-                      className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-400">Tax / STT</label>
-                    <input
-                      data-testid="order-tax"
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={orderForm.tax_amount}
-                      onChange={(e) => setOrderForm((prev) => ({ ...prev, tax_amount: e.target.value }))}
-                      className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-400">Other fees</label>
-                    <input
-                      data-testid="order-other-fees"
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={orderForm.other_fees}
-                      onChange={(e) => setOrderForm((prev) => ({ ...prev, other_fees: e.target.value }))}
-                      className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs text-slate-400">Exchange (optional)</label>
-                    <input
-                      data-testid="order-exchange"
-                      type="text"
-                      value={orderForm.exchange_name}
-                      onChange={(e) => setOrderForm((prev) => ({ ...prev, exchange_name: e.target.value }))}
-                      placeholder="NSE / NASDAQ"
-                      className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white placeholder:text-slate-500"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="mb-1 block text-xs text-slate-400">Trade date & time</label>
-                    <input
-                      data-testid="order-date"
-                      type="datetime-local"
-                      value={orderForm.occurred_at}
-                      onChange={(e) => setOrderForm((prev) => ({ ...prev, occurred_at: e.target.value }))}
-                      className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="mb-1 block text-xs text-slate-400">Notes (optional)</label>
-                    <input
-                      data-testid="order-notes"
-                      type="text"
-                      value={orderForm.notes}
-                      onChange={(e) => setOrderForm((prev) => ({ ...prev, notes: e.target.value }))}
-                      className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Computed summary */}
-                <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Gross amount</span>
-                    <span data-testid="order-gross-amount" className="text-white font-medium">
-                      {formatCurrency(orderGross, orderForm.currency, currencyDisplayPreference)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Total fees</span>
-                    <span data-testid="order-total-fees" className="text-white">
-                      {formatCurrency(orderFees, orderForm.currency, currencyDisplayPreference)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-t border-slate-700/50 pt-2">
-                    <span className="font-semibold text-white">Net {orderForm.order_type === 'buy' ? 'cost' : 'proceeds'}</span>
-                    <span data-testid="order-net-amount" className="font-semibold text-white">
-                      {formatCurrency(orderNet, orderForm.currency, currencyDisplayPreference)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsPlaceOrderModalOpen(false)}
-                    className="flex-1 rounded-lg border border-slate-600/70 py-2 text-sm text-slate-300 hover:bg-slate-800"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    data-testid="order-submit"
-                    type="submit"
-                    disabled={placeOrderMutation.isPending || !orderForm.account_id || !orderForm.symbol || !orderQty || !orderPrice}
-                    className="flex-1 rounded-lg bg-indigo-600 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {placeOrderMutation.isPending ? 'Placing…' : `Place ${orderForm.order_type === 'buy' ? 'Buy' : 'Sell'} Order`}
-                  </button>
-                </div>
-
-                {placeOrderMutation.isError && (
-                  <p className="text-sm text-rose-400">
-                    {(placeOrderMutation.error as { response?: { data?: { detail?: string } } })
-                      ?.response?.data?.detail ??
-                      (placeOrderMutation.error as Error)?.message ??
-                      'Failed to place order'}
-                  </p>
-                )}
-              </form>
-            </div>
-          </div>
-        )}
-
         <div className="space-y-6">
           <div data-testid="investing-cash-heading" className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="font-semibold text-white text-base">Cash Balances</h3>
@@ -1048,18 +708,31 @@ export const CashTab: React.FC<CashTabProps> = ({
             </div>
           </div>
 
-          {/* Transfers moving cash in/out of the selected account — read-only
-              context for reconciliation; full transfer CRUD lives in Spending. */}
+          {/* Transfers moving cash in/out of the selected account — this list
+              stays read-only (full history lives in Spending's Account
+              activity tab), but Transfer is a shared action so creating one
+              no longer requires leaving Investing (UX-REVIEW Theme 3). */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-white text-base">Transfers</h3>
-              <Link
-                to="/spending"
-                data-testid="investing-transfers-manage-link"
-                className="text-xs font-medium text-cyan-300 hover:text-cyan-200"
-              >
-                Manage in Spending →
-              </Link>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  data-testid="investing-transfer-btn"
+                  onClick={() => setIsTransferModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-cyan-300 hover:text-cyan-200"
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                  Transfer
+                </button>
+                <Link
+                  to="/spending?tab=ledger"
+                  data-testid="investing-transfers-manage-link"
+                  className="text-xs font-medium text-slate-400 hover:text-slate-300"
+                >
+                  View full history →
+                </Link>
+              </div>
             </div>
             {/* Mobile / tablet card list */}
             <div className="space-y-3 lg:hidden">
@@ -1323,6 +996,13 @@ export const CashTab: React.FC<CashTabProps> = ({
           )}
         </DialogContent>
       </Dialog>
+
+      <TransferModal
+        open={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        accounts={accounts}
+        defaultFromAccountId={cashAccountFilter || undefined}
+      />
     </>
   );
 };
