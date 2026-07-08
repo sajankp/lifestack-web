@@ -11,6 +11,7 @@ import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { OnboardingChecklist } from '../components/dashboard/OnboardingChecklist';
 import type { OnboardingChecklistStep } from '../components/dashboard/OnboardingChecklist';
+import { BriefingCard } from '../components/dashboard/BriefingCard';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
 import { formatDateTime } from '../utils/dateFormat';
 import { queryKeys } from '../lib/queryKeys';
@@ -54,6 +55,14 @@ export const DashboardPage: React.FC = () => {
   const { data: pushSubscriptions } = useQuery({
     queryKey: queryKeys.notifications.pushSubscriptions(),
     queryFn: () => notificationsService.listPushSubscriptions(),
+  });
+  const {
+    data: briefingData,
+    isLoading: isBriefingLoading,
+    isError: isBriefingError,
+  } = useQuery({
+    queryKey: queryKeys.dashboard.briefing(),
+    queryFn: () => dashboardService.getBriefing(),
   });
 
   const insights = insightsData?.items ?? [];
@@ -141,6 +150,13 @@ export const DashboardPage: React.FC = () => {
         ) : data ? (
           <>
             <OnboardingChecklist workspaceId={activeWorkspaceId} steps={checklistSteps} />
+
+            <BriefingCard
+              isLoading={isBriefingLoading}
+              isError={isBriefingError}
+              allClear={briefingData?.all_clear}
+              lines={briefingData?.lines}
+            />
 
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               <MetricCard

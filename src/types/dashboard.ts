@@ -18,6 +18,28 @@ export const DashboardOverspentCategorySchema = z.object({
 });
 export type DashboardOverspentCategory = z.infer<typeof DashboardOverspentCategorySchema>;
 
+export const BriefingSourceSchema = z.object({
+  entity_type: z.string().nullable().optional(),
+  entity_public_id: z.string().nullable().optional(),
+  route: z.string(),
+});
+export type BriefingSource = z.infer<typeof BriefingSourceSchema>;
+
+export const BriefingLineSchema = z.object({
+  severity: z.enum(['critical', 'warning', 'info']),
+  text: z.string(),
+  source: BriefingSourceSchema,
+});
+export type BriefingLine = z.infer<typeof BriefingLineSchema>;
+
+export const BriefingResponseSchema = z.object({
+  generated_at: z.string(),
+  all_clear: z.boolean(),
+  reporting_currency: z.string(),
+  lines: z.array(BriefingLineSchema).default([]),
+});
+export type BriefingResponse = z.infer<typeof BriefingResponseSchema>;
+
 export const DashboardSummarySchema = z.object({
   todos: z.object({
     status: z.string().default(''),

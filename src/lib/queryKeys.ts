@@ -56,6 +56,7 @@ export const queryKeys = {
     all: ['dashboard'] as const,
     summary: () => ['dashboard', 'summary'] as const,
     insights: () => ['dashboard', 'insights'] as const,
+    briefing: () => ['dashboard', 'briefing'] as const,
   },
 
   // ── Summaries ──────────────────────────────────────────────────────────────

@@ -26,10 +26,21 @@ const emptyNotifications = () =>
     HttpResponse.json({ items: [], total: 0, limit: 5, offset: 0 }),
   );
 
+const allClearBriefing = () =>
+  http.get('*/v1/dashboard/briefing', () =>
+    HttpResponse.json({
+      generated_at: '2026-05-24T10:00:00Z',
+      all_clear: true,
+      reporting_currency: 'USD',
+      lines: [],
+    }),
+  );
+
 describe('DashboardPage', () => {
   it('shows the budget spotlight when a group budget covers the current month', async () => {
     server.use(
       emptyNotifications(),
+      allClearBriefing(),
       http.get('*/v1/dashboard/summary', () =>
         HttpResponse.json({
           todos: {
@@ -87,6 +98,7 @@ describe('DashboardPage', () => {
   it('shows no budget spotlight when there are no covering group budgets', async () => {
     server.use(
       emptyNotifications(),
+      allClearBriefing(),
       http.get('*/v1/dashboard/summary', () =>
         HttpResponse.json({
           todos: {
@@ -128,7 +140,7 @@ describe('DashboardPage', () => {
     );
 
   it('shows an empty state when there are no insights', async () => {
-    server.use(emptyNotifications(), minimalSummary());
+    server.use(emptyNotifications(), allClearBriefing(), minimalSummary());
 
     renderWithQuery(<DashboardPage />);
 
@@ -175,6 +187,7 @@ describe('DashboardPage', () => {
           offset: 0,
         }),
       ),
+      allClearBriefing(),
       minimalSummary(),
     );
 
@@ -190,6 +203,7 @@ describe('DashboardPage', () => {
   it('shows the get-started checklist with incomplete steps for a brand-new workspace', async () => {
     server.use(
       emptyNotifications(),
+      allClearBriefing(),
       minimalSummary(),
       http.get('*/v1/finance/settings/user', () =>
         HttpResponse.json({
@@ -225,6 +239,7 @@ describe('DashboardPage', () => {
   it('hides the get-started checklist once currency, an account, and an activity all exist', async () => {
     server.use(
       emptyNotifications(),
+      allClearBriefing(),
       minimalSummary(),
       http.get('*/v1/finance/settings/user', () =>
         HttpResponse.json({
@@ -247,5 +262,67 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByText('Dashboard')).toBeInTheDocument();
     expect(screen.queryByText('Get started')).not.toBeInTheDocument();
+  });
+
+  it('shows the all-clear state when the briefing has no lines', async () => {
+    server.use(emptyNotifications(), allClearBriefing(), minimalSummary());
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByText('Today')).toBeInTheDocument();
+    expect(
+      await screen.findByText('All clear — nothing needs your attention today.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-briefing-line')).not.toBeInTheDocument();
+  });
+
+  it('renders ordered briefing lines with working links', async () => {
+    server.use(
+      emptyNotifications(),
+      minimalSummary(),
+      http.get('*/v1/dashboard/briefing', () =>
+        HttpResponse.json({
+          generated_at: '2026-05-24T10:00:00Z',
+          all_clear: false,
+          reporting_currency: 'USD',
+          lines: [
+            {
+              severity: 'critical',
+              text: '2 overdue tasks — top: "Pay rent"',
+              source: { entity_type: 'todo', entity_public_id: 'todo-1', route: '/todo' },
+            },
+            {
+              severity: 'info',
+              text: 'Portfolio +50.00 (+0.50%) today',
+              source: { entity_type: null, entity_public_id: null, route: '/investing' },
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByText('2 overdue tasks — top: "Pay rent"')).toBeInTheDocument();
+    expect(screen.getByText('Portfolio +50.00 (+0.50%) today')).toBeInTheDocument();
+    expect(screen.getAllByTestId('dashboard-briefing-line')).toHaveLength(2);
+    expect(screen.getByText('2 overdue tasks — top: "Pay rent"').closest('a')).toHaveAttribute(
+      'href',
+      '/todo',
+    );
+    expect(screen.queryByTestId('dashboard-briefing-all-clear')).not.toBeInTheDocument();
+  });
+
+  it('hides the briefing card when the briefing fails to load', async () => {
+    server.use(
+      emptyNotifications(),
+      minimalSummary(),
+      http.get('*/v1/dashboard/briefing', () => HttpResponse.error()),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByText('Dashboard')).toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-briefing')).not.toBeInTheDocument();
   });
 });

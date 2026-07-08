@@ -6,6 +6,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   budget: 'Budget alerts',
   budget_guardrail: 'Budget guardrails',
   insight: 'Insights',
+  briefing: 'Morning briefing',
   system: 'System',
   general: 'General',
 };
