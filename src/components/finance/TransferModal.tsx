@@ -72,6 +72,9 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       if (!from || !to) {
         throw new Error('Transfer accounts are required');
       }
+      if (fromAccountId === toAccountId) {
+        throw new Error('Source and destination accounts cannot be the same');
+      }
       const fromModule = from.account_type === 'brokerage' ? 'investing' : 'spending';
       const toModule = to.account_type === 'brokerage' ? 'investing' : 'spending';
       const gross = Number(amount);
@@ -152,7 +155,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
           className="space-y-4 p-6"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!fromAccountId || !toAccountId || !amount) return;
+            if (!fromAccountId || !toAccountId || !amount || fromAccountId === toAccountId) return;
             createTransferMutation.mutate();
           }}
         >

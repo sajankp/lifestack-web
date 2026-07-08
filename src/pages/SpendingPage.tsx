@@ -417,7 +417,7 @@ export const SpendingPage: React.FC = () => {
   // Budgets' "spent this month" must reflect the budget's own month, not the
   // Transactions tab's free date-range/category/account filters — those used
   // to leak in via the shared summaryResponse below (UX-REVIEW P2 item 4).
-  const { data: budgetsSummaryResponse } = useQuery({
+  const { data: budgetsSummaryResponse, isLoading: isBudgetsSummaryLoading } = useQuery({
     queryKey: queryKeys.spending.summary('budgets-scope', budgetsMonth),
     queryFn: () => spendingService.getTransactionSummary({
       fromDate: budgetsMonthRange.fromDate,
@@ -1242,7 +1242,7 @@ export const SpendingPage: React.FC = () => {
         <div className="flex min-h-[300px] items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-600 border-t-cyan-500" />
         </div>
-      ) : isBudgetsLoading && activeTab === 'budgets' ? (
+      ) : (isBudgetsLoading || isBudgetsSummaryLoading) && activeTab === 'budgets' ? (
         <SkeletonList rows={4} />
       ) : isLoading && activeTab !== 'recurring' && activeTab !== 'budgets' && activeTab !== 'analytics' && activeTab !== 'ledger' ? (
         <SkeletonList rows={5} />
