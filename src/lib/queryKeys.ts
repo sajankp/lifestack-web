@@ -28,6 +28,7 @@ export const queryKeys = {
   spending: {
     all: ['spending'] as const,
     categories: <T extends unknown[]>(...params: T) => ['spending', 'categories', ...params] as const,
+    categoryGroups: <T extends unknown[]>(...params: T) => ['spending', 'category-groups', ...params] as const,
     transactions: <T extends unknown[]>(...params: T) => ['spending', 'transactions', ...params] as const,
     summary: <T extends unknown[]>(...params: T) => ['spending', 'summary', ...params] as const,
     budgets: <T extends unknown[]>(...params: T) => ['spending', 'budgets', ...params] as const,
@@ -47,6 +48,7 @@ export const queryKeys = {
   netWorth: {
     all: ['net-worth'] as const,
     summary: () => ['net-worth'] as const,
+    history: <T extends unknown[]>(...params: T) => ['net-worth', 'history', ...params] as const,
   },
 
   // ── Dashboard ──────────────────────────────────────────────────────────────
@@ -103,5 +105,6 @@ export const queryKeys = {
   // ── Master Config (scoped variants to avoid cross-page collisions) ──────────
   masterConfig: {
     categories: () => ['categories', 'master-config'] as const,
+    categoryGroups: () => ['category-groups', 'master-config'] as const,
   },
 } as const;

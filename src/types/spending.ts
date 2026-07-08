@@ -4,12 +4,36 @@ import { z } from 'zod';
 // Single source of truth for spending API shapes (G4): response types are
 // derived from these schemas; request payload types stay plain interfaces.
 
+export const CategoryGroupSchema = z.object({
+  public_id: z.string().default(''),
+  name: z.string().default(''),
+  color: z.string().nullable().default(null),
+  icon: z.string().nullable().default(null),
+  created_at: z.string().default(''),
+  updated_at: z.string().default(''),
+});
+
+export type CategoryGroup = z.infer<typeof CategoryGroupSchema>;
+
+export interface CategoryGroupCreate {
+  name: string;
+  color?: string | null;
+  icon?: string | null;
+}
+
+export interface CategoryGroupUpdate {
+  name?: string | null;
+  color?: string | null;
+  icon?: string | null;
+}
+
 export const CategorySchema = z.object({
   public_id: z.string().default(''),
   name: z.string().default(''),
   is_system: z.boolean().default(false),
   color: z.string().nullable().default(null),
   icon: z.string().nullable().default(null),
+  category_group_id: z.string().nullable().default(null),
   created_at: z.string().default(''),
   updated_at: z.string().default(''),
 });
@@ -26,6 +50,11 @@ export interface CategoryUpdate {
   name?: string | null;
   color?: string | null;
   icon?: string | null;
+  category_group_id?: string | null;
+}
+
+export interface CategoryMergeRequest {
+  source_public_ids: string[];
 }
 
 export const TransactionTypeSchema = z.enum(['income', 'expense']).default('expense');
@@ -97,9 +126,11 @@ export interface TransactionUpdate {
 
 export const BudgetSchema = z.object({
   public_id: z.string().default(''),
-  category_id: z.string().default(''),
+  category_id: z.string().nullable().default(null),
+  category_group_id: z.string().nullable().default(null),
   amount: z.union([z.number(), z.string()]).default(0),
-  month_start: z.string().default(''),
+  start_month: z.string().default(''),
+  end_month: z.string().nullable().default(null),
   created_at: z.string().default(''),
   updated_at: z.string().default(''),
 });
@@ -107,13 +138,21 @@ export const BudgetSchema = z.object({
 export type Budget = z.infer<typeof BudgetSchema>;
 
 export interface BudgetCreate {
-  category_id: string;
+  category_id?: string | null;
+  category_group_id?: string | null;
   amount: number;
-  month_start: string;
+  start_month: string;
+  end_month?: string | null;
 }
 
 export interface BudgetUpdate {
+  amount?: number;
+  end_month?: string | null;
+}
+
+export interface BudgetChangeAmountRequest {
   amount: number;
+  from_month: string;
 }
 
 export const CategorySpendTotalSchema = z.object({
@@ -180,8 +219,10 @@ export const CategoryBreakdownResponseSchema = z.object({
 export type CategoryBreakdownResponse = z.infer<typeof CategoryBreakdownResponseSchema>;
 
 export const BudgetPerformanceItemSchema = z.object({
-  category_id: z.string().default(''),
-  category_name: z.string().default(''),
+  category_id: z.string().nullable().default(null),
+  category_name: z.string().nullable().default(null),
+  category_group_id: z.string().nullable().default(null),
+  category_group_name: z.string().nullable().default(null),
   budget_amount: z.union([z.number(), z.string()]).nullable().default(null),
   actual_amount: z.union([z.number(), z.string()]).default(0),
   utilization_pct: z.number().nullable().default(null),
@@ -208,9 +249,28 @@ export const BudgetPerformanceResponseSchema = z.object({
     total_actual: 0,
     overall_utilization_pct: null,
   }),
+  groups: z.array(BudgetPerformanceItemSchema).default([]),
+  group_totals: BudgetPerformanceTotalsSchema.default({
+    total_budgeted: 0,
+    total_actual: 0,
+    overall_utilization_pct: null,
+  }),
 });
 
 export type BudgetPerformanceResponse = z.infer<typeof BudgetPerformanceResponseSchema>;
+
+export const BudgetSpotlightItemSchema = z.object({
+  category_group_id: z.string().default(''),
+  category_group_name: z.string().default(''),
+  budget_amount: z.union([z.number(), z.string()]).default(0),
+  actual_amount: z.union([z.number(), z.string()]).default(0),
+  utilization_pct: z.number().default(0),
+  remaining: z.union([z.number(), z.string()]).default(0),
+  status: z.enum(['on_track', 'warning', 'exceeded']).default('on_track'),
+  daily_amount_left: z.union([z.number(), z.string()]).default(0),
+});
+
+export type BudgetSpotlightItem = z.infer<typeof BudgetSpotlightItemSchema>;
 
 export const SavingsRatePointSchema = z.object({
   month: z.string().default(''),

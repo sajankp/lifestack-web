@@ -11,6 +11,7 @@ import { spendingService } from '../services/spending';
 import { financeService } from '../services/finance';
 import type {
   Budget,
+  BudgetChangeAmountRequest,
   BudgetCreate,
   BudgetUpdate,
   RecurringTransaction,
@@ -63,17 +64,29 @@ import {
   monthValueToDateRange,
 } from './spending/format';
 
-const budgetFormSchema = z.object({
-  categoryId: z.string().min(1, 'Select a category'),
-  month: z.string().regex(/^\d{4}-\d{2}$/, 'Select a valid month'),
-  amount: z
-    .string()
-    .min(1, 'Enter a budget amount')
-    .refine((value) => {
-      const num = Number(value);
-      return !Number.isNaN(num) && Number.isFinite(num) && num > 0;
-    }, 'Budget must be a valid positive number'),
-});
+const budgetFormSchema = z
+  .object({
+    scope: z.enum(['category', 'group']),
+    categoryId: z.string().optional(),
+    groupId: z.string().optional(),
+    startMonth: z.string().regex(/^\d{4}-\d{2}$/, 'Select a valid start month'),
+    endMonth: z.string().regex(/^\d{4}-\d{2}$/).optional().or(z.literal('')),
+    amount: z
+      .string()
+      .min(1, 'Enter a budget amount')
+      .refine((value) => {
+        const num = Number(value);
+        return !Number.isNaN(num) && Number.isFinite(num) && num > 0;
+      }, 'Budget must be a valid positive number'),
+  })
+  .refine((values) => (values.scope === 'category' ? !!values.categoryId : !!values.groupId), {
+    message: 'Select a category or group',
+    path: ['categoryId'],
+  })
+  .refine((values) => !values.endMonth || values.endMonth >= values.startMonth, {
+    message: 'End month must be on or after the start month',
+    path: ['endMonth'],
+  });
 
 type BudgetFormValues = z.infer<typeof budgetFormSchema>;
 
@@ -183,6 +196,9 @@ export const SpendingPage: React.FC = () => {
   // Budget Modal
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+  const [changeAmountValue, setChangeAmountValue] = useState('');
+  const [changeAmountFromMonth, setChangeAmountFromMonth] = useState('');
+  const [isChangeAmountOpen, setIsChangeAmountOpen] = useState(false);
   const [txOffset, setTxOffset] = useState(0);
   const [budgetOffset, setBudgetOffset] = useState(0);
   const [recurringOffset, setRecurringOffset] = useState(0);
@@ -242,6 +258,19 @@ export const SpendingPage: React.FC = () => {
     label: category.name,
   })) ?? [], [categories]);
   const categoryFilterOptions = categoryOptions;
+  const { data: categoryGroupsResponse } = useQuery({
+    queryKey: queryKeys.spending.categoryGroups(),
+    queryFn: () => spendingService.getCategoryGroups(200, 0),
+  });
+  const categoryGroups = categoryGroupsResponse?.items ?? [];
+  const categoryGroupOptions = useMemo(
+    () => categoryGroups.map((group) => ({ value: group.public_id, label: group.name })),
+    [categoryGroups]
+  );
+  const categoryGroupById = useMemo(
+    () => new Map(categoryGroups.map((group) => [group.public_id, group])),
+    [categoryGroups]
+  );
   const { data: accountsResponse } = useQuery({
     queryKey: ['finance', 'accounts', 'spending'],
     queryFn: () => financeService.getAccounts(200, 0),
@@ -290,15 +319,20 @@ export const SpendingPage: React.FC = () => {
     register: registerBudgetField,
     handleSubmit: handleBudgetSubmit,
     reset: resetBudgetForm,
+    watch: watchBudgetForm,
     formState: { errors: budgetErrors },
   } = useForm<BudgetFormValues>({
     resolver: zodResolver(budgetFormSchema),
     defaultValues: {
+      scope: 'category',
       categoryId: '',
-      month: getCurrentMonthValue(),
+      groupId: '',
+      startMonth: getCurrentMonthValue(),
+      endMonth: '',
       amount: '',
     },
   });
+  const budgetScope = watchBudgetForm('scope');
 
   const isUnassignedFilterActive = selectedAccountFilter === UNASSIGNED_ACCOUNT_FILTER_VALUE;
 
@@ -360,10 +394,9 @@ export const SpendingPage: React.FC = () => {
     queryFn: () => spendingService.getBudgets(limit, budgetOffset, monthRange.monthStart),
     enabled: monthRange.isValid,
   });
-  const budgets = useMemo(
-    () => budgetsResponse?.items.filter((budget) => monthStartToMonthValue(budget.month_start) === selectedMonth) ?? [],
-    [budgetsResponse, selectedMonth]
-  );
+  // The API's month_start query param already filters by range containment
+  // (spec-064), so budgetsResponse.items are exactly this month's budgets.
+  const budgets = useMemo(() => budgetsResponse?.items ?? [], [budgetsResponse]);
 
   const createMutation = useInvalidatingMutation(
     (newTx: TransactionCreate) => spendingService.createTransaction(newTx),
@@ -390,6 +423,13 @@ export const SpendingPage: React.FC = () => {
 
   const updateBudgetMutation = useInvalidatingMutation(
     ({ id, data }: { id: string; data: BudgetUpdate }) => spendingService.updateBudget(id, data),
+    [queryKeys.spending.budgets(), queryKeys.dashboard.all],
+    { onSuccess: () => closeBudgetModal() },
+  );
+
+  const changeBudgetAmountMutation = useInvalidatingMutation(
+    ({ id, data }: { id: string; data: BudgetChangeAmountRequest }) =>
+      spendingService.changeBudgetAmount(id, data),
     [queryKeys.spending.budgets(), queryKeys.dashboard.all],
     { onSuccess: () => closeBudgetModal() },
   );
@@ -745,9 +785,15 @@ export const SpendingPage: React.FC = () => {
   const closeBudgetModal = () => {
     setIsBudgetModalOpen(false);
     setEditingBudgetId(null);
+    setIsChangeAmountOpen(false);
+    setChangeAmountValue('');
+    setChangeAmountFromMonth('');
     resetBudgetForm({
+      scope: 'category',
       categoryId: '',
-      month: selectedMonth,
+      groupId: '',
+      startMonth: selectedMonth,
+      endMonth: '',
       amount: '',
     });
   };
@@ -879,27 +925,44 @@ export const SpendingPage: React.FC = () => {
 
   const handleSaveBudget = (values: BudgetFormValues) => {
     // Normalize to the first of the month as required by the backend
-    const monthStart = `${values.month}-01`;
+    const startMonth = `${values.startMonth}-01`;
+    const endMonth = values.endMonth ? `${values.endMonth}-01` : null;
 
     if (editingBudgetId) {
       updateBudgetMutation.mutate({
         id: editingBudgetId,
-        data: { amount: parseFloat(values.amount) }
+        data: { amount: parseFloat(values.amount), end_month: endMonth },
       });
     } else {
       createBudgetMutation.mutate({
-        category_id: values.categoryId,
+        category_id: values.scope === 'category' ? values.categoryId : null,
+        category_group_id: values.scope === 'group' ? values.groupId : null,
         amount: parseFloat(values.amount),
-        month_start: monthStart
+        start_month: startMonth,
+        end_month: endMonth,
       });
     }
+  };
+
+  const handleChangeBudgetAmount = () => {
+    if (!editingBudgetId || !changeAmountValue || !changeAmountFromMonth) return;
+    changeBudgetAmountMutation.mutate({
+      id: editingBudgetId,
+      data: {
+        amount: parseFloat(changeAmountValue),
+        from_month: `${changeAmountFromMonth}-01`,
+      },
+    });
   };
 
   const openBudgetModalForNew = () => {
     setEditingBudgetId(null);
     resetBudgetForm({
+      scope: 'category',
       categoryId: '',
-      month: selectedMonth,
+      groupId: '',
+      startMonth: selectedMonth,
+      endMonth: '',
       amount: '',
     });
     setIsBudgetModalOpen(true);
@@ -907,17 +970,30 @@ export const SpendingPage: React.FC = () => {
 
   const openBudgetModalForEdit = (b: Budget) => {
     setEditingBudgetId(b.public_id);
+    setIsChangeAmountOpen(false);
+    setChangeAmountValue('');
+    setChangeAmountFromMonth(selectedMonth);
     resetBudgetForm({
-      categoryId: b.category_id,
-      month: monthStartToMonthValue(b.month_start),
+      scope: b.category_group_id ? 'group' : 'category',
+      categoryId: b.category_id ?? '',
+      groupId: b.category_group_id ?? '',
+      startMonth: monthStartToMonthValue(b.start_month),
+      endMonth: b.end_month ? monthStartToMonthValue(b.end_month) : '',
       amount: b.amount.toString(),
     });
     setIsBudgetModalOpen(true);
   };
 
-  const getCategoryTheme = (catId: string) => {
+  const getCategoryTheme = (catId: string | null) => {
     const cat = categories?.find(c => c.public_id === catId);
     return cat ? { name: cat.name, color: cat.color || '#3b82f6', icon: cat.icon } : { name: 'Unknown', color: '#64748b', icon: '' };
+  };
+
+  const getGroupTheme = (groupId: string | null) => {
+    const group = categoryGroupById.get(groupId ?? '');
+    return group
+      ? { name: group.name, color: group.color || '#3b82f6', icon: group.icon }
+      : { name: 'Unknown group', color: '#64748b', icon: '' };
   };
 
   // Summaries
@@ -936,6 +1012,21 @@ export const SpendingPage: React.FC = () => {
       (summaryResponse?.category_totals ?? []).map((entry) => [entry.category_id, Number(entry.total)])
     );
   }, [summaryResponse]);
+
+  // Group spend summed client-side from category totals, which carry
+  // category_group_id (spec-064 — group budgets have no dedicated summary endpoint).
+  const spentByGroup = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const entry of summaryResponse?.category_totals ?? []) {
+      const category = categories?.find((c) => c.public_id === entry.category_id);
+      if (!category?.category_group_id) continue;
+      totals.set(
+        category.category_group_id,
+        (totals.get(category.category_group_id) ?? 0) + Number(entry.total)
+      );
+    }
+    return totals;
+  }, [summaryResponse, categories]);
 
   const isLoading = isCatsLoading || isTxLoading || isBudgetsLoading || isSummaryLoading;
 
@@ -1182,9 +1273,11 @@ export const SpendingPage: React.FC = () => {
           budgetsResponse={budgetsResponse}
           monthLabel={monthRange.label}
           spentByCategory={spentByCategory}
+          spentByGroup={spentByGroup}
           displayCurrency={displayCurrency}
           currencyDisplayPreference={currencyDisplayPreference}
           getCategoryTheme={getCategoryTheme}
+          getGroupTheme={getGroupTheme}
           onEdit={openBudgetModalForEdit}
           onPageChange={setBudgetOffset}
         />
@@ -1734,57 +1827,132 @@ export const SpendingPage: React.FC = () => {
                 </div>
               )}
               <div className="space-y-5">
-                {/* Category */}
+                {/* Scope */}
                 <div>
-                  <Label className="mb-2 block">Category</Label>
+                  <Label className="mb-2 block">Budget for</Label>
                   <Controller
                     control={budgetControl}
-                    name="categoryId"
+                    name="scope"
                     render={({ field }) => (
                       <DropdownSelect
-                        testId="spending-budget-category"
+                        testId="spending-budget-scope"
                         value={field.value}
                         onChange={field.onChange}
-                        options={categoryOptions}
-                        placeholder="Select category"
+                        options={[
+                          { value: 'category', label: 'A category' },
+                          { value: 'group', label: 'A category group' },
+                        ]}
+                        placeholder="Select scope"
                         disabled={!!editingBudgetId}
-                        showSearch
-                        sortByLabel
                       />
                     )}
                   />
-                  {budgetErrors.categoryId ? (
-                    <p className="mt-2 text-sm text-rose-400">{budgetErrors.categoryId.message}</p>
-                  ) : null}
                 </div>
 
-                {/* Budget Month */}
-                <div>
-                  <Label htmlFor="budget-month" className="mb-2 block">Budget Month</Label>
-                  <Controller
-                    control={budgetControl}
-                    name="month"
-                    render={({ field }) => (
-                      <DropdownSelect
-                        id="budget-month"
-                        value={field.value}
-                        onChange={field.onChange}
-                        options={monthFilterOptions}
-                        placeholder="Select month"
-                        disabled={!!editingBudgetId}
-                      />
-                    )}
-                  />
-                  {budgetErrors.month ? (
-                    <p className="mt-2 text-sm text-rose-400">{budgetErrors.month.message}</p>
-                  ) : (
-                    <p className="mt-1 text-xs text-slate-500">We store this as the 1st day of the selected month.</p>
-                  )}
+                {/* Category or Group */}
+                {budgetScope === 'group' ? (
+                  <div>
+                    <Label className="mb-2 block">Category group</Label>
+                    <Controller
+                      control={budgetControl}
+                      name="groupId"
+                      render={({ field }) => (
+                        <DropdownSelect
+                          testId="spending-budget-group"
+                          value={field.value ?? ''}
+                          onChange={field.onChange}
+                          options={categoryGroupOptions}
+                          placeholder="Select group"
+                          disabled={!!editingBudgetId}
+                          showSearch
+                          sortByLabel
+                        />
+                      )}
+                    />
+                    {budgetErrors.categoryId ? (
+                      <p className="mt-2 text-sm text-rose-400">{budgetErrors.categoryId.message}</p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div>
+                    <Label className="mb-2 block">Category</Label>
+                    <Controller
+                      control={budgetControl}
+                      name="categoryId"
+                      render={({ field }) => (
+                        <DropdownSelect
+                          testId="spending-budget-category"
+                          value={field.value ?? ''}
+                          onChange={field.onChange}
+                          options={categoryOptions}
+                          placeholder="Select category"
+                          disabled={!!editingBudgetId}
+                          showSearch
+                          sortByLabel
+                        />
+                      )}
+                    />
+                    {budgetErrors.categoryId ? (
+                      <p className="mt-2 text-sm text-rose-400">{budgetErrors.categoryId.message}</p>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* Start / End Month */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="budget-start-month" className="mb-2 block">Start month</Label>
+                    <Controller
+                      control={budgetControl}
+                      name="startMonth"
+                      render={({ field }) => (
+                        <DropdownSelect
+                          id="budget-start-month"
+                          testId="spending-budget-start-month"
+                          value={field.value}
+                          onChange={field.onChange}
+                          options={monthFilterOptions}
+                          placeholder="Select month"
+                          disabled={!!editingBudgetId}
+                        />
+                      )}
+                    />
+                    {budgetErrors.startMonth ? (
+                      <p className="mt-2 text-sm text-rose-400">{budgetErrors.startMonth.message}</p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <Label htmlFor="budget-end-month" className="mb-2 block">End month</Label>
+                    <Controller
+                      control={budgetControl}
+                      name="endMonth"
+                      render={({ field }) => (
+                        <DropdownSelect
+                          id="budget-end-month"
+                          testId="spending-budget-end-month"
+                          value={field.value ?? ''}
+                          onChange={field.onChange}
+                          options={monthFilterOptions}
+                          placeholder="Ongoing"
+                          clearLabel="Ongoing"
+                        />
+                      )}
+                    />
+                    {budgetErrors.endMonth ? (
+                      <p className="mt-2 text-sm text-rose-400">{budgetErrors.endMonth.message}</p>
+                    ) : null}
+                  </div>
                 </div>
+                <p className="text-xs text-slate-500">
+                  The amount applies to every month in this range. Leave end month blank for an
+                  ongoing budget.
+                </p>
 
                 {/* Amount */}
                 <div>
-                  <Label htmlFor="budget-amount" className="mb-2 block">Budget Limit</Label>
+                  <Label htmlFor="budget-amount" className="mb-2 block">
+                    {editingBudgetId ? 'Budget Limit (applies to the whole range)' : 'Budget Limit'}
+                  </Label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">{displayCurrency}</span>
                     <Input
@@ -1803,6 +1971,68 @@ export const SpendingPage: React.FC = () => {
                     <p className="mt-2 text-sm text-rose-400">{budgetErrors.amount.message}</p>
                   ) : null}
                 </div>
+
+                {editingBudgetId ? (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+                    <button
+                      type="button"
+                      data-testid="spending-budget-change-amount-toggle"
+                      className="text-sm font-medium text-cyan-400 hover:text-cyan-300"
+                      onClick={() => setIsChangeAmountOpen((open) => !open)}
+                    >
+                      {isChangeAmountOpen ? 'Cancel change amount' : 'Change amount from this month…'}
+                    </button>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Ends this budget at the prior month and creates a new one starting the given
+                      month at the new amount — preserving history.
+                    </p>
+                    {isChangeAmountOpen ? (
+                      <div className="mt-3 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="mb-2 block text-xs">New amount</Label>
+                            <Input
+                              data-testid="spending-budget-change-amount-value"
+                              type="number"
+                              step="0.01"
+                              min="0.01"
+                              placeholder="0.00"
+                              value={changeAmountValue}
+                              onChange={(e) => setChangeAmountValue(e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label className="mb-2 block text-xs">From month</Label>
+                            <DropdownSelect
+                              testId="spending-budget-change-amount-from-month"
+                              value={changeAmountFromMonth}
+                              onChange={setChangeAmountFromMonth}
+                              options={monthFilterOptions}
+                              placeholder="Select month"
+                            />
+                          </div>
+                        </div>
+                        {changeBudgetAmountMutation.isError ? (
+                          <p className="text-sm text-rose-400">
+                            Failed to change amount. The new month must be after this budget's start month.
+                          </p>
+                        ) : null}
+                        <Button
+                          type="button"
+                          data-testid="spending-budget-change-amount-save"
+                          onClick={handleChangeBudgetAmount}
+                          disabled={
+                            changeBudgetAmountMutation.isPending ||
+                            !changeAmountValue ||
+                            !changeAmountFromMonth
+                          }
+                        >
+                          {changeBudgetAmountMutation.isPending ? 'Applying...' : 'Apply change'}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
 
               </div>
 

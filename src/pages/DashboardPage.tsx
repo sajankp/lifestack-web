@@ -45,10 +45,7 @@ export const DashboardPage: React.FC = () => {
     latestSummary?.week_start ? `${latestSummary.week_start}T00:00:00Z` : null,
     { fallback: 'N/A' },
   );
-  const budgetRemaining =
-    data?.spending.month_budget != null
-      ? toNumber(data.spending.month_budget) - toNumber(data.spending.month_spent)
-      : null;
+  const budgetSpotlight = data?.spending.budget_spotlight ?? [];
   const portfolioGainLabel =
     data?.investing.total_gain_loss != null
       ? formatPerformanceMetric(
@@ -93,7 +90,7 @@ export const DashboardPage: React.FC = () => {
           </div>
         ) : data ? (
           <>
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
               <MetricCard
                 label="Open todos"
                 value={data.todos.open_count.toString()}
@@ -104,16 +101,9 @@ export const DashboardPage: React.FC = () => {
               <MetricCard
                 label="This month spent"
                 value={formatCurrency(data.spending.month_spent, displayCurrency, currencyDisplayPreference)}
-                note={data.spending.month_budget != null ? `Budget: ${formatCurrency(data.spending.month_budget, displayCurrency, currencyDisplayPreference)}` : 'No budget set'}
+                note={budgetSpotlight.length > 0 ? `${budgetSpotlight.length} group budget${budgetSpotlight.length > 1 ? 's' : ''} tracked below` : 'No group budgets set'}
                 icon={<PiggyBank className="h-5 w-5" />}
                 accent="from-emerald-500/25 to-teal-500/10"
-              />
-              <MetricCard
-                label="Budget remaining"
-                value={budgetRemaining != null ? formatCurrency(budgetRemaining, displayCurrency, currencyDisplayPreference) : 'N/A'}
-                note={budgetRemaining != null ? 'Based on current month budget' : 'Set a budget to track remaining spend'}
-                icon={<Wallet className="h-5 w-5" />}
-                accent="from-violet-500/25 to-fuchsia-500/10"
               />
               <MetricCard
                 label="Portfolio value"
@@ -128,6 +118,42 @@ export const DashboardPage: React.FC = () => {
                 testId="dashboard-portfolio-value"
               />
             </div>
+
+            {budgetSpotlight.length > 0 ? (
+              <div className="mt-6">
+                <section data-testid="dashboard-budget-spotlight" className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl shadow-black/10">
+                  <div className="flex items-center gap-3">
+                    <Wallet className="h-5 w-5 text-violet-400" />
+                    <h2 className="text-xl font-semibold">Budget spotlight</h2>
+                  </div>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    {budgetSpotlight.map((item) => {
+                      const utilization = Math.min(100, Math.max(0, item.utilization_pct));
+                      const barColor = item.status === 'exceeded' ? 'bg-rose-500' : item.status === 'warning' ? 'bg-amber-500' : 'bg-emerald-500';
+                      return (
+                        <div
+                          key={item.category_group_id}
+                          data-testid="dashboard-budget-spotlight-card"
+                          className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="font-semibold text-white">{item.category_group_name}</p>
+                            <span className="text-xs text-slate-400">{item.utilization_pct.toFixed(0)}%</span>
+                          </div>
+                          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-900/50">
+                            <div className={`h-full rounded-full ${barColor}`} style={{ width: `${utilization}%` }} />
+                          </div>
+                          <div className="mt-3 flex items-center justify-between text-sm text-slate-400">
+                            <span>{formatCurrency(item.actual_amount, displayCurrency, currencyDisplayPreference)} of {formatCurrency(item.budget_amount, displayCurrency, currencyDisplayPreference)}</span>
+                            <span>{formatCurrency(item.daily_amount_left, displayCurrency, currencyDisplayPreference)}/day left</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              </div>
+            ) : null}
 
             {/* Dashboard Cues (Insights & Alerts) */}
             {(() => {

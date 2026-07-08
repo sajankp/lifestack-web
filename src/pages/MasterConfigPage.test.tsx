@@ -74,6 +74,9 @@ const commonHandlers = (workspaceId: string, workspaceName: string) => [
       updated_at: '2026-06-10T00:00:00Z',
     }),
   ),
+  http.get('*/v1/spending/category-groups', () =>
+    HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+  ),
 ];
 
 describe('MasterConfigPage', () => {
@@ -147,6 +150,9 @@ describe('MasterConfigPage', () => {
         }),
       ),
       http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/spending/category-groups', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
       ),
       http.post('*/v1/platform/workspaces/:workspaceId/reset-demo', ({ params }) => {
@@ -230,6 +236,9 @@ describe('MasterConfigPage', () => {
         }),
       ),
       http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/spending/category-groups', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
       ),
     );
@@ -340,6 +349,9 @@ describe('MasterConfigPage', () => {
         }),
       ),
       http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/spending/category-groups', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
       ),
     );
@@ -454,7 +466,7 @@ describe('MasterConfigPage', () => {
     expect(screen.getByTestId('master-category-row-cat-rent')).toBeInTheDocument();
   });
 
-  it('disables delete for system categories', async () => {
+  it('enables delete for system categories (spec-062)', async () => {
     const workspaceId = '88888888-8888-8888-8888-888888888888';
     useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
 
@@ -483,6 +495,6 @@ describe('MasterConfigPage', () => {
     renderWithQuery(<MasterConfigPage />);
 
     const deleteButton = await screen.findByTestId('master-category-delete-cat-uncategorized');
-    expect(deleteButton).toBeDisabled();
+    expect(deleteButton).not.toBeDisabled();
   });
 });

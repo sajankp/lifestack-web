@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BudgetSpotlightItemSchema } from './spending';
 
 export const DashboardTodoItemSchema = z.object({
   public_id: z.string().optional(),
@@ -28,7 +29,7 @@ export const DashboardSummarySchema = z.object({
   spending: z.object({
     status: z.string().default(''),
     month_spent: z.union([z.number(), z.string()]).default(0),
-    month_budget: z.union([z.number(), z.string()]).nullable().default(null),
+    budget_spotlight: z.array(BudgetSpotlightItemSchema).default([]),
     top_overspent_categories: z.array(DashboardOverspentCategorySchema).default([]),
   }),
   investing: z.object({

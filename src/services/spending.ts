@@ -4,6 +4,7 @@ import {
   BudgetPerformanceResponseSchema,
   BudgetSchema,
   CategoryBreakdownResponseSchema,
+  CategoryGroupSchema,
   CategorySchema,
   LedgerResponseSchema,
   RecurringTransactionSchema,
@@ -15,12 +16,17 @@ import {
 } from '../types/spending';
 import type {
   Budget,
+  BudgetChangeAmountRequest,
   BudgetCreate,
   BudgetPerformanceResponse,
   BudgetUpdate,
   Category,
   CategoryBreakdownResponse,
   CategoryCreate,
+  CategoryGroup,
+  CategoryGroupCreate,
+  CategoryGroupUpdate,
+  CategoryMergeRequest,
   CategoryUpdate,
   LedgerResponse,
   RecurringTransaction,
@@ -42,6 +48,13 @@ export * from '../types/spending';
 
 const PaginatedCategoriesSchema = z.object({
   items: z.array(CategorySchema).default([]),
+  total: z.number().default(0),
+  limit: z.number().optional().default(50),
+  offset: z.number().optional().default(0),
+});
+
+const PaginatedCategoryGroupsSchema = z.object({
+  items: z.array(CategoryGroupSchema).default([]),
   total: z.number().default(0),
   limit: z.number().optional().default(50),
   offset: z.number().optional().default(0),
@@ -89,6 +102,30 @@ export const spendingService = {
 
   deleteCategory: async (publicId: string): Promise<void> => {
     await api.delete(`/spending/categories/${publicId}`);
+  },
+
+  mergeCategories: async (targetPublicId: string, data: CategoryMergeRequest): Promise<void> => {
+    await api.post(`/spending/categories/${targetPublicId}/merge`, data);
+  },
+
+  // Category Groups
+  getCategoryGroups: async (limit: number = 200, offset: number = 0): Promise<z.infer<typeof PaginatedCategoryGroupsSchema>> => {
+    const response = await api.get('/spending/category-groups', { params: { limit, offset } });
+    return PaginatedCategoryGroupsSchema.parse(response.data);
+  },
+
+  createCategoryGroup: async (data: CategoryGroupCreate): Promise<CategoryGroup> => {
+    const response = await api.post('/spending/category-groups', data);
+    return CategoryGroupSchema.parse(response.data);
+  },
+
+  updateCategoryGroup: async (publicId: string, data: CategoryGroupUpdate): Promise<CategoryGroup> => {
+    const response = await api.patch(`/spending/category-groups/${publicId}`, data);
+    return CategoryGroupSchema.parse(response.data);
+  },
+
+  deleteCategoryGroup: async (publicId: string): Promise<void> => {
+    await api.delete(`/spending/category-groups/${publicId}`);
   },
 
   // Transactions
@@ -166,6 +203,11 @@ export const spendingService = {
 
   updateBudget: async (publicId: string, data: BudgetUpdate): Promise<Budget> => {
     const response = await api.patch(`/spending/budgets/${publicId}`, data);
+    return BudgetSchema.parse(response.data);
+  },
+
+  changeBudgetAmount: async (publicId: string, data: BudgetChangeAmountRequest): Promise<Budget> => {
+    const response = await api.post(`/spending/budgets/${publicId}/change-amount`, data);
     return BudgetSchema.parse(response.data);
   },
 

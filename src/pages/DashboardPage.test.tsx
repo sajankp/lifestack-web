@@ -19,7 +19,7 @@ const emptyNotifications = () =>
   );
 
 describe('DashboardPage', () => {
-  it('shows computed budget remaining when month budget exists', async () => {
+  it('shows the budget spotlight when a group budget covers the current month', async () => {
     server.use(
       emptyNotifications(),
       http.get('*/v1/dashboard/summary', () =>
@@ -32,7 +32,18 @@ describe('DashboardPage', () => {
           },
           spending: {
             month_spent: '15.50',
-            month_budget: '100.00',
+            budget_spotlight: [
+              {
+                category_group_id: 'group-1',
+                category_group_name: 'Household',
+                budget_amount: '100.00',
+                actual_amount: '84.50',
+                utilization_pct: 84.5,
+                remaining: '15.50',
+                status: 'warning',
+                daily_amount_left: '2.21',
+              },
+            ],
             top_overspent_categories: [],
           },
           investing: {
@@ -56,14 +67,15 @@ describe('DashboardPage', () => {
     renderWithQuery(<DashboardPage />);
 
     expect(await screen.findByText('Dashboard')).toBeInTheDocument();
-    expect(await screen.findByText('$84.50')).toBeInTheDocument();
+    expect(await screen.findByText('Household')).toBeInTheDocument();
+    expect(screen.getByText('$84.50 of $100.00')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-portfolio-value')).toHaveTextContent('$1,680.00');
     expect(screen.getByText('Invested $1,500.00 · Gain +$180.00 (+12.00%)')).toBeInTheDocument();
     expect(screen.getByText('-$20.00 (-1.18%)')).toBeInTheDocument();
     expect(screen.getByText('2026-05-24 · current')).toBeInTheDocument();
   });
 
-  it('shows N/A budget remaining when month budget is null', async () => {
+  it('shows no budget spotlight when there are no covering group budgets', async () => {
     server.use(
       emptyNotifications(),
       http.get('*/v1/dashboard/summary', () =>
@@ -76,7 +88,7 @@ describe('DashboardPage', () => {
           },
           spending: {
             month_spent: '15.50',
-            month_budget: null,
+            budget_spotlight: [],
             top_overspent_categories: [],
           },
           investing: {
@@ -92,16 +104,15 @@ describe('DashboardPage', () => {
     renderWithQuery(<DashboardPage />);
 
     expect(await screen.findByText('Dashboard')).toBeInTheDocument();
-    const naValues = await screen.findAllByText('N/A');
-    expect(naValues.length).toBeGreaterThan(0);
-    expect(screen.getByText('Set a budget to track remaining spend')).toBeInTheDocument();
+    expect(await screen.findByText('No group budgets set')).toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-budget-spotlight')).not.toBeInTheDocument();
   });
 
   const minimalSummary = () =>
     http.get('*/v1/dashboard/summary', () =>
       HttpResponse.json({
         todos: { open_count: 0, overdue_count: 0, next_due_items: [], active_guardrail_todo_count: 0 },
-        spending: { month_spent: '0.00', month_budget: null, top_overspent_categories: [] },
+        spending: { month_spent: '0.00', budget_spotlight: [], top_overspent_categories: [] },
         investing: { portfolio_value: null, daily_change: null, holdings_count: 0 },
         system: { generated_at: '2026-05-24T10:00:00Z' },
       }),

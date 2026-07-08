@@ -61,6 +61,25 @@ export const buildMonthOptions = (pastCount = 24, futureCount = 12) => {
 
 export const monthStartToMonthValue = (monthStart: string) => monthStart.slice(0, 7);
 
+// Range-containment check mirroring the API's non-overlap/coverage model
+// (spec-064): a budget covers `monthValue` when its start is on/before it and
+// its end (null = ongoing) is on/after it.
+export const monthValueCoveredByRange = (
+  monthValue: string,
+  startMonth: string,
+  endMonth: string | null
+) => {
+  const start = monthStartToMonthValue(startMonth);
+  if (monthValue < start) return false;
+  if (endMonth == null) return true;
+  return monthValue <= monthStartToMonthValue(endMonth);
+};
+
+export const formatBudgetRangeLabel = (startMonth: string, endMonth: string | null) => {
+  const startLabel = formatMonthLabel(monthStartToMonthValue(startMonth));
+  return endMonth ? `${startLabel} – ${formatMonthLabel(monthStartToMonthValue(endMonth))}` : `${startLabel} – ongoing`;
+};
+
 export const monthValueToDateRange = (monthValue: string) => {
   if (!monthValue || !/^\d{4}-\d{2}$/.test(monthValue)) {
     return {
