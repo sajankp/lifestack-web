@@ -41,7 +41,10 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, loading = false, disabled, children, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button';
-    const content = loading && typeof children === 'string' ? `${children}…` : children;
+    // Slot (asChild) forwards props onto a single child element it clones — passing it the
+    // spinner and text as two children crashes at runtime, so the loading treatment only
+    // applies when rendering a plain <button>.
+    const content = !asChild && loading && typeof children === 'string' ? `${children}…` : children;
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
@@ -50,7 +53,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         aria-busy={loading || undefined}
         {...props}
       >
-        {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+        {!asChild && loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
         {content}
       </Comp>
     );
