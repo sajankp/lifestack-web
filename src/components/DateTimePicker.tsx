@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 
 import { DatePicker } from './DatePicker';
 import { DropdownSelect } from './DropdownSelect';
+import { formatDateInputValue } from '../utils/dateFormat';
 
 type DateTimePickerProps = {
   value: string;
@@ -11,12 +12,7 @@ type DateTimePickerProps = {
   minuteStep?: number;
 };
 
-const formatLocalDateInput = (date: Date) => {
-  const tzOffsetMs = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - tzOffsetMs).toISOString().slice(0, 10);
-};
-
-const getTodayDateValue = () => formatLocalDateInput(new Date());
+const getTodayDateValue = () => formatDateInputValue(new Date());
 
 const buildTimeOptions = (minuteStep: number) => {
   const options: Array<{ value: string; label: string }> = [];

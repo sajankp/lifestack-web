@@ -7,7 +7,7 @@ import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { investingService } from '../../services/investing';
 import type { CashBalance } from '../../services/investing';
 import { formatCurrency, toNumber } from '../../utils/numberFormat';
-import { formatDate } from '../../utils/dateFormat';
+import { formatDate, formatDateTime } from '../../utils/dateFormat';
 import { DateTimePicker } from '../../components/DateTimePicker';
 import { CompactFilterBar, CompactFilterField } from '../../components/filters/CompactFilterBar';
 import { queryKeys } from '../../lib/queryKeys';
@@ -17,6 +17,7 @@ import { Button } from '../../components/ui/button';
 import { SkeletonList } from '../../components/ui/FeedbackStates';
 import { TransferModal } from '../../components/finance/TransferModal';
 import { QuickCreateAccountForm } from '../../components/finance/QuickCreateAccountForm';
+import { ReconciliationCard } from '../../components/finance/ReconciliationCard';
 import {
   Dialog,
   DialogContent,
@@ -256,75 +257,15 @@ export const CashTab: React.FC<CashTabProps> = ({
           {/* Reconciliation ties a snapshot to the flows that explain it:
               projected-from-flows vs the latest cash snapshot. */}
           {cashAccountFilter !== '' && (
-            <div
-              data-testid="investing-cash-reconciliation"
-              className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4"
-            >
+            <div data-testid="investing-cash-reconciliation">
               {reconciliationRes.isLoading ? (
                 <p className="text-sm text-slate-400">Loading reconciliation…</p>
               ) : reconciliationRes.data ? (
-                (() => {
-                  const r = reconciliationRes.data;
-                  const projected = Number(r.projected_balance);
-                  const snapshot = r.snapshot_balance !== null ? Number(r.snapshot_balance) : null;
-                  const disc = r.discrepancy !== null ? Number(r.discrepancy) : null;
-                  const threshold = projected !== 0 ? Math.abs(projected) * 0.05 : 100;
-                  const discColor =
-                    disc === null
-                      ? 'text-slate-400'
-                      : Math.abs(disc) < 1
-                      ? 'text-emerald-300'
-                      : Math.abs(disc) >= threshold
-                      ? 'text-rose-300'
-                      : 'text-amber-300';
-                  return (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                          Reconciliation — {r.account_name}
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          {r.transaction_count} txns · {r.transfer_count} transfers · {r.order_count} trades
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wide text-slate-500">Projected</p>
-                          <p
-                            data-testid="investing-reconciliation-projected"
-                            className="text-sm font-semibold text-white"
-                          >
-                            {formatCurrency(projected, r.currency_code, currencyDisplayPreference)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wide text-slate-500">Latest snapshot</p>
-                          <p className="text-sm font-semibold text-white">
-                            {snapshot !== null
-                              ? formatCurrency(snapshot, r.currency_code, currencyDisplayPreference)
-                              : '—'}
-                            {r.snapshot_as_of && (
-                              <span className="ml-1 text-[10px] text-slate-500">
-                                ({formatDate(r.snapshot_as_of, { fallback: 'N/A' })})
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wide text-slate-500">Discrepancy</p>
-                          <p
-                            data-testid="investing-reconciliation-discrepancy"
-                            className={`text-sm font-semibold ${discColor}`}
-                          >
-                            {disc !== null
-                              ? formatCurrency(disc, r.currency_code, currencyDisplayPreference)
-                              : 'No snapshot yet'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()
+                <ReconciliationCard
+                  reconciliation={reconciliationRes.data}
+                  currencyDisplayPreference={currencyDisplayPreference}
+                  testIdPrefix="investing-reconciliation"
+                />
               ) : (
                 <p className="text-sm text-slate-400">Reconciliation unavailable.</p>
               )}
@@ -362,7 +303,7 @@ export const CashTab: React.FC<CashTabProps> = ({
                       <div className="min-w-0">
                         <p className="truncate font-medium text-white">{c.account_name}</p>
                         <p className="mt-0.5 text-xs text-slate-500">
-                          {Number.isNaN(new Date(c.as_of).getTime()) ? 'N/A' : new Date(c.as_of).toLocaleString(undefined, { timeZone: 'UTC' })}
+                          {formatDateTime(c.as_of)}
                         </p>
                       </div>
                       <button
@@ -411,7 +352,7 @@ export const CashTab: React.FC<CashTabProps> = ({
                       <tr key={c.public_id}>
                         <td className="px-4 py-3 text-white">{c.account_name}</td>
                         <td className="px-4 py-3">{formatCurrency(c.balance, c.currency, currencyDisplayPreference)}</td>
-                        <td className="px-4 py-3">{Number.isNaN(new Date(c.as_of).getTime()) ? "N/A" : new Date(c.as_of).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
+                        <td className="px-4 py-3">{formatDateTime(c.as_of)}</td>
                         <td className="px-4 py-3">
                           {c.trigger_type && (
                             <span

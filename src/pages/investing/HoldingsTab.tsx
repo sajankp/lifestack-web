@@ -6,7 +6,7 @@ import { financeService } from '../../services/finance';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { investingService } from '../../services/investing';
 import type { InvestingOrder } from '../../services/investing';
-import { formatCurrency, toNumber } from '../../utils/numberFormat';
+import { formatCurrency, formatQuantity, toNumber } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
 import { CompactFilterBar, CompactFilterField } from '../../components/filters/CompactFilterBar';
 import { queryKeys } from '../../lib/queryKeys';
@@ -535,7 +535,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-700/40 pt-3 text-xs">
-                      <div><span className="block text-slate-500">Qty</span><span className="text-slate-200">{toNumber(h.quantity).toFixed(2)}</span></div>
+                      <div><span className="block text-slate-500">Qty</span><span className="text-slate-200">{formatQuantity(h.quantity)}</span></div>
                       <div><span className="block text-slate-500">Avg cost</span><span className="text-slate-200">{formatCurrency(h.avg_cost, h.currency, currencyDisplayPreference)}</span></div>
                       <div><span className="block text-slate-500">Price</span><span className="text-slate-200">{formatCurrency(h.current_price ?? h.avg_cost, h.currency, currencyDisplayPreference)}</span></div>
                     </div>
@@ -645,7 +645,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                         <td className="px-4 py-3">
                           <CurrencyBadge code={h.currency} />
                         </td>
-                        <td className="px-4 py-3">{toNumber(h.quantity).toFixed(8)}</td>
+                        <td className="px-4 py-3">{formatQuantity(h.quantity)}</td>
                         <td className="px-4 py-3">{formatCurrency(h.avg_cost, h.currency, currencyDisplayPreference)}</td>
                         <td className="px-4 py-3">{formatCurrency(deriveBookValue(h), h.currency, currencyDisplayPreference)}</td>
                         <td className="px-4 py-3">

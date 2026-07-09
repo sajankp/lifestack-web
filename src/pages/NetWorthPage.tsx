@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, Building2, Landmark, PieChart, TrendingUp, Wallet } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { formatCurrency } from '../utils/numberFormat';
-import { formatDate } from '../utils/dateFormat';
+import { formatDate, formatShortDate } from '../utils/dateFormat';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { queryKeys } from '../lib/queryKeys';
@@ -144,15 +144,6 @@ const NetWorthHistoryChart: React.FC<{
   // Stack 1: Spending
   const pathSpend = points.map((p, i) => `${getX(i)},${getY(p.spending)}`).join(' L ');
   const areaSpend = `M ${getX(0)},${height - paddingY} L ${pathSpend} L ${getX(points.length - 1)},${height - paddingY} Z`;
-
-  const formatShortDate = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
-    } catch {
-      return dateStr;
-    }
-  };
 
   const formatShortValue = (val: number) => {
     if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;

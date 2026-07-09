@@ -4,6 +4,16 @@ export const toNumber = (value: number | string | null | undefined): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+/**
+ * Holding quantities are stored with up to 8 decimal places (fractional shares,
+ * crypto), but whole-share counts shouldn't render as "10.00000000". Round to
+ * maxDecimals then strip trailing zeros so desktop and mobile always agree.
+ */
+export const formatQuantity = (value: number | string | null | undefined, maxDecimals = 8): string => {
+  const str = toNumber(value).toFixed(maxDecimals);
+  return str.includes('.') ? str.replace(/0+$/, '').replace(/\.$/, '') : str;
+};
+
 export const formatCurrency = (
   amount: number | string | null | undefined,
   currency: string | null | undefined = 'USD',

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { DropdownSelect } from '../DropdownSelect';
 import { DatePicker } from '../DatePicker';
 import { Button } from '../ui/button';
@@ -8,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { queryKeys } from '../../lib/queryKeys';
 import { financeService } from '../../services/finance';
+import { formatCurrency } from '../../utils/numberFormat';
+import { computeTransferNet } from '../../utils/transferMath';
 import type { Account } from '../../types/finance';
 
 interface TransferModalProps {
@@ -43,6 +46,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [tax, setTax] = useState('0');
   const [notes, setNotes] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showFeesDisclosure, setShowFeesDisclosure] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -55,9 +59,20 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       setTax('0');
       setNotes('');
       setDate(new Date().toISOString().split('T')[0]);
+      setShowFeesDisclosure(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  const grossNum = Number(amount) || 0;
+  const netPreview = computeTransferNet({
+    gross: grossNum,
+    fxRate: Number(fxRate) || null,
+    fxFee: Number(fxFee) || 0,
+    platformFee: Number(platformFee) || 0,
+    tax: Number(tax) || 0,
+  });
+  const toAccountForPreview = accounts.find((account) => account.public_id === toAccountId);
 
   const accountOptions = accounts.map((account) => ({
     value: account.public_id,
@@ -179,27 +194,52 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               <DatePicker value={date} onChange={setDate} required />
             </div>
           </div>
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-            <div>
-              <Label className="mb-2 block">FX Rate (optional)</Label>
-              <Input type="number" min="0" step="0.0000000001" value={fxRate} onChange={(e) => setFxRate(e.target.value)} />
+          <details
+            className="group rounded-xl border border-slate-700/50 bg-slate-800/30 p-3"
+            open={showFeesDisclosure}
+            onToggle={(e) => setShowFeesDisclosure(e.currentTarget.open)}
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+              <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                Add fees / cross-currency
+              </span>
+              <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-3 space-y-3">
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+                <div>
+                  <Label className="mb-2 block">FX Rate (optional)</Label>
+                  <Input type="number" min="0" step="0.0000000001" value={fxRate} onChange={(e) => setFxRate(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="mb-2 block">FX Fee</Label>
+                  <Input type="number" min="0" step="0.01" value={fxFee} onChange={(e) => setFxFee(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="mb-2 block">Platform Fee</Label>
+                  <Input type="number" min="0" step="0.01" value={platformFee} onChange={(e) => setPlatformFee(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="mb-2 block">Tax</Label>
+                  <Input type="number" min="0" step="0.01" value={tax} onChange={(e) => setTax(e.target.value)} />
+                </div>
+              </div>
+              <p className="text-xs text-slate-400">
+                Same-currency transfer: FX rate can be empty. Cross-currency transfer: provide FX rate and optional fee/tax charges.
+              </p>
             </div>
-            <div>
-              <Label className="mb-2 block">FX Fee</Label>
-              <Input type="number" min="0" step="0.01" value={fxFee} onChange={(e) => setFxFee(e.target.value)} />
+          </details>
+          {grossNum > 0 && (
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Net received</span>
+                <span data-testid="transfer-net-preview" className="font-semibold text-white">
+                  {formatCurrency(netPreview, toAccountForPreview?.default_currency_code)}
+                </span>
+              </div>
             </div>
-            <div>
-              <Label className="mb-2 block">Platform Fee</Label>
-              <Input type="number" min="0" step="0.01" value={platformFee} onChange={(e) => setPlatformFee(e.target.value)} />
-            </div>
-            <div>
-              <Label className="mb-2 block">Tax</Label>
-              <Input type="number" min="0" step="0.01" value={tax} onChange={(e) => setTax(e.target.value)} />
-            </div>
-          </div>
-          <p className="text-xs text-slate-400">
-            Same-currency transfer: FX rate can be empty. Cross-currency transfer: provide FX rate and optional fee/tax charges.
-          </p>
+          )}
           <div>
             <Label className="mb-2 block">Notes (optional)</Label>
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Top-up to wallet" />
@@ -219,7 +259,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 fromAccountId === toAccountId
               }
             >
-              {createTransferMutation.isPending ? 'Transferring...' : 'Create Transfer'}
+              {createTransferMutation.isPending ? 'Transferring…' : 'Create Transfer'}
             </Button>
           </div>
         </form>

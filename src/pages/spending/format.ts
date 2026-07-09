@@ -1,5 +1,5 @@
 import type { RecurringFrequency } from '../../types/spending';
-import { formatMonthYear } from '../../utils/dateFormat';
+import { formatMonthYear, formatDateInputValue } from '../../utils/dateFormat';
 
 export const FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
   daily: 'Daily',
@@ -8,7 +8,7 @@ export const FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
   yearly: 'Yearly',
 };
 
-export const localDateInputValue = () => new Date().toLocaleDateString('en-CA');
+export const localDateInputValue = () => formatDateInputValue(new Date());
 
 export const formatDueDate = (dateStr: string) => {
   if (!dateStr) return { label: 'N/A', color: 'text-slate-400 bg-slate-800' };

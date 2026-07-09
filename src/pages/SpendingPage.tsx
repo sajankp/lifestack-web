@@ -39,6 +39,10 @@ import {
   ArrowRightLeft,
   Landmark,
   AlertCircle,
+  ChevronDown,
+  SlidersHorizontal,
+  RotateCcw,
+  Settings2,
 } from 'lucide-react';
 import { DropdownSelect } from '../components/DropdownSelect';
 import { DatePicker } from '../components/DatePicker';
@@ -54,6 +58,8 @@ import { Label } from '../components/ui/label';
 import type { AccountType } from '../types/finance';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { formatCurrency } from '../utils/numberFormat';
+import { computeTransferNet } from '../utils/transferMath';
+import { describeRecurrence } from '../utils/recurrenceLabel';
 import { formatDate } from '../utils/dateFormat';
 import { TransactionsTab } from './spending/TransactionsTab';
 import { BudgetsTab } from './spending/BudgetsTab';
@@ -260,6 +266,8 @@ export const SpendingPage: React.FC = () => {
   const [editTransferPlatformFee, setEditTransferPlatformFee] = useState('0');
   const [editTransferTax, setEditTransferTax] = useState('0');
   const [editTransferNet, setEditTransferNet] = useState('');
+  const [editTransferNetOverridden, setEditTransferNetOverridden] = useState(false);
+  const [editTransferShowFees, setEditTransferShowFees] = useState(false);
   const [editTransferNotes, setEditTransferNotes] = useState('');
   const [editTransferDate, setEditTransferDate] = useState('');
   const [editTransferError, setEditTransferError] = useState<string | null>(null);
@@ -545,8 +553,19 @@ export const SpendingPage: React.FC = () => {
   });
   const recurringFrequencyWatch = watchRecurringForm('frequency');
   const recurringMonthlyModeWatch = watchRecurringForm('monthly_mode');
+  const recurringIntervalWatch = watchRecurringForm('interval');
+  const recurringByOrdinalWatch = watchRecurringForm('by_ordinal');
+  const recurringByWeekdayWatch = watchRecurringForm('by_weekday');
   const isRecurringNthWeekdayMode =
     recurringFrequencyWatch === 'monthly' && recurringMonthlyModeWatch === 'nth_weekday';
+  const recurringScheduleSummary = describeRecurrence({
+    frequency: recurringFrequencyWatch,
+    interval: parseInt(recurringIntervalWatch, 10) || 1,
+    monthly_mode: recurringMonthlyModeWatch,
+    by_ordinal: recurringByOrdinalWatch != null ? parseInt(recurringByOrdinalWatch, 10) : null,
+    by_weekday: recurringByWeekdayWatch != null ? parseInt(recurringByWeekdayWatch, 10) : null,
+  });
+  const [showAdvancedSchedule, setShowAdvancedSchedule] = useState(false);
 
   const createRecurringMutation = useInvalidatingMutation(
     (data: RecurringTransactionCreate) => spendingService.createRecurring(data),
@@ -675,6 +694,18 @@ export const SpendingPage: React.FC = () => {
     setEditTransferPlatformFee(t.platform_fee_amount);
     setEditTransferTax(t.tax_amount);
     setEditTransferNet(t.net_amount_received);
+    const computedNet = computeTransferNet({
+      gross: Number(t.gross_amount),
+      fxRate: t.fx_rate_used ? Number(t.fx_rate_used) : null,
+      fxFee: Number(t.fx_fee_amount) || 0,
+      platformFee: Number(t.platform_fee_amount) || 0,
+      tax: Number(t.tax_amount) || 0,
+    });
+    // A stored net that doesn't match the computed one means someone already
+    // hand-adjusted it (e.g. a partial refund) — preserve that override
+    // instead of silently recomputing over it when the modal opens.
+    setEditTransferNetOverridden(Math.abs(computedNet - Number(t.net_amount_received)) > 0.01);
+    setEditTransferShowFees(Boolean(t.fx_rate_used) || Number(t.fx_fee_amount) > 0 || Number(t.platform_fee_amount) > 0 || Number(t.tax_amount) > 0);
     setEditTransferNotes(t.notes ?? '');
     setEditTransferDate(
       t.occurred_at && !Number.isNaN(Date.parse(t.occurred_at))
@@ -683,6 +714,22 @@ export const SpendingPage: React.FC = () => {
     );
     setEditTransferError(null);
   };
+
+  const editTransferComputedNet = computeTransferNet({
+    gross: Number(editTransferGross) || 0,
+    fxRate: editTransferFxRate ? Number(editTransferFxRate) : null,
+    fxFee: Number(editTransferFxFee) || 0,
+    platformFee: Number(editTransferPlatformFee) || 0,
+    tax: Number(editTransferTax) || 0,
+  });
+
+  React.useEffect(() => {
+    if (!editingTransfer || editTransferNetOverridden) return;
+    setEditTransferNet(editTransferComputedNet.toFixed(2));
+    // Recompute only in response to the inputs that feed the formula — including
+    // editTransferComputedNet itself would refire every render since it's a fresh number each time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingTransfer, editTransferNetOverridden, editTransferGross, editTransferFxRate, editTransferFxFee, editTransferPlatformFee, editTransferTax]);
 
   const createAccountMutation = useInvalidatingMutation(
     () =>
@@ -832,6 +879,7 @@ export const SpendingPage: React.FC = () => {
       by_weekday: '0',
       by_ordinal: '1',
     });
+    setShowAdvancedSchedule(false);
     setIsRecurringModalOpen(true);
   };
 
@@ -850,6 +898,7 @@ export const SpendingPage: React.FC = () => {
       by_weekday: r.by_weekday != null ? String(r.by_weekday) : '0',
       by_ordinal: r.by_ordinal != null ? String(r.by_ordinal) : '1',
     });
+    setShowAdvancedSchedule(true);
     setIsRecurringModalOpen(true);
   };
 
@@ -1417,124 +1466,146 @@ export const SpendingPage: React.FC = () => {
                 )}
               </div>
 
-              {/* Frequency + Interval row */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="rec-frequency" className="mb-2 block">Frequency</Label>
-                  <Controller
-                    control={recurringControl}
-                    name="frequency"
-                    render={({ field }) => (
-                      <DropdownSelect
-                        testId="spending-recurring-frequency"
-                        value={field.value}
-                        onChange={field.onChange}
-                        options={[
-                          { value: 'daily', label: 'Daily' },
-                          { value: 'weekly', label: 'Weekly' },
-                          { value: 'monthly', label: 'Monthly' },
-                          { value: 'yearly', label: 'Yearly' },
-                        ]}
-                        placeholder="Select frequency"
-                      />
-                    )}
-                  />
-                  {recurringErrors.frequency && (
-                    <p className="mt-2 text-sm text-rose-400">{recurringErrors.frequency.message}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="rec-interval" className="mb-2 block">Every N</Label>
-                  <Input
-                    id="rec-interval"
-                    data-testid="spending-recurring-interval"
-                    type="number"
-                    min="1"
-                    step="1"
-                    placeholder="1"
-                    {...registerRecurringField('interval')}
-                  />
-                  {recurringErrors.interval && (
-                    <p className="mt-2 text-sm text-rose-400">{recurringErrors.interval.message}</p>
-                  )}
-                </div>
-              </div>
+              {/* Natural-language schedule summary, reusing the same describeRecurrence
+                  that labels existing rules in the list, so the raw frequency/interval/
+                  monthly-mode fields can move behind an Advanced disclosure. */}
+              <p data-testid="spending-recurring-schedule-summary" className="text-sm text-slate-300">
+                {recurringScheduleSummary}
+              </p>
 
-              {/* Monthly recurrence mode (spec-053) */}
-              {recurringFrequencyWatch === 'monthly' && (
-                <div className="space-y-3">
-                  <div>
-                    <Label className="mb-2 block">Monthly mode</Label>
-                    <Controller
-                      control={recurringControl}
-                      name="monthly_mode"
-                      render={({ field }) => (
-                        <DropdownSelect
-                          testId="spending-recurring-monthly-mode"
-                          value={field.value ?? 'day_of_month'}
-                          onChange={field.onChange}
-                          options={[
-                            { value: 'day_of_month', label: 'On day N' },
-                            { value: 'last_day', label: 'On the last day' },
-                            { value: 'nth_weekday', label: 'On the Nth weekday' },
-                          ]}
-                          placeholder="Select monthly mode"
-                        />
+              <details
+                className="group rounded-xl border border-slate-700/50 bg-slate-800/30 p-3"
+                open={showAdvancedSchedule}
+                onToggle={(e) => setShowAdvancedSchedule(e.currentTarget.open)}
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                    <Settings2 className="h-3.5 w-3.5" />
+                    Advanced schedule
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="mt-3 space-y-3">
+                  {/* Frequency + Interval row */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="rec-frequency" className="mb-2 block">Frequency</Label>
+                      <Controller
+                        control={recurringControl}
+                        name="frequency"
+                        render={({ field }) => (
+                          <DropdownSelect
+                            testId="spending-recurring-frequency"
+                            value={field.value}
+                            onChange={field.onChange}
+                            options={[
+                              { value: 'daily', label: 'Daily' },
+                              { value: 'weekly', label: 'Weekly' },
+                              { value: 'monthly', label: 'Monthly' },
+                              { value: 'yearly', label: 'Yearly' },
+                            ]}
+                            placeholder="Select frequency"
+                          />
+                        )}
+                      />
+                      {recurringErrors.frequency && (
+                        <p className="mt-2 text-sm text-rose-400">{recurringErrors.frequency.message}</p>
                       )}
-                    />
+                    </div>
+                    <div>
+                      <Label htmlFor="rec-interval" className="mb-2 block">Every N</Label>
+                      <Input
+                        id="rec-interval"
+                        data-testid="spending-recurring-interval"
+                        type="number"
+                        min="1"
+                        step="1"
+                        placeholder="1"
+                        {...registerRecurringField('interval')}
+                      />
+                      {recurringErrors.interval && (
+                        <p className="mt-2 text-sm text-rose-400">{recurringErrors.interval.message}</p>
+                      )}
+                    </div>
                   </div>
-                  {isRecurringNthWeekdayMode && (
-                    <div className="grid grid-cols-2 gap-4">
+
+                  {/* Monthly recurrence mode (spec-053) */}
+                  {recurringFrequencyWatch === 'monthly' && (
+                    <div className="space-y-3">
                       <div>
-                        <Label className="mb-2 block">Occurrence</Label>
+                        <Label className="mb-2 block">Monthly mode</Label>
                         <Controller
                           control={recurringControl}
-                          name="by_ordinal"
+                          name="monthly_mode"
                           render={({ field }) => (
                             <DropdownSelect
-                              testId="spending-recurring-ordinal"
-                              value={field.value ?? '1'}
+                              testId="spending-recurring-monthly-mode"
+                              value={field.value ?? 'day_of_month'}
                               onChange={field.onChange}
                               options={[
-                                { value: '1', label: 'First' },
-                                { value: '2', label: 'Second' },
-                                { value: '3', label: 'Third' },
-                                { value: '4', label: 'Fourth' },
-                                { value: '-1', label: 'Last' },
+                                { value: 'day_of_month', label: 'On day N' },
+                                { value: 'last_day', label: 'On the last day' },
+                                { value: 'nth_weekday', label: 'On the Nth weekday' },
                               ]}
-                              placeholder="Occurrence"
+                              placeholder="Select monthly mode"
                             />
                           )}
                         />
                       </div>
-                      <div>
-                        <Label className="mb-2 block">Weekday</Label>
-                        <Controller
-                          control={recurringControl}
-                          name="by_weekday"
-                          render={({ field }) => (
-                            <DropdownSelect
-                              testId="spending-recurring-weekday"
-                              value={field.value ?? '0'}
-                              onChange={field.onChange}
-                              options={[
-                                { value: '0', label: 'Monday' },
-                                { value: '1', label: 'Tuesday' },
-                                { value: '2', label: 'Wednesday' },
-                                { value: '3', label: 'Thursday' },
-                                { value: '4', label: 'Friday' },
-                                { value: '5', label: 'Saturday' },
-                                { value: '6', label: 'Sunday' },
-                              ]}
-                              placeholder="Weekday"
+                      {isRecurringNthWeekdayMode && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="mb-2 block">Occurrence</Label>
+                            <Controller
+                              control={recurringControl}
+                              name="by_ordinal"
+                              render={({ field }) => (
+                                <DropdownSelect
+                                  testId="spending-recurring-ordinal"
+                                  value={field.value ?? '1'}
+                                  onChange={field.onChange}
+                                  options={[
+                                    { value: '1', label: 'First' },
+                                    { value: '2', label: 'Second' },
+                                    { value: '3', label: 'Third' },
+                                    { value: '4', label: 'Fourth' },
+                                    { value: '-1', label: 'Last' },
+                                  ]}
+                                  placeholder="Occurrence"
+                                />
+                              )}
                             />
-                          )}
-                        />
-                      </div>
+                          </div>
+                          <div>
+                            <Label className="mb-2 block">Weekday</Label>
+                            <Controller
+                              control={recurringControl}
+                              name="by_weekday"
+                              render={({ field }) => (
+                                <DropdownSelect
+                                  testId="spending-recurring-weekday"
+                                  value={field.value ?? '0'}
+                                  onChange={field.onChange}
+                                  options={[
+                                    { value: '0', label: 'Monday' },
+                                    { value: '1', label: 'Tuesday' },
+                                    { value: '2', label: 'Wednesday' },
+                                    { value: '3', label: 'Thursday' },
+                                    { value: '4', label: 'Friday' },
+                                    { value: '5', label: 'Saturday' },
+                                    { value: '6', label: 'Sunday' },
+                                  ]}
+                                  placeholder="Weekday"
+                                />
+                              )}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              </details>
 
               {/* Start date (create only) */}
               {!editingRecurring && (
@@ -2100,30 +2171,71 @@ export const SpendingPage: React.FC = () => {
                   <Input type="number" min="0" step="0.01" value={editTransferGross} onChange={(e) => setEditTransferGross(e.target.value)} placeholder="1000.00" className="bg-slate-800 border-slate-700 text-white" />
                 </div>
                 <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">Net Received</Label>
-                  <Input type="number" min="0" step="0.01" value={editTransferNet} onChange={(e) => setEditTransferNet(e.target.value)} placeholder="950.00" className="bg-slate-800 border-slate-700 text-white" />
+                  <Label className="text-slate-300 text-xs mb-1 flex items-center justify-between">
+                    <span>Net Received</span>
+                    {editTransferNetOverridden && (
+                      <button
+                        type="button"
+                        onClick={() => setEditTransferNetOverridden(false)}
+                        className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 normal-case"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Reset to computed
+                      </button>
+                    )}
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editTransferNet}
+                    onChange={(e) => {
+                      setEditTransferNetOverridden(true);
+                      setEditTransferNet(e.target.value);
+                    }}
+                    placeholder="950.00"
+                    className="bg-slate-800 border-slate-700 text-white"
+                  />
+                  {!editTransferNetOverridden && (
+                    <p className="mt-1 text-xs text-slate-500">Computed from gross, FX rate, and fees below.</p>
+                  )}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">FX Rate</Label>
-                  <Input type="number" min="0" step="any" value={editTransferFxRate} onChange={(e) => setEditTransferFxRate(e.target.value)} placeholder="optional" className="bg-slate-800 border-slate-700 text-white" />
+              <details
+                className="group rounded-xl border border-slate-700/50 bg-slate-800/30 p-3"
+                open={editTransferShowFees}
+                onToggle={(e) => setEditTransferShowFees(e.currentTarget.open)}
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    Fees / cross-currency
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-slate-300 text-xs mb-1 block">FX Rate</Label>
+                      <Input type="number" min="0" step="any" value={editTransferFxRate} onChange={(e) => setEditTransferFxRate(e.target.value)} placeholder="optional" className="bg-slate-800 border-slate-700 text-white" />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300 text-xs mb-1 block">FX Fee</Label>
+                      <Input type="number" min="0" step="0.01" value={editTransferFxFee} onChange={(e) => setEditTransferFxFee(e.target.value)} placeholder="0" className="bg-slate-800 border-slate-700 text-white" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-slate-300 text-xs mb-1 block">Platform Fee</Label>
+                      <Input type="number" min="0" step="0.01" value={editTransferPlatformFee} onChange={(e) => setEditTransferPlatformFee(e.target.value)} placeholder="0" className="bg-slate-800 border-slate-700 text-white" />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300 text-xs mb-1 block">Tax</Label>
+                      <Input type="number" min="0" step="0.01" value={editTransferTax} onChange={(e) => setEditTransferTax(e.target.value)} placeholder="0" className="bg-slate-800 border-slate-700 text-white" />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">FX Fee</Label>
-                  <Input type="number" min="0" step="0.01" value={editTransferFxFee} onChange={(e) => setEditTransferFxFee(e.target.value)} placeholder="0" className="bg-slate-800 border-slate-700 text-white" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">Platform Fee</Label>
-                  <Input type="number" min="0" step="0.01" value={editTransferPlatformFee} onChange={(e) => setEditTransferPlatformFee(e.target.value)} placeholder="0" className="bg-slate-800 border-slate-700 text-white" />
-                </div>
-                <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">Tax</Label>
-                  <Input type="number" min="0" step="0.01" value={editTransferTax} onChange={(e) => setEditTransferTax(e.target.value)} placeholder="0" className="bg-slate-800 border-slate-700 text-white" />
-                </div>
-              </div>
+              </details>
               <div>
                 <Label className="text-slate-300 text-xs mb-1 block">Date</Label>
                 <DatePicker value={editTransferDate} onChange={setEditTransferDate} required />

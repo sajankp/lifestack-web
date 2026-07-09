@@ -1,18 +1,10 @@
 import { toNumber, formatCurrency } from '../../utils/numberFormat';
+import { formatDateInputValue, formatDateTimeInputValue } from '../../utils/dateFormat';
 import type { Holding, InstrumentType } from '../../types/investing';
 
-export const formatDateInput = (d: Date): string => {
-  const tzOffsetMs = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - tzOffsetMs).toISOString().slice(0, 10);
-};
-
-export const formatLocalDateInput = (d: Date): string =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-export const formatDateTimeLocalInput = (d: Date): string => {
-  const tzOffsetMs = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - tzOffsetMs).toISOString().slice(0, 16);
-};
+export const formatDateInput = formatDateInputValue;
+export const formatLocalDateInput = formatDateInputValue;
+export const formatDateTimeLocalInput = formatDateTimeInputValue;
 
 export const statusLabel = (status: string | undefined): string => {
   switch (status) {

@@ -7,8 +7,9 @@ import { spendingService } from '../../services/spending';
 import { financeService } from '../../services/finance';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
+import { ReconciliationCard } from '../../components/finance/ReconciliationCard';
 import type { LedgerEntry } from '../../types/spending';
-import type { CapitalTransfer, ReconciliationSummary } from '../../types/finance';
+import type { CapitalTransfer } from '../../types/finance';
 
 interface LedgerTabProps {
   accounts: Array<{ public_id: string; name: string; account_type: string; default_currency_code: string }>;
@@ -26,73 +27,6 @@ interface LedgerTabProps {
   onRequestDeleteTransfer?: (transfer: CapitalTransfer) => void;
   onAddTransfer?: () => void;
 }
-
-// Reconciliation card: compares projected ledger balance to cash snapshot
-const ReconciliationCard: React.FC<{
-  reconciliation: ReconciliationSummary;
-  formatBal: (v: string | number | undefined) => string;
-}> = ({ reconciliation, formatBal }) => {
-  const disc = reconciliation.discrepancy !== null ? Number(reconciliation.discrepancy) : null;
-  const discAbs = disc !== null ? Math.abs(disc) : null;
-  const projected = Number(reconciliation.projected_balance);
-  const threshold = projected !== 0 ? Math.abs(projected) * 0.05 : 100;
-  const discColor =
-    disc === null
-      ? 'text-slate-400'
-      : disc === 0
-      ? 'text-emerald-400'
-      : discAbs! >= threshold
-      ? 'text-rose-400'
-      : 'text-amber-400';
-
-  return (
-    <div className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Reconciliation</span>
-        {disc === 0 && (
-          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">Balanced</span>
-        )}
-        {disc !== null && disc !== 0 && (
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-            discAbs! >= threshold ? 'bg-rose-500/15 text-rose-400' : 'bg-amber-500/15 text-amber-400'
-          }`}>Discrepancy</span>
-        )}
-        {disc === null && (
-          <span className="rounded-full bg-slate-700/50 px-2 py-0.5 text-[10px] font-semibold text-slate-400">No Snapshot</span>
-        )}
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Projected</p>
-          <p className={`text-base font-bold ${Number(reconciliation.projected_balance) >= 0 ? 'text-slate-200' : 'text-rose-400'}`}>
-            {formatBal(reconciliation.projected_balance)}
-          </p>
-        </div>
-        <div>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Snapshot</p>
-          {reconciliation.snapshot_balance !== null ? (
-            <p className={`text-base font-bold ${Number(reconciliation.snapshot_balance) >= 0 ? 'text-slate-200' : 'text-rose-400'}`}>
-              {formatBal(reconciliation.snapshot_balance)}
-            </p>
-          ) : (
-            <p className="text-base font-bold text-slate-500">—</p>
-          )}
-          {reconciliation.snapshot_as_of && !isNaN(new Date(reconciliation.snapshot_as_of).getTime()) && (
-            <p className="text-[10px] text-slate-500 mt-0.5">
-              as of {formatDate(reconciliation.snapshot_as_of)}
-            </p>
-          )}
-        </div>
-        <div>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Gap</p>
-          <p className={`text-base font-bold ${discColor}`}>
-            {disc !== null ? (disc > 0 ? '+' : '') + formatBal(reconciliation.discrepancy!) : '—'}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export const LedgerTab: React.FC<LedgerTabProps> = ({
   accounts,
@@ -232,7 +166,11 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
 
           {/* Reconciliation card */}
           {reconciliation && (
-            <ReconciliationCard reconciliation={reconciliation} formatBal={formatBal} />
+            <ReconciliationCard
+              reconciliation={reconciliation}
+              currencyDisplayPreference={currencyDisplayPreference}
+              testIdPrefix="spending-ledger-reconciliation"
+            />
           )}
 
 
