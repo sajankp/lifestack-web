@@ -429,7 +429,7 @@ export const CashTab: React.FC<CashTabProps> = ({
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button disabled={deleteCashMutation.isPending} onClick={() => setPendingDeleteCash(c)} className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10">
+                          <button aria-label="Delete cash balance" disabled={deleteCashMutation.isPending} onClick={() => setPendingDeleteCash(c)} className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </td>

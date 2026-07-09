@@ -21,6 +21,7 @@ type DropdownSelectProps = {
   disabled?: boolean;
   showSearch?: boolean;
   sortByLabel?: boolean;
+  'aria-label'?: string;
 };
 
 export const DropdownSelect: React.FC<DropdownSelectProps> = ({
@@ -34,6 +35,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
   disabled = false,
   showSearch = false,
   sortByLabel = false,
+  'aria-label': ariaLabel,
 }) => {
   const [open, setOpen] = React.useState(false);
 
@@ -57,7 +59,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
         onValueChange={(nextValue) => onChange(nextValue === clearValue ? '' : nextValue)}
         disabled={disabled}
       >
-        <SelectTrigger id={id} data-testid={testId}>
+        <SelectTrigger id={id} data-testid={testId} aria-label={ariaLabel}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -83,6 +85,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
         <button
           id={id}
           data-testid={testId}
+          aria-label={ariaLabel}
           disabled={disabled}
           type="button"
           className={cn(

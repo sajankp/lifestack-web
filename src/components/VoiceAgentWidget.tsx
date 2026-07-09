@@ -948,6 +948,7 @@ export const VoiceAgentWidget: React.FC = () => {
                   />
                   <button
                     type="submit"
+                    aria-label="Send message"
                     disabled={!inputText.trim()}
                     className="absolute right-2 top-1.5 rounded-lg bg-slate-900 border border-slate-800 p-1.5 text-slate-400 hover:text-white disabled:opacity-30 disabled:hover:text-slate-400 transition-all"
                   >

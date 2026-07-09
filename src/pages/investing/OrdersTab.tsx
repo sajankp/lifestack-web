@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
+import { Button } from '../../components/ui/button';
 import { financeService } from '../../services/finance';
 import { investingService } from '../../services/investing';
 import type { InvestingOrder } from '../../services/investing';
@@ -117,15 +118,16 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
 
       <div data-testid="investing-orders-heading" className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="font-semibold text-white text-base">Orders</h3>
-        <button
+        <Button
           type="button"
           data-testid="investing-place-order-btn"
           onClick={onOpenPlaceOrder}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+          size="sm"
+          className="rounded-lg"
         >
           <Plus className="h-4 w-4" />
           Place Order
-        </button>
+        </Button>
       </div>
 
       {/* Filters */}

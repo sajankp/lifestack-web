@@ -347,15 +347,15 @@ export const InvestingPage: React.FC = () => {
         title="Investing"
         subtitle="Manage holdings and cash balances for your workspace."
         actions={(
-          <button
+          <Button
             type="button"
             data-testid="investing-hero-place-order"
             onClick={openPlaceOrderModal}
-            className="flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-5 font-semibold text-white shadow-lg transition-all hover:bg-indigo-500 active:scale-95"
+            className="h-12 rounded-xl px-5 active:scale-95"
           >
             <Plus className="h-5 w-5" />
             Place Order
-          </button>
+          </Button>
         )}
       />
 
@@ -687,14 +687,15 @@ export const InvestingPage: React.FC = () => {
                 >
                   Cancel
                 </button>
-                <button
+                <Button
                   data-testid="order-submit"
                   type="submit"
-                  disabled={placeOrderMutation.isPending || !orderForm.account_id || !orderForm.symbol || !orderQty || !orderPrice}
-                  className="flex-1 rounded-lg bg-indigo-600 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={!orderForm.account_id || !orderForm.symbol || !orderQty || !orderPrice}
+                  loading={placeOrderMutation.isPending}
+                  className="flex-1 rounded-lg py-2"
                 >
-                  {placeOrderMutation.isPending ? 'Placing…' : `Place ${orderForm.order_type === 'buy' ? 'Buy' : 'Sell'} Order`}
-                </button>
+                  {placeOrderMutation.isPending ? 'Placing' : `Place ${orderForm.order_type === 'buy' ? 'Buy' : 'Sell'} Order`}
+                </Button>
               </div>
 
               {placeOrderMutation.isError && (
@@ -846,13 +847,13 @@ export const InvestingPage: React.FC = () => {
                 >
                   Cancel
                 </button>
-                <button
+                <Button
                   type="submit"
-                  disabled={updateOrderMutation.isPending}
-                  className="flex-1 rounded-lg bg-indigo-600 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  loading={updateOrderMutation.isPending}
+                  className="flex-1 rounded-lg py-2"
                 >
-                  {updateOrderMutation.isPending ? 'Saving…' : 'Save Changes'}
-                </button>
+                  {updateOrderMutation.isPending ? 'Saving' : 'Save Changes'}
+                </Button>
               </div>
 
               {updateOrderMutation.isError && (

@@ -412,8 +412,9 @@ export const TodoPage: React.FC = () => {
           {isTaskModalOpen && (
             <form onSubmit={handleSaveTask} className="space-y-4">
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-semibold text-slate-300">What needs to be done?</label>
+                <label htmlFor="todo-new-title" className="text-sm font-semibold text-slate-300">What needs to be done?</label>
                 <input
+                  id="todo-new-title"
                   data-testid="todo-new-title"
                   type="text"
                   value={taskForm.title}
@@ -425,8 +426,9 @@ export const TodoPage: React.FC = () => {
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-semibold text-slate-300">Description (optional)</label>
+                <label htmlFor="todo-new-description" className="text-sm font-semibold text-slate-300">Description (optional)</label>
                 <textarea
+                  id="todo-new-description"
                   data-testid="todo-new-description"
                   value={taskForm.description}
                   onChange={(e) => setTaskForm((s) => ({ ...s, description: e.target.value }))}
@@ -439,8 +441,9 @@ export const TodoPage: React.FC = () => {
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-semibold text-slate-300">Priority</label>
+                  <label htmlFor="todo-new-priority" className="text-sm font-semibold text-slate-300">Priority</label>
                   <DropdownSelect
+                    id="todo-new-priority"
                     testId="todo-new-priority"
                     value={taskForm.priority}
                     onChange={(value) => setTaskForm((s) => ({ ...s, priority: value as TodoPriority }))}
@@ -714,6 +717,7 @@ export const TodoPage: React.FC = () => {
               <input
                 data-testid="todo-recurring-title"
                 type="text"
+                aria-label="Title"
                 value={ruleTitle}
                 onChange={(e) => setRuleTitle(e.target.value)}
                 placeholder="Title (e.g. Weekly grocery planning)"
@@ -723,6 +727,7 @@ export const TodoPage: React.FC = () => {
               <input
                 data-testid="todo-recurring-description"
                 type="text"
+                aria-label="Description"
                 value={ruleDescription}
                 onChange={(e) => setRuleDescription(e.target.value)}
                 placeholder="Description (optional)"
@@ -730,6 +735,7 @@ export const TodoPage: React.FC = () => {
               />
               <DropdownSelect
                 testId="todo-recurring-priority"
+                aria-label="Priority"
                 value={rulePriority}
                 onChange={(value) => setRulePriority(value as TodoPriority)}
                 options={priorityOptions}
@@ -738,6 +744,7 @@ export const TodoPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <DropdownSelect
                   testId="todo-recurring-frequency"
+                  aria-label="Frequency"
                   value={ruleFrequency}
                   onChange={(value) => setRuleFrequency(value as TodoFrequency)}
                   options={frequencyOptions}
@@ -746,6 +753,7 @@ export const TodoPage: React.FC = () => {
                 <input
                   data-testid="todo-recurring-interval"
                   type="number"
+                  aria-label="Repeat interval"
                   min={1}
                   value={ruleInterval}
                   onChange={(e) => {

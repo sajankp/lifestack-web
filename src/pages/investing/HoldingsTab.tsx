@@ -661,6 +661,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                                 autoFocus
                               />
                               <button
+                                aria-label="Save price"
                                 data-testid={`investing-save-price-${h.public_id}`}
                                 onClick={() => handleSavePrice(h)}
                                 disabled={submitPricesMutation.isPending}
@@ -669,6 +670,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                                 <Check className="h-4 w-4" />
                               </button>
                               <button
+                                aria-label="Cancel price edit"
                                 onClick={() => setEditingPriceHoldingId(null)}
                                 className="text-red-400 hover:text-red-300"
                               >
