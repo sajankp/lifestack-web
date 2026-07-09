@@ -6,6 +6,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { TodoPage } from './pages/TodoPage';
+import { HealthPage } from './pages/HealthPage';
 import { SpendingPage } from './pages/SpendingPage';
 import { InvestingPage } from './pages/InvestingPage';
 import { NetWorthPage } from './pages/NetWorthPage';
@@ -105,6 +106,15 @@ function App() {
             element={
               <Layout>
                 <TodoPage />
+              </Layout>
+            }
+          />
+
+          <Route
+            path="/health"
+            element={
+              <Layout>
+                <HealthPage />
               </Layout>
             }
           />

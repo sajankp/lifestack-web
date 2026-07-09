@@ -19,6 +19,15 @@ export const queryKeys = {
     recurring: <T extends unknown[]>(...params: T) => ['todo', 'recurring', ...params] as const,
   },
 
+  // ── Health ────────────────────────────────────────────────────────────────
+  health: {
+    all: ['health'] as const,
+    medications: <T extends unknown[]>(...params: T) => ['health', 'medications', ...params] as const,
+    schedule: <T extends unknown[]>(...params: T) => ['health', 'schedule', ...params] as const,
+    weight: <T extends unknown[]>(...params: T) => ['health', 'weight', ...params] as const,
+    weightTrend: <T extends unknown[]>(...params: T) => ['health', 'weight-trend', ...params] as const,
+  },
+
   // ── Spending ──────────────────────────────────────────────────────────────
   // Previously bare keys: ['categories'], ['transactions', ...], ['budgets', ...],
   // ['recurring', ...], ['transactions-summary', ...].

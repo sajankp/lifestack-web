@@ -9,6 +9,7 @@ import {
   Upload,
   Download,
   Settings,
+  HeartPulse,
 } from 'lucide-react';
 
 export const ROLE_BADGE: Record<string, string> = {
@@ -23,6 +24,7 @@ export type NavSection = 'Overview' | 'Life' | 'Money' | 'Tools';
 export const NAV_LINKS = [
   { to: '/', label: 'Dashboard', testId: 'nav-dashboard', icon: LayoutDashboard, section: 'Overview' as NavSection },
   { to: '/todo', label: 'Todos', testId: 'nav-todo', icon: CheckSquare, section: 'Life' as NavSection },
+  { to: '/health', label: 'Health', testId: 'nav-health', icon: HeartPulse, section: 'Life' as NavSection },
   { to: '/capture', label: 'Capture', testId: 'nav-capture', icon: Mic, section: 'Life' as NavSection },
   { to: '/spending', label: 'Spending', testId: 'nav-spending', icon: CreditCard, section: 'Money' as NavSection },
   { to: '/investing', label: 'Investing', testId: 'nav-investing', icon: TrendingUp, section: 'Money' as NavSection },

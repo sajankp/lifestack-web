@@ -3,6 +3,7 @@
 // category currently emitted, plus a title-case fallback for anything new.
 const CATEGORY_LABELS: Record<string, string> = {
   todo_reminder: 'Todo reminders',
+  medication_reminder: 'Medication reminders',
   budget: 'Budget alerts',
   budget_guardrail: 'Budget guardrails',
   insight: 'Insights',
