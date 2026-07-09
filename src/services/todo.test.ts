@@ -37,7 +37,7 @@ describe('todoService', () => {
     await todoService.deleteRecurringRule('rule-1');
 
     expect(api.get).toHaveBeenNthCalledWith(1, '/todo/', {
-      params: { limit: 10, offset: 5, completed: false },
+      params: { limit: 10, offset: 5, sort: 'created_at', completed: false },
     });
     expect(api.post).toHaveBeenNthCalledWith(1, '/todo/', {
       title: 'Plan week',

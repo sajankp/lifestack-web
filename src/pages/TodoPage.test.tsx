@@ -196,6 +196,164 @@ describe('TodoPage', () => {
     expect(await screen.findByText('Task deleted')).toBeInTheDocument();
   });
 
+  it('renders subtasks indented under their parent with progress, and cascades completion', async () => {
+    let parentCompleted = false;
+
+    const openItems = () => [
+      {
+        public_id: 'parent-1',
+        title: 'Plan trip',
+        description: null,
+        due_date: null,
+        priority: 'medium',
+        completed: parentCompleted,
+        parent_public_id: null,
+        subtask_count: 1,
+        created_at: '2026-06-13T00:00:00Z',
+        updated_at: '2026-06-13T00:00:00Z',
+      },
+      {
+        public_id: 'child-1',
+        title: 'Book flights',
+        description: null,
+        due_date: null,
+        priority: 'medium',
+        completed: parentCompleted,
+        parent_public_id: 'parent-1',
+        subtask_count: 0,
+        created_at: '2026-06-13T00:00:00Z',
+        updated_at: '2026-06-13T00:00:00Z',
+      },
+    ];
+
+    server.use(
+      http.get('*/v1/todo/', ({ request }) => {
+        const url = new URL(request.url);
+        if (url.searchParams.get('completed') === 'true') {
+          return HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 });
+        }
+        const items = openItems();
+        return HttpResponse.json({ items, total: items.length, limit: 200, offset: 0 });
+      }),
+      http.get('*/v1/todo/recurring/', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 100, offset: 0 }),
+      ),
+      http.patch('*/v1/todo/parent-1', () => {
+        parentCompleted = true;
+        return HttpResponse.json({ ...openItems()[0], completed: true });
+      }),
+    );
+
+    renderWithQuery(<TodoPage />);
+
+    expect(await screen.findByText('Plan trip')).toBeInTheDocument();
+    expect(screen.getByText('Book flights')).toBeInTheDocument();
+    expect(screen.getByTestId('todo-subtask-progress-parent-1')).toHaveTextContent('0/1');
+
+    fireEvent.click(screen.getByTestId('todo-toggle-parent-1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('todo-subtask-progress-parent-1')).toHaveTextContent('1/1');
+    });
+  });
+
+  it('collapses completed tasks by default and clears them via the confirm dialog', async () => {
+    let deletedCount = 0;
+
+    server.use(
+      http.get('*/v1/todo/', ({ request }) => {
+        const url = new URL(request.url);
+        if (url.searchParams.get('completed') === 'true') {
+          const items =
+            deletedCount > 0
+              ? []
+              : [
+                  {
+                    public_id: 'done-1',
+                    title: 'Old task',
+                    description: null,
+                    due_date: null,
+                    priority: 'low',
+                    completed: true,
+                    parent_public_id: null,
+                    subtask_count: 0,
+                    created_at: '2026-06-01T00:00:00Z',
+                    updated_at: '2026-06-01T00:00:00Z',
+                  },
+                ];
+          return HttpResponse.json({ items, total: items.length, limit: 50, offset: 0 });
+        }
+        return HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 });
+      }),
+      http.get('*/v1/todo/recurring/', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 100, offset: 0 }),
+      ),
+      http.delete('*/v1/todo/completed', () => {
+        deletedCount = 1;
+        return HttpResponse.json({ deleted: 1 });
+      }),
+    );
+
+    renderWithQuery(<TodoPage />);
+
+    expect(await screen.findByText('No tasks yet.')).toBeInTheDocument();
+    expect(screen.queryByText('Old task')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('todo-completed-toggle'));
+    expect(await screen.findByText('Old task')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('todo-clear-completed'));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/Clear completed tasks\?/i);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear completed' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Old task')).not.toBeInTheDocument();
+    });
+    expect(await screen.findByText('Cleared 1 completed task')).toBeInTheDocument();
+  });
+
+  it('renders row actions with a pointer-coarse always-visible class, not hover-only', async () => {
+    server.use(
+      http.get('*/v1/todo/', ({ request }) => {
+        const url = new URL(request.url);
+        if (url.searchParams.get('completed') === 'true') {
+          return HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 });
+        }
+        return HttpResponse.json({
+          items: [
+            {
+              public_id: 'todo-1',
+              title: 'Review budget',
+              description: null,
+              due_date: null,
+              priority: 'medium',
+              completed: false,
+              parent_public_id: null,
+              subtask_count: 0,
+              created_at: '2026-06-13T00:00:00Z',
+              updated_at: '2026-06-13T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        });
+      }),
+      http.get('*/v1/todo/recurring/', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 100, offset: 0 }),
+      ),
+    );
+
+    renderWithQuery(<TodoPage />);
+
+    const deleteButton = await screen.findByTestId('todo-delete-todo-1');
+    const actionsContainer = deleteButton.parentElement;
+    expect(actionsContainer?.className).toContain('pointer-coarse:opacity-100');
+    expect(actionsContainer?.className).not.toMatch(/^opacity-0\b/);
+  });
+
   it('defaults recurring todos to low priority and supports recurring edits', async () => {
     let updatePayload: Record<string, unknown> | null = null;
 

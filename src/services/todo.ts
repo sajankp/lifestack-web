@@ -7,6 +7,7 @@ import type {
   RecurringTodoUpdate,
   Todo,
   TodoCreate,
+  TodoSort,
   TodoUpdate,
 } from '../types/todo';
 
@@ -18,8 +19,11 @@ export type {
   RecurringTodoUpdate,
   Todo,
   TodoCreate,
+  TodoSort,
   TodoUpdate,
 } from '../types/todo';
+
+const DeleteCompletedResponseSchema = z.object({ deleted: z.number() });
 
 // Todo endpoints predate the shared envelope's required limit/offset, so these
 // stay local schemas with optional limit/offset rather than paginatedSchema().
@@ -38,13 +42,23 @@ const PaginatedRecurringRulesSchema = z.object({
 });
 
 export const todoService = {
-  getTodos: async (completed?: boolean, limit: number = 50, offset: number = 0): Promise<z.infer<typeof PaginatedTodosSchema>> => {
-    const params: Record<string, string | number | boolean> = { limit, offset };
+  getTodos: async (
+    completed?: boolean,
+    limit: number = 50,
+    offset: number = 0,
+    sort: TodoSort = 'created_at',
+  ): Promise<z.infer<typeof PaginatedTodosSchema>> => {
+    const params: Record<string, string | number | boolean> = { limit, offset, sort };
     if (completed !== undefined) {
       params.completed = completed;
     }
     const response = await api.get('/todo/', { params });
     return PaginatedTodosSchema.parse(response.data);
+  },
+
+  clearCompletedTodos: async (): Promise<{ deleted: number }> => {
+    const response = await api.delete('/todo/completed');
+    return DeleteCompletedResponseSchema.parse(response.data);
   },
 
   createTodo: async (todo: TodoCreate): Promise<Todo> => {

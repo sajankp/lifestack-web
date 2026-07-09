@@ -7,6 +7,8 @@ export const TodoSchema = z.object({
   due_date: z.string().nullable().default(null),
   priority: z.enum(['low', 'medium', 'high']).default('low'),
   completed: z.boolean().default(false),
+  parent_public_id: z.string().nullable().default(null),
+  subtask_count: z.number().default(0),
   created_at: z.string().default(''),
   updated_at: z.string().default(''),
 });
@@ -19,9 +21,12 @@ export interface TodoCreate {
   due_date?: string | null;
   priority?: 'low' | 'medium' | 'high';
   completed?: boolean;
+  parent_public_id?: string | null;
 }
 
 export type TodoUpdate = Partial<TodoCreate>;
+
+export type TodoSort = 'created_at' | 'due_date';
 
 export type MonthlyMode = 'day_of_month' | 'last_day' | 'nth_weekday';
 
