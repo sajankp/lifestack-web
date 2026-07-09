@@ -35,7 +35,7 @@ export const describeMedicationSchedule = (schedule: MedicationScheduleLike): st
     cadence += ` on ${days}`;
   }
 
-  const timesLabel = schedule.times.length > 0 ? schedule.times.join(', ') : null;
+  const timesLabel = schedule.times && schedule.times.length > 0 ? schedule.times.join(', ') : null;
   let summary = timesLabel ? `${cadence}, ${timesLabel}` : cadence;
 
   if (schedule.end_date) {

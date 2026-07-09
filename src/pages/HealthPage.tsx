@@ -9,8 +9,9 @@ import type { DoseSlot, MedicationCreate, MedicationUpdate } from '../services/h
 import { DoseChecklist } from './health/DoseChecklist';
 import { WeightSection } from './health/WeightSection';
 import { MedicationsSection } from './health/MedicationsSection';
+import { formatDateInputValue } from '../utils/dateFormat';
 
-const todayDate = (): string => new Date().toISOString().slice(0, 10);
+const todayDate = (): string => formatDateInputValue(new Date());
 
 export const HealthPage: React.FC = () => {
   const today = todayDate();

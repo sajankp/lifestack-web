@@ -22,6 +22,7 @@ export const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ entries }) =
 
   // Chart wants oldest-first; the trend API returns newest-first.
   const points = [...entries].reverse().map((e) => ({
+    id: e.public_id,
     dateStr: e.measured_at,
     value: parseFloat(e.weight_kg || '0'),
   }));
@@ -60,7 +61,7 @@ export const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ entries }) =
           <path d={area} fill="url(#weightGradient)" />
           <path d={`M ${path}`} fill="none" stroke="#06b6d4" strokeWidth={2} />
           {points.map((p, i) => (
-            <circle key={p.dateStr} cx={getX(i)} cy={getY(p.value)} r={2.5} fill="#06b6d4" />
+            <circle key={p.id} cx={getX(i)} cy={getY(p.value)} r={2.5} fill="#06b6d4" />
           ))}
           <text x={paddingX} y={height - 2} fill="#94a3b8" fontSize="10">
             {formatShortDate(points[0].dateStr)}

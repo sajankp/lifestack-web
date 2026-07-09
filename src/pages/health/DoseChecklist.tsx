@@ -42,7 +42,11 @@ export const DoseChecklist: React.FC<DoseChecklistProps> = ({
   return (
     <ul className="space-y-2" data-testid="dose-checklist">
       {slots.map((slot) => {
-        const time = new Date(slot.scheduled_for).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const parsedDate = new Date(slot.scheduled_for);
+        const isValid = !isNaN(parsedDate.getTime());
+        const time = isValid
+          ? parsedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
+          : '';
         return (
           <li
             key={`${slot.medication_public_id}-${slot.scheduled_for}`}

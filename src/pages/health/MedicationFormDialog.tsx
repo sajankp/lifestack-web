@@ -9,6 +9,7 @@ import { DatePicker } from '../../components/DatePicker';
 import { ToggleSwitch } from '../../components/ui/toggle-switch';
 import { WeekdayToggleGroup } from './WeekdayToggleGroup';
 import { describeMedicationSchedule } from '../../utils/medicationScheduleLabel';
+import { formatDateInputValue } from '../../utils/dateFormat';
 import type { Medication, MedicationCreate } from '../../services/health';
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -60,7 +61,7 @@ const defaultsFor = (medication?: Medication | null): MedicationFormValues => ({
   interval: medication?.interval ?? 1,
   days_of_week: medication?.days_of_week ?? [],
   times: medication?.times && medication.times.length > 0 ? medication.times.join(', ') : '09:00',
-  anchor_date: medication?.anchor_date || new Date().toISOString().slice(0, 10),
+  anchor_date: medication?.anchor_date || formatDateInputValue(new Date()),
   end_date: medication?.end_date ?? '',
   timezone: medication?.timezone || browserTimezone,
   reminders_enabled: medication?.reminders_enabled ?? true,
@@ -101,7 +102,7 @@ export const MedicationFormDialog: React.FC<MedicationFormDialogProps> = ({
     if (open) {
       reset(
         restartCourse
-          ? { ...defaultsFor(medication), anchor_date: new Date().toISOString().slice(0, 10), end_date: '' }
+          ? { ...defaultsFor(medication), anchor_date: formatDateInputValue(new Date()), end_date: '' }
           : defaultsFor(medication),
       );
       setAdvancedOpen(false);

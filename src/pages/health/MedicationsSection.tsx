@@ -100,6 +100,7 @@ export const MedicationsSection: React.FC<MedicationsSectionProps> = ({
                   <Button
                     size="sm"
                     variant="secondary"
+                    disabled={isSaving || isDeleting}
                     onClick={() => openRestart(medication)}
                     data-testid={`medication-restart-${medication.public_id}`}
                     aria-label={`Restart course for ${medication.name}`}
@@ -110,6 +111,7 @@ export const MedicationsSection: React.FC<MedicationsSectionProps> = ({
                   <Button
                     size="sm"
                     variant="secondary"
+                    disabled={isSaving || isDeleting}
                     onClick={() => onUpdate(medication.public_id, { is_active: false })}
                     aria-label={`Pause ${medication.name}`}
                   >
@@ -120,18 +122,26 @@ export const MedicationsSection: React.FC<MedicationsSectionProps> = ({
                   <Button
                     size="sm"
                     variant="secondary"
+                    disabled={isSaving || isDeleting}
                     onClick={() => onUpdate(medication.public_id, { is_active: true })}
                     aria-label={`Resume ${medication.name}`}
                   >
                     <Play className="h-4 w-4" />
                   </Button>
                 ) : null}
-                <Button size="sm" variant="secondary" onClick={() => openEdit(medication)} aria-label={`Edit ${medication.name}`}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={isSaving || isDeleting}
+                  onClick={() => openEdit(medication)}
+                  aria-label={`Edit ${medication.name}`}
+                >
                   <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
                   size="sm"
                   variant="destructive"
+                  disabled={isSaving || isDeleting}
                   onClick={() => setDeleteTarget(medication)}
                   aria-label={`Delete ${medication.name}`}
                   data-testid={`medication-delete-${medication.public_id}`}
