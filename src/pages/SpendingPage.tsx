@@ -715,21 +715,22 @@ export const SpendingPage: React.FC = () => {
     setEditTransferError(null);
   };
 
-  const editTransferComputedNet = computeTransferNet({
-    gross: Number(editTransferGross) || 0,
-    fxRate: editTransferFxRate ? Number(editTransferFxRate) : null,
-    fxFee: Number(editTransferFxFee) || 0,
-    platformFee: Number(editTransferPlatformFee) || 0,
-    tax: Number(editTransferTax) || 0,
-  });
+  const editTransferComputedNet = React.useMemo(
+    () =>
+      computeTransferNet({
+        gross: editTransferGross ? Number(editTransferGross) : 0,
+        fxRate: editTransferFxRate ? Number(editTransferFxRate) : null,
+        fxFee: editTransferFxFee ? Number(editTransferFxFee) : 0,
+        platformFee: editTransferPlatformFee ? Number(editTransferPlatformFee) : 0,
+        tax: editTransferTax ? Number(editTransferTax) : 0,
+      }),
+    [editTransferGross, editTransferFxRate, editTransferFxFee, editTransferPlatformFee, editTransferTax],
+  );
 
   React.useEffect(() => {
     if (!editingTransfer || editTransferNetOverridden) return;
     setEditTransferNet(editTransferComputedNet.toFixed(2));
-    // Recompute only in response to the inputs that feed the formula — including
-    // editTransferComputedNet itself would refire every render since it's a fresh number each time.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingTransfer, editTransferNetOverridden, editTransferGross, editTransferFxRate, editTransferFxFee, editTransferPlatformFee, editTransferTax]);
+  }, [editingTransfer, editTransferNetOverridden, editTransferComputedNet]);
 
   const createAccountMutation = useInvalidatingMutation(
     () =>

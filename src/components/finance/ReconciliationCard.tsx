@@ -38,15 +38,15 @@ export const ReconciliationCard: React.FC<ReconciliationCardProps> = ({
   const projected = Number(r.projected_balance);
   const snapshot = r.snapshot_balance !== null ? Number(r.snapshot_balance) : null;
   const disc = r.discrepancy !== null ? Number(r.discrepancy) : null;
-  const discAbs = disc !== null ? Math.abs(disc) : null;
+  const discAbs = disc !== null ? Math.abs(disc) : 0;
   const threshold = projected !== 0 ? Math.abs(projected) * DISCREPANCY_TOLERANCE_RATIO : DISCREPANCY_TOLERANCE_FLOOR;
 
   const status: ReconciliationStatus =
     disc === null
       ? 'no-snapshot'
-      : discAbs! < DISCREPANCY_NEGLIGIBLE
+      : discAbs < DISCREPANCY_NEGLIGIBLE
       ? 'balanced'
-      : discAbs! >= threshold
+      : discAbs >= threshold
       ? 'discrepancy'
       : 'minor';
   const meta = STATUS_META[status];
