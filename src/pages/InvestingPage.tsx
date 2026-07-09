@@ -132,9 +132,13 @@ export const InvestingPage: React.FC = () => {
     notes: '',
   });
 
-  const openPlaceOrderModal = () => {
-    setIsPlaceOrderModalOpen(true);
-    if (!orderForm.account_id && brokerageAccounts.length > 0) {
+  // Default-select the first brokerage account once both the modal is open
+  // and the accounts query has resolved — a plain click-time check would miss
+  // accounts that are still loading when "Place Order" is clicked (the hero
+  // button is reachable immediately from any tab, with no tab-switch delay to
+  // mask the race), leaving the form stuck on the empty placeholder forever.
+  React.useEffect(() => {
+    if (isPlaceOrderModalOpen && !orderForm.account_id && brokerageAccounts.length > 0) {
       const defaultAccount = brokerageAccounts[0];
       setOrderForm((prev) => ({
         ...prev,
@@ -142,6 +146,11 @@ export const InvestingPage: React.FC = () => {
         currency: defaultAccount.default_currency_code || prev.currency,
       }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaceOrderModalOpen, brokerageAccounts]);
+
+  const openPlaceOrderModal = () => {
+    setIsPlaceOrderModalOpen(true);
   };
 
   const placeOrderMutation = useInvalidatingMutation(
