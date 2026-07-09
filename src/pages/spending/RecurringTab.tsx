@@ -33,7 +33,7 @@ interface RecurringTabProps {
   onPageChange: (offset: number) => void;
 }
 
-export const RecurringTab: React.FC<RecurringTabProps> = ({
+const RecurringTabImpl: React.FC<RecurringTabProps> = ({
   recurringItems,
   recurringResponse,
   displayCurrency,
@@ -198,3 +198,6 @@ export const RecurringTab: React.FC<RecurringTabProps> = ({
     </div>
   );
 };
+
+// Memoized presentational tab — see TransactionsTab for rationale.
+export const RecurringTab = React.memo(RecurringTabImpl);

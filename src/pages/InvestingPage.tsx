@@ -75,7 +75,10 @@ export const InvestingPage: React.FC = () => {
     queryKey: queryKeys.finance.currencies(),
     queryFn: () => financeService.getCurrencies(),
   });
-  const currencyOptions = (currenciesRes.data ?? []).map((currency) => currency.code);
+  const currencyOptions = useMemo(
+    () => (currenciesRes.data ?? []).map((currency) => currency.code),
+    [currenciesRes.data],
+  );
 
   const userFinanceSettingsRes = useQuery({
     queryKey: queryKeys.finance.settings('user'),
@@ -89,7 +92,10 @@ export const InvestingPage: React.FC = () => {
     currencyOptions.includes(userFinanceSettings.effective_reporting_currency_code)
       ? userFinanceSettings.effective_reporting_currency_code
       : null) ?? currencyOptions[0] ?? 'USD';
-  const currencyDropdownOptions = currencyOptions.map((code) => ({ value: code, label: code }));
+  const currencyDropdownOptions = useMemo(
+    () => currencyOptions.map((code) => ({ value: code, label: code })),
+    [currencyOptions],
+  );
 
   const accountsRes = useQuery({
     queryKey: queryKeys.finance.accounts(),

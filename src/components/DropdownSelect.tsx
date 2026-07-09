@@ -14,7 +14,7 @@ type DropdownSelectProps = {
   id?: string;
   testId?: string;
   value: string;
-  options: DropdownOption[];
+  options: readonly DropdownOption[];
   onChange: (value: string) => void;
   placeholder: string;
   clearLabel?: string;

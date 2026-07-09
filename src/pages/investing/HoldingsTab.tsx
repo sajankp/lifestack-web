@@ -447,7 +447,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
               <DropdownSelect
                 testId="investing-holdings-type-filter"
                 value={holdingsTypeFilter}
-                options={[...instrumentTypeOptions]}
+                options={instrumentTypeOptions}
                 onChange={setHoldingsTypeFilter}
                 placeholder="All types"
                 clearLabel="All types"
@@ -912,7 +912,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                   <DropdownSelect
                     testId="investing-edit-holding-instrument-type"
                     value={editHoldingForm.instrument_type}
-                    options={[...instrumentTypeOptions]}
+                    options={instrumentTypeOptions}
                     onChange={(value) =>
                       setEditHoldingForm((s) => ({
                         ...s,

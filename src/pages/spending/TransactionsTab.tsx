@@ -23,7 +23,7 @@ interface TransactionsTabProps {
   onAddFirst?: () => void;
 }
 
-export const TransactionsTab: React.FC<TransactionsTabProps> = ({
+const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
   transactions,
   transactionsResponse,
   monthLabel,
@@ -294,3 +294,8 @@ export const TransactionsTab: React.FC<TransactionsTabProps> = ({
     </div>
   );
 };
+
+// Presentational — memoized so parent (SpendingPage) re-renders from unrelated
+// modal/filter state don't re-render the whole transaction table. Requires the
+// handler props (getCategoryTheme, onEdit, …) to be referentially stable.
+export const TransactionsTab = React.memo(TransactionsTabImpl);

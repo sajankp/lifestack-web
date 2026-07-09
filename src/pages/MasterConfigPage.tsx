@@ -29,6 +29,18 @@ import { accountTypeOptions } from '../utils/accountTypes';
 const SETTINGS_TABS = ['currency', 'accounts', 'categories', 'danger'] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
+// Static dropdown option lists — hoisted to module scope so their identity is
+// stable across renders (a fresh array each render defeats DropdownSelect's
+// internal option memoization).
+const currencyDisplayPreferenceOptions = [
+  { value: 'symbol', label: 'Symbol first ($1,250.00)' },
+  { value: 'code', label: 'Code first (USD 1,250.00)' },
+] as const;
+const userDisplayPreferenceOptions = [
+  { value: 'symbol', label: 'Override: Symbol first' },
+  { value: 'code', label: 'Override: Code first' },
+] as const;
+
 export const MasterConfigPage: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -219,15 +231,6 @@ export const MasterConfigPage: React.FC = () => {
         })),
     [accountsResponse?.items]
   );
-
-  const currencyDisplayPreferenceOptions = [
-    { value: 'symbol', label: 'Symbol first ($1,250.00)' },
-    { value: 'code', label: 'Code first (USD 1,250.00)' },
-  ] as const;
-  const userDisplayPreferenceOptions = [
-    { value: 'symbol', label: 'Override: Symbol first' },
-    { value: 'code', label: 'Override: Code first' },
-  ] as const;
 
   const createAccountMutation = useMutation({
     mutationFn: () =>
@@ -552,7 +555,7 @@ export const MasterConfigPage: React.FC = () => {
             testId="master-workspace-display-preference"
             value={currencyDisplayPreference}
             onChange={(value) => setCurrencyDisplayPreference(value as 'symbol' | 'code')}
-            options={[...currencyDisplayPreferenceOptions]}
+            options={currencyDisplayPreferenceOptions}
             placeholder="Display preference"
           />
           <Button
@@ -647,7 +650,7 @@ export const MasterConfigPage: React.FC = () => {
             testId="master-user-display-override"
             value={userDisplayPreferenceOverride}
             onChange={setUserDisplayPreferenceOverride}
-            options={[...userDisplayPreferenceOptions]}
+            options={userDisplayPreferenceOptions}
             placeholder="Inherit workspace display style"
             clearLabel="Inherit workspace display style"
           />
@@ -686,7 +689,7 @@ export const MasterConfigPage: React.FC = () => {
             testId="master-account-type"
             value={newAccountType}
             onChange={(value) => setNewAccountType(value as 'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card')}
-            options={[...accountTypeOptions]}
+            options={accountTypeOptions}
             placeholder="Account type"
           />
           <DropdownSelect
@@ -731,7 +734,7 @@ export const MasterConfigPage: React.FC = () => {
                 testId="master-account-edit-type"
                 value={editingAccountType}
                 onChange={(value) => setEditingAccountType(value as 'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card')}
-                options={[...accountTypeOptions]}
+                options={accountTypeOptions}
                 placeholder="Account type"
               />
               <DropdownSelect

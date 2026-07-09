@@ -40,7 +40,7 @@ interface BudgetsTabProps {
   }>;
 }
 
-export const BudgetsTab: React.FC<BudgetsTabProps> = ({
+const BudgetsTabImpl: React.FC<BudgetsTabProps> = ({
   budgets,
   budgetsResponse,
   monthLabel,
@@ -238,3 +238,6 @@ export const BudgetsTab: React.FC<BudgetsTabProps> = ({
     </div>
   );
 };
+
+// Memoized presentational tab — see TransactionsTab for rationale.
+export const BudgetsTab = React.memo(BudgetsTabImpl);

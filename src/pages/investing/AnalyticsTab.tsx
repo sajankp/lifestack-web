@@ -282,7 +282,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                               {editingInstrumentId === instrument.public_id ? (
                                 <DropdownSelect
                                   value={instrumentEditForm.instrument_type}
-                                  options={[...instrumentTypeOptions]}
+                                  options={instrumentTypeOptions}
                                   onChange={(value) =>
                                     setInstrumentEditForm((s) => ({
                                       ...s,
@@ -451,7 +451,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                 <label className="text-xs font-semibold text-slate-300">Instrument Type</label>
                 <DropdownSelect
                   value={instrumentForm.instrument_type}
-                  options={[...instrumentTypeOptions]}
+                  options={instrumentTypeOptions}
                   onChange={(value) =>
                     setInstrumentForm((s) => ({
                       ...s,

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
@@ -70,6 +70,7 @@ import {
   buildMonthOptions,
   getCurrentMonthValue,
   localDateInputValue,
+  monthShortLabel,
   monthStartToMonthValue,
   monthValueToDateRange,
 } from './spending/format';
@@ -222,15 +223,9 @@ export const SpendingPage: React.FC = () => {
     const endMonthDate = new Date(Date.UTC(year, month - 1, 1));
     const toMonthVal = `${endMonthDate.getUTCFullYear()}-${String(endMonthDate.getUTCMonth() + 1).padStart(2, '0')}`;
 
-    const formatMonthShort = (mStr: string) => {
-      const [, m] = mStr.split('-');
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return months[Number(m) - 1];
-    };
-
-    const label = budgetsDuration === 1 
-      ? budgetsMonthRange.label 
-      : `${formatMonthShort(fromMonthVal)} ${startMonthDate.getUTCFullYear()} - ${formatMonthShort(toMonthVal)} ${endMonthDate.getUTCFullYear()}`;
+    const label = budgetsDuration === 1
+      ? budgetsMonthRange.label
+      : `${monthShortLabel(fromMonthVal)} ${startMonthDate.getUTCFullYear()} - ${monthShortLabel(toMonthVal)} ${endMonthDate.getUTCFullYear()}`;
 
     return {
       fromMonth: fromMonthVal,
@@ -315,6 +310,12 @@ export const SpendingPage: React.FC = () => {
     label: category.name,
   })) ?? [], [categories]);
   const categoryFilterOptions = categoryOptions;
+  // O(1) category lookup — every transaction row / donut slice / budget card
+  // resolves its theme through this instead of a per-row linear `.find`.
+  const categoryById = useMemo(
+    () => new Map((categories ?? []).map((category) => [category.public_id, category])),
+    [categories]
+  );
   const { data: categoryGroupsResponse } = useQuery({
     queryKey: queryKeys.spending.categoryGroups(),
     queryFn: () => spendingService.getCategoryGroups(200, 0),
@@ -329,7 +330,7 @@ export const SpendingPage: React.FC = () => {
     [categoryGroups]
   );
   const { data: accountsResponse } = useQuery({
-    queryKey: ['finance', 'accounts', 'spending'],
+    queryKey: queryKeys.finance.accounts('spending'),
     queryFn: () => financeService.getAccounts(200, 0),
   });
   const allAccounts = useMemo(() => accountsResponse?.items ?? [], [accountsResponse?.items]);
@@ -496,12 +497,6 @@ export const SpendingPage: React.FC = () => {
   });
   const isBudgetsPerfLoading = budgetsDuration > 1 && budgetsPerfMonthlyQueries.some((q) => q.isLoading);
 
-  const monthShortLabel = (monthStr: string) => {
-    const [, m] = monthStr.split('-');
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months[Number(m) - 1] ?? monthStr;
-  };
-
   const periodBudgets = useMemo(() => {
     if (budgetsDuration <= 1) return [];
 
@@ -630,16 +625,20 @@ export const SpendingPage: React.FC = () => {
   // Fetched (unpaginated, generously capped) purely to build a public_id
   // lookup so the merged Account activity tab can offer edit/delete on the
   // transfer_in/transfer_out rows it already renders from the ledger.
+  // Only the Account activity (ledger) tab renders transfer rows with
+  // edit/delete affordances, so this lookup fetch is gated to that tab
+  // instead of firing on every Spending page load.
   const { data: transfersResponse } = useQuery({
     queryKey: queryKeys.finance.transfers('lookup'),
     queryFn: () => financeService.getTransfers(500, 0),
+    enabled: activeTab === 'ledger',
   });
   const { data: userFinanceSettings } = useQuery({
-    queryKey: ['finance', 'settings', 'user'],
+    queryKey: queryKeys.finance.settings('user'),
     queryFn: () => financeService.getUserSettings(),
   });
   const { data: workspaceFinanceSettings } = useQuery({
-    queryKey: ['finance', 'settings', 'workspace'],
+    queryKey: queryKeys.finance.settings('workspace'),
     queryFn: () => financeService.getSettings(),
   });
   const defaultSpendingAccountId = workspaceFinanceSettings?.default_spending_account_id ?? null;
@@ -976,7 +975,7 @@ export const SpendingPage: React.FC = () => {
     });
   };
 
-  const openTransactionModalForNew = () => {
+  const openTransactionModalForNew = useCallback(() => {
     setEditingTransaction(null);
     setAmount('');
     setDescription('');
@@ -991,10 +990,10 @@ export const SpendingPage: React.FC = () => {
     );
     setDate(new Date().toISOString().split('T')[0]);
     setIsModalOpen(true);
-  };
+  }, [defaultSpendingAccountId, accountById]);
 
 
-  const openTransactionModalForEdit = (tx: Transaction) => {
+  const openTransactionModalForEdit = useCallback((tx: Transaction) => {
     setEditingTransaction(tx);
     setAmount(tx.amount.toString());
     setDescription(tx.description ?? '');
@@ -1003,7 +1002,7 @@ export const SpendingPage: React.FC = () => {
     setAccountId(tx.account_id ?? '');
     setDate(new Date(tx.occurred_at).toISOString().split('T')[0]);
     setIsModalOpen(true);
-  };
+  }, []);
 
   const closeTransactionModal = () => {
     setIsModalOpen(false);
@@ -1017,7 +1016,7 @@ export const SpendingPage: React.FC = () => {
   };
 
 
-  const openRecurringModalForNew = () => {
+  const openRecurringModalForNew = useCallback(() => {
     setEditingRecurring(null);
     resetRecurringForm({
       categoryId: '',
@@ -1034,9 +1033,9 @@ export const SpendingPage: React.FC = () => {
     });
     setShowAdvancedSchedule(false);
     setIsRecurringModalOpen(true);
-  };
+  }, [resetRecurringForm]);
 
-  const openRecurringModalForEdit = (r: RecurringTransaction) => {
+  const openRecurringModalForEdit = useCallback((r: RecurringTransaction) => {
     setEditingRecurring(r);
     resetRecurringForm({
       categoryId: r.category_id,
@@ -1053,7 +1052,7 @@ export const SpendingPage: React.FC = () => {
     });
     setShowAdvancedSchedule(true);
     setIsRecurringModalOpen(true);
-  };
+  }, [resetRecurringForm]);
 
   const closeRecurringModal = () => {
     setIsRecurringModalOpen(false);
@@ -1061,12 +1060,14 @@ export const SpendingPage: React.FC = () => {
     resetRecurringForm();
   };
 
-  const confirmDeactivateRecurring = () => {
+  const confirmDeactivateRecurring = useCallback(() => {
     if (!recurringPendingDeactivate) return;
     deactivateRecurringMutation.mutate(recurringPendingDeactivate.publicId, {
       onSuccess: () => setRecurringPendingDeactivate(null),
     });
-  };
+  }, [recurringPendingDeactivate, deactivateRecurringMutation]);
+
+  const cancelDeactivateRecurring = useCallback(() => setRecurringPendingDeactivate(null), []);
 
   const handleSaveRecurring = (values: RecurringFormValues) => {
     const isNthWeekday = values.frequency === 'monthly' && values.monthly_mode === 'nth_weekday';
@@ -1141,7 +1142,7 @@ export const SpendingPage: React.FC = () => {
     });
   };
 
-  const openBudgetModalForNew = () => {
+  const openBudgetModalForNew = useCallback(() => {
     setEditingBudgetId(null);
     resetBudgetForm({
       scope: 'category',
@@ -1152,9 +1153,9 @@ export const SpendingPage: React.FC = () => {
       amount: '',
     });
     setIsBudgetModalOpen(true);
-  };
+  }, [selectedMonth, resetBudgetForm]);
 
-  const openBudgetModalForEdit = (b: Budget) => {
+  const openBudgetModalForEdit = useCallback((b: Budget) => {
     setEditingBudgetId(b.public_id);
     setIsChangeAmountOpen(false);
     setChangeAmountValue('');
@@ -1169,19 +1170,19 @@ export const SpendingPage: React.FC = () => {
       amount: b.amount.toString(),
     });
     setIsBudgetModalOpen(true);
-  };
+  }, [selectedMonth, resetBudgetForm]);
 
-  const getCategoryTheme = (catId: string | null) => {
-    const cat = categories?.find(c => c.public_id === catId);
+  const getCategoryTheme = useCallback((catId: string | null) => {
+    const cat = categoryById.get(catId ?? '');
     return cat ? { name: cat.name, color: cat.color || '#3b82f6', icon: cat.icon } : { name: 'Unknown', color: '#64748b', icon: '' };
-  };
+  }, [categoryById]);
 
-  const getGroupTheme = (groupId: string | null) => {
+  const getGroupTheme = useCallback((groupId: string | null) => {
     const group = categoryGroupById.get(groupId ?? '');
     return group
       ? { name: group.name, color: group.color || '#3b82f6', icon: group.icon }
       : { name: 'Unknown group', color: '#64748b', icon: '' };
-  };
+  }, [categoryGroupById]);
 
   // Summaries
   const summary = useMemo(() => {
@@ -1205,7 +1206,7 @@ export const SpendingPage: React.FC = () => {
   const spentByGroup = useMemo(() => {
     const totals = new Map<string, number>();
     for (const entry of budgetsSummaryResponse?.category_totals ?? []) {
-      const category = categories?.find((c) => c.public_id === entry.category_id);
+      const category = categoryById.get(entry.category_id);
       if (!category?.category_group_id) continue;
       totals.set(
         category.category_group_id,
@@ -1213,7 +1214,7 @@ export const SpendingPage: React.FC = () => {
       );
     }
     return totals;
-  }, [budgetsSummaryResponse, categories]);
+  }, [budgetsSummaryResponse, categoryById]);
 
   const isLoading = isCatsLoading || isTxLoading || isBudgetsLoading || isSummaryLoading;
 
@@ -1526,7 +1527,7 @@ export const SpendingPage: React.FC = () => {
           onRequestDeactivate={setRecurringPendingDeactivate}
           deactivateMutationPending={deactivateRecurringMutation.isPending}
           pendingDeactivate={recurringPendingDeactivate}
-          onCancelDeactivate={() => setRecurringPendingDeactivate(null)}
+          onCancelDeactivate={cancelDeactivateRecurring}
           onConfirmDeactivate={confirmDeactivateRecurring}
           onPageChange={setRecurringOffset}
         />

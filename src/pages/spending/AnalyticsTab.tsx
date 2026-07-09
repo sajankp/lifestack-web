@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { spendingService } from '../../services/spending';
 import { formatCurrency } from '../../utils/numberFormat';
-import { formatMonthLabel } from './format';
+import { formatMonthLabel, monthShortLabel } from './format';
 
 interface AnalyticsTabProps {
   selectedMonth: string;
@@ -18,7 +18,7 @@ interface AnalyticsTabProps {
   getCategoryTheme: (catId: string) => { name: string; color: string; icon: string | null };
 }
 
-export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
+const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
   selectedMonth,
   displayCurrency,
   currencyDisplayPreference,
@@ -104,13 +104,9 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     );
   }
 
-  // Format month names (Jan, Feb, ...)
-  const formatMonthShort = (monthStr: string) => {
-    if (!/^\d{4}-\d{2}$/.test(monthStr)) return monthStr;
-    const [, m] = monthStr.split('-');
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months[Number(m) - 1];
-  };
+  // Short month names (Jan, Feb, ...) for chart x-axis labels.
+  const formatMonthShort = (monthStr: string) =>
+    /^\d{4}-\d{2}$/.test(monthStr) ? monthShortLabel(monthStr) : monthStr;
 
   // Period stats summary
   const totalIncome = savingsRateData?.period_totals?.total_income ?? 0;
@@ -523,3 +519,6 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({
     </div>
   );
 };
+
+// Memoized presentational tab — see TransactionsTab for rationale.
+export const AnalyticsTab = React.memo(AnalyticsTabImpl);
