@@ -146,8 +146,7 @@ export const InvestingPage: React.FC = () => {
         currency: defaultAccount.default_currency_code || prev.currency,
       }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlaceOrderModalOpen, brokerageAccounts]);
+  }, [isPlaceOrderModalOpen, brokerageAccounts, orderForm.account_id]);
 
   const openPlaceOrderModal = () => {
     setIsPlaceOrderModalOpen(true);
