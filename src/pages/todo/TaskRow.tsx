@@ -36,7 +36,6 @@ export const TaskRow: React.FC<TaskRowProps> = ({
   isToggling = false,
   isDeleting = false,
 }) => {
-  const openSubtaskCount = subtasks.filter((t) => !t.completed).length;
   const dueLabel = formatDueDateTime(todo.due_date);
 
   return (
@@ -61,12 +60,16 @@ export const TaskRow: React.FC<TaskRowProps> = ({
               <h3 className={`truncate text-sm font-semibold text-white ${todo.completed ? 'line-through text-slate-400' : ''}`}>
                 {todo.title}
               </h3>
-              {!isSubtask && subtasks.length > 0 ? (
+              {!isSubtask && todo.subtask_count > 0 ? (
                 <span
                   data-testid={`todo-subtask-progress-${todo.public_id}`}
                   className="rounded border border-slate-600/70 bg-slate-900/60 px-1.5 py-0.5 text-xs text-slate-300"
                 >
-                  {subtasks.length - openSubtaskCount}/{subtasks.length}
+                  {/* The open-todos fetch excludes completed=true rows, so a
+                      completed subtask isn't among `subtasks` — done count is
+                      derived from the server's total minus what's still open,
+                      not from subtasks.length (spec-068). */}
+                  {todo.subtask_count - subtasks.length}/{todo.subtask_count}
                 </span>
               ) : null}
               <span className={`inline-flex rounded border px-2 py-0.5 text-xs ${priorityTone(todo.priority)}`}>

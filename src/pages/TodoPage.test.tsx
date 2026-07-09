@@ -229,10 +229,9 @@ describe('TodoPage', () => {
     server.use(
       http.get('*/v1/todo/', ({ request }) => {
         const url = new URL(request.url);
-        if (url.searchParams.get('completed') === 'true') {
-          return HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 });
-        }
-        const items = openItems();
+        // Mirror the real API: completed=false excludes rows that are done,
+        // so a completed parent/child drops out of the open fetch entirely.
+        const items = openItems().filter((t) => t.completed === (url.searchParams.get('completed') === 'true'));
         return HttpResponse.json({ items, total: items.length, limit: 200, offset: 0 });
       }),
       http.get('*/v1/todo/recurring/', () =>
@@ -252,8 +251,12 @@ describe('TodoPage', () => {
 
     fireEvent.click(screen.getByTestId('todo-toggle-parent-1'));
 
+    // The subtask is unaffected (cascade only marks previously-open
+    // subtasks in the api, and this mock's child stays independent),
+    // so once the parent itself is completed the whole group drops out
+    // of the open view.
     await waitFor(() => {
-      expect(screen.getByTestId('todo-subtask-progress-parent-1')).toHaveTextContent('1/1');
+      expect(screen.queryByText('Plan trip')).not.toBeInTheDocument();
     });
   });
 
