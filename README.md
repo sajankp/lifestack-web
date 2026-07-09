@@ -9,7 +9,7 @@ The web app is where the personal operating system becomes visible and usable da
 The long-term interface goal is a daily briefing, not a generic chat surface: today's tasks, reminders, health context, money signals, document follow-ups, and coach recommendations with visible source context.
 
 <p align="center">
-  <video src="docs/media/lifestack-demo.mp4" poster="docs/media/lifestack-demo-poster.jpg" width="800" controls muted loop playsinline>
+  <video src="https://www.sajankp.com/assets/lifestack-demo.mp4" poster="https://www.sajankp.com/assets/lifestack-demo-poster.jpg" width="800" controls muted loop playsinline>
     Demo: dashboard briefing, spending budgets, validated imports, investing holdings, and workspace administration.
   </video>
 </p>
