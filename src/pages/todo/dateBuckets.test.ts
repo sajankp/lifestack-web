@@ -80,4 +80,15 @@ describe('splitParentsAndChildren', () => {
       'child-b',
     ]);
   });
+
+  it('renders a subtask as top-level when its parent is not in the fetched list', () => {
+    // The open-todos fetch is completed=false, so a subtask whose parent was
+    // just completed (or deleted) would otherwise vanish entirely.
+    const orphan = makeTodo({ public_id: 'orphan-child', parent_public_id: 'missing-parent' });
+
+    const { topLevel, childrenByParentId } = splitParentsAndChildren([orphan]);
+
+    expect(topLevel.map((t) => t.public_id)).toEqual(['orphan-child']);
+    expect(childrenByParentId.size).toBe(0);
+  });
 });

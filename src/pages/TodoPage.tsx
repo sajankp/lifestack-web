@@ -129,6 +129,14 @@ export const TodoPage: React.FC = () => {
   );
   const [isClearCompletedOpen, setIsClearCompletedOpen] = useState(false);
 
+  // Deep links using ?status=completed must expand the section even when
+  // they're followed via in-app navigation (not just the initial mount).
+  useEffect(() => {
+    if (searchParams.get('status') === 'completed') {
+      setIsCompletedOpen(true);
+    }
+  }, [searchParams]);
+
   const [ruleTitle, setRuleTitle] = useState('');
   const [ruleDescription, setRuleDescription] = useState('');
   const [rulePriority, setRulePriority] = useState<TodoPriority>('low');
@@ -164,7 +172,10 @@ export const TodoPage: React.FC = () => {
   );
   const dateBuckets = groupTodosByDueDate(topLevelTodos, new Date());
   const parentTitleById = new Map(
-    (openTodosResponse?.items ?? []).map((t) => [t.public_id, t.title]),
+    [...(openTodosResponse?.items ?? []), ...(completedTodosResponse?.items ?? [])].map((t) => [
+      t.public_id,
+      t.title,
+    ]),
   );
   const editingParentTitle = editingTodo?.parent_public_id
     ? parentTitleById.get(editingTodo.parent_public_id)
@@ -629,35 +640,32 @@ export const TodoPage: React.FC = () => {
               ) : null}
 
               <div className="border-t border-slate-800 pt-4">
-                <button
-                  type="button"
-                  data-testid="todo-completed-toggle"
-                  onClick={() => setIsCompletedOpen((v) => !v)}
-                  className="flex w-full items-center gap-2 text-left text-sm font-semibold text-slate-300 hover:text-white"
-                >
-                  {isCompletedOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  Completed
-                  {completedTodosResponse ? (
-                    <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
-                      {completedTodosResponse.total}
-                    </span>
-                  ) : null}
+                <div className="flex w-full items-center gap-2 text-sm font-semibold text-slate-300">
+                  <button
+                    type="button"
+                    data-testid="todo-completed-toggle"
+                    onClick={() => setIsCompletedOpen((v) => !v)}
+                    className="flex items-center gap-2 text-left hover:text-white"
+                  >
+                    {isCompletedOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    Completed
+                    {completedTodosResponse ? (
+                      <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-400">
+                        {completedTodosResponse.total}
+                      </span>
+                    ) : null}
+                  </button>
                   {isCompletedOpen && completedTodosResponse && completedTodosResponse.total > 0 ? (
-                    <span
-                      role="button"
-                      tabIndex={0}
+                    <button
+                      type="button"
                       data-testid="todo-clear-completed"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsClearCompletedOpen(true);
-                      }}
-                      onKeyDown={(e) => e.key === 'Enter' && e.stopPropagation()}
-                      className="ml-auto rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                      onClick={() => setIsClearCompletedOpen(true)}
+                      className="ml-auto rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white"
                     >
                       Clear completed
-                    </span>
+                    </button>
                   ) : null}
-                </button>
+                </div>
 
                 {isCompletedOpen ? (
                   isCompletedLoading ? (
@@ -935,7 +943,7 @@ export const TodoPage: React.FC = () => {
         title="Delete task?"
         description={(() => {
           if (!pendingDeleteTodo) return 'This cannot be undone.';
-          const subtaskCount = childrenByParentId.get(pendingDeleteTodo.public_id)?.length ?? 0;
+          const subtaskCount = pendingDeleteTodo.subtask_count;
           const suffix = subtaskCount > 0 ? ` This will also delete its ${subtaskCount} subtasks.` : '';
           return `Delete "${pendingDeleteTodo.title}"? This cannot be undone.${suffix}`;
         })()}

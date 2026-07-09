@@ -57,10 +57,14 @@ export function splitParentsAndChildren(todos: Todo[]): {
   topLevel: Todo[];
   childrenByParentId: Map<string, Todo[]>;
 } {
+  const todoIds = new Set(todos.map((t) => t.public_id));
   const topLevel: Todo[] = [];
   const childrenByParentId = new Map<string, Todo[]>();
   for (const todo of todos) {
-    if (!todo.parent_public_id) {
+    // A subtask whose parent isn't in this fetch (completed, deleted, or on
+    // a later page) would otherwise be silently hidden — render it as
+    // top-level instead so it never disappears from the view.
+    if (!todo.parent_public_id || !todoIds.has(todo.parent_public_id)) {
       topLevel.push(todo);
       continue;
     }
