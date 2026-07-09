@@ -1722,6 +1722,7 @@ export const SpendingPage: React.FC = () => {
                       isPending={createAccountMutation.isPending}
                       isError={createAccountMutation.isError}
                       testIdPrefix="spending-account"
+                      allowedTypes={['bank', 'wallet', 'card', 'gift_card']}
                     />
                   )}
                 </div>

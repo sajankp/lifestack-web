@@ -18,6 +18,8 @@ type QuickCreateAccountFormProps = {
   isError?: boolean;
   errorMessage?: string;
   testIdPrefix?: string;
+  /** Restrict selectable account types (e.g. Spending excludes 'brokerage', since those accounts wouldn't show up in its own account lists). Defaults to the full list. */
+  allowedTypes?: AccountType[];
 };
 
 /**
@@ -38,9 +40,13 @@ export const QuickCreateAccountForm: React.FC<QuickCreateAccountFormProps> = ({
   isError = false,
   errorMessage = 'Failed to create account. Check fields and try again.',
   testIdPrefix = 'quick-account',
+  allowedTypes,
 }) => {
   const showCurrency = currency !== undefined && onCurrencyChange !== undefined;
   const canSubmit = name.trim().length > 0 && (!showCurrency || (currency ?? '').trim().length === 3);
+  const typeOptions = allowedTypes
+    ? accountTypeOptions.filter((option) => allowedTypes.includes(option.value))
+    : accountTypeOptions;
 
   return (
     <div className="mt-4 border-t border-slate-800 pt-4">
@@ -61,7 +67,7 @@ export const QuickCreateAccountForm: React.FC<QuickCreateAccountFormProps> = ({
             testId={`${testIdPrefix}-type`}
             value={type}
             onChange={(value) => onTypeChange(value as AccountType)}
-            options={accountTypeOptions}
+            options={typeOptions}
             placeholder="Select account type"
           />
         </div>
