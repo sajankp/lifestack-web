@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 export type ExportFormat = 'json' | 'csv';
-export type ExportModule = 'todo' | 'spending' | 'investing';
+// Mirrors the backend export module manifest (spec-070). Keep in sync with
+// GET /v1/exports/modules / app/exports/schemas.py::EXPORT_MODULES.
+export type ExportModule = 'todo' | 'spending' | 'investing' | 'finance' | 'health';
 
 export const ExportStatusSchema = z.enum(['pending', 'ready', 'failed', 'expired']);
 export type ExportStatus = z.infer<typeof ExportStatusSchema>;
@@ -16,7 +18,7 @@ export const ExportRecordSchema = z.object({
   workspace_id: z.number().default(0),
   requested_by: z.number().default(0),
   format: z.enum(['json', 'csv']).default('json'),
-  schema_version: z.number().default(1),
+  schema_version: z.number().default(2),
   scope: z.record(z.string(), z.unknown()).default({}),
   status: ExportStatusSchema.default('pending'),
   storage_key: z.string().nullable().default(null),

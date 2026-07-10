@@ -65,6 +65,35 @@ describe('ExportsPage', () => {
     expect(screen.getByTestId('exports-delete')).not.toBeDisabled();
   });
 
+  it('offers the finance and health modules and includes a toggled one in the payload', async () => {
+    let createdPayload: unknown = null;
+
+    server.use(
+      http.post('*/v1/exports', async ({ request }) => {
+        createdPayload = await request.json();
+        return HttpResponse.json(readyExport, { status: 201 });
+      }),
+      http.get(`*/v1/exports/${readyExport.public_id}`, () => HttpResponse.json(readyExport)),
+    );
+
+    renderWithQuery(<ExportsPage />);
+
+    fireEvent.click(screen.getByText('Create Export'));
+    // finance + health are surfaced (spec-070), aligned with the backend manifest.
+    expect(screen.getByTestId('exports-module-finance')).toBeInTheDocument();
+    expect(screen.getByTestId('exports-module-health')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('exports-module-finance'));
+    fireEvent.click(screen.getByTestId('exports-create'));
+
+    await waitFor(() =>
+      expect(createdPayload).toEqual({
+        format: 'json',
+        modules: ['todo', 'spending', 'investing', 'finance'],
+      }),
+    );
+  });
+
   it('deletes the current export after it is ready', async () => {
     let deletedExportId: string | null = null;
 

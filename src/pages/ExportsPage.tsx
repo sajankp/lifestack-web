@@ -14,6 +14,8 @@ const MODULE_OPTIONS: Array<{ value: ExportModule; label: string }> = [
   { value: 'todo', label: 'Todos' },
   { value: 'spending', label: 'Spending' },
   { value: 'investing', label: 'Investing' },
+  { value: 'finance', label: 'Finance (accounts & transfers)' },
+  { value: 'health', label: 'Health' },
 ];
 
 const statusTone: Record<string, string> = {
