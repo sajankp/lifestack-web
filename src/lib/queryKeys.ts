@@ -63,6 +63,8 @@ export const queryKeys = {
     all: ['net-worth'] as const,
     summary: () => ['net-worth'] as const,
     history: <T extends unknown[]>(...params: T) => ['net-worth', 'history', ...params] as const,
+    userPoints: () => ['net-worth', 'user-points'] as const,
+    userFxRates: () => ['net-worth', 'user-fx-rates'] as const,
   },
 
   // ── Dashboard ──────────────────────────────────────────────────────────────

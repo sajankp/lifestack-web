@@ -197,10 +197,65 @@ export type NetWorthData = z.infer<typeof NetWorthDataSchema>;
 export const NetWorthHistoryItemSchema = z.object({
   snapshot_date: z.string().default(''),
   reporting_currency: z.string().default(''),
-  holdings_value: z.string().default('0'),
-  investing_cash: z.string().default('0'),
-  spending_cash: z.string().default('0'),
+  // Nullable: a user-provided backfill point (spec-072) may carry only a
+  // total with no component split -- null, never zero, so the chart can
+  // tell "no data" apart from "actually zero".
+  holdings_value: z.string().nullable().default(null),
+  investing_cash: z.string().nullable().default(null),
+  spending_cash: z.string().nullable().default(null),
   total_net_worth: z.string().default('0'),
+  source: z.string().default('live'),
 });
 export type NetWorthHistoryItem = z.infer<typeof NetWorthHistoryItemSchema>;
 
+export interface FxRateHistoryImportRow {
+  base_currency_code: string;
+  quote_currency_code: string;
+  rate: number;
+  as_of_date: string;
+}
+
+export const FxRateImportResultSchema = z.object({
+  imported: z.number().default(0),
+  skipped: z.number().default(0),
+  rejected: z.array(z.object({ row: z.number(), reason: z.string() })).default([]),
+});
+export type FxRateImportResult = z.infer<typeof FxRateImportResultSchema>;
+
+export const UserFxRateSchema = z.object({
+  id: z.number(),
+  base_currency_code: z.string().default(''),
+  quote_currency_code: z.string().default(''),
+  rate: z.union([z.number(), z.string()]).default(0),
+  as_of_date: z.string().default(''),
+  created_at: z.string().default(''),
+});
+export type UserFxRate = z.infer<typeof UserFxRateSchema>;
+
+export interface NetWorthHistoryImportRow {
+  date: string;
+  total_net_worth: number;
+  holdings_value?: number | null;
+  investing_cash?: number | null;
+  spending_cash?: number | null;
+  reporting_currency: string;
+}
+
+export const NetWorthImportResultSchema = z.object({
+  imported: z.number().default(0),
+  skipped: z.number().default(0),
+  rejected: z.array(z.object({ row: z.number(), reason: z.string() })).default([]),
+});
+export type NetWorthImportResult = z.infer<typeof NetWorthImportResultSchema>;
+
+export const UserNetWorthPointSchema = z.object({
+  id: z.number(),
+  snapshot_date: z.string().default(''),
+  reporting_currency: z.string().default(''),
+  holdings_value: z.union([z.number(), z.string()]).nullable().default(null),
+  investing_cash: z.union([z.number(), z.string()]).nullable().default(null),
+  spending_cash: z.union([z.number(), z.string()]).nullable().default(null),
+  total_net_worth: z.union([z.number(), z.string()]).default(0),
+  created_at: z.string().default(''),
+});
+export type UserNetWorthPoint = z.infer<typeof UserNetWorthPointSchema>;

@@ -6,6 +6,7 @@ import { financeService } from '../services/finance';
 import { formatCurrency } from '../utils/numberFormat';
 import { formatDate, formatShortDate } from '../utils/dateFormat';
 import { PageHero } from '../components/layout/PageHero';
+import { HistoricalDataPanel } from '../components/finance/HistoricalDataPanel';
 import { PageShell } from '../components/layout/PageShell';
 import { queryKeys } from '../lib/queryKeys';
 import type { NetWorthHistoryItem } from '../types/finance';
@@ -102,7 +103,8 @@ const NetWorthHistoryChart: React.FC<{
         <TrendingUp className="mx-auto mb-3 h-8 w-8 text-slate-500" />
         <h3 className="font-semibold text-slate-300">History builds from here</h3>
         <p className="mt-1 text-sm text-slate-500 max-w-sm mx-auto">
-          We've started tracking your net worth today. Once daily snapshots accumulate, a stacked area trend chart will appear here.
+          We've started tracking your net worth today. Once daily snapshots accumulate, a stacked
+          area trend chart will appear here.
         </p>
       </div>
     );
@@ -113,16 +115,23 @@ const NetWorthHistoryChart: React.FC<{
   const paddingX = 40;
   const paddingY = 20;
 
-  // Convert string values to numbers
-  const points = history.map(item => ({
+  // Convert string values to numbers. hasComponents is false for a
+  // user-provided backfill point with no component split (spec-072) --
+  // those points draw the total line only and are excluded from the
+  // stacked-area math below, never zero-filled (which would misrender as
+  // "100% holdings").
+  const points = history.map((item) => ({
     dateStr: item.snapshot_date,
-    spending: parseFloat(item.spending_cash || '0'),
-    investing: parseFloat(item.investing_cash || '0'),
-    holdings: parseFloat(item.holdings_value || '0'),
+    spending: item.spending_cash != null ? parseFloat(item.spending_cash) : 0,
+    investing: item.investing_cash != null ? parseFloat(item.investing_cash) : 0,
+    holdings: item.holdings_value != null ? parseFloat(item.holdings_value) : 0,
     total: parseFloat(item.total_net_worth || '0'),
+    hasComponents:
+      item.holdings_value != null && item.investing_cash != null && item.spending_cash != null,
+    isUserProvided: item.source === 'user_provided',
   }));
 
-  const maxVal = Math.max(...points.map(p => p.total), 1);
+  const maxVal = Math.max(...points.map((p) => p.total), 1);
 
   const getX = (index: number) => {
     return paddingX + (index / (points.length - 1)) * (width - 2 * paddingX);
@@ -133,17 +142,46 @@ const NetWorthHistoryChart: React.FC<{
     return height - paddingY - val * scale;
   };
 
-  // Stack 3: Total (Spending + Investing + Holdings)
+  // Stacked areas are built from contiguous runs of points that DO have a
+  // component split -- a run boundary (component-less point, or the start/
+  // end of the series) breaks the area so it never bridges over a gap.
+  const componentRuns: number[][] = [];
+  let currentRun: number[] = [];
+  points.forEach((p, i) => {
+    if (p.hasComponents) {
+      currentRun.push(i);
+    } else if (currentRun.length > 0) {
+      componentRuns.push(currentRun);
+      currentRun = [];
+    }
+  });
+  if (currentRun.length > 0) componentRuns.push(currentRun);
+
+  const buildStackPaths = (indices: number[]) => {
+    const path = (value: (p: (typeof points)[number]) => number) =>
+      indices.map((i) => `${getX(i)},${getY(value(points[i]))}`).join(' L ');
+    const area = (value: (p: (typeof points)[number]) => number) => {
+      if (indices.length === 0) return '';
+      const first = indices[0];
+      const last = indices[indices.length - 1];
+      return `M ${getX(first)},${height - paddingY} L ${path(value)} L ${getX(last)},${height - paddingY} Z`;
+    };
+    return {
+      pathTotal: path((p) => p.total),
+      areaTotal: area((p) => p.total),
+      pathInvest: path((p) => p.spending + p.investing),
+      areaInvest: area((p) => p.spending + p.investing),
+      pathSpend: path((p) => p.spending),
+      areaSpend: area((p) => p.spending),
+    };
+  };
+
+  const stackSegments = componentRuns.map(buildStackPaths);
+
+  // Total line spans ALL points (a component-less user point still has a
+  // total -- it just doesn't participate in the stacked component areas
+  // above).
   const pathTotal = points.map((p, i) => `${getX(i)},${getY(p.total)}`).join(' L ');
-  const areaTotal = `M ${getX(0)},${height - paddingY} L ${pathTotal} L ${getX(points.length - 1)},${height - paddingY} Z`;
-
-  // Stack 2: Spending + Investing
-  const pathInvest = points.map((p, i) => `${getX(i)},${getY(p.spending + p.investing)}`).join(' L ');
-  const areaInvest = `M ${getX(0)},${height - paddingY} L ${pathInvest} L ${getX(points.length - 1)},${height - paddingY} Z`;
-
-  // Stack 1: Spending
-  const pathSpend = points.map((p, i) => `${getX(i)},${getY(p.spending)}`).join(' L ');
-  const areaSpend = `M ${getX(0)},${height - paddingY} L ${pathSpend} L ${getX(points.length - 1)},${height - paddingY} Z`;
 
   const formatShortValue = (val: number) => {
     if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
@@ -155,8 +193,12 @@ const NetWorthHistoryChart: React.FC<{
     <div className="rounded-2xl border border-slate-700/60 bg-slate-800/30 p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-300">Net worth history</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Stacked breakdown over time {currency ? `(${currency})` : ''}</p>
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-300">
+            Net worth history
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Stacked breakdown over time {currency ? `(${currency})` : ''}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
           <div className="flex items-center gap-1.5">
@@ -175,6 +217,12 @@ const NetWorthHistoryChart: React.FC<{
             <span className="h-0.5 w-4 bg-white" />
             <span className="text-slate-300">Total Net Worth</span>
           </div>
+          {points.some((p) => p.isUserProvided) && (
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full border border-dashed border-amber-500 bg-slate-800" />
+              <span className="text-amber-400">User-provided</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -196,53 +244,143 @@ const NetWorthHistoryChart: React.FC<{
           </defs>
 
           {/* Grid lines */}
-          <line x1={paddingX} y1={getY(maxVal)} x2={width - paddingX} y2={getY(maxVal)} stroke="#334155" strokeDasharray="3 3" />
-          <line x1={paddingX} y1={getY(maxVal / 2)} x2={width - paddingX} y2={getY(maxVal / 2)} stroke="#334155" strokeDasharray="3 3" />
-          <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} stroke="#334155" />
+          <line
+            x1={paddingX}
+            y1={getY(maxVal)}
+            x2={width - paddingX}
+            y2={getY(maxVal)}
+            stroke="#334155"
+            strokeDasharray="3 3"
+          />
+          <line
+            x1={paddingX}
+            y1={getY(maxVal / 2)}
+            x2={width - paddingX}
+            y2={getY(maxVal / 2)}
+            stroke="#334155"
+            strokeDasharray="3 3"
+          />
+          <line
+            x1={paddingX}
+            y1={height - paddingY}
+            x2={width - paddingX}
+            y2={height - paddingY}
+            stroke="#334155"
+          />
 
           {/* Value labels */}
-          <text x={paddingX - 8} y={getY(maxVal) + 4} textAnchor="end" className="text-[10px] fill-slate-500 font-medium">
+          <text
+            x={paddingX - 8}
+            y={getY(maxVal) + 4}
+            textAnchor="end"
+            className="text-[10px] fill-slate-500 font-medium"
+          >
             {formatShortValue(maxVal)}
           </text>
-          <text x={paddingX - 8} y={getY(maxVal / 2) + 4} textAnchor="end" className="text-[10px] fill-slate-500 font-medium">
+          <text
+            x={paddingX - 8}
+            y={getY(maxVal / 2) + 4}
+            textAnchor="end"
+            className="text-[10px] fill-slate-500 font-medium"
+          >
             {formatShortValue(maxVal / 2)}
           </text>
-          <text x={paddingX - 8} y={height - paddingY + 4} textAnchor="end" className="text-[10px] fill-slate-500 font-medium">
+          <text
+            x={paddingX - 8}
+            y={height - paddingY + 4}
+            textAnchor="end"
+            className="text-[10px] fill-slate-500 font-medium"
+          >
             0
           </text>
 
-          {/* Stacked Areas */}
-          <path d={areaTotal} fill="url(#colorHoldings)" />
-          <path d={areaInvest} fill="url(#colorInvesting)" />
-          <path d={areaSpend} fill="url(#colorSpending)" />
+          {/* Stacked Areas -- one segment per contiguous run of points that
+              have a component split; a component-less user point breaks
+              the run rather than zero-filling into it (spec-072). */}
+          {stackSegments.map((seg, idx) => (
+            <g key={idx}>
+              <path d={seg.areaTotal} fill="url(#colorHoldings)" />
+              <path d={seg.areaInvest} fill="url(#colorInvesting)" />
+              <path d={seg.areaSpend} fill="url(#colorSpending)" />
+              <path
+                d={`M ${seg.pathTotal}`}
+                fill="none"
+                stroke="#10b981"
+                strokeWidth={1}
+                strokeOpacity={0.5}
+              />
+              <path
+                d={`M ${seg.pathInvest}`}
+                fill="none"
+                stroke="#6366f1"
+                strokeWidth={1}
+                strokeOpacity={0.5}
+              />
+              <path
+                d={`M ${seg.pathSpend}`}
+                fill="none"
+                stroke="#06b6d4"
+                strokeWidth={1}
+                strokeOpacity={0.5}
+              />
+            </g>
+          ))}
 
-          {/* Divider lines between stacks */}
-          <path d={`M ${pathTotal}`} fill="none" stroke="#10b981" strokeWidth={1} strokeOpacity={0.5} />
-          <path d={`M ${pathInvest}`} fill="none" stroke="#6366f1" strokeWidth={1} strokeOpacity={0.5} />
-          <path d={`M ${pathSpend}`} fill="none" stroke="#06b6d4" strokeWidth={1} strokeOpacity={0.5} />
-
-          {/* White line on top for Total Net Worth */}
+          {/* White line on top for Total Net Worth -- spans every point,
+              component-less or not. */}
           <path d={`M ${pathTotal}`} fill="none" stroke="#ffffff" strokeWidth={2} />
 
-          {/* Dot anchors */}
+          {/* Dot anchors -- user-provided points render as a hollow/dashed
+              ring instead of the solid live-point fill (provenance,
+              spec-072 INV-1), with a tooltip note. */}
           {points.map((p, i) => (
             <g key={i} className="group cursor-pointer">
-              <circle cx={getX(i)} cy={getY(p.total)} r={4} fill="#ffffff" stroke="#1e293b" strokeWidth={1.5} />
+              <circle
+                cx={getX(i)}
+                cy={getY(p.total)}
+                r={4}
+                fill={p.isUserProvided ? '#1e293b' : '#ffffff'}
+                stroke={p.isUserProvided ? '#f59e0b' : '#1e293b'}
+                strokeWidth={1.5}
+                strokeDasharray={p.isUserProvided ? '2 1.5' : undefined}
+              >
+                {p.isUserProvided && (
+                  <title>
+                    User-provided{p.hasComponents ? '' : ' (total only)'} —{' '}
+                    {formatShortDate(p.dateStr)}
+                  </title>
+                )}
+              </circle>
             </g>
           ))}
 
           {/* X Axis Labels */}
           {points.length > 0 && (
             <>
-              <text x={getX(0)} y={height - paddingY + 16} textAnchor="start" className="text-[10px] fill-slate-500 font-medium">
+              <text
+                x={getX(0)}
+                y={height - paddingY + 16}
+                textAnchor="start"
+                className="text-[10px] fill-slate-500 font-medium"
+              >
                 {formatShortDate(points[0].dateStr)}
               </text>
               {points.length > 2 && (
-                <text x={getX(Math.floor(points.length / 2))} y={height - paddingY + 16} textAnchor="middle" className="text-[10px] fill-slate-500 font-medium">
+                <text
+                  x={getX(Math.floor(points.length / 2))}
+                  y={height - paddingY + 16}
+                  textAnchor="middle"
+                  className="text-[10px] fill-slate-500 font-medium"
+                >
                   {formatShortDate(points[Math.floor(points.length / 2)].dateStr)}
                 </text>
               )}
-              <text x={getX(points.length - 1)} y={height - paddingY + 16} textAnchor="end" className="text-[10px] fill-slate-500 font-medium">
+              <text
+                x={getX(points.length - 1)}
+                y={height - paddingY + 16}
+                textAnchor="end"
+                className="text-[10px] fill-slate-500 font-medium"
+              >
                 {formatShortDate(points[points.length - 1].dateStr)}
               </text>
             </>
@@ -340,6 +478,7 @@ export const NetWorthPage: React.FC = () => {
         subtitle={
           rc ? `Your complete financial picture in ${rc}` : 'Your complete financial picture'
         }
+        actions={<HistoricalDataPanel />}
       />
 
       <StatusBanner status={data?.valuation_status ?? ''} reportingCurrency={rc} />
@@ -362,9 +501,7 @@ export const NetWorthPage: React.FC = () => {
           </div>
 
           {/* History Chart */}
-          {rc && (
-            <NetWorthHistoryChart history={historyData} currency={rc} />
-          )}
+          {rc && <NetWorthHistoryChart history={historyData} currency={rc} />}
 
           {/* Investing breakdown */}
           {(data?.investing_cash_total != null || data?.holdings_value != null) && (
@@ -577,8 +714,7 @@ export const NetWorthPage: React.FC = () => {
                   </p>
                   {data.fx_as_of && (
                     <p className="text-xs text-slate-600">
-                      FX rates as of{' '}
-                      {formatDate(data.fx_as_of)}
+                      FX rates as of {formatDate(data.fx_as_of)}
                     </p>
                   )}
                 </div>

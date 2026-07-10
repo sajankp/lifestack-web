@@ -6,10 +6,14 @@ import {
   AccountSchema,
   CapitalTransferSchema,
   CurrencySchema,
+  FxRateImportResultSchema,
   NetWorthDataSchema,
   NetWorthHistoryItemSchema,
+  NetWorthImportResultSchema,
   ReconciliationSummarySchema,
   UserFinanceSettingSchema,
+  UserFxRateSchema,
+  UserNetWorthPointSchema,
   WorkspaceFinanceSettingSchema,
 } from '../types/finance';
 import type {
@@ -21,8 +25,12 @@ import type {
   CapitalTransferCreate,
   CapitalTransferUpdate,
   Currency,
+  FxRateHistoryImportRow,
+  FxRateImportResult,
   NetWorthData,
+  NetWorthHistoryImportRow,
   NetWorthHistoryItem,
+  NetWorthImportResult,
   ReconciliationSummary,
   UserFinanceSetting,
   UserFinanceSettingUpdate,
@@ -32,6 +40,8 @@ import type {
 
 const PaginatedAccountsSchema = paginatedSchema(AccountSchema);
 const PaginatedTransfersSchema = paginatedSchema(CapitalTransferSchema);
+const PaginatedUserFxRatesSchema = paginatedSchema(UserFxRateSchema);
+const PaginatedUserNetWorthPointsSchema = paginatedSchema(UserNetWorthPointSchema);
 
 export const financeService = {
   getCurrencies: async (): Promise<Currency[]> => {
@@ -94,7 +104,10 @@ export const financeService = {
     return PaginatedTransfersSchema.parse(response.data);
   },
 
-  updateTransfer: async (publicId: string, data: CapitalTransferUpdate): Promise<CapitalTransfer> => {
+  updateTransfer: async (
+    publicId: string,
+    data: CapitalTransferUpdate,
+  ): Promise<CapitalTransfer> => {
     const response = await api.patch(`/finance/transfers/${publicId}`, data);
     return CapitalTransferSchema.parse(response.data);
   },
@@ -126,5 +139,37 @@ export const financeService = {
       params: { from_date: fromDate, to_date: toDate },
     });
     return z.array(NetWorthHistoryItemSchema).parse(response.data);
+  },
+
+  importFxHistory: async (rows: FxRateHistoryImportRow[]): Promise<FxRateImportResult> => {
+    const response = await api.post('/finance/fx/history/import', { rows });
+    return FxRateImportResultSchema.parse(response.data);
+  },
+
+  getFxHistory: async (limit: number = 200, offset: number = 0) => {
+    const response = await api.get('/finance/fx/history', { params: { limit, offset } });
+    return PaginatedUserFxRatesSchema.parse(response.data);
+  },
+
+  deleteFxHistoryRow: async (id: number): Promise<void> => {
+    await api.delete(`/finance/fx/history/${id}`);
+  },
+
+  importNetWorthHistory: async (
+    rows: NetWorthHistoryImportRow[],
+  ): Promise<NetWorthImportResult> => {
+    const response = await api.post('/finance/net-worth/history/import', { rows });
+    return NetWorthImportResultSchema.parse(response.data);
+  },
+
+  getNetWorthUserPoints: async (limit: number = 200, offset: number = 0) => {
+    const response = await api.get('/finance/net-worth/history/user-points', {
+      params: { limit, offset },
+    });
+    return PaginatedUserNetWorthPointsSchema.parse(response.data);
+  },
+
+  deleteNetWorthUserPoint: async (id: number): Promise<void> => {
+    await api.delete(`/finance/net-worth/history/user-points/${id}`);
   },
 };
