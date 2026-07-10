@@ -120,8 +120,13 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
     queryFn: () => financeService.getAccounts(200, 0),
   });
   const accounts = useMemo(() => accountsRes.data?.items ?? [], [accountsRes.data]);
+  // Holdings only ever belong to brokerage accounts, so the account filter must
+  // not surface bank/wallet/card accounts (they'd only ever match zero rows).
   const accountDropdownOptions = useMemo(
-    () => accounts.map((acc) => ({ value: acc.public_id, label: acc.name })),
+    () =>
+      accounts
+        .filter((acc) => acc.account_type === 'brokerage')
+        .map((acc) => ({ value: acc.public_id, label: acc.name })),
     [accounts]
   );
 
@@ -383,6 +388,51 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
       currency: reportingCurrency,
     };
   }, [filteredHoldings, holdingCurrencies, summary.data]);
+
+  // Account-wise profit summary shown at the bottom of the tab. Grouped by
+  // (account, currency) so each row's sums stay in a single currency and need
+  // no FX conversion — a brokerage account is normally single-currency, but if
+  // one holds positions in multiple currencies it yields one row per currency
+  // rather than an unconvertible mixed total. Built from filteredHoldings so it
+  // honours the same filters (and the hide-zero-book-value toggle) as the table.
+  const accountBreakdown = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        accountId: string;
+        accountName: string;
+        currency: string;
+        positions: number;
+        invested: number;
+        marketValue: number;
+      }
+    >();
+    for (const h of filteredHoldings) {
+      const currency = (h.currency ?? 'USD').toUpperCase();
+      const key = `${h.account_id}::${currency}`;
+      const invested = deriveBookValue(h);
+      const price = toNumber(h.current_price ?? h.avg_cost);
+      const marketValue = toNumber(h.quantity) * price;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.positions += 1;
+        existing.invested += invested;
+        existing.marketValue += marketValue;
+      } else {
+        groups.set(key, {
+          accountId: h.account_id,
+          accountName: h.account_name || 'Unknown account',
+          currency,
+          positions: 1,
+          invested,
+          marketValue,
+        });
+      }
+    }
+    return Array.from(groups.values()).sort(
+      (a, b) => a.accountName.localeCompare(b.accountName) || a.currency.localeCompare(b.currency)
+    );
+  }, [filteredHoldings]);
 
   return (
     <>
@@ -755,6 +805,58 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
             </table>
           </div>
         </div>
+
+        {/* Account-wise profit summary — one card per brokerage account (split
+            by currency where a single account holds multiple). Mirrors the
+            active filters so it stays in sync with the table above. */}
+        {accountBreakdown.length > 0 ? (
+          <div className="space-y-3" data-testid="investing-account-breakdown">
+            <h3 className="font-semibold text-white text-base">By account</h3>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {accountBreakdown.map((row) => {
+                const pl = row.marketValue - row.invested;
+                const plPct = row.invested !== 0 ? (pl / row.invested) * 100 : null;
+                const positive = pl >= 0;
+                return (
+                  <div
+                    key={`${row.accountId}-${row.currency}`}
+                    data-testid={`investing-account-breakdown-row-${row.accountId}`}
+                    className="rounded-xl border border-slate-700/50 bg-slate-900/30 p-4"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate font-semibold text-white">{row.accountName}</span>
+                      <CurrencyBadge code={row.currency} />
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {row.positions} position{row.positions === 1 ? '' : 's'}
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-slate-700/40 pt-3 text-xs">
+                      <div>
+                        <span className="block text-slate-500">Invested</span>
+                        <span className="text-slate-200">
+                          {formatCurrency(row.invested, row.currency, currencyDisplayPreference)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-slate-500">Market value</span>
+                        <span className="font-medium text-white">
+                          {formatCurrency(row.marketValue, row.currency, currencyDisplayPreference)}
+                        </span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="block text-slate-500">Profit / loss</span>
+                        <span className={positive ? 'text-emerald-300' : 'text-rose-300'}>
+                          {formatCurrency(pl, row.currency, currencyDisplayPreference)}
+                          {plPct != null ? ` (${positive ? '+' : ''}${plPct.toFixed(2)}%)` : ''}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Trade History Modal */}
