@@ -2,6 +2,7 @@ import { z } from 'zod';
 import api from './api';
 import {
   CashBalanceSchema,
+  CorporateActionSchema,
   DividendBulkImportResultSchema,
   DividendSchema,
   ExposureAnalyticsSchema,
@@ -11,6 +12,7 @@ import {
   InvestingOrderSchema,
   InvestingSummarySchema,
   OverlapAnalyticsSchema,
+  PaginatedCorporateActionsSchema,
   PaginatedDividendsSchema,
   PerformanceSummarySchema,
 } from '../types/investing';
@@ -18,6 +20,8 @@ import type {
   CashBalance,
   CashBalanceCreate,
   CashBalanceUpdate,
+  CorporateAction,
+  CorporateActionCreate,
   Dividend,
   DividendBulkImportResult,
   DividendBulkImportRow,
@@ -139,6 +143,26 @@ export const investingService = {
   bulkImportDividends: async (rows: DividendBulkImportRow[]): Promise<DividendBulkImportResult> => {
     const response = await api.post('/investing/dividends/bulk', { rows });
     return DividendBulkImportResultSchema.parse(response.data);
+  },
+
+  getCorporateActions: async (
+    limit: number = 50,
+    offset: number = 0,
+    accountId?: string,
+  ): Promise<z.infer<typeof PaginatedCorporateActionsSchema>> => {
+    const response = await api.get('/investing/corporate-actions', {
+      params: { limit, offset, account_id: accountId || undefined },
+    });
+    return PaginatedCorporateActionsSchema.parse(response.data);
+  },
+
+  createCorporateAction: async (data: CorporateActionCreate): Promise<CorporateAction> => {
+    const response = await api.post('/investing/corporate-actions', data);
+    return CorporateActionSchema.parse(response.data);
+  },
+
+  deleteCorporateAction: async (publicId: string): Promise<void> => {
+    await api.delete(`/investing/corporate-actions/${publicId}`);
   },
 
   getSummary: async (): Promise<InvestingSummary> => {

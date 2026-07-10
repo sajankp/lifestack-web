@@ -1,7 +1,7 @@
 # Spec-008: Corporate Actions UI (record & manage splits/bonus from the web app)
 
 **Created:** 2026-07-10
-**Status:** Draft — awaiting approval. No code until approved.
+**Status:** Implemented 2026-07-11 — owner-approved and built. Orders-tab collapsible section (list + record modal + delete-with-replay-warning confirm), CAMS advisory now links to `/investing?tab=orders`. Preview arithmetic is illustrative only, sourced from a live holdings lookup (not a canned zero). `tsc -b`, `vite build`, lint (0 errors), and the full vitest suite (188 passed) all green. e2e coverage (record→replay→delete) left as a follow-up per the spec's own testing plan.
 **Scope:** `lifestack-web` only — one web PR. **No API or schema changes**: the backend shipped complete in api spec-051 (api#102) with `POST` / `GET` / `DELETE /investing/corporate-actions`.
 **Depends on:** api spec-051 (corporate-actions backend). **Closes a loose end from:** api spec-056 — the CAMS-import advisory instructs the user to "Record it under Investing → Corporate Actions", a screen that does not exist.
 

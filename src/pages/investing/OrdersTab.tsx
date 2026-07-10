@@ -13,6 +13,7 @@ import { DropdownSelect } from '../../components/DropdownSelect';
 import { Pagination } from '../../components/Pagination';
 import { SortableHeader } from './components';
 import type { SortDir } from './format';
+import { CorporateActionsSection } from '../../components/investing/CorporateActionsSection';
 
 interface OrdersTabProps {
   currencyDisplayPreference: 'symbol' | 'code';
@@ -324,6 +325,8 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
         offset={ordersOffset}
         onPageChange={setOrdersOffset}
       />
+
+      <CorporateActionsSection accounts={accounts} accountFilter={ordersAccountFilter} />
     </div>
   );
 };

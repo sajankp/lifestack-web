@@ -336,3 +336,38 @@ export const PerformanceSummarySchema = z.object({
 });
 
 export type PerformanceSummary = z.infer<typeof PerformanceSummarySchema>;
+
+export const CorporateActionTypeSchema = z.enum(['split', 'bonus']).default('split');
+export type CorporateActionType = z.infer<typeof CorporateActionTypeSchema>;
+
+export const CorporateActionSchema = z.object({
+  public_id: z.string().default(''),
+  account_id: z.string().default(''),
+  account_name: z.string().default(''),
+  symbol: z.string().default(''),
+  action_type: CorporateActionTypeSchema,
+  ratio_base: z.union([z.number(), z.string()]).default(1),
+  ratio_quote: z.union([z.number(), z.string()]).default(1),
+  ex_date: z.string().default(''),
+  notes: z.string().nullable().default(null),
+  created_at: z.string().default(''),
+});
+
+export type CorporateAction = z.infer<typeof CorporateActionSchema>;
+
+export interface CorporateActionCreate {
+  account_id: string;
+  symbol: string;
+  action_type: CorporateActionType;
+  ratio_base: number;
+  ratio_quote: number;
+  ex_date: string;
+  notes?: string | null;
+}
+
+export const PaginatedCorporateActionsSchema = z.object({
+  items: z.array(CorporateActionSchema).default([]),
+  total: z.number().default(0),
+  limit: z.number().optional().default(50),
+  offset: z.number().optional().default(0),
+});

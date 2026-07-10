@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
@@ -726,7 +727,10 @@ export const ImportsPage: React.FC = () => {
                   </p>
                   <p className="mb-2 text-xs text-amber-200/80">
                     A price or quantity jump this large usually means a split, reverse split, or
-                    bonus issue was never recorded. Record it under Investing → Corporate Actions.
+                    bonus issue was never recorded.{' '}
+                    <Link to="/investing?tab=orders" className="underline hover:text-amber-100">
+                      Record it under Investing → Orders → Corporate actions.
+                    </Link>
                   </p>
                   <ul className="space-y-1 text-xs text-amber-100">
                     {activeDetail.corporate_action_suspected.map((entry, idx) => (
