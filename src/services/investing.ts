@@ -15,6 +15,7 @@ import {
   PaginatedCorporateActionsSchema,
   PaginatedDividendsSchema,
   PerformanceSummarySchema,
+  ReturnMetricsResponseSchema,
 } from '../types/investing';
 import type {
   CashBalance,
@@ -43,6 +44,7 @@ import type {
   OrderType,
   OverlapAnalytics,
   PerformanceSummary,
+  ReturnMetricsResponse,
 } from '../types/investing';
 
 // Schemas and types live in src/types/investing.ts (G4); re-exported here so
@@ -206,6 +208,11 @@ export const investingService = {
   getPerformanceSummary: async (): Promise<PerformanceSummary> => {
     const response = await api.get('/investing/performance/summary');
     return PerformanceSummarySchema.parse(response.data);
+  },
+
+  getReturnMetrics: async (): Promise<ReturnMetricsResponse> => {
+    const response = await api.get('/investing/performance/returns');
+    return ReturnMetricsResponseSchema.parse(response.data);
   },
 
   refreshPrices: async (): Promise<{ updated: string[] }> => {

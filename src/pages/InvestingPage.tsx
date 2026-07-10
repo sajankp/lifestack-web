@@ -26,6 +26,7 @@ import { OrdersTab } from './investing/OrdersTab';
 import { CashTab } from './investing/CashTab';
 import { AnalyticsTab } from './investing/AnalyticsTab';
 import { SummaryCard } from './investing/components';
+import { ReturnMetricsPanel } from '../components/investing/ReturnMetricsPanel';
 import { formatDateTimeLocalInput, formatPerformanceMetric, statusLabel } from './investing/format';
 import { queryKeys } from '../lib/queryKeys';
 
@@ -418,6 +419,10 @@ export const InvestingPage: React.FC = () => {
           icon={<WalletCards className="h-5 w-5" />}
           testId="investing-cash-total"
         />
+      </div>
+
+      <div className="mb-6">
+        <ReturnMetricsPanel currencyDisplayPreference={currencyDisplayPreference} />
       </div>
 
       <div className="mb-6 rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">

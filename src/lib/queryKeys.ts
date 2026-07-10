@@ -98,6 +98,7 @@ export const queryKeys = {
     summary: () => ['investing', 'summary'] as const,
     performance: {
       summary: () => ['investing', 'performance', 'summary'] as const,
+      returns: () => ['investing', 'performance', 'returns'] as const,
     },
     holdings: () => ['investing', 'holdings'] as const,
     instruments: () => ['investing', 'instruments'] as const,

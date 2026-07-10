@@ -337,6 +337,67 @@ export const PerformanceSummarySchema = z.object({
 
 export type PerformanceSummary = z.infer<typeof PerformanceSummarySchema>;
 
+export const PositionMetricsSchema = z.object({
+  xirr: z.union([z.number(), z.string()]).nullable().default(null),
+  annualized_return_pct: z.union([z.number(), z.string()]).nullable().default(null),
+  annualization_reliable: z.boolean().default(false),
+  holding_days: z.number().nullable().default(null),
+  total_return_pct: z.union([z.number(), z.string()]).nullable().default(null),
+  realized: z.union([z.number(), z.string()]).default(0),
+  unrealized: z.union([z.number(), z.string()]).default(0),
+  market_value: z.union([z.number(), z.string()]).default(0),
+  invested: z.union([z.number(), z.string()]).default(0),
+});
+export type PositionMetrics = z.infer<typeof PositionMetricsSchema>;
+
+const ScopeReturnMetricsFields = {
+  xirr: z.union([z.number(), z.string()]).nullable().default(null),
+  annualized_return_pct: z.union([z.number(), z.string()]).nullable().default(null),
+  annualization_reliable: z.boolean().default(false),
+  holding_days: z.number().nullable().default(null),
+  realized: z.union([z.number(), z.string()]).default(0),
+  unrealized: z.union([z.number(), z.string()]).default(0),
+  data_quality: z.string().default('complete'),
+  open: PositionMetricsSchema,
+  closed: PositionMetricsSchema,
+};
+
+export const MaxDrawdownSchema = z.object({
+  pct: z.union([z.number(), z.string()]).default(0),
+  peak_date: z.string().default(''),
+  trough_date: z.string().default(''),
+});
+export type MaxDrawdown = z.infer<typeof MaxDrawdownSchema>;
+
+export const OverallReturnMetricsSchema = z.object({
+  ...ScopeReturnMetricsFields,
+  max_drawdown: MaxDrawdownSchema.nullable().default(null),
+});
+export type OverallReturnMetrics = z.infer<typeof OverallReturnMetricsSchema>;
+
+export const AccountReturnMetricsSchema = z.object({
+  ...ScopeReturnMetricsFields,
+  account_id: z.string().default(''),
+  account_name: z.string().default(''),
+  currency: z.string().default(''),
+});
+export type AccountReturnMetrics = z.infer<typeof AccountReturnMetricsSchema>;
+
+export const CurrencyReturnMetricsSchema = z.object({
+  ...ScopeReturnMetricsFields,
+  currency: z.string().default(''),
+});
+export type CurrencyReturnMetrics = z.infer<typeof CurrencyReturnMetricsSchema>;
+
+export const ReturnMetricsResponseSchema = z.object({
+  currency: z.string().nullable().default(null),
+  valuation_status: z.string().default('current'),
+  overall: OverallReturnMetricsSchema,
+  by_account: z.array(AccountReturnMetricsSchema).default([]),
+  by_currency: z.array(CurrencyReturnMetricsSchema).default([]),
+});
+export type ReturnMetricsResponse = z.infer<typeof ReturnMetricsResponseSchema>;
+
 export const CorporateActionTypeSchema = z.enum(['split', 'bonus']).default('split');
 export type CorporateActionType = z.infer<typeof CorporateActionTypeSchema>;
 
