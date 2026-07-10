@@ -16,6 +16,7 @@ import { Combobox } from '../../components/Combobox';
 import { Button } from '../../components/ui/button';
 import { SkeletonList } from '../../components/ui/FeedbackStates';
 import { TransferModal } from '../../components/finance/TransferModal';
+import { DividendsSection } from '../../components/investing/DividendsSection';
 import { QuickCreateAccountForm } from '../../components/finance/QuickCreateAccountForm';
 import { ReconciliationCard } from '../../components/finance/ReconciliationCard';
 import {
@@ -36,9 +37,7 @@ interface CashTabProps {
   currencyDisplayPreference: 'symbol' | 'code';
 }
 
-export const CashTab: React.FC<CashTabProps> = ({
-  currencyDisplayPreference,
-}) => {
+export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) => {
   const [cashAccountFilter, setCashAccountFilter] = useState('');
   const [cashCurrencyFilter, setCashCurrencyFilter] = useState('');
   const [cashSortCol, setCashSortCol] = useState('account_name');
@@ -53,7 +52,9 @@ export const CashTab: React.FC<CashTabProps> = ({
   });
   const [pendingDeleteCash, setPendingDeleteCash] = useState<CashBalance | null>(null);
   const [newAccountName, setNewAccountName] = useState('');
-  const [newAccountType, setNewAccountType] = useState<'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card'>('brokerage');
+  const [newAccountType, setNewAccountType] = useState<
+    'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card'
+  >('brokerage');
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
   const cashRes = useQuery({
@@ -73,7 +74,7 @@ export const CashTab: React.FC<CashTabProps> = ({
   const currencyOptions = useMemo(() => currencies.map((currency) => currency.code), [currencies]);
   const currencyDropdownOptions = useMemo(
     () => currencyOptions.map((code) => ({ value: code, label: code })),
-    [currencyOptions]
+    [currencyOptions],
   );
 
   const accountsRes = useQuery({
@@ -84,7 +85,7 @@ export const CashTab: React.FC<CashTabProps> = ({
   const accountOptions = useMemo(() => accounts.map((account) => account.name), [accounts]);
   const accountDropdownOptions = useMemo(
     () => accounts.map((acc) => ({ value: acc.public_id, label: acc.name })),
-    [accounts]
+    [accounts],
   );
   const userFinanceSettingsRes = useQuery({
     queryKey: queryKeys.finance.settings('user'),
@@ -95,11 +96,14 @@ export const CashTab: React.FC<CashTabProps> = ({
     (userFinanceSettings?.effective_reporting_currency_code &&
     currencyOptions.includes(userFinanceSettings.effective_reporting_currency_code)
       ? userFinanceSettings.effective_reporting_currency_code
-      : null) ?? currencyOptions[0] ?? 'USD';
+      : null) ??
+    currencyOptions[0] ??
+    'USD';
 
   const selectedCashAccount = cashForm.account_id;
-  const selectedCashCurrency =
-    currencyOptions.includes(cashForm.currency) ? cashForm.currency : preferredWorkspaceCurrency;
+  const selectedCashCurrency = currencyOptions.includes(cashForm.currency)
+    ? cashForm.currency
+    : preferredWorkspaceCurrency;
 
   // Transfers are surfaced read-only on the Cash tab for reconciliation
   // context; full transfer CRUD stays in Spending.
@@ -136,7 +140,11 @@ export const CashTab: React.FC<CashTabProps> = ({
   const deleteCashMutation = useInvalidatingMutation(
     (publicId: string) => investingService.deleteCashBalance(publicId),
     refreshKeys,
-    { successMessage: 'Cash balance deleted', errorMessage: false, onSuccess: () => setPendingDeleteCash(null) },
+    {
+      successMessage: 'Cash balance deleted',
+      errorMessage: false,
+      onSuccess: () => setPendingDeleteCash(null),
+    },
   );
 
   const createAccountMutation = useInvalidatingMutation(
@@ -168,24 +176,30 @@ export const CashTab: React.FC<CashTabProps> = ({
       cashBalances.filter((balance) => {
         const accountMatch = !cashAccountFilter || balance.account_id === cashAccountFilter;
         const currencyMatch =
-          !cashCurrencyFilter || (balance.currency ?? 'USD').toUpperCase() === cashCurrencyFilter.toUpperCase();
+          !cashCurrencyFilter ||
+          (balance.currency ?? 'USD').toUpperCase() === cashCurrencyFilter.toUpperCase();
         return accountMatch && currencyMatch;
       }),
-    [cashBalances, cashAccountFilter, cashCurrencyFilter]
+    [cashBalances, cashAccountFilter, cashCurrencyFilter],
   );
 
   const sortedCashBalances = useMemo(() => {
     const dir = cashSortDir === 'asc' ? 1 : -1;
     return [...filteredCashBalances].sort((a, b) => {
       switch (cashSortCol) {
-        case 'account_name': return dir * a.account_name.localeCompare(b.account_name);
-        case 'balance': return dir * (toNumber(a.balance) - toNumber(b.balance));
+        case 'account_name':
+          return dir * a.account_name.localeCompare(b.account_name);
+        case 'balance':
+          return dir * (toNumber(a.balance) - toNumber(b.balance));
         case 'as_of': {
           const timeA = new Date(a.as_of).getTime();
           const timeB = new Date(b.as_of).getTime();
-          return dir * ((Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0));
+          return (
+            dir * ((Number.isFinite(timeA) ? timeA : 0) - (Number.isFinite(timeB) ? timeB : 0))
+          );
         }
-        default: return 0;
+        default:
+          return 0;
       }
     });
   }, [filteredCashBalances, cashSortCol, cashSortDir]);
@@ -197,9 +211,9 @@ export const CashTab: React.FC<CashTabProps> = ({
         (t) =>
           !cashAccountFilter ||
           t.from_account_public_id === cashAccountFilter ||
-          t.to_account_public_id === cashAccountFilter
+          t.to_account_public_id === cashAccountFilter,
       ),
-    [transfers, cashAccountFilter]
+    [transfers, cashAccountFilter],
   );
 
   const onCreateCash = (e: React.FormEvent) => {
@@ -271,11 +285,13 @@ export const CashTab: React.FC<CashTabProps> = ({
               )}
             </div>
           )}
-
         </div>
 
         <div className="space-y-6">
-          <div data-testid="investing-cash-heading" className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            data-testid="investing-cash-heading"
+            className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+          >
             <h3 className="font-semibold text-white text-base">Cash Balances</h3>
             <div className="flex w-full sm:w-auto">
               <button
@@ -295,16 +311,19 @@ export const CashTab: React.FC<CashTabProps> = ({
               {cashRes.isLoading ? (
                 <SkeletonList rows={3} />
               ) : sortedCashBalances.length === 0 ? (
-                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">No cash balances yet.</div>
+                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">
+                  No cash balances yet.
+                </div>
               ) : (
                 sortedCashBalances.map((c) => (
-                  <div key={c.public_id} className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4">
+                  <div
+                    key={c.public_id}
+                    className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate font-medium text-white">{c.account_name}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {formatDateTime(c.as_of)}
-                        </p>
+                        <p className="mt-0.5 text-xs text-slate-500">{formatDateTime(c.as_of)}</p>
                       </div>
                       <button
                         disabled={deleteCashMutation.isPending}
@@ -316,13 +335,19 @@ export const CashTab: React.FC<CashTabProps> = ({
                       </button>
                     </div>
                     <div className="mt-2 flex items-center justify-between">
-                      <span className="text-lg font-semibold text-slate-100">{formatCurrency(c.balance, c.currency, currencyDisplayPreference)}</span>
+                      <span className="text-lg font-semibold text-slate-100">
+                        {formatCurrency(c.balance, c.currency, currencyDisplayPreference)}
+                      </span>
                       {c.trigger_type ? (
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          c.trigger_type === 'transfer' ? 'bg-blue-500/20 text-blue-300'
-                            : c.trigger_type === 'order' ? 'bg-indigo-500/20 text-indigo-300'
-                            : 'bg-slate-700/50 text-slate-400'
-                        }`}>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            c.trigger_type === 'transfer'
+                              ? 'bg-blue-500/20 text-blue-300'
+                              : c.trigger_type === 'order'
+                                ? 'bg-indigo-500/20 text-indigo-300'
+                                : 'bg-slate-700/50 text-slate-400'
+                          }`}
+                        >
                           {c.trigger_type.charAt(0).toUpperCase() + c.trigger_type.slice(1)}
                         </span>
                       ) : null}
@@ -336,22 +361,62 @@ export const CashTab: React.FC<CashTabProps> = ({
               <table className="w-full text-left text-sm text-slate-300 min-w-[600px]">
                 <thead className="border-b border-slate-700/50 bg-slate-800/50 text-xs uppercase text-slate-400">
                   <tr>
-                    <SortableHeader col="account_name" activeCol={cashSortCol} dir={cashSortDir} onSort={(c, d) => { setCashSortCol(c); setCashSortDir(d); }}>Account</SortableHeader>
-                    <SortableHeader col="balance" activeCol={cashSortCol} dir={cashSortDir} onSort={(c, d) => { setCashSortCol(c); setCashSortDir(d); }}>Balance</SortableHeader>
-                    <SortableHeader col="as_of" activeCol={cashSortCol} dir={cashSortDir} onSort={(c, d) => { setCashSortCol(c); setCashSortDir(d); }}>As Of</SortableHeader>
+                    <SortableHeader
+                      col="account_name"
+                      activeCol={cashSortCol}
+                      dir={cashSortDir}
+                      onSort={(c, d) => {
+                        setCashSortCol(c);
+                        setCashSortDir(d);
+                      }}
+                    >
+                      Account
+                    </SortableHeader>
+                    <SortableHeader
+                      col="balance"
+                      activeCol={cashSortCol}
+                      dir={cashSortDir}
+                      onSort={(c, d) => {
+                        setCashSortCol(c);
+                        setCashSortDir(d);
+                      }}
+                    >
+                      Balance
+                    </SortableHeader>
+                    <SortableHeader
+                      col="as_of"
+                      activeCol={cashSortCol}
+                      dir={cashSortDir}
+                      onSort={(c, d) => {
+                        setCashSortCol(c);
+                        setCashSortDir(d);
+                      }}
+                    >
+                      As Of
+                    </SortableHeader>
                     <th className="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
                   {cashRes.isLoading ? (
-                    <tr><td className="px-4 py-6 text-slate-400" colSpan={4}>Loading cash balances…</td></tr>
+                    <tr>
+                      <td className="px-4 py-6 text-slate-400" colSpan={4}>
+                        Loading cash balances…
+                      </td>
+                    </tr>
                   ) : sortedCashBalances.length === 0 ? (
-                    <tr><td className="px-4 py-6 text-slate-400" colSpan={4}>No cash balances yet.</td></tr>
+                    <tr>
+                      <td className="px-4 py-6 text-slate-400" colSpan={4}>
+                        No cash balances yet.
+                      </td>
+                    </tr>
                   ) : (
                     sortedCashBalances.map((c) => (
                       <tr key={c.public_id}>
                         <td className="px-4 py-3 text-white">{c.account_name}</td>
-                        <td className="px-4 py-3">{formatCurrency(c.balance, c.currency, currencyDisplayPreference)}</td>
+                        <td className="px-4 py-3">
+                          {formatCurrency(c.balance, c.currency, currencyDisplayPreference)}
+                        </td>
                         <td className="px-4 py-3">{formatDateTime(c.as_of)}</td>
                         <td className="px-4 py-3">
                           {c.trigger_type && (
@@ -361,8 +426,8 @@ export const CashTab: React.FC<CashTabProps> = ({
                                 c.trigger_type === 'transfer'
                                   ? 'bg-blue-500/20 text-blue-300'
                                   : c.trigger_type === 'order'
-                                  ? 'bg-indigo-500/20 text-indigo-300'
-                                  : 'bg-slate-700/50 text-slate-400'
+                                    ? 'bg-indigo-500/20 text-indigo-300'
+                                    : 'bg-slate-700/50 text-slate-400'
                               }`}
                             >
                               {c.trigger_type.charAt(0).toUpperCase() + c.trigger_type.slice(1)}
@@ -370,7 +435,12 @@ export const CashTab: React.FC<CashTabProps> = ({
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button aria-label="Delete cash balance" disabled={deleteCashMutation.isPending} onClick={() => setPendingDeleteCash(c)} className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10">
+                          <button
+                            aria-label="Delete cash balance"
+                            disabled={deleteCashMutation.isPending}
+                            onClick={() => setPendingDeleteCash(c)}
+                            className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10"
+                          >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </td>
@@ -411,31 +481,68 @@ export const CashTab: React.FC<CashTabProps> = ({
             {/* Mobile / tablet card list */}
             <div className="space-y-3 lg:hidden">
               {transfersRes.isLoading ? (
-                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">Loading…</div>
+                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">
+                  Loading…
+                </div>
               ) : visibleTransfers.length === 0 ? (
-                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">No transfers for this account yet.</div>
+                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400">
+                  No transfers for this account yet.
+                </div>
               ) : (
                 visibleTransfers.map((t) => {
-                  const isOut = cashAccountFilter !== ''
-                    ? t.from_account_public_id === cashAccountFilter
-                    : t.from_module === 'investing' && t.to_module === 'spending';
-                  const isIn = cashAccountFilter !== ''
-                    ? t.to_account_public_id === cashAccountFilter
-                    : t.from_module === 'spending' && t.to_module === 'investing';
+                  const isOut =
+                    cashAccountFilter !== ''
+                      ? t.from_account_public_id === cashAccountFilter
+                      : t.from_module === 'investing' && t.to_module === 'spending';
+                  const isIn =
+                    cashAccountFilter !== ''
+                      ? t.to_account_public_id === cashAccountFilter
+                      : t.from_module === 'spending' && t.to_module === 'investing';
                   return (
-                    <div key={t.public_id} className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4">
+                    <div
+                      key={t.public_id}
+                      className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4"
+                    >
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs text-slate-400">{formatDate(t.occurred_at, { fallback: 'N/A' })}</span>
+                        <span className="text-xs text-slate-400">
+                          {formatDate(t.occurred_at, { fallback: 'N/A' })}
+                        </span>
                         {isOut ? (
-                          <span className="inline-flex items-center rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-300">OUT</span>
+                          <span className="inline-flex items-center rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-300">
+                            OUT
+                          </span>
                         ) : isIn ? (
-                          <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-300">IN</span>
-                        ) : <span className="text-slate-500">—</span>}
+                          <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                            IN
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
                       </div>
-                      <p className="mt-2 text-sm text-slate-300">{(t.from_account_name ?? '—')} → {(t.to_account_name ?? '—')}</p>
+                      <p className="mt-2 text-sm text-slate-300">
+                        {t.from_account_name ?? '—'} → {t.to_account_name ?? '—'}
+                      </p>
                       <div className="mt-2 flex items-end justify-between gap-3 text-xs text-slate-400">
-                        <span>Gross <span className="text-slate-200">{formatCurrency(toNumber(t.gross_amount), t.from_currency_code, currencyDisplayPreference)}</span></span>
-                        <span className="text-right">Net <span className="font-semibold text-white">{formatCurrency(toNumber(t.net_amount_received), t.to_currency_code, currencyDisplayPreference)}</span></span>
+                        <span>
+                          Gross{' '}
+                          <span className="text-slate-200">
+                            {formatCurrency(
+                              toNumber(t.gross_amount),
+                              t.from_currency_code,
+                              currencyDisplayPreference,
+                            )}
+                          </span>
+                        </span>
+                        <span className="text-right">
+                          Net{' '}
+                          <span className="font-semibold text-white">
+                            {formatCurrency(
+                              toNumber(t.net_amount_received),
+                              t.to_currency_code,
+                              currencyDisplayPreference,
+                            )}
+                          </span>
+                        </span>
                       </div>
                     </div>
                   );
@@ -456,9 +563,17 @@ export const CashTab: React.FC<CashTabProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
                   {transfersRes.isLoading ? (
-                    <tr><td className="px-4 py-6 text-slate-400" colSpan={5}>Loading…</td></tr>
+                    <tr>
+                      <td className="px-4 py-6 text-slate-400" colSpan={5}>
+                        Loading…
+                      </td>
+                    </tr>
                   ) : visibleTransfers.length === 0 ? (
-                    <tr><td className="px-4 py-6 text-slate-400" colSpan={5}>No transfers for this account yet.</td></tr>
+                    <tr>
+                      <td className="px-4 py-6 text-slate-400" colSpan={5}>
+                        No transfers for this account yet.
+                      </td>
+                    </tr>
                   ) : (
                     visibleTransfers.map((t) => {
                       // With an account selected, direction is relative to that
@@ -474,21 +589,39 @@ export const CashTab: React.FC<CashTabProps> = ({
                           : t.from_module === 'spending' && t.to_module === 'investing';
                       return (
                         <tr key={t.public_id} data-testid={`investing-transfer-row-${t.public_id}`}>
-                          <td className="px-4 py-3 whitespace-nowrap">{formatDate(t.occurred_at, { fallback: 'N/A' })}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {formatDate(t.occurred_at, { fallback: 'N/A' })}
+                          </td>
                           <td className="px-4 py-3">
                             {isOut ? (
-                              <span className="inline-flex items-center rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-300">OUT</span>
+                              <span className="inline-flex items-center rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-semibold text-rose-300">
+                                OUT
+                              </span>
                             ) : isIn ? (
-                              <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-300">IN</span>
+                              <span className="inline-flex items-center rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                                IN
+                              </span>
                             ) : (
                               <span className="text-slate-500">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-slate-300">
-                            {(t.from_account_name ?? '—')} → {(t.to_account_name ?? '—')}
+                            {t.from_account_name ?? '—'} → {t.to_account_name ?? '—'}
                           </td>
-                          <td className="px-4 py-3 text-right">{formatCurrency(toNumber(t.gross_amount), t.from_currency_code, currencyDisplayPreference)}</td>
-                          <td className="px-4 py-3 text-right text-white">{formatCurrency(toNumber(t.net_amount_received), t.to_currency_code, currencyDisplayPreference)}</td>
+                          <td className="px-4 py-3 text-right">
+                            {formatCurrency(
+                              toNumber(t.gross_amount),
+                              t.from_currency_code,
+                              currencyDisplayPreference,
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right text-white">
+                            {formatCurrency(
+                              toNumber(t.net_amount_received),
+                              t.to_currency_code,
+                              currencyDisplayPreference,
+                            )}
+                          </td>
                         </tr>
                       );
                     })
@@ -501,7 +634,10 @@ export const CashTab: React.FC<CashTabProps> = ({
       </div>
 
       {/* Add Cash Modal */}
-      <Dialog open={isAddCashModalOpen} onOpenChange={(open) => !open && setIsAddCashModalOpen(false)}>
+      <Dialog
+        open={isAddCashModalOpen}
+        onOpenChange={(open) => !open && setIsAddCashModalOpen(false)}
+      >
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-4 mb-4 border-b border-slate-800">
             <DialogTitle>Add Cash Balance</DialogTitle>
@@ -595,7 +731,9 @@ export const CashTab: React.FC<CashTabProps> = ({
 
       <Dialog
         open={!!pendingDeleteCash}
-        onOpenChange={(open) => !open && !deleteCashMutation.isPending && setPendingDeleteCash(null)}
+        onOpenChange={(open) =>
+          !open && !deleteCashMutation.isPending && setPendingDeleteCash(null)
+        }
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -627,11 +765,20 @@ export const CashTab: React.FC<CashTabProps> = ({
           </DialogFooter>
           {deleteCashMutation.isError && (
             <p className="mt-2 text-sm text-rose-400 text-right">
-              {(deleteCashMutation.error as Error)?.message ?? 'Failed to delete cash balance entry'}
+              {(deleteCashMutation.error as Error)?.message ??
+                'Failed to delete cash balance entry'}
             </p>
           )}
         </DialogContent>
       </Dialog>
+
+      <div className="rounded-lg border border-border p-4">
+        <DividendsSection
+          accounts={accounts}
+          accountFilter={cashAccountFilter}
+          currencyDisplayPreference={currencyDisplayPreference}
+        />
+      </div>
 
       <TransferModal
         open={isTransferModalOpen}

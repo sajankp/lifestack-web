@@ -113,6 +113,80 @@ export interface CashBalanceUpdate {
   as_of?: string;
 }
 
+export const DIVIDEND_INCOME_TYPES = ['dividend', 'interest', 'coupon'] as const;
+export type DividendIncomeType = (typeof DIVIDEND_INCOME_TYPES)[number];
+
+export const DividendSchema = z.object({
+  public_id: z.string().default(''),
+  account_id: z.string().default(''),
+  account_name: z.string().default(''),
+  holding_id: z.string().nullable().default(null),
+  symbol: z.string().nullable().default(null),
+  income_type: z.string().default('dividend'),
+  gross_amount: z.union([z.number(), z.string()]).default(0),
+  tax_withheld: z.union([z.number(), z.string()]).default(0),
+  net_amount: z.union([z.number(), z.string()]).default(0),
+  currency: z.string().default(''),
+  pay_date: z.string().default(''),
+  external_ref: z.string().nullable().default(null),
+  notes: z.string().nullable().default(null),
+  created_at: z.string().default(''),
+  updated_at: z.string().default(''),
+});
+
+export type Dividend = z.infer<typeof DividendSchema>;
+
+export interface DividendCreate {
+  account_id: string;
+  symbol?: string | null;
+  income_type: DividendIncomeType;
+  gross_amount: number;
+  tax_withheld?: number;
+  currency: string;
+  pay_date: string;
+  external_ref?: string | null;
+  notes?: string | null;
+}
+
+export interface DividendUpdate {
+  symbol?: string | null;
+  income_type?: DividendIncomeType;
+  gross_amount?: number;
+  tax_withheld?: number;
+  currency?: string;
+  pay_date?: string;
+  external_ref?: string | null;
+  notes?: string | null;
+}
+
+export interface DividendBulkImportRow {
+  account_id: string;
+  symbol?: string | null;
+  income_type: DividendIncomeType;
+  gross_amount: number;
+  tax_withheld?: number;
+  currency: string;
+  pay_date: string;
+  external_ref?: string | null;
+  notes?: string | null;
+}
+
+export const DividendBulkImportResultSchema = z.object({
+  imported: z.number().default(0),
+  updated: z.number().default(0),
+  skipped: z.number().default(0),
+  rejected: z.array(z.object({ row: z.number(), reason: z.string() })).default([]),
+});
+
+export type DividendBulkImportResult = z.infer<typeof DividendBulkImportResultSchema>;
+
+export const PaginatedDividendsSchema = z.object({
+  items: z.array(DividendSchema).default([]),
+  total: z.number().default(0),
+  limit: z.number().optional().default(50),
+  offset: z.number().optional().default(0),
+});
+
 export const OrderTypeSchema = z.enum(['buy', 'sell']).default('buy');
 export type OrderType = z.infer<typeof OrderTypeSchema>;
 

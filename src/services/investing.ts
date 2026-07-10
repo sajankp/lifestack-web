@@ -2,6 +2,8 @@ import { z } from 'zod';
 import api from './api';
 import {
   CashBalanceSchema,
+  DividendBulkImportResultSchema,
+  DividendSchema,
   ExposureAnalyticsSchema,
   HoldingSchema,
   InstrumentConstituentSchema,
@@ -9,12 +11,18 @@ import {
   InvestingOrderSchema,
   InvestingSummarySchema,
   OverlapAnalyticsSchema,
+  PaginatedDividendsSchema,
   PerformanceSummarySchema,
 } from '../types/investing';
 import type {
   CashBalance,
   CashBalanceCreate,
   CashBalanceUpdate,
+  Dividend,
+  DividendBulkImportResult,
+  DividendBulkImportRow,
+  DividendCreate,
+  DividendUpdate,
   ExposureAnalytics,
   Holding,
   HoldingUpdate,
@@ -61,7 +69,10 @@ const PaginatedCashBalancesSchema = z.object({
 // ─── Service Implementation ──────────────────────────────────────────────────
 
 export const investingService = {
-  getHoldings: async (limit: number = 50, offset: number = 0): Promise<z.infer<typeof PaginatedHoldingsSchema>> => {
+  getHoldings: async (
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<z.infer<typeof PaginatedHoldingsSchema>> => {
     const response = await api.get('/investing/holdings', { params: { limit, offset } });
     return PaginatedHoldingsSchema.parse(response.data);
   },
@@ -98,6 +109,36 @@ export const investingService = {
 
   deleteCashBalance: async (publicId: string): Promise<void> => {
     await api.delete(`/investing/cash-balances/${publicId}`);
+  },
+
+  getDividends: async (
+    limit: number = 50,
+    offset: number = 0,
+    accountId?: string,
+  ): Promise<z.infer<typeof PaginatedDividendsSchema>> => {
+    const response = await api.get('/investing/dividends', {
+      params: { limit, offset, account_id: accountId || undefined },
+    });
+    return PaginatedDividendsSchema.parse(response.data);
+  },
+
+  createDividend: async (data: DividendCreate): Promise<Dividend> => {
+    const response = await api.post('/investing/dividends', data);
+    return DividendSchema.parse(response.data);
+  },
+
+  updateDividend: async (publicId: string, data: DividendUpdate): Promise<Dividend> => {
+    const response = await api.patch(`/investing/dividends/${publicId}`, data);
+    return DividendSchema.parse(response.data);
+  },
+
+  deleteDividend: async (publicId: string): Promise<void> => {
+    await api.delete(`/investing/dividends/${publicId}`);
+  },
+
+  bulkImportDividends: async (rows: DividendBulkImportRow[]): Promise<DividendBulkImportResult> => {
+    const response = await api.post('/investing/dividends/bulk', { rows });
+    return DividendBulkImportResultSchema.parse(response.data);
   },
 
   getSummary: async (): Promise<InvestingSummary> => {
