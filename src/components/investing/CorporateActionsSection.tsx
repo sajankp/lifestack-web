@@ -2,7 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { investingService } from '../../services/investing';
-import type { CorporateAction, CorporateActionType } from '../../types/investing';
+import type {
+  CorporateAction,
+  CorporateActionCreate,
+  CorporateActionType,
+} from '../../types/investing';
 import type { Account } from '../../types/finance';
 import { formatDate, formatDateInputValue } from '../../utils/dateFormat';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
@@ -92,16 +96,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
   }, [holdingsRes.data, form.account_id, form.symbol]);
 
   const createMutation = useInvalidatingMutation(
-    () =>
-      investingService.createCorporateAction({
-        account_id: form.account_id,
-        symbol: form.symbol.trim().toUpperCase(),
-        action_type: form.action_type,
-        ratio_base: Number(form.ratio_base),
-        ratio_quote: Number(form.ratio_quote),
-        ex_date: form.ex_date,
-        notes: form.notes.trim() || null,
-      }),
+    (data: CorporateActionCreate) => investingService.createCorporateAction(data),
     refreshKeys,
     {
       successMessage: 'Corporate action recorded',
@@ -124,7 +119,15 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
     const base = Number(form.ratio_base);
     const quote = Number(form.ratio_quote);
     if (!Number.isFinite(base) || base <= 0 || !Number.isFinite(quote) || quote <= 0) return;
-    createMutation.mutate(undefined);
+    createMutation.mutate({
+      account_id: form.account_id,
+      symbol: form.symbol.trim().toUpperCase(),
+      action_type: form.action_type,
+      ratio_base: base,
+      ratio_quote: quote,
+      ex_date: form.ex_date,
+      notes: form.notes.trim() || null,
+    });
   };
 
   const ratioBaseNum = Number(form.ratio_base) || 0;

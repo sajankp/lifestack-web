@@ -2,7 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Trash2, Upload } from 'lucide-react';
 import { investingService } from '../../services/investing';
-import type { Dividend, DividendBulkImportRow, DividendIncomeType } from '../../types/investing';
+import type {
+  Dividend,
+  DividendBulkImportRow,
+  DividendCreate,
+  DividendIncomeType,
+} from '../../types/investing';
 import { DIVIDEND_INCOME_TYPES } from '../../types/investing';
 import type { Account } from '../../types/finance';
 import { formatCurrency } from '../../utils/numberFormat';
@@ -74,16 +79,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
   const dividends = useMemo(() => dividendsRes.data?.items ?? [], [dividendsRes.data]);
 
   const createMutation = useInvalidatingMutation(
-    () =>
-      investingService.createDividend({
-        account_id: form.account_id,
-        symbol: form.symbol.trim() || null,
-        income_type: form.income_type,
-        gross_amount: Number(form.gross_amount),
-        tax_withheld: form.tax_withheld ? Number(form.tax_withheld) : 0,
-        currency: form.currency.trim().toUpperCase(),
-        pay_date: form.pay_date,
-      }),
+    (data: DividendCreate) => investingService.createDividend(data),
     refreshKeys,
     {
       successMessage: 'Dividend recorded',
@@ -116,7 +112,18 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
     if (!form.account_id || !form.gross_amount || !form.pay_date) return;
     const gross = Number(form.gross_amount);
     if (!Number.isFinite(gross) || gross <= 0) return;
-    createMutation.mutate(undefined);
+    const hasSymbol = form.income_type === 'dividend' || form.income_type === 'coupon';
+    createMutation.mutate({
+      account_id: form.account_id,
+      // Interest is account-level income: never submit a symbol typed
+      // before the user switched the income type (the field is hidden then).
+      symbol: hasSymbol ? form.symbol.trim() || null : null,
+      income_type: form.income_type,
+      gross_amount: gross,
+      tax_withheld: form.tax_withheld ? Number(form.tax_withheld) : 0,
+      currency: form.currency.trim().toUpperCase(),
+      pay_date: form.pay_date,
+    });
   };
 
   const parseCsv = (text: string): DividendBulkImportRow[] => {
