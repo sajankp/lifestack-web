@@ -355,6 +355,9 @@ const ScopeReturnMetricsFields = {
   annualized_return_pct: z.union([z.number(), z.string()]).nullable().default(null),
   annualization_reliable: z.boolean().default(false),
   holding_days: z.number().nullable().default(null),
+  // Simple (non-annualized) total return — the INV-7 display for sub-year
+  // spans, where no annualized figure (XIRR included) may be shown.
+  total_return_pct: z.union([z.number(), z.string()]).nullable().default(null),
   realized: z.union([z.number(), z.string()]).default(0),
   unrealized: z.union([z.number(), z.string()]).default(0),
   data_quality: z.string().default('complete'),

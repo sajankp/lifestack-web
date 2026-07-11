@@ -40,7 +40,10 @@ const PositionBlock: React.FC<{
           ? `${toNumber(metrics.total_return_pct).toFixed(1)}%${holdingDays != null ? ` · held ${formatHoldingPeriod(holdingDays)}` : ''}`
           : 'N/A'}
     </p>
-    <p className="mt-1 text-xs text-slate-500">XIRR: {formatXirr(metrics.xirr)}</p>
+    {/* XIRR is annualized by definition — suppressed for sub-year spans (INV-7). */}
+    {annualizationReliable && (
+      <p className="mt-1 text-xs text-slate-500">XIRR: {formatXirr(metrics.xirr)}</p>
+    )}
     <div className="mt-3 space-y-1 text-sm">
       <div className="flex justify-between">
         <span className="text-slate-400">Realized</span>
@@ -103,8 +106,10 @@ export const ReturnMetricsPanel: React.FC<ReturnMetricsPanelProps> = ({
           >
             {overall.annualization_reliable && overall.annualized_return_pct != null
               ? `${toNumber(overall.annualized_return_pct).toFixed(1)}% p.a. (XIRR ${formatXirr(overall.xirr)})`
-              : overall.xirr != null
-                ? `XIRR ${formatXirr(overall.xirr)}${overall.holding_days != null ? ` · held ${formatHoldingPeriod(overall.holding_days)}` : ''}`
+              : overall.total_return_pct != null
+                ? // INV-7: under a year, show the simple total return with the
+                  // holding period — never an annualized figure, XIRR included.
+                  `${toNumber(overall.total_return_pct).toFixed(1)}%${overall.holding_days != null ? ` · held ${formatHoldingPeriod(overall.holding_days)}` : ''}`
                 : 'N/A'}
           </p>
         </div>
@@ -164,7 +169,11 @@ export const ReturnMetricsPanel: React.FC<ReturnMetricsPanelProps> = ({
                   <span className="text-sm text-slate-200">{a.account_name}</span>
                   <span className="flex items-center gap-1 text-sm text-emerald-400">
                     <TrendingUp className="h-3.5 w-3.5" />
-                    {formatXirr(a.xirr)}
+                    {a.annualization_reliable
+                      ? formatXirr(a.xirr)
+                      : a.total_return_pct != null
+                        ? `${toNumber(a.total_return_pct).toFixed(1)}% · ${formatHoldingPeriod(a.holding_days)}`
+                        : 'N/A'}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
