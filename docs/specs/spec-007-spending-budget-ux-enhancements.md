@@ -14,6 +14,8 @@ This specification details UX improvements for the Spending page. It addresses b
 ## 3. Detailed Requirements
 
 ### 3.1 Budget Guardrails & Performance (Analytics Tab)
+Removed from the Analytics tab by commit `3e2437d` to avoid duplicating budget data that now lives only on the Budgets tab (§3.3 / spec-064). The filtering/empty-state behavior below no longer applies here.
+
 - Filter `sortedBudgetItems` (categories) and `sortedGroupBudgetItems` (groups) to only include items where `budget_amount` is not null.
 - If both lists are empty (no budgets set at all):
   - Avoid rendering separate sections.

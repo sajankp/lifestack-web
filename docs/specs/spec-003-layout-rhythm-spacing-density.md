@@ -1,5 +1,5 @@
 # Feature Spec: Layout Rhythm & Spacing Density Normalization
-**Status:** Pending Review  
+**Status:** Implemented (commit `f385fd5`).
 **Spec ID:** 003  
 
 ## 1. Overview

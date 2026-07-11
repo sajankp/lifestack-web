@@ -1,5 +1,5 @@
 # Feature Spec: Frontend Usability and Security Hardening
-**Status:** Proposed
+**Status:** Implemented (refresh mutex in commit `a306a87`; package.json dependency move in a later commit).
 **Spec ID:** 004
 
 ## 1. Overview
