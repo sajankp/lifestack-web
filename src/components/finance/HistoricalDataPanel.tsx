@@ -52,7 +52,7 @@ export const HistoricalDataPanel: React.FC = () => {
 
   return (
     <>
-      <Button variant="secondary" size="sm" onClick={() => setIsOpen(true)}>
+      <Button variant="secondary" size="sm" data-testid="historical-data-open" onClick={() => setIsOpen(true)}>
         <Upload className="h-4 w-4 mr-1" /> Add historical data
       </Button>
 
@@ -110,7 +110,7 @@ export const HistoricalDataPanel: React.FC = () => {
                     </thead>
                     <tbody>
                       {userPoints.map((p) => (
-                        <tr key={p.id} className="border-t border-border/60">
+                        <tr key={p.id} data-testid={`historical-networth-row-${p.id}`} className="border-t border-border/60">
                           <td className="px-3 py-2">{formatDate(p.snapshot_date)}</td>
                           <td className="px-3 py-2 text-right">
                             {formatCurrency(p.total_net_worth, p.reporting_currency)}
@@ -118,6 +118,7 @@ export const HistoricalDataPanel: React.FC = () => {
                           <td className="px-3 py-2 text-right">
                             <button
                               type="button"
+                              data-testid={`historical-networth-delete-${p.id}`}
                               className="text-muted-foreground hover:text-rose-500"
                               onClick={() => deletePointMutation.mutate(p.id)}
                               aria-label="Delete point"

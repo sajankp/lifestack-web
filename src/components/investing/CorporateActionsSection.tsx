@@ -141,6 +141,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
     <div className="rounded-lg border border-border">
       <button
         type="button"
+        data-testid="corporate-actions-toggle"
         className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-foreground"
         onClick={() => setIsExpanded((v) => !v)}
       >
@@ -155,6 +156,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
           <div className="flex justify-end">
             <Button
               size="sm"
+              data-testid="corporate-action-add-button"
               onClick={() => {
                 setForm(emptyForm());
                 setIsModalOpen(true);
@@ -183,7 +185,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
                 </thead>
                 <tbody>
                   {actions.map((a) => (
-                    <tr key={a.public_id} className="border-t border-border/60">
+                    <tr key={a.public_id} data-testid={`corporate-action-row-${a.public_id}`} className="border-t border-border/60">
                       <td className="px-3 py-2">{a.account_name}</td>
                       <td className="px-3 py-2">{a.symbol}</td>
                       <td className="px-3 py-2 text-muted-foreground">
@@ -194,6 +196,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
                       <td className="px-3 py-2 text-right">
                         <button
                           type="button"
+                          data-testid={`corporate-action-delete-${a.public_id}`}
                           className="text-muted-foreground hover:text-rose-500"
                           onClick={() => setPendingDelete(a)}
                           aria-label="Delete corporate action"
@@ -222,6 +225,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
             <div>
               <label className="text-xs text-muted-foreground">Account (brokerage only)</label>
               <DropdownSelect
+                testId="corporate-action-account"
                 value={form.account_id}
                 options={accountDropdownOptions}
                 onChange={(v) => setForm((prev) => ({ ...prev, account_id: v }))}
@@ -231,6 +235,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
             <div>
               <label className="text-xs text-muted-foreground">Symbol</label>
               <input
+                data-testid="corporate-action-symbol"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={form.symbol}
                 onChange={(e) =>
@@ -242,6 +247,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
             <div>
               <label className="text-xs text-muted-foreground">Action type</label>
               <DropdownSelect
+                testId="corporate-action-type"
                 value={form.action_type}
                 options={ACTION_TYPE_OPTIONS}
                 onChange={(v) =>
@@ -260,6 +266,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
                   step="0.0001"
                   min="0.0001"
                   required
+                  data-testid="corporate-action-ratio-base"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={form.ratio_base}
                   onChange={(e) => setForm((prev) => ({ ...prev, ratio_base: e.target.value }))}
@@ -274,6 +281,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
                   step="0.0001"
                   min="0.0001"
                   required
+                  data-testid="corporate-action-ratio-quote"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={form.ratio_quote}
                   onChange={(e) => setForm((prev) => ({ ...prev, ratio_quote: e.target.value }))}
@@ -285,6 +293,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
               <input
                 type="date"
                 required
+                data-testid="corporate-action-ex-date"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={form.ex_date}
                 onChange={(e) => setForm((prev) => ({ ...prev, ex_date: e.target.value }))}
@@ -305,7 +314,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
               <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
+              <Button type="submit" data-testid="corporate-action-save" disabled={createMutation.isPending}>
                 Record
               </Button>
             </DialogFooter>
@@ -328,6 +337,7 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
             </Button>
             <Button
               variant="destructive"
+              data-testid="corporate-action-confirm-delete"
               disabled={deleteMutation.isPending}
               onClick={() => pendingDelete && deleteMutation.mutate(pendingDelete.public_id)}
             >

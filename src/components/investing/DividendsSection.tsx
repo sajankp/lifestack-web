@@ -154,6 +154,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
           </Button>
           <Button
             size="sm"
+            data-testid="dividend-add-button"
             onClick={() => {
               setForm(emptyForm());
               setIsModalOpen(true);
@@ -185,7 +186,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
             </thead>
             <tbody>
               {dividends.map((d) => (
-                <tr key={d.public_id} className="border-t border-border/60">
+                <tr key={d.public_id} data-testid={`dividend-row-${d.public_id}`} className="border-t border-border/60">
                   <td className="px-3 py-2">{d.account_name}</td>
                   <td className="px-3 py-2 text-muted-foreground">{d.symbol ?? '—'}</td>
                   <td className="px-3 py-2 text-muted-foreground">{d.income_type}</td>
@@ -202,6 +203,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
                   <td className="px-3 py-2 text-right">
                     <button
                       type="button"
+                      data-testid={`dividend-delete-${d.public_id}`}
                       className="text-muted-foreground hover:text-rose-500"
                       onClick={() => setPendingDelete(d)}
                       aria-label="Delete dividend"
@@ -235,6 +237,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
             <div>
               <label className="text-xs text-muted-foreground">Account (brokerage only)</label>
               <DropdownSelect
+                testId="dividend-account"
                 value={form.account_id}
                 options={accountDropdownOptions}
                 onChange={(v) => {
@@ -251,6 +254,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
             <div>
               <label className="text-xs text-muted-foreground">Income type</label>
               <DropdownSelect
+                testId="dividend-income-type"
                 value={form.income_type}
                 options={INCOME_TYPE_OPTIONS}
                 onChange={(v) =>
@@ -263,6 +267,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
               <div>
                 <label className="text-xs text-muted-foreground">Symbol</label>
                 <input
+                  data-testid="dividend-symbol"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={form.symbol}
                   onChange={(e) =>
@@ -280,6 +285,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
                   step="0.01"
                   min="0"
                   required
+                  data-testid="dividend-gross-amount"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={form.gross_amount}
                   onChange={(e) => setForm((prev) => ({ ...prev, gross_amount: e.target.value }))}
@@ -291,6 +297,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
                   type="number"
                   step="0.01"
                   min="0"
+                  data-testid="dividend-tax-withheld"
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={form.tax_withheld}
                   onChange={(e) => setForm((prev) => ({ ...prev, tax_withheld: e.target.value }))}
@@ -302,6 +309,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
               <input
                 type="date"
                 required
+                data-testid="dividend-pay-date"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={form.pay_date}
                 onChange={(e) => setForm((prev) => ({ ...prev, pay_date: e.target.value }))}
@@ -321,7 +329,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
               <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
+              <Button type="submit" data-testid="dividend-save" disabled={createMutation.isPending}>
                 Record
               </Button>
             </DialogFooter>
@@ -344,6 +352,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
             </Button>
             <Button
               variant="destructive"
+              data-testid="dividend-confirm-delete"
               disabled={deleteMutation.isPending}
               onClick={() => pendingDelete && deleteMutation.mutate(pendingDelete.public_id)}
             >
