@@ -119,7 +119,8 @@ export const HistoricalDataPanel: React.FC = () => {
                             <button
                               type="button"
                               data-testid={`historical-networth-delete-${p.id}`}
-                              className="text-muted-foreground hover:text-rose-500"
+                              className="text-muted-foreground hover:text-rose-500 disabled:opacity-50"
+                              disabled={deletePointMutation.isPending}
                               onClick={() => deletePointMutation.mutate(p.id)}
                               aria-label="Delete point"
                             >
@@ -168,7 +169,8 @@ export const HistoricalDataPanel: React.FC = () => {
                           <td className="px-3 py-2 text-right">
                             <button
                               type="button"
-                              className="text-muted-foreground hover:text-rose-500"
+                              className="text-muted-foreground hover:text-rose-500 disabled:opacity-50"
+                              disabled={deleteFxMutation.isPending}
                               onClick={() => deleteFxMutation.mutate(r.id)}
                               aria-label="Delete rate"
                             >
