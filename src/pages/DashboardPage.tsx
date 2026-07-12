@@ -12,6 +12,7 @@ import { PageShell } from '../components/layout/PageShell';
 import { OnboardingChecklist } from '../components/dashboard/OnboardingChecklist';
 import type { OnboardingChecklistStep } from '../components/dashboard/OnboardingChecklist';
 import { BriefingCard } from '../components/dashboard/BriefingCard';
+import { KpiDashboardCard } from '../components/dashboard/KpiDashboardCard';
 import { DEFAULT_DECIMAL_PLACES, DEFAULT_DISPLAY_LOCALE, formatCurrency, toNumber } from '../utils/numberFormat';
 import { formatDateTime } from '../utils/dateFormat';
 import { queryKeys } from '../lib/queryKeys';
@@ -232,6 +233,8 @@ export const DashboardPage: React.FC = () => {
                 </section>
               </div>
             ) : null}
+
+            <KpiDashboardCard currencyDisplayPreference={currencyDisplayPreference} />
 
             {/* Dashboard Cues (Insights & Alerts) */}
             {(() => {
