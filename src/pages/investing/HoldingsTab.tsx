@@ -906,7 +906,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                                 {isBuy ? 'BUY' : 'SELL'}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-right text-slate-300">{toNumber(o.quantity).toLocaleString(displayLocale)}</td>
+                            <td className="px-4 py-3 text-right text-slate-300">{formatQuantity(o.quantity)}</td>
                             <td className="px-4 py-3 text-right text-slate-300">
                               {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                             </td>

@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button';
 import { financeService } from '../../services/finance';
 import { investingService } from '../../services/investing';
 import type { InvestingOrder } from '../../services/investing';
-import { formatCurrency, toNumber } from '../../utils/numberFormat';
+import { formatCurrency, formatQuantity, toNumber } from '../../utils/numberFormat';
 import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { formatDate } from '../../utils/dateFormat';
 import { CompactFilterBar, CompactFilterField } from '../../components/filters/CompactFilterBar';
@@ -206,7 +206,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                   </div>
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-700/40 pt-3 text-xs">
-                  <div><span className="block text-slate-500">Qty × Price</span><span className="text-slate-200">{toNumber(o.quantity).toLocaleString(displayLocale)} × {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span></div>
+                  <div><span className="block text-slate-500">Qty × Price</span><span className="text-slate-200">{formatQuantity(o.quantity)} × {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span></div>
                   <div><span className="block text-slate-500">Net</span><span className="font-medium text-white">{formatCurrency(toNumber(o.net_amount), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span></div>
                   <div>
                     <span className="block text-slate-500">Realized G/L</span>
@@ -270,7 +270,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                       {o.symbol}
                     </td>
                     <td className="px-4 py-3 text-slate-300">{o.account_name}</td>
-                    <td className="px-4 py-3 text-right text-slate-300">{toNumber(o.quantity).toLocaleString(displayLocale)}</td>
+                    <td className="px-4 py-3 text-right text-slate-300">{formatQuantity(o.quantity)}</td>
                     <td className="px-4 py-3 text-right text-slate-300">
                       {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                     </td>

@@ -6,7 +6,7 @@ import { financeService } from '../services/finance';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { investingService } from '../services/investing';
 import type { InvestingOrder, InvestingOrderCreate, InvestingOrderUpdate, OrderType } from '../services/investing';
-import { DEFAULT_DECIMAL_PLACES, DEFAULT_DISPLAY_LOCALE, formatCurrency, toNumber } from '../utils/numberFormat';
+import { DEFAULT_DECIMAL_PLACES, DEFAULT_DISPLAY_LOCALE, formatCurrency, formatQuantity, toNumber } from '../utils/numberFormat';
 import { CurrencyBadge } from '../components/finance/Badges';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
@@ -897,7 +897,7 @@ export const InvestingPage: React.FC = () => {
             <DialogTitle>Delete order?</DialogTitle>
             <DialogDescription>
               {pendingDeleteOrder
-                ? `Delete this ${pendingDeleteOrder.order_type} order for ${toNumber(pendingDeleteOrder.quantity).toLocaleString(displayLocale)} ${pendingDeleteOrder.symbol}? The holding will be recomputed from the remaining orders.`
+                ? `Delete this ${pendingDeleteOrder.order_type} order for ${formatQuantity(pendingDeleteOrder.quantity)} ${pendingDeleteOrder.symbol}? The holding will be recomputed from the remaining orders.`
                 : 'The holding will be recomputed from the remaining orders.'}
             </DialogDescription>
           </DialogHeader>

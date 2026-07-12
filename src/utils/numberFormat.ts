@@ -24,6 +24,14 @@ export const formatQuantity = (value: number | string | null | undefined, maxDec
 export const DEFAULT_DISPLAY_LOCALE = 'en-US';
 export const DEFAULT_DECIMAL_PLACES = 2;
 
+// Intl.NumberFormat/toFixed both throw a RangeError outside 0-100 (spec says
+// 0-20 in practice) -- clamp defensively so a bad value from the API or a
+// caller degrades to the default instead of crashing the render.
+const clampDecimalPlaces = (decimalPlaces: number): number => {
+  const parsed = Number(decimalPlaces);
+  return Number.isFinite(parsed) ? Math.min(20, Math.max(0, Math.floor(parsed))) : DEFAULT_DECIMAL_PLACES;
+};
+
 export const formatCurrency = (
   amount: number | string | null | undefined,
   currency: string | null | undefined = 'USD',
@@ -33,17 +41,18 @@ export const formatCurrency = (
 ): string => {
   const normalizedCurrency = (currency || 'USD').trim().toUpperCase();
   const numericAmount = toNumber(amount);
+  const parsedDecimals = clampDecimalPlaces(decimalPlaces);
 
   try {
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: normalizedCurrency,
       currencyDisplay,
-      minimumFractionDigits: decimalPlaces,
-      maximumFractionDigits: decimalPlaces,
+      minimumFractionDigits: parsedDecimals,
+      maximumFractionDigits: parsedDecimals,
     }).format(numericAmount);
   } catch {
-    return `${normalizedCurrency} ${numericAmount.toFixed(decimalPlaces)}`;
+    return `${normalizedCurrency} ${numericAmount.toFixed(parsedDecimals)}`;
   }
 };
 
@@ -59,12 +68,13 @@ export const formatNumber = (
   decimalPlaces: number = DEFAULT_DECIMAL_PLACES,
 ): string => {
   const numericValue = toNumber(value);
+  const parsedDecimals = clampDecimalPlaces(decimalPlaces);
   try {
     return new Intl.NumberFormat(locale, {
-      minimumFractionDigits: decimalPlaces,
-      maximumFractionDigits: decimalPlaces,
+      minimumFractionDigits: parsedDecimals,
+      maximumFractionDigits: parsedDecimals,
     }).format(numericValue);
   } catch {
-    return numericValue.toFixed(decimalPlaces);
+    return numericValue.toFixed(parsedDecimals);
   }
 };
