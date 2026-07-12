@@ -6,6 +6,11 @@ import { KpisTab } from './KpisTab';
 import { ToastProvider } from '../../components/ui/toast';
 import { server } from '../../test/setup';
 
+// jsdom doesn't implement scrollIntoView; Radix Select (the non-search
+// DropdownSelect variant used for the filter-mode picker) calls it when an
+// item is highlighted.
+Element.prototype.scrollIntoView = Element.prototype.scrollIntoView || ((): void => {});
+
 const kpiRow = (overrides: Partial<Record<string, unknown>> = {}) => ({
   public_id: 'kpi-1',
   name: 'Dining under 100',
@@ -131,5 +136,53 @@ describe('KpisTab (spec-077)', () => {
     fireEvent.click(screen.getByText('Delete'));
 
     await waitFor(() => expect(deleteCalled).toBe(true));
+  });
+
+  it('rejects a negative target value without submitting', async () => {
+    let createCalled = false;
+    server.use(
+      http.get('*/v1/spending/kpis', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
+      ),
+      http.post('*/v1/spending/kpis', () => {
+        createCalled = true;
+        return HttpResponse.json(kpiRow(), { status: 201 });
+      }),
+    );
+    renderTab();
+
+    await screen.findByText('No custom KPIs yet');
+    fireEvent.click(screen.getByTestId('kpi-add-button'));
+    fireEvent.change(screen.getByTestId('kpi-name-input'), { target: { value: 'Bad target' } });
+    fireEvent.click(screen.getByLabelText('Set a target and get notified on breach'));
+    fireEvent.change(screen.getByTestId('kpi-target-value'), { target: { value: '-5' } });
+    fireEvent.click(screen.getByTestId('kpi-save-button'));
+
+    expect(await screen.findByText('Target value must be a valid non-negative number')).toBeInTheDocument();
+    expect(createCalled).toBe(false);
+  });
+
+  it('requires a filter value once a filter mode is selected', async () => {
+    let createCalled = false;
+    server.use(
+      http.get('*/v1/spending/kpis', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
+      ),
+      http.post('*/v1/spending/kpis', () => {
+        createCalled = true;
+        return HttpResponse.json(kpiRow(), { status: 201 });
+      }),
+    );
+    renderTab();
+
+    await screen.findByText('No custom KPIs yet');
+    fireEvent.click(screen.getByTestId('kpi-add-button'));
+    fireEvent.change(screen.getByTestId('kpi-name-input'), { target: { value: 'Needs a filter' } });
+    fireEvent.click(screen.getByTestId('kpi-filter-mode'));
+    fireEvent.click(await screen.findByRole('option', { name: 'One category' }));
+    fireEvent.click(screen.getByTestId('kpi-save-button'));
+
+    expect(await screen.findByText('Select a value for the chosen filter')).toBeInTheDocument();
+    expect(createCalled).toBe(false);
   });
 });

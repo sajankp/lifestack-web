@@ -100,7 +100,14 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
     [queryKeys.spending.kpis()],
     {
       successMessage: 'KPI deleted',
-      onSuccess: () => setPendingDeleteId(null),
+      onSuccess: () => {
+        setPendingDeleteId(null);
+        // Deleting the last item on a page must not strand the user on a
+        // now-empty page once the list refetches.
+        if (offset > 0 && kpis.length === 1) {
+          setOffset(0);
+        }
+      },
     }
   );
 
@@ -111,8 +118,19 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
       setFormError('Name is required');
       return;
     }
-    if (form.hasTarget && !form.target_value.trim()) {
-      setFormError('Target value is required when a target is set');
+    if (form.hasTarget) {
+      if (!form.target_value.trim()) {
+        setFormError('Target value is required when a target is set');
+        return;
+      }
+      const parsedTarget = parseFloat(form.target_value);
+      if (Number.isNaN(parsedTarget) || parsedTarget < 0) {
+        setFormError('Target value must be a valid non-negative number');
+        return;
+      }
+    }
+    if (form.filterMode !== 'none' && !form.filterValue) {
+      setFormError('Select a value for the chosen filter');
       return;
     }
 
