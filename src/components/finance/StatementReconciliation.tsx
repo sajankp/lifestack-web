@@ -25,7 +25,10 @@ export const StatementReconciliation: React.FC<StatementReconciliationProps> = (
 }) => {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
-  const [statementIdOverride, setStatementIdOverride] = useState('');
+  // Keyed by accountId so a selection made on one account never leaks into
+  // another while this component stays mounted across an account switch.
+  const [statementIdOverrides, setStatementIdOverrides] = useState<Record<string, string>>({});
+  const statementIdOverride = statementIdOverrides[accountId] ?? '';
 
   const { data: statements } = useQuery({
     queryKey: ['finance', 'statements', accountId],
@@ -39,7 +42,8 @@ export const StatementReconciliation: React.FC<StatementReconciliationProps> = (
     statementIdOverride && statements?.some((s) => s.public_id === statementIdOverride)
       ? statementIdOverride
       : (statements?.[0]?.public_id ?? '');
-  const setSelectedStatementId = setStatementIdOverride;
+  const setSelectedStatementId = (id: string) =>
+    setStatementIdOverrides((prev) => ({ ...prev, [accountId]: id }));
 
   const activeStatement = statements?.find((s) => s.public_id === selectedStatementId) ?? null;
 
@@ -170,7 +174,7 @@ export const StatementReconciliation: React.FC<StatementReconciliationProps> = (
                                 key={c.id}
                                 data-testid="statement-match-candidate"
                                 onClick={() => matchMutation.mutate({ lineId: line.public_id, candidate: c })}
-                                disabled={matchMutation.isPending}
+                                disabled={matchMutation.isPending || unmatchMutation.isPending}
                                 className="rounded-lg bg-cyan-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-cyan-500 disabled:opacity-60"
                                 title={`${c.kind} on ${formatDate(c.occurred_at)}: ${fmt(c.amount)}`}
                               >
@@ -206,7 +210,7 @@ export const StatementReconciliation: React.FC<StatementReconciliationProps> = (
                           <span className="font-mono text-slate-400">{fmt(line.amount)}</span>
                           <button
                             onClick={() => unmatchMutation.mutate(line.public_id)}
-                            disabled={unmatchMutation.isPending}
+                            disabled={unmatchMutation.isPending || matchMutation.isPending}
                             className="text-slate-500 hover:text-rose-400 transition-colors"
                           >
                             Unmatch
