@@ -47,6 +47,7 @@ export const queryKeys = {
     summary: <T extends unknown[]>(...params: T) => ['spending', 'summary', ...params] as const,
     budgets: <T extends unknown[]>(...params: T) => ['spending', 'budgets', ...params] as const,
     recurring: <T extends unknown[]>(...params: T) => ['spending', 'recurring', ...params] as const,
+    kpis: <T extends unknown[]>(...params: T) => ['spending', 'kpis', ...params] as const,
   },
 
   // ── Notifications ──────────────────────────────────────────────────────────

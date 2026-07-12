@@ -6,6 +6,7 @@ import {
   CategoryBreakdownResponseSchema,
   CategoryGroupSchema,
   CategorySchema,
+  KpiSchema,
   LedgerResponseSchema,
   RecurringTransactionSchema,
   SavingsRateResponseSchema,
@@ -28,6 +29,9 @@ import type {
   CategoryGroupUpdate,
   CategoryMergeRequest,
   CategoryUpdate,
+  Kpi,
+  KpiCreate,
+  KpiUpdate,
   LedgerResponse,
   RecurringTransaction,
   RecurringTransactionCreate,
@@ -76,6 +80,13 @@ const PaginatedBudgetsSchema = z.object({
 
 const PaginatedRecurringSchema = z.object({
   items: z.array(RecurringTransactionSchema).default([]),
+  total: z.number().default(0),
+  limit: z.number().optional().default(50),
+  offset: z.number().optional().default(0),
+});
+
+const PaginatedKpisSchema = z.object({
+  items: z.array(KpiSchema).default([]),
   total: z.number().default(0),
   limit: z.number().optional().default(50),
   offset: z.number().optional().default(0),
@@ -209,6 +220,29 @@ export const spendingService = {
   changeBudgetAmount: async (publicId: string, data: BudgetChangeAmountRequest): Promise<Budget> => {
     const response = await api.post(`/spending/budgets/${publicId}/change-amount`, data);
     return BudgetSchema.parse(response.data);
+  },
+
+  // Custom financial KPIs (spec-077)
+  getKpis: async (
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<z.infer<typeof PaginatedKpisSchema>> => {
+    const response = await api.get('/spending/kpis', { params: { limit, offset } });
+    return PaginatedKpisSchema.parse(response.data);
+  },
+
+  createKpi: async (data: KpiCreate): Promise<Kpi> => {
+    const response = await api.post('/spending/kpis', data);
+    return KpiSchema.parse(response.data);
+  },
+
+  updateKpi: async (publicId: string, data: KpiUpdate): Promise<Kpi> => {
+    const response = await api.patch(`/spending/kpis/${publicId}`, data);
+    return KpiSchema.parse(response.data);
+  },
+
+  deleteKpi: async (publicId: string): Promise<void> => {
+    await api.delete(`/spending/kpis/${publicId}`);
   },
 
   getTrends: async (fromMonth: string, toMonth: string): Promise<SpendingTrendResponse> => {

@@ -155,6 +155,64 @@ export interface BudgetChangeAmountRequest {
   from_month: string;
 }
 
+export const KpiMetricTypeSchema = z
+  .enum(['spend_total', 'income_total', 'net_cash_flow'])
+  .default('spend_total');
+export type KpiMetricType = z.infer<typeof KpiMetricTypeSchema>;
+
+export const KpiWindowSchema = z
+  .enum(['calendar_month', 'calendar_week', 'rolling_30d'])
+  .default('calendar_month');
+export type KpiWindow = z.infer<typeof KpiWindowSchema>;
+
+export const KpiTargetDirectionSchema = z.enum(['lte', 'gte']).nullable().default(null);
+export type KpiTargetDirection = z.infer<typeof KpiTargetDirectionSchema>;
+
+export const KpiSchema = z.object({
+  public_id: z.string().default(''),
+  name: z.string().default(''),
+  metric_type: KpiMetricTypeSchema,
+  evaluation_window: KpiWindowSchema,
+  category_id: z.string().nullable().default(null),
+  category_group_id: z.string().nullable().default(null),
+  account_id: z.string().nullable().default(null),
+  currency_code: z.string().default(''),
+  target_value: z.union([z.number(), z.string()]).nullable().default(null),
+  target_direction: KpiTargetDirectionSchema,
+  display_format: z.string().default('amount'),
+  is_active: z.boolean().default(true),
+  current_value: z.union([z.number(), z.string()]).default(0),
+  is_breached: z.boolean().default(false),
+  window_start: z.string().default(''),
+  window_end: z.string().default(''),
+  created_at: z.string().default(''),
+  updated_at: z.string().default(''),
+});
+
+export type Kpi = z.infer<typeof KpiSchema>;
+
+export interface KpiCreate {
+  name: string;
+  metric_type: KpiMetricType;
+  evaluation_window: KpiWindow;
+  category_id?: string | null;
+  category_group_id?: string | null;
+  account_id?: string | null;
+  target_value?: number | null;
+  target_direction?: 'lte' | 'gte' | null;
+  display_format?: 'amount' | 'percent';
+}
+
+export interface KpiUpdate {
+  name?: string | null;
+  category_id?: string | null;
+  category_group_id?: string | null;
+  account_id?: string | null;
+  target_value?: number | null;
+  target_direction?: 'lte' | 'gte' | null;
+  is_active?: boolean | null;
+}
+
 export const CategorySpendTotalSchema = z.object({
   category_id: z.string().default(''),
   total: z.union([z.number(), z.string()]).default(0),

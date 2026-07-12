@@ -63,6 +63,7 @@ import { describeRecurrence } from '../utils/recurrenceLabel';
 import { formatDate } from '../utils/dateFormat';
 import { TransactionsTab } from './spending/TransactionsTab';
 import { BudgetsTab } from './spending/BudgetsTab';
+import { KpisTab } from './spending/KpisTab';
 import { RecurringTab } from './spending/RecurringTab';
 import { AnalyticsTab } from './spending/AnalyticsTab';
 import { LedgerTab } from './spending/LedgerTab';
@@ -243,8 +244,8 @@ export const SpendingPage: React.FC = () => {
   // "Transfers" was merged into "Account activity" (formerly Ledger) — the
   // ledger already rendered transfer_in/out rows; it now also carries their
   // edit/delete affordances (UX-REVIEW Theme 3 / spec: money-movement restructure).
-  type SpendingTab = 'transactions' | 'budgets' | 'recurring' | 'analytics' | 'ledger';
-  const SPENDING_TABS: SpendingTab[] = ['transactions', 'budgets', 'recurring', 'analytics', 'ledger'];
+  type SpendingTab = 'transactions' | 'budgets' | 'kpis' | 'recurring' | 'analytics' | 'ledger';
+  const SPENDING_TABS: SpendingTab[] = ['transactions', 'budgets', 'kpis', 'recurring', 'analytics', 'ledger'];
   const [activeTab, setActiveTab] = useState<SpendingTab>(() => {
     const requested = new URLSearchParams(window.location.search).get('tab');
     return (SPENDING_TABS as string[]).includes(requested ?? '') ? (requested as SpendingTab) : 'transactions';
@@ -1419,6 +1420,13 @@ export const SpendingPage: React.FC = () => {
           Budgets
         </button>
         <button
+          data-testid="spending-tab-kpis"
+          onClick={() => setActiveTab('kpis')}
+          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'kpis' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+        >
+          KPIs
+        </button>
+        <button
           data-testid="spending-tab-recurring"
           onClick={() => setActiveTab('recurring')}
           className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeTab === 'recurring' ? 'border-cyan-500 text-cyan-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
@@ -1452,7 +1460,7 @@ export const SpendingPage: React.FC = () => {
         )
       ) ? (
         <SkeletonList rows={4} />
-      ) : isLoading && activeTab !== 'recurring' && activeTab !== 'budgets' && activeTab !== 'analytics' && activeTab !== 'ledger' ? (
+      ) : isLoading && activeTab !== 'recurring' && activeTab !== 'budgets' && activeTab !== 'kpis' && activeTab !== 'analytics' && activeTab !== 'ledger' ? (
         <SkeletonList rows={5} />
       ) : activeTab === 'transactions' ? (
         <TransactionsTab
@@ -1520,6 +1528,13 @@ export const SpendingPage: React.FC = () => {
             multiMonthBudgets={periodBudgets}
           />
         </div>
+      ) : activeTab === 'kpis' ? (
+        <KpisTab
+          categoryOptions={categoryFilterOptions}
+          categoryGroupOptions={categoryGroupOptions}
+          accountOptions={accountOptions}
+          currencyDisplayPreference={currencyDisplayPreference}
+        />
       ) : activeTab === 'recurring' ? (
         <RecurringTab
           recurringItems={recurringItems}
