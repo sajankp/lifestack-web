@@ -389,6 +389,112 @@ describe('MasterConfigPage', () => {
     });
   });
 
+  it('saves a workspace locale/decimal-places display profile and a per-user override (spec-075)', async () => {
+    const workspaceId = '66666666-6666-6666-6666-666666666666';
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+    let workspacePayload: Record<string, unknown> | null = null;
+    let userPayload: Record<string, unknown> | null = null;
+    let userSettingsState = {
+      reporting_currency_override_code: null,
+      currency_display_preference_override: null,
+      workspace_reporting_currency_code: null,
+      workspace_currency_display_preference: 'symbol',
+      effective_reporting_currency_code: null,
+      effective_currency_display_preference: 'symbol',
+      locale_override: null as string | null,
+      decimal_places_override: null,
+      workspace_locale: 'en-US',
+      workspace_decimal_places: 2,
+      effective_locale: 'en-US',
+      effective_decimal_places: 2,
+      updated_at: '2026-06-10T00:00:00Z',
+    };
+
+    server.use(
+      http.get('*/v1/platform/workspaces/', () =>
+        HttpResponse.json({
+          items: [
+            { public_id: workspaceId, name: 'Epsilon Workspace', description: null, is_active: true, role: 'owner' },
+          ],
+        }),
+      ),
+      http.get(`*/v1/platform/workspaces/${workspaceId}/reset-demo/status`, () =>
+        HttpResponse.json({
+          enabled: false,
+          allowed: false,
+          workspace_public_id: workspaceId,
+          workspace_name: 'Epsilon Workspace',
+          role: 'owner',
+          reason: null,
+        }),
+      ),
+      http.get('*/v1/finance/currencies', () => HttpResponse.json([])),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/settings', () =>
+        HttpResponse.json({
+          reporting_currency_code: null,
+          currency_display_preference: 'symbol',
+          locale: 'en-US',
+          decimal_places: 2,
+          updated_at: '2026-06-10T00:00:00Z',
+        }),
+      ),
+      http.patch('*/v1/finance/settings', async ({ request }) => {
+        workspacePayload = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({
+          reporting_currency_code: null,
+          currency_display_preference: 'symbol',
+          locale: 'en-IN',
+          decimal_places: 0,
+          updated_at: '2026-06-11T00:00:00Z',
+        });
+      }),
+      http.get('*/v1/finance/settings/user', () => HttpResponse.json(userSettingsState)),
+      http.patch('*/v1/finance/settings/user', async ({ request }) => {
+        userPayload = (await request.json()) as Record<string, unknown>;
+        userSettingsState = {
+          ...userSettingsState,
+          locale_override: 'en-GB',
+          effective_locale: 'en-GB',
+          updated_at: '2026-06-11T00:00:00Z',
+        };
+        return HttpResponse.json(userSettingsState);
+      }),
+      http.get('*/v1/spending/category-groups', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+    );
+
+    renderWithQuery(<MasterConfigPage />);
+
+    const localePicker = await screen.findByTestId('master-workspace-locale');
+    fireEvent.click(localePicker);
+    fireEvent.click(await screen.findByRole('option', { name: /India/ }));
+
+    const decimalsPicker = screen.getByTestId('master-workspace-decimal-places');
+    fireEvent.click(decimalsPicker);
+    fireEvent.click(await screen.findByRole('option', { name: '0 decimal places' }));
+
+    fireEvent.click(screen.getByTestId('master-workspace-save-format'));
+
+    await waitFor(() => {
+      expect(workspacePayload).toMatchObject({ locale: 'en-IN', decimal_places: 0 });
+    });
+
+    const userLocalePicker = screen.getByTestId('master-user-locale-override');
+    fireEvent.click(userLocalePicker);
+    fireEvent.click(await screen.findByRole('option', { name: /Override: UK/ }));
+    fireEvent.click(screen.getByTestId('master-user-save-format-override'));
+
+    await waitFor(() => {
+      expect(userPayload).toMatchObject({ locale_override: 'en-GB' });
+    });
+
+    expect(await screen.findByText(/en-GB/)).toBeInTheDocument();
+  });
+
   it('splits settings into tabs and labels the account status action Activate/Deactivate', async () => {
     const workspaceId = '55555555-5555-5555-5555-555555555555';
     useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
