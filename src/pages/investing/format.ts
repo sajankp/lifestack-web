@@ -47,13 +47,15 @@ export const formatPerformanceMetric = (
   percentage: number | string | null,
   currency: string,
   preference: 'symbol' | 'code',
+  locale?: string,
+  decimalPlaces?: number,
 ) => {
   const numericAmount = toNumber(amount);
   const sign = numericAmount > 0 ? '+' : '';
   const percentageLabel = percentage == null
     ? ''
     : ` (${toNumber(percentage) > 0 ? '+' : ''}${toNumber(percentage).toFixed(2)}%)`;
-  return `${sign}${formatCurrency(numericAmount, currency, preference)}${percentageLabel}`;
+  return `${sign}${formatCurrency(numericAmount, currency, preference, locale, decimalPlaces)}${percentageLabel}`;
 };
 
 export { accountTypeOptions } from '../../utils/accountTypes';

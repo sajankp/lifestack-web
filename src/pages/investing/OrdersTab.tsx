@@ -6,6 +6,7 @@ import { financeService } from '../../services/finance';
 import { investingService } from '../../services/investing';
 import type { InvestingOrder } from '../../services/investing';
 import { formatCurrency, toNumber } from '../../utils/numberFormat';
+import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { formatDate } from '../../utils/dateFormat';
 import { CompactFilterBar, CompactFilterField } from '../../components/filters/CompactFilterBar';
 import { queryKeys } from '../../lib/queryKeys';
@@ -37,6 +38,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   updateOrderPending,
   onOpenPlaceOrder,
 }) => {
+  const { locale: displayLocale, decimalPlaces } = useDisplayProfile();
   const [ordersAccountFilter, setOrdersAccountFilter] = useState('');
   const [orderSymbolFilter, setOrderSymbolFilter] = useState('');
   const [orderTypeFilter, setOrderTypeFilter] = useState<'' | 'buy' | 'sell'>('');
@@ -204,16 +206,16 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                   </div>
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-700/40 pt-3 text-xs">
-                  <div><span className="block text-slate-500">Qty × Price</span><span className="text-slate-200">{toNumber(o.quantity).toLocaleString()} × {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference)}</span></div>
-                  <div><span className="block text-slate-500">Net</span><span className="font-medium text-white">{formatCurrency(toNumber(o.net_amount), o.currency, currencyDisplayPreference)}</span></div>
+                  <div><span className="block text-slate-500">Qty × Price</span><span className="text-slate-200">{toNumber(o.quantity).toLocaleString(displayLocale)} × {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span></div>
+                  <div><span className="block text-slate-500">Net</span><span className="font-medium text-white">{formatCurrency(toNumber(o.net_amount), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span></div>
                   <div>
                     <span className="block text-slate-500">Realized G/L</span>
                     {o.realized_gain_loss != null ? (
-                      <span className={toNumber(o.realized_gain_loss) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{formatCurrency(toNumber(o.realized_gain_loss), o.currency, currencyDisplayPreference)}</span>
+                      <span className={toNumber(o.realized_gain_loss) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{formatCurrency(toNumber(o.realized_gain_loss), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span>
                     ) : <span className="text-slate-500">—</span>}
                   </div>
                 </div>
-                {fees > 0 ? <p className="mt-1 text-[11px] text-slate-500">Fees {formatCurrency(fees, o.currency, currencyDisplayPreference)}</p> : null}
+                {fees > 0 ? <p className="mt-1 text-[11px] text-slate-500">Fees {formatCurrency(fees, o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</p> : null}
               </div>
             );
           })
@@ -268,23 +270,23 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                       {o.symbol}
                     </td>
                     <td className="px-4 py-3 text-slate-300">{o.account_name}</td>
-                    <td className="px-4 py-3 text-right text-slate-300">{toNumber(o.quantity).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right text-slate-300">{toNumber(o.quantity).toLocaleString(displayLocale)}</td>
                     <td className="px-4 py-3 text-right text-slate-300">
-                      {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference)}
+                      {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                     </td>
                     <td className="px-4 py-3 text-right text-slate-300">
-                      {formatCurrency(toNumber(o.gross_amount), o.currency, currencyDisplayPreference)}
+                      {formatCurrency(toNumber(o.gross_amount), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                     </td>
                     <td className="px-4 py-3 text-right text-slate-400">
-                      {formatCurrency(fees, o.currency, currencyDisplayPreference)}
+                      {formatCurrency(fees, o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-white">
-                      {formatCurrency(toNumber(o.net_amount), o.currency, currencyDisplayPreference)}
+                      {formatCurrency(toNumber(o.net_amount), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       {o.realized_gain_loss != null ? (
                         <span className={toNumber(o.realized_gain_loss) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
-                          {formatCurrency(toNumber(o.realized_gain_loss), o.currency, currencyDisplayPreference)}
+                          {formatCurrency(toNumber(o.realized_gain_loss), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                         </span>
                       ) : (
                         <span className="text-slate-500">—</span>

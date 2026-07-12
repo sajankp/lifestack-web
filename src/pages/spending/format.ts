@@ -33,7 +33,11 @@ export const getCurrentMonthValue = () => {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 };
 
-const monthLabelFormatter = new Intl.DateTimeFormat(undefined, {
+// spec-075: explicit locale, not the browser's implicit one -- deterministic
+// output regardless of where the browser happens to be set. This is a
+// month/year *label* (not a currency amount), so it stays fixed to en-US
+// rather than following the currency display-profile locale.
+const monthLabelFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'long',
   year: 'numeric',
   timeZone: 'UTC',

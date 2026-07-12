@@ -4,6 +4,7 @@ import { TrendingDown, TrendingUp } from 'lucide-react';
 import { investingService } from '../../services/investing';
 import type { AccountReturnMetrics, PositionMetrics } from '../../types/investing';
 import { formatCurrency, toNumber } from '../../utils/numberFormat';
+import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { queryKeys } from '../../lib/queryKeys';
 
 interface ReturnMetricsPanelProps {
@@ -29,8 +30,10 @@ const PositionBlock: React.FC<{
   holdingDays: number | null;
   currency: string;
   currencyDisplayPreference: 'symbol' | 'code';
+  locale: string;
+  decimalPlaces: number;
   showUnrealized: boolean;
-}> = ({ title, metrics, annualizationReliable, holdingDays, currency, currencyDisplayPreference, showUnrealized }) => (
+}> = ({ title, metrics, annualizationReliable, holdingDays, currency, currencyDisplayPreference, locale, decimalPlaces, showUnrealized }) => (
   <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4">
     <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">{title}</p>
     <p className="mt-2 text-xl font-bold text-white">
@@ -48,14 +51,14 @@ const PositionBlock: React.FC<{
       <div className="flex justify-between">
         <span className="text-slate-400">Realized</span>
         <span className={toNumber(metrics.realized) >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-          {formatCurrency(metrics.realized, currency, currencyDisplayPreference)}
+          {formatCurrency(metrics.realized, currency, currencyDisplayPreference, locale, decimalPlaces)}
         </span>
       </div>
       {showUnrealized && (
         <div className="flex justify-between">
           <span className="text-slate-400">Unrealized</span>
           <span className={toNumber(metrics.unrealized) >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-            {formatCurrency(metrics.unrealized, currency, currencyDisplayPreference)}
+            {formatCurrency(metrics.unrealized, currency, currencyDisplayPreference, locale, decimalPlaces)}
           </span>
         </div>
       )}
@@ -66,6 +69,7 @@ const PositionBlock: React.FC<{
 export const ReturnMetricsPanel: React.FC<ReturnMetricsPanelProps> = ({
   currencyDisplayPreference,
 }) => {
+  const { locale, decimalPlaces } = useDisplayProfile();
   const [segment, setSegment] = useState<'open' | 'closed'>('open');
 
   const res = useQuery({
@@ -150,6 +154,8 @@ export const ReturnMetricsPanel: React.FC<ReturnMetricsPanelProps> = ({
           holdingDays={segmentMetrics.holding_days}
           currency={currency}
           currencyDisplayPreference={currencyDisplayPreference}
+          locale={locale}
+          decimalPlaces={decimalPlaces}
           showUnrealized={segment === 'open'}
         />
       )}
@@ -177,8 +183,8 @@ export const ReturnMetricsPanel: React.FC<ReturnMetricsPanelProps> = ({
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
-                  Realized {formatCurrency(a.realized, a.currency, currencyDisplayPreference)} ·
-                  Unrealized {formatCurrency(a.unrealized, a.currency, currencyDisplayPreference)}
+                  Realized {formatCurrency(a.realized, a.currency, currencyDisplayPreference, locale, decimalPlaces)} ·
+                  Unrealized {formatCurrency(a.unrealized, a.currency, currencyDisplayPreference, locale, decimalPlaces)}
                 </p>
               </div>
             ))}

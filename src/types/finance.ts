@@ -40,11 +40,18 @@ export interface AccountUpdate {
   is_active?: boolean;
 }
 
+// spec-075: explicit display locales supported in v1 (must match the api
+// allow-list in app/finance/schemas.py::SUPPORTED_DISPLAY_LOCALES).
+export const DISPLAY_LOCALES = ['en-US', 'en-IN', 'en-GB'] as const;
+export type DisplayLocale = (typeof DISPLAY_LOCALES)[number];
+
 export const WorkspaceFinanceSettingSchema = z.object({
   reporting_currency_code: z.string().nullable().default(null),
   currency_display_preference: z.enum(['symbol', 'code']).optional(),
   lookthrough_min_weight_pct: z.union([z.number(), z.string()]).default(0),
   default_spending_account_id: z.string().nullable().optional(),
+  locale: z.string().default('en-US'),
+  decimal_places: z.number().default(2),
   updated_at: z.string().default(''),
 });
 export type WorkspaceFinanceSetting = z.infer<typeof WorkspaceFinanceSettingSchema>;
@@ -54,6 +61,8 @@ export interface WorkspaceFinanceSettingUpdate {
   currency_display_preference?: 'symbol' | 'code' | null;
   lookthrough_min_weight_pct?: number | string;
   default_spending_account_id?: string | null;
+  locale?: DisplayLocale;
+  decimal_places?: number;
 }
 
 export const UserFinanceSettingSchema = z.object({
@@ -63,6 +72,12 @@ export const UserFinanceSettingSchema = z.object({
   workspace_currency_display_preference: z.enum(['symbol', 'code']).default('symbol'),
   effective_reporting_currency_code: z.string().nullable().default(null),
   effective_currency_display_preference: z.enum(['symbol', 'code']).default('symbol'),
+  locale_override: z.string().nullable().default(null),
+  decimal_places_override: z.number().nullable().default(null),
+  workspace_locale: z.string().default('en-US'),
+  workspace_decimal_places: z.number().default(2),
+  effective_locale: z.string().default('en-US'),
+  effective_decimal_places: z.number().default(2),
   updated_at: z.string().default(''),
 });
 export type UserFinanceSetting = z.infer<typeof UserFinanceSettingSchema>;
@@ -70,6 +85,8 @@ export type UserFinanceSetting = z.infer<typeof UserFinanceSettingSchema>;
 export interface UserFinanceSettingUpdate {
   reporting_currency_override_code?: string | null;
   currency_display_preference_override?: 'symbol' | 'code' | null;
+  locale_override?: DisplayLocale | null;
+  decimal_places_override?: number | null;
 }
 
 export interface CapitalTransferCreate {

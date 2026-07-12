@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { useToast } from '../components/ui/toast';
 import { exportsService } from '../services/exports';
+import { formatDateTime } from '../utils/dateFormat';
 import type { ExportFormat, ExportModule, ExportRecord } from '../types/exports';
 
 const MODULE_OPTIONS: Array<{ value: ExportModule; label: string }> = [
@@ -34,17 +35,6 @@ const saveBlob = (blob: Blob, filename: string) => {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-};
-
-const formatDateTime = (value: string | null | undefined) => {
-  if (!value) {
-    return '-';
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '-';
-  }
-  return date.toLocaleString();
 };
 
 export const ExportsPage: React.FC = () => {

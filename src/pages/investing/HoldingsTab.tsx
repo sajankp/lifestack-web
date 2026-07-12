@@ -7,6 +7,7 @@ import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { investingService } from '../../services/investing';
 import type { InvestingOrder } from '../../services/investing';
 import { formatCurrency, formatQuantity, toNumber } from '../../utils/numberFormat';
+import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { formatDate } from '../../utils/dateFormat';
 import { CompactFilterBar, CompactFilterField } from '../../components/filters/CompactFilterBar';
 import { queryKeys } from '../../lib/queryKeys';
@@ -66,6 +67,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
   deleteOrderPending,
   updateOrderPending,
 }) => {
+  const { locale: displayLocale, decimalPlaces } = useDisplayProfile();
   const [holdingsAccountFilter, setHoldingsAccountFilter] = useState('');
   const [holdingsCurrencyFilter, setHoldingsCurrencyFilter] = useState('');
   const [holdingsTypeFilter, setHoldingsTypeFilter] = useState('');
@@ -580,14 +582,14 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="font-semibold text-white">{formatCurrency(h.current_value ?? deriveBookValue(h), h.currency, currencyDisplayPreference)}</p>
-                        <p className={`text-xs font-medium ${colorClass}`}>{sign}{formatCurrency(gainLoss, h.currency, currencyDisplayPreference)} ({sign}{gainLossPct.toFixed(2)}%)</p>
+                        <p className="font-semibold text-white">{formatCurrency(h.current_value ?? deriveBookValue(h), h.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</p>
+                        <p className={`text-xs font-medium ${colorClass}`}>{sign}{formatCurrency(gainLoss, h.currency, currencyDisplayPreference, displayLocale, decimalPlaces)} ({sign}{gainLossPct.toFixed(2)}%)</p>
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-700/40 pt-3 text-xs">
                       <div><span className="block text-slate-500">Qty</span><span className="text-slate-200">{formatQuantity(h.quantity)}</span></div>
-                      <div><span className="block text-slate-500">Avg cost</span><span className="text-slate-200">{formatCurrency(h.avg_cost, h.currency, currencyDisplayPreference)}</span></div>
-                      <div><span className="block text-slate-500">Price</span><span className="text-slate-200">{formatCurrency(h.current_price ?? h.avg_cost, h.currency, currencyDisplayPreference)}</span></div>
+                      <div><span className="block text-slate-500">Avg cost</span><span className="text-slate-200">{formatCurrency(h.avg_cost, h.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span></div>
+                      <div><span className="block text-slate-500">Price</span><span className="text-slate-200">{formatCurrency(h.current_price ?? h.avg_cost, h.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span></div>
                     </div>
                     <div className="mt-3 flex justify-end gap-2">
                       <button
@@ -696,8 +698,8 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                           <CurrencyBadge code={h.currency} />
                         </td>
                         <td className="px-4 py-3">{formatQuantity(h.quantity)}</td>
-                        <td className="px-4 py-3">{formatCurrency(h.avg_cost, h.currency, currencyDisplayPreference)}</td>
-                        <td className="px-4 py-3">{formatCurrency(deriveBookValue(h), h.currency, currencyDisplayPreference)}</td>
+                        <td className="px-4 py-3">{formatCurrency(h.avg_cost, h.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</td>
+                        <td className="px-4 py-3">{formatCurrency(deriveBookValue(h), h.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</td>
                         <td className="px-4 py-3">
                           {editingPriceHoldingId === h.public_id ? (
                             <div className="flex items-center gap-1.5">
@@ -729,7 +731,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                             </div>
                           ) : (
                             <div className="flex items-center gap-1.5 group">
-                              <span>{formatCurrency(h.current_price ?? h.avg_cost, h.currency, currencyDisplayPreference)}</span>
+                              <span>{formatCurrency(h.current_price ?? h.avg_cost, h.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span>
                               <button
                                 data-testid={`investing-edit-price-${h.public_id}`}
                                 onClick={() => handleStartEditPrice(h)}
@@ -741,10 +743,10 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3">{formatCurrency(h.current_value ?? deriveBookValue(h), h.currency, currencyDisplayPreference)}</td>
+                        <td className="px-4 py-3">{formatCurrency(h.current_value ?? deriveBookValue(h), h.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}</td>
                         <td className="px-4 py-3 font-medium">
                           <span className={colorClass}>
-                            {sign}{formatCurrency(gainLoss, h.currency, currencyDisplayPreference)} ({sign}{gainLossPct.toFixed(2)}%)
+                            {sign}{formatCurrency(gainLoss, h.currency, currencyDisplayPreference, displayLocale, decimalPlaces)} ({sign}{gainLossPct.toFixed(2)}%)
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -789,13 +791,13 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                     <td className="px-4 py-3 text-slate-400 font-semibold" colSpan={6}>Total Cost & Value</td>
                     <td className="px-4 py-3 font-semibold text-white">
                       {totalBookCost != null
-                        ? formatCurrency(totalBookCost.amount, totalBookCost.currency, currencyDisplayPreference)
+                        ? formatCurrency(totalBookCost.amount, totalBookCost.currency, currencyDisplayPreference, displayLocale, decimalPlaces)
                         : 'N/A (multi-currency)'}
                     </td>
                     <td />
                     <td className="px-4 py-3 font-semibold text-white">
                       {totalCurrentValue != null
-                        ? formatCurrency(totalCurrentValue.amount, totalCurrentValue.currency, currencyDisplayPreference)
+                        ? formatCurrency(totalCurrentValue.amount, totalCurrentValue.currency, currencyDisplayPreference, displayLocale, decimalPlaces)
                         : 'N/A (multi-currency)'}
                     </td>
                     <td colSpan={2} />
@@ -834,19 +836,19 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                       <div>
                         <span className="block text-slate-500">Invested</span>
                         <span className="text-slate-200">
-                          {formatCurrency(row.invested, row.currency, currencyDisplayPreference)}
+                          {formatCurrency(row.invested, row.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                         </span>
                       </div>
                       <div>
                         <span className="block text-slate-500">Market value</span>
                         <span className="font-medium text-white">
-                          {formatCurrency(row.marketValue, row.currency, currencyDisplayPreference)}
+                          {formatCurrency(row.marketValue, row.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                         </span>
                       </div>
                       <div className="col-span-2">
                         <span className="block text-slate-500">Profit / loss</span>
                         <span className={positive ? 'text-emerald-300' : 'text-rose-300'}>
-                          {formatCurrency(pl, row.currency, currencyDisplayPreference)}
+                          {formatCurrency(pl, row.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                           {plPct != null ? ` (${positive ? '+' : ''}${plPct.toFixed(2)}%)` : ''}
                         </span>
                       </div>
@@ -904,17 +906,17 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                                 {isBuy ? 'BUY' : 'SELL'}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-right text-slate-300">{toNumber(o.quantity).toLocaleString()}</td>
+                            <td className="px-4 py-3 text-right text-slate-300">{toNumber(o.quantity).toLocaleString(displayLocale)}</td>
                             <td className="px-4 py-3 text-right text-slate-300">
-                              {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference)}
+                              {formatCurrency(toNumber(o.price_per_unit), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                             </td>
                             <td className="px-4 py-3 text-right font-medium text-white">
-                              {formatCurrency(toNumber(o.net_amount), o.currency, currencyDisplayPreference)}
+                              {formatCurrency(toNumber(o.net_amount), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                             </td>
                             <td className="px-4 py-3 text-right">
                               {o.realized_gain_loss != null ? (
                                 <span className={toNumber(o.realized_gain_loss) >= 0 ? 'text-emerald-300' : 'text-rose-300'}>
-                                  {formatCurrency(toNumber(o.realized_gain_loss), o.currency, currencyDisplayPreference)}
+                                  {formatCurrency(toNumber(o.realized_gain_loss), o.currency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                                 </span>
                               ) : (
                                 <span className="text-slate-500">—</span>

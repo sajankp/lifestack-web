@@ -12,7 +12,7 @@ import { PageShell } from '../components/layout/PageShell';
 import { OnboardingChecklist } from '../components/dashboard/OnboardingChecklist';
 import type { OnboardingChecklistStep } from '../components/dashboard/OnboardingChecklist';
 import { BriefingCard } from '../components/dashboard/BriefingCard';
-import { formatCurrency, toNumber } from '../utils/numberFormat';
+import { DEFAULT_DECIMAL_PLACES, DEFAULT_DISPLAY_LOCALE, formatCurrency, toNumber } from '../utils/numberFormat';
 import { formatDateTime } from '../utils/dateFormat';
 import { queryKeys } from '../lib/queryKeys';
 import { useWorkspaceStore } from '../store/workspaceStore';
@@ -71,6 +71,8 @@ export const DashboardPage: React.FC = () => {
   const displayCurrency = userFinanceSettings?.effective_reporting_currency_code ?? 'USD';
   const currencyDisplayPreference =
     userFinanceSettings?.effective_currency_display_preference ?? 'symbol';
+  const displayLocale = userFinanceSettings?.effective_locale ?? DEFAULT_DISPLAY_LOCALE;
+  const decimalPlaces = userFinanceSettings?.effective_decimal_places ?? DEFAULT_DECIMAL_PLACES;
 
   const generatedAt = data?.system.generated_at
     ? formatDateTime(data.system.generated_at, { utc: false, fallback: '' }) || null
@@ -83,6 +85,8 @@ export const DashboardPage: React.FC = () => {
           data.investing.total_gain_loss_pct,
           displayCurrency,
           currencyDisplayPreference,
+          displayLocale,
+          decimalPlaces,
         )
       : 'N/A';
 
@@ -173,7 +177,7 @@ export const DashboardPage: React.FC = () => {
               <MetricCard
                 to="/spending?tab=budgets"
                 label="This month spent"
-                value={formatCurrency(data.spending.month_spent, displayCurrency, currencyDisplayPreference)}
+                value={formatCurrency(data.spending.month_spent, displayCurrency, currencyDisplayPreference, displayLocale, decimalPlaces)}
                 note={budgetSpotlight.length > 0 ? `${budgetSpotlight.length} group budget${budgetSpotlight.length > 1 ? 's' : ''} tracked below` : 'No group budgets set'}
                 icon={<PiggyBank className="h-5 w-5" />}
                 accent="from-emerald-500/25 to-teal-500/10"
@@ -182,10 +186,10 @@ export const DashboardPage: React.FC = () => {
                 to="/investing"
                 label="Portfolio value"
                 value={data.investing.portfolio_value != null
-                  ? formatCurrency(data.investing.portfolio_value, displayCurrency, currencyDisplayPreference)
+                  ? formatCurrency(data.investing.portfolio_value, displayCurrency, currencyDisplayPreference, displayLocale, decimalPlaces)
                   : 'N/A'}
                 note={data.investing.invested_value != null
-                  ? `Invested ${formatCurrency(data.investing.invested_value, displayCurrency, currencyDisplayPreference)} · Gain ${portfolioGainLabel}`
+                  ? `Invested ${formatCurrency(data.investing.invested_value, displayCurrency, currencyDisplayPreference, displayLocale, decimalPlaces)} · Gain ${portfolioGainLabel}`
                   : `${data.investing.holdings_count} holdings`}
                 icon={<BriefcaseBusiness className="h-5 w-5" />}
                 accent="from-amber-500/25 to-orange-500/10"
@@ -218,8 +222,8 @@ export const DashboardPage: React.FC = () => {
                             <div className={`h-full rounded-full ${barColor}`} style={{ width: `${utilization}%` }} />
                           </div>
                           <div className="mt-3 flex items-center justify-between text-sm text-slate-400">
-                            <span>{formatCurrency(item.actual_amount, displayCurrency, currencyDisplayPreference)} of {formatCurrency(item.budget_amount, displayCurrency, currencyDisplayPreference)}</span>
-                            <span>{formatCurrency(item.daily_amount_left, displayCurrency, currencyDisplayPreference)}/day left</span>
+                            <span>{formatCurrency(item.actual_amount, displayCurrency, currencyDisplayPreference, displayLocale, decimalPlaces)} of {formatCurrency(item.budget_amount, displayCurrency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span>
+                            <span>{formatCurrency(item.daily_amount_left, displayCurrency, currencyDisplayPreference, displayLocale, decimalPlaces)}/day left</span>
                           </div>
                         </div>
                       );
@@ -423,11 +427,13 @@ const formatPerformanceMetric = (
   percentage: number | string | null,
   currency: string,
   preference: 'symbol' | 'code',
+  locale: string = DEFAULT_DISPLAY_LOCALE,
+  decimalPlaces: number = DEFAULT_DECIMAL_PLACES,
 ) => {
   const numericAmount = toNumber(amount);
   const sign = numericAmount > 0 ? '+' : '';
   const percentageLabel = percentage == null
     ? ''
     : ` (${toNumber(percentage) > 0 ? '+' : ''}${toNumber(percentage).toFixed(2)}%)`;
-  return `${sign}${formatCurrency(numericAmount, currency, preference)}${percentageLabel}`;
+  return `${sign}${formatCurrency(numericAmount, currency, preference, locale, decimalPlaces)}${percentageLabel}`;
 };
