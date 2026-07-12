@@ -24,7 +24,8 @@ export const importsService = {
     module: ImportModule,
     file: File,
     targetAccountId?: string,
-    filePassword?: string
+    filePassword?: string,
+    dateFormat?: string
   ): Promise<ImportValidateResponse> => {
     const form = new FormData();
     form.append('module', module);
@@ -34,6 +35,9 @@ export const importsService = {
     }
     if (filePassword) {
       form.append('file_password', filePassword);
+    }
+    if (dateFormat) {
+      form.append('date_format', dateFormat);
     }
     const response = await api.post('/imports', form);
     return ImportValidateResponseSchema.parse(response.data);

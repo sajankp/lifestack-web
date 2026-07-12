@@ -8,6 +8,7 @@ import { financeService } from '../../services/finance';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
 import { ReconciliationCard } from '../../components/finance/ReconciliationCard';
+import { StatementReconciliation } from '../../components/finance/StatementReconciliation';
 import type { LedgerEntry } from '../../types/spending';
 import type { CapitalTransfer } from '../../types/finance';
 
@@ -172,6 +173,12 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
               testIdPrefix="spending-ledger-reconciliation"
             />
           )}
+
+          {/* Statement matching (spec-078) */}
+          <StatementReconciliation
+            accountId={selectedAccountId}
+            currencyDisplayPreference={currencyDisplayPreference}
+          />
 
 
           {/* Ledger table */}

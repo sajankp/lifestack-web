@@ -4,11 +4,14 @@ import { paginatedSchema } from '../types/common';
 import {
   AccountBalanceResponseSchema,
   AccountSchema,
+  AccountStatementSchema,
   CapitalTransferSchema,
   CurrencySchema,
   NetWorthDataSchema,
   NetWorthHistoryItemSchema,
   ReconciliationSummarySchema,
+  ReconciliationViewSchema,
+  StatementLineSchema,
   UserFinanceSettingSchema,
   UserFxRateSchema,
   UserNetWorthPointSchema,
@@ -18,6 +21,7 @@ import type {
   Account,
   AccountBalanceResponse,
   AccountCreate,
+  AccountStatement,
   AccountUpdate,
   CapitalTransfer,
   CapitalTransferCreate,
@@ -26,6 +30,8 @@ import type {
   NetWorthData,
   NetWorthHistoryItem,
   ReconciliationSummary,
+  ReconciliationView,
+  StatementLine,
   UserFinanceSetting,
   UserFinanceSettingUpdate,
   WorkspaceFinanceSetting,
@@ -119,6 +125,45 @@ export const financeService = {
   getAccountReconciliation: async (publicId: string): Promise<ReconciliationSummary> => {
     const response = await api.get(`/finance/accounts/${publicId}/reconciliation`);
     return ReconciliationSummarySchema.parse(response.data);
+  },
+
+  getAccountStatements: async (publicId: string): Promise<AccountStatement[]> => {
+    const response = await api.get(`/finance/accounts/${publicId}/statements`);
+    return z.array(AccountStatementSchema).parse(response.data);
+  },
+
+  getStatementReconciliation: async (
+    accountId: string,
+    statementId: string,
+  ): Promise<ReconciliationView> => {
+    const response = await api.get(
+      `/finance/accounts/${accountId}/statements/${statementId}/reconciliation`,
+    );
+    return ReconciliationViewSchema.parse(response.data);
+  },
+
+  confirmStatementLineMatch: async (
+    accountId: string,
+    statementId: string,
+    lineId: string,
+    body: { transaction_id?: string; transfer_id?: string; leg?: 'from' | 'to' },
+  ): Promise<StatementLine> => {
+    const response = await api.post(
+      `/finance/accounts/${accountId}/statements/${statementId}/lines/${lineId}/match`,
+      body,
+    );
+    return StatementLineSchema.parse(response.data);
+  },
+
+  unmatchStatementLine: async (
+    accountId: string,
+    statementId: string,
+    lineId: string,
+  ): Promise<StatementLine> => {
+    const response = await api.post(
+      `/finance/accounts/${accountId}/statements/${statementId}/lines/${lineId}/unmatch`,
+    );
+    return StatementLineSchema.parse(response.data);
   },
 
   getNetWorth: async (): Promise<NetWorthData> => {

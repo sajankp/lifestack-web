@@ -15,7 +15,8 @@ export type ImportModule =
   | 'investing-demat-cas'
   | 'investing-dividends'
   | 'finance-fx-rates'
-  | 'finance-net-worth-history';
+  | 'finance-net-worth-history'
+  | 'finance-account-statement';
 
 export const ImportStatusSchema = z.enum([
   'uploaded',

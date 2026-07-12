@@ -44,6 +44,21 @@ const MODULE_OPTIONS: Array<{ value: ImportModule; label: string; testId?: strin
     label: 'Net Worth History',
     testId: 'import-type-finance-net-worth-history',
   },
+  {
+    value: 'finance-account-statement',
+    label: 'Bank Statement (Reconciliation)',
+    testId: 'import-type-finance-account-statement',
+  },
+];
+
+// Small fixed set, no bank-specific fixtures (owner decision, spec-078) —
+// keep in sync with app/imports/finance_account_statement_import.py::ALLOWED_DATE_FORMATS.
+const DATE_FORMAT_OPTIONS = [
+  { value: 'yyyy-MM-dd', label: 'YYYY-MM-DD (2026-01-05)' },
+  { value: 'dd/MM/yyyy', label: 'DD/MM/YYYY (05/01/2026)' },
+  { value: 'dd-MM-yyyy', label: 'DD-MM-YYYY (05-01-2026)' },
+  { value: 'MM/dd/yyyy', label: 'MM/DD/YYYY (01/05/2026)' },
+  { value: 'dd MMM yyyy', label: 'DD MMM YYYY (05 Jan 2026)' },
 ];
 
 
@@ -118,6 +133,7 @@ export const ImportsPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [targetAccountId, setTargetAccountId] = useState('');
   const [filePassword, setFilePassword] = useState('');
+  const [dateFormat, setDateFormat] = useState('');
   const [selectedImportId, setSelectedImportId] = useState<string | null>(null);
   const [latestValidation, setLatestValidation] = useState<ImportValidateResponse | null>(null);
   const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
@@ -147,6 +163,17 @@ export const ImportsPage: React.FC = () => {
       (accountsResponse?.items ?? [])
         .filter((account) => account.is_active && account.account_type === 'brokerage')
         .map((account) => ({ value: account.public_id, label: account.name })),
+    [accountsResponse?.items]
+  );
+  // Statement reconciliation is for ledger-managed accounts only (backend-enforced).
+  const walletAccountOptions = useMemo(
+    () =>
+      (accountsResponse?.items ?? [])
+        .filter((account) => account.is_active && account.account_type !== 'brokerage')
+        .map((account) => ({
+          value: account.public_id,
+          label: `${account.name} (${account.account_type.replace('_', ' ')})`,
+        })),
     [accountsResponse?.items]
   );
 
@@ -199,12 +226,14 @@ export const ImportsPage: React.FC = () => {
       if (!module) {
         throw new Error('Module is required');
       }
-      const needsTargetAccount = module === 'spending-transactions' || isPdfModule(module);
+      const needsTargetAccount =
+        module === 'spending-transactions' || module === 'finance-account-statement' || isPdfModule(module);
       return importsService.uploadAndValidate(
         module,
         file as File,
         needsTargetAccount ? targetAccountId || undefined : undefined,
-        module === 'investing-demat-cas' ? filePassword || undefined : undefined
+        module === 'investing-demat-cas' ? filePassword || undefined : undefined,
+        module === 'finance-account-statement' ? dateFormat || undefined : undefined
       );
     },
     onSuccess: (data) => {
@@ -213,6 +242,7 @@ export const ImportsPage: React.FC = () => {
       setFile(null);
       setTargetAccountId('');
       setFilePassword('');
+      setDateFormat('');
       setUploadError(null);
       setIsUploadModalOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['imports', 'list'] });
@@ -238,6 +268,16 @@ export const ImportsPage: React.FC = () => {
     } else if (!fileExt.endsWith('.csv') && !fileExt.endsWith('.xlsx')) {
       setUploadError('Invalid file format. Please upload a CSV or XLSX file.');
       return;
+    }
+    if (module === 'finance-account-statement') {
+      if (!targetAccountId) {
+        setUploadError('Select the wallet/bank account this statement belongs to.');
+        return;
+      }
+      if (!dateFormat) {
+        setUploadError('Select the date format used in this statement.');
+        return;
+      }
     }
     setUploadError(null);
     uploadMutation.mutate();
@@ -328,6 +368,7 @@ export const ImportsPage: React.FC = () => {
                     setModule(e.target.value as ImportModule);
                     setTargetAccountId('');
                     setFilePassword('');
+                    setDateFormat('');
                     setFile(null);
                     setUploadError(null);
                   }}
@@ -364,6 +405,47 @@ export const ImportsPage: React.FC = () => {
                     workspace default spending account.
                   </p>
                 </div>
+              )}
+
+              {module === 'finance-account-statement' && (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold text-slate-300">
+                      Wallet / bank account
+                    </label>
+                    <DropdownSelect
+                      testId="imports-target-account-statement"
+                      value={targetAccountId}
+                      onChange={setTargetAccountId}
+                      options={walletAccountOptions}
+                      placeholder="Select the account this statement belongs to"
+                      showSearch
+                      sortByLabel
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-semibold text-slate-300">Date format</label>
+                    <select
+                      data-testid="imports-statement-date-format"
+                      value={dateFormat}
+                      onChange={(e) => setDateFormat(e.target.value)}
+                      className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-white text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                    >
+                      <option value="" disabled>
+                        Select the date format used in your CSV
+                      </option>
+                      {DATE_FORMAT_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500">
+                      Applied to every row in the file — no bank-specific fixtures, adapt your
+                      export to one of these formats.
+                    </p>
+                  </div>
+                </>
               )}
 
               {isPdfModule(module) && (
@@ -448,7 +530,8 @@ export const ImportsPage: React.FC = () => {
                     !module ||
                     !file ||
                     uploadMutation.isPending ||
-                    (isPdfModule(module) && !targetAccountId)
+                    (isPdfModule(module) && !targetAccountId) ||
+                    (module === 'finance-account-statement' && (!targetAccountId || !dateFormat))
                   }
                   className="flex-1 h-10 rounded-lg bg-cyan-600 px-4 text-xs font-semibold text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >

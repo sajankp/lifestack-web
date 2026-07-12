@@ -176,6 +176,59 @@ export const ReconciliationSummarySchema = z.object({
 });
 export type ReconciliationSummary = z.infer<typeof ReconciliationSummarySchema>;
 
+// ---------------------------------------------------------------------------
+// Statement matching (spec-078 — wallet ledger reconciliation)
+// ---------------------------------------------------------------------------
+
+export const AccountStatementSchema = z.object({
+  public_id: z.string(),
+  account_public_id: z.string(),
+  period_start: z.string(),
+  period_end: z.string(),
+  closing_balance: z.string().nullable().default(null),
+  currency_code: z.string(),
+  reconciled_through: z.string().nullable().default(null),
+  created_at: z.string(),
+});
+export type AccountStatement = z.infer<typeof AccountStatementSchema>;
+
+export const StatementLineSchema = z.object({
+  public_id: z.string(),
+  occurred_at: z.string(),
+  description: z.string(),
+  amount: z.string(), // signed: positive = credit, negative = debit
+  balance: z.string().nullable().default(null),
+  matched_transaction_id: z.string().nullable().default(null),
+  matched_transfer_id: z.string().nullable().default(null),
+  matched_transfer_leg: z.enum(['from', 'to']).nullable().default(null),
+  matched_at: z.string().nullable().default(null),
+});
+export type StatementLine = z.infer<typeof StatementLineSchema>;
+
+export const MatchCandidateSchema = z.object({
+  kind: z.enum(['transaction', 'transfer']),
+  id: z.string(),
+  occurred_at: z.string(),
+  amount: z.string(),
+  description: z.string(),
+  leg: z.enum(['from', 'to']).nullable().default(null),
+});
+export type MatchCandidate = z.infer<typeof MatchCandidateSchema>;
+
+export const UnmatchedStatementLineViewSchema = z.object({
+  line: StatementLineSchema,
+  candidates: z.array(MatchCandidateSchema),
+});
+export type UnmatchedStatementLineView = z.infer<typeof UnmatchedStatementLineViewSchema>;
+
+export const ReconciliationViewSchema = z.object({
+  statement: AccountStatementSchema,
+  matched_lines: z.array(StatementLineSchema),
+  unmatched_lines: z.array(UnmatchedStatementLineViewSchema),
+  unmatched_ledger_rows: z.array(MatchCandidateSchema),
+});
+export type ReconciliationView = z.infer<typeof ReconciliationViewSchema>;
+
 export const SpendingAccountBalanceSchema = z.object({
   account_public_id: z.string().default(''),
   account_name: z.string().default(''),
