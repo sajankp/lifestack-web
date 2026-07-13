@@ -43,5 +43,6 @@ export const WeeklySummarySchema = z.object({
   highlights: z.object({
     flags: z.array(z.object({ type: z.string(), message: z.string() })).default([]),
   }),
+  read_at: z.string().nullable().default(null),
 });
 export type WeeklySummary = z.infer<typeof WeeklySummarySchema>;

@@ -20,4 +20,8 @@ export const summariesService = {
     const res = await api.get('/summaries/weekly/latest');
     return WeeklySummarySchema.parse(res.data);
   },
+  markRead: async (summaryId: string): Promise<WeeklySummary> => {
+    const res = await api.post(`/summaries/weekly/${summaryId}/read`);
+    return WeeklySummarySchema.parse(res.data);
+  },
 };
