@@ -36,19 +36,28 @@ interface Message {
 }
 
 type RealtimeAgentMessage = {
-  type: 'transcript' | 'tool_call' | 'tool_response' | 'error' | 'interrupted';
+  type: 'transcript' | 'tool_call' | 'tool_response' | 'error' | 'interrupted'
+    | 'session_resumption' | 'session_state';
   content?: string;
   name?: string;
   arguments?: Record<string, unknown>;
   status?: 'success' | 'error';
-  result?: { 
+  result?: {
     message?: string;
     entity_type?: string;
     entity_public_id?: string;
     summary?: string;
   };
   message?: string;
+  // spec-079 Stage B: transport resilience
+  handle?: string;
+  state?: 'closing';
+  time_left?: string;
 };
+
+// spec-079 Stage B: cap auto-reconnect so a persistently-down backend doesn't
+// loop forever; the user can still retry manually.
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 const CONFIRMATION_CARD_REGISTRY: Record<
   string,
@@ -158,6 +167,14 @@ export const VoiceAgentWidget: React.FC = () => {
   const isDraggingRef = useRef(false);
   const pendingSendRef = useRef<string[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // spec-079 Stage B: transport resilience. The latest Gemini session-resumption
+  // handle is round-tripped back on reconnect so the conversation context
+  // survives a dropped socket; the other refs drive backoff and distinguish a
+  // user-initiated close from an unexpected drop (only the latter reconnects).
+  const resumptionHandleRef = useRef<string | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const intentionalCloseRef = useRef(false);
 
   // Sync preference
   useEffect(() => {
@@ -407,6 +424,25 @@ export const VoiceAgentWidget: React.FC = () => {
       clearAudioQueue();
     }
 
+    else if (msg.type === 'session_resumption') {
+      // Store the latest handle so an unexpected drop can resume with context.
+      resumptionHandleRef.current = msg.handle ?? null;
+    }
+
+    else if (msg.type === 'session_state') {
+      // Gemini warned it is about to close this session (goAway). Surface it;
+      // the impending close event drives the actual reconnect.
+      if (msg.state === 'closing') {
+        setMessages(prev => [...prev, {
+          id: Math.random().toString(),
+          role: 'system',
+          type: 'text',
+          content: 'Renewing the live session…',
+          timestamp: new Date()
+        }]);
+      }
+    }
+
     else if (msg.type === 'error') {
       setMessages(prev => [...prev, {
         id: Math.random().toString(),
@@ -418,29 +454,58 @@ export const VoiceAgentWidget: React.FC = () => {
     }
   };
 
+  // spec-079 Stage B: reconnect after an unexpected drop with exponential
+  // backoff, carrying the resumption handle so context is preserved.
+  const scheduleReconnect = () => {
+    if (reconnectTimerRef.current !== null) return;
+    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+      setConnectionStatus('error');
+      setConnectionError('Reconnection failed after several attempts. Tap retry to start over.');
+      return;
+    }
+    const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 8000);
+    reconnectAttemptsRef.current += 1;
+    setConnectionStatus('connecting');
+    setConnectionError(`Connection lost — reconnecting (attempt ${reconnectAttemptsRef.current})…`);
+    reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectTimerRef.current = null;
+      connectWebSocket();
+    }, delay);
+  };
+
   const connectWebSocket = () => {
     if (wsRef.current && (wsRef.current.readyState === WebSocket.CONNECTING || wsRef.current.readyState === WebSocket.OPEN)) {
       return;
     }
 
+    // A fresh connect attempt is not an intentional teardown; allow reconnects.
+    intentionalCloseRef.current = false;
     setConnectionStatus('connecting');
     setConnectionError(null);
     try {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       const wsUrl = new URL(getWebSocketUrl());
       wsUrl.searchParams.set('timezone', timezone);
+      // Resume the prior conversation context when reconnecting after a drop.
+      if (resumptionHandleRef.current) {
+        wsUrl.searchParams.set('resume', resumptionHandleRef.current);
+      }
       const ws = new WebSocket(wsUrl.toString());
       wsRef.current = ws;
       ws.binaryType = 'arraybuffer';
 
       ws.onopen = () => {
+        const wasReconnect = reconnectAttemptsRef.current > 0;
         setConnectionStatus('connected');
         setConnectionError(null);
+        reconnectAttemptsRef.current = 0;
         setMessages(prev => [...prev, {
           id: Math.random().toString(),
           role: 'system',
           type: 'text',
-          content: 'Connected. Tap the microphone to talk or type a message.',
+          content: wasReconnect
+            ? 'Reconnected — continuing your session.'
+            : 'Connected. Tap the microphone to talk or type a message.',
           timestamp: new Date()
         }]);
 
@@ -474,8 +539,20 @@ export const VoiceAgentWidget: React.FC = () => {
       };
 
       ws.onclose = (event) => {
+        wsRef.current = null;
+        stopRecording();
+        // Auto-reconnect on an unexpected drop (spec-079 Stage B). A clean close
+        // (1000) or a user-initiated teardown is left alone; a policy-violation
+        // close (4003) means the server rejected the session, so retrying the
+        // same way would just loop.
+        const isUnexpected =
+          !intentionalCloseRef.current && event.code !== 1000 && event.code !== 4003;
+        if (isUnexpected) {
+          scheduleReconnect();
+          return;
+        }
         setConnectionStatus('disconnected');
-        if (event.code !== 1000) {
+        if (event.code !== 1000 && !intentionalCloseRef.current) {
           setConnectionError(`Capture disconnected unexpectedly (${event.code}).`);
         }
         setMessages(prev => [...prev, {
@@ -485,7 +562,6 @@ export const VoiceAgentWidget: React.FC = () => {
           content: `Session closed (${event.code}).`,
           timestamp: new Date()
         }]);
-        stopRecording();
       };
     } catch (err) {
       console.error('Failed to establish WebSocket connection:', err instanceof Error ? err.message : 'Unknown error');
@@ -605,6 +681,21 @@ export const VoiceAgentWidget: React.FC = () => {
     clearAudioQueue();
   };
 
+  // spec-079 Stage B: intentional teardown — suppress auto-reconnect and cancel
+  // any pending backoff timer.
+  const teardownConnection = () => {
+    intentionalCloseRef.current = true;
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+    reconnectAttemptsRef.current = 0;
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+  };
+
   const toggleOpen = () => {
     if (!isOpen) {
       setIsOpen(true);
@@ -613,20 +704,16 @@ export const VoiceAgentWidget: React.FC = () => {
       setIsOpen(false);
       stopRecording();
       clearAudioQueue();
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      teardownConnection();
     }
   };
 
   const retryConnection = () => {
     stopRecording();
     clearAudioQueue();
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
+    teardownConnection();
+    // Manual retry starts a fresh session — drop any stale resumption handle.
+    resumptionHandleRef.current = null;
     connectWebSocket();
   };
 
@@ -635,9 +722,7 @@ export const VoiceAgentWidget: React.FC = () => {
     return () => {
       stopRecording();
       clearAudioQueue();
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      teardownConnection();
       if (audioCtxRef.current) {
         void audioCtxRef.current.close();
         audioCtxRef.current = null;

@@ -290,4 +290,63 @@ describe('Capture panel verification', () => {
     expect(screen.getByText('Saved — view in app')).toBeVisible();
     expect(screen.queryByText(/create_todo_task/)).toBeNull();
   });
+
+  // spec-079 Stage B: transport resilience
+  it('auto-reconnects after an unexpected drop, resuming with the stored handle', () => {
+    vi.useFakeTimers();
+    try {
+      renderWidget();
+      const ws = openPanelAndGetSocket();
+      // Flush the one-shot panel-focus timer while the socket is OPEN (its guard
+      // makes it a no-op) so later timer advances only exercise reconnect backoff.
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+
+      // Server hands the client a resumption handle mid-session.
+      act(() => {
+        ws.onmessage?.({
+          data: JSON.stringify({ type: 'session_resumption', handle: 'handle-xyz' }),
+        });
+      });
+
+      // Unexpected drop (not a clean 1000 close).
+      act(() => {
+        ws.readyState = FakeWebSocket.CLOSED;
+        ws.onclose?.({ code: 1006 });
+      });
+
+      // Backoff elapses → a second socket is opened, carrying the resume handle.
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(sockets).toHaveLength(2);
+      expect(sockets[1].url).toContain('resume=handle-xyz');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not reconnect on a clean close', () => {
+    vi.useFakeTimers();
+    try {
+      renderWidget();
+      const ws = openPanelAndGetSocket();
+      // Flush the one-shot panel-focus timer while the socket is OPEN (no-op).
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+
+      act(() => {
+        ws.readyState = FakeWebSocket.CLOSED;
+        ws.onclose?.({ code: 1000 });
+        vi.advanceTimersByTime(10000);
+      });
+
+      expect(sockets).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
