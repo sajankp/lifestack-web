@@ -283,7 +283,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         {/* Page content */}
         <div className="flex-1 min-w-0">{children}</div>
       </main>
-      <VoiceAgentWidget />
+      {/* Keyed by workspace so a switch remounts the widget and clears its
+          WebSocket/message-history/resumption-handle state instead of leaking
+          it into the new workspace (spec-079 Stage B review finding). */}
+      <VoiceAgentWidget key={workspace?.public_id ?? 'no-workspace'} />
     </div>
   );
 };
