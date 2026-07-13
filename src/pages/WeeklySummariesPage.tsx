@@ -24,20 +24,24 @@ export const WeeklySummariesPage: React.FC = () => {
   // Opening this page counts as reading the latest summary (spec-080): mark it
   // read so the dashboard's "summary is ready" briefing line clears. Only the
   // newest (first page, top item) is the one the briefing surfaces; guard so we
-  // fire once per summary and never re-mark an already-read one.
+  // fire once per summary and never re-mark an already-read one. Depend on the
+  // primitive id/read_at, not the `latest` object, so a query-data refetch that
+  // returns an equal-but-new object reference doesn't re-run the effect.
   const latest = offset === 0 ? data?.items?.[0] : undefined;
+  const latestId = latest?.public_id;
+  const latestReadAt = latest?.read_at;
   useEffect(() => {
-    if (!latest || latest.read_at || markedRef.current === latest.public_id) return;
-    markedRef.current = latest.public_id;
+    if (!latestId || latestReadAt || markedRef.current === latestId) return;
+    markedRef.current = latestId;
     void summariesService
-      .markRead(latest.public_id)
+      .markRead(latestId)
       .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.briefing() }))
       .catch(() => {
         // Non-critical: a failed mark-read just leaves the briefing line until
         // the freshness window lapses. Allow a retry on the next render.
         markedRef.current = null;
       });
-  }, [latest, queryClient]);
+  }, [latestId, latestReadAt, queryClient]);
 
   return (
     <PageShell>
