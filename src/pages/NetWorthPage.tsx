@@ -97,6 +97,8 @@ const NetWorthHistoryChart: React.FC<{
   history: NetWorthHistoryItem[] | undefined;
   currency: string | null;
 }> = ({ history, currency }) => {
+  const [hoverIndex, setHoverIndex] = React.useState<number | null>(null);
+
   if (!history || history.length < 2) {
     return (
       <div className="rounded-2xl border border-slate-700/60 bg-slate-800/40 p-8 text-center">
@@ -227,7 +229,11 @@ const NetWorthHistoryChart: React.FC<{
       </div>
 
       <div className="relative w-full overflow-x-auto">
-        <svg className="w-full min-w-[640px]" viewBox={`0 0 ${width} ${height}`}>
+        <svg
+          className="w-full min-w-[640px]"
+          viewBox={`0 0 ${width} ${height}`}
+          onMouseLeave={() => setHoverIndex(null)}
+        >
           <defs>
             <linearGradient id="colorHoldings" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
@@ -385,6 +391,128 @@ const NetWorthHistoryChart: React.FC<{
               </text>
             </>
           )}
+
+          {/* Hover layer: a vertical guide, an emphasised dot, and a value
+              tooltip -- rendered in viewBox units so it scales with the
+              responsive SVG. Transparent hit bands (one per point, drawn
+              last so they capture events on top of everything) drive it. */}
+          {hoverIndex != null &&
+            (() => {
+              const p = points[hoverIndex];
+              const hx = getX(hoverIndex);
+              const rows: { label: string; value: number; color: string }[] = [
+                { label: 'Total', value: p.total, color: '#ffffff' },
+              ];
+              if (p.hasComponents) {
+                rows.push(
+                  { label: 'Holdings', value: p.holdings, color: '#10b981' },
+                  { label: 'Investing cash', value: p.investing, color: '#6366f1' },
+                  { label: 'Spending cash', value: p.spending, color: '#06b6d4' },
+                );
+              }
+              const boxW = 172;
+              const lineH = 18;
+              const headH = 22;
+              const boxH = headH + rows.length * lineH + 8;
+              // Flip to the left of the guide when there isn't room on the right.
+              const placeRight = hx + 12 + boxW <= width - paddingX;
+              const boxX = placeRight ? hx + 12 : hx - 12 - boxW;
+              const boxY = Math.min(paddingY, height - paddingY - boxH);
+              return (
+                <g style={{ pointerEvents: 'none' }}>
+                  <line
+                    x1={hx}
+                    y1={paddingY}
+                    x2={hx}
+                    y2={height - paddingY}
+                    stroke="#94a3b8"
+                    strokeWidth={1}
+                    strokeDasharray="4 3"
+                    strokeOpacity={0.6}
+                  />
+                  <circle
+                    cx={hx}
+                    cy={getY(p.total)}
+                    r={5.5}
+                    fill={p.isUserProvided ? '#1e293b' : '#ffffff'}
+                    stroke={p.isUserProvided ? '#f59e0b' : '#0ea5e9'}
+                    strokeWidth={2}
+                  />
+                  <rect
+                    x={boxX}
+                    y={boxY}
+                    width={boxW}
+                    height={boxH}
+                    rx={8}
+                    fill="#0f172a"
+                    stroke="#334155"
+                    strokeWidth={1}
+                    fillOpacity={0.97}
+                  />
+                  <text
+                    x={boxX + 10}
+                    y={boxY + 15}
+                    className="text-[11px] fill-slate-300 font-semibold"
+                  >
+                    {formatDate(p.dateStr)}
+                    {p.isUserProvided ? ' · user' : ''}
+                  </text>
+                  {rows.map((row, ri) => {
+                    const ry = boxY + headH + ri * lineH;
+                    return (
+                      <g key={row.label}>
+                        <rect
+                          x={boxX + 10}
+                          y={ry}
+                          width={8}
+                          height={8}
+                          rx={2}
+                          fill={row.color}
+                          stroke={row.color === '#ffffff' ? '#64748b' : 'none'}
+                          strokeWidth={0.5}
+                        />
+                        <text
+                          x={boxX + 24}
+                          y={ry + 8}
+                          className="text-[11px] fill-slate-400"
+                        >
+                          {row.label}
+                        </text>
+                        <text
+                          x={boxX + boxW - 10}
+                          y={ry + 8}
+                          textAnchor="end"
+                          className="text-[11px] fill-slate-100 font-medium"
+                        >
+                          {formatCurrency(String(row.value), currency)}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </g>
+              );
+            })()}
+
+          {/* Transparent hit bands -- one per point, each spanning the
+              midpoints to its neighbours, so hovering anywhere near a point
+              activates its tooltip. Drawn last to sit on top. */}
+          {points.map((_, i) => {
+            const x = getX(i);
+            const left = i === 0 ? 0 : (getX(i - 1) + x) / 2;
+            const right = i === points.length - 1 ? width : (x + getX(i + 1)) / 2;
+            return (
+              <rect
+                key={i}
+                x={left}
+                y={0}
+                width={right - left}
+                height={height}
+                fill="transparent"
+                onMouseEnter={() => setHoverIndex(i)}
+                onFocus={() => setHoverIndex(i)}
+              />
+            );
+          })}
         </svg>
       </div>
     </div>
