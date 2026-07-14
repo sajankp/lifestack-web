@@ -397,7 +397,7 @@ const NetWorthHistoryChart: React.FC<{
               tooltip -- rendered in viewBox units so it scales with the
               responsive SVG. Transparent hit bands (one per point, drawn
               last so they capture events on top of everything) drive it. */}
-          {hoverIndex != null &&
+          {hoverIndex != null && points[hoverIndex] != null &&
             (() => {
               const p = points[hoverIndex];
               const hx = getX(hoverIndex);

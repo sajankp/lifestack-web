@@ -24,7 +24,9 @@ export const LoginPage: React.FC = () => {
       await authService.login(email, password);
       const user = await authService.checkAuth();
       setSession(user);
-      identifyUser(user.public_id);
+      if (user?.public_id) {
+        identifyUser(user.public_id);
+      }
       trackEvent('login');
       navigate('/', { replace: true });
     } catch (err: unknown) {

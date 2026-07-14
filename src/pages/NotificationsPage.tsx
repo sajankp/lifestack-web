@@ -181,7 +181,7 @@ export const NotificationsPage: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={pref.channel_email}
-                        disabled={toggleEmailMutation.isPending}
+                        disabled={toggleEmailMutation.isPending || togglePushMutation.isPending}
                         onChange={(e) =>
                           toggleEmailMutation.mutate({ category: pref.category, channel_email: e.target.checked })
                         }
