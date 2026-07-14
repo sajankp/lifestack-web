@@ -70,6 +70,40 @@ describe('NotificationsPage', () => {
     expect(screen.queryByText(/In-app:/)).not.toBeInTheDocument();
   });
 
+  it('toggling the email checkbox PATCHes channel_email (spec-081)', async () => {
+    let patchedBody: unknown;
+    server.use(
+      http.get('*/v1/notifications/preferences', () =>
+        HttpResponse.json([
+          { category: 'budget', channel_in_app: true, channel_email: false, channel_push: false, is_muted: false },
+        ]),
+      ),
+      http.patch('*/v1/notifications/preferences/budget', async ({ request }) => {
+        patchedBody = await request.json();
+        return HttpResponse.json({
+          category: 'budget',
+          channel_in_app: true,
+          channel_email: true,
+          channel_push: false,
+          is_muted: false,
+        });
+      }),
+      ...baseHandlers,
+    );
+
+    renderWithQuery(<NotificationsPage />);
+
+    const settingsTab = await screen.findByTestId('notifications-tab-settings');
+    settingsTab.focus();
+    fireEvent.keyDown(settingsTab, { key: 'Enter', code: 'Enter' });
+
+    await screen.findByText('Budget alerts');
+    const [emailCheckbox] = screen.getAllByLabelText('Email notifications');
+    fireEvent.click(emailCheckbox);
+
+    await waitFor(() => expect(patchedBody).toEqual({ channel_email: true }));
+  });
+
   it('always shows a default todo_reminder preference row (spec-052)', async () => {
     server.use(...baseHandlers);
     renderWithQuery(<NotificationsPage />);

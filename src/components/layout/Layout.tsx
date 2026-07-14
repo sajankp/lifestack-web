@@ -15,6 +15,7 @@ import { authService } from '../../services/auth';
 import { notificationsService } from '../../services/notifications';
 import { VoiceAgentWidget } from '../VoiceAgentWidget';
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace';
+import { resetAnalyticsIdentity } from '../../lib/analytics';
 import { Sidebar } from './Sidebar';
 import { MobileNavDrawer } from './MobileNavDrawer';
 import { ROLE_BADGE } from './constants';
@@ -107,6 +108,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     } finally {
       clearSession();
       clearActiveWorkspace();
+      resetAnalyticsIdentity();
       setIsLoggingOut(false);
     }
   };

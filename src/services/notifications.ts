@@ -44,7 +44,7 @@ export const notificationsService = {
   },
   updatePreference: async (
     category: string,
-    data: Partial<Pick<NotificationPreference, 'channel_push' | 'channel_in_app' | 'is_muted'>>,
+    data: Partial<Pick<NotificationPreference, 'channel_push' | 'channel_email' | 'channel_in_app' | 'is_muted'>>,
   ): Promise<NotificationPreference> => {
     const res = await api.patch(`/notifications/preferences/${category}`, data);
     return NotificationPreferenceSchema.parse(res.data);

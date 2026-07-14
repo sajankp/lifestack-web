@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { useToast } from '../components/ui/toast';
 import { importsService } from '../services/imports';
 import { financeService } from '../services/finance';
+import { trackEvent } from '../lib/analytics';
 import type { ImportErrorItem, ImportModule, ImportValidateResponse } from '../types/imports';
 import { formatDate } from '../utils/dateFormat';
 
@@ -291,6 +292,7 @@ export const ImportsPage: React.FC = () => {
         queryClient.invalidateQueries({ queryKey: ['imports', 'list'] }),
         queryClient.invalidateQueries({ queryKey: ['imports', 'detail', importPublicId] }),
       ]);
+      trackEvent('import_completed');
       showToast('Import applied', 'success');
     },
     onError: () => showToast('Apply failed. Refresh import details and retry.', 'error'),

@@ -71,6 +71,17 @@ export const NotificationsPage: React.FC = () => {
     },
   });
 
+  // spec-081: email delivery for the dormant channel_email preference
+  // (spec-052) — same shape as the push toggle above, separate mutation so
+  // the two checkboxes don't share a pending state.
+  const toggleEmailMutation = useMutation({
+    mutationFn: ({ category, channel_email }: { category: string; channel_email: boolean }) =>
+      notificationsService.updatePreference(category, { channel_email }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.preferences() });
+    },
+  });
+
   // A category with no preference row yet defaults to channel_in_app=true,
   // channel_push=false (the model defaults) — todo_reminder is spec-052's
   // new source, so always show it even before the user has touched it.
@@ -149,7 +160,7 @@ export const NotificationsPage: React.FC = () => {
             <div>
               <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">Preferences</h2>
               <p className="mb-3 text-xs text-slate-500">
-                Push notifications can be toggled per category. All categories are always shown in-app.
+                Push and email notifications can be toggled per category. All categories are always shown in-app.
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {displayedPreferences?.map((pref) => (
@@ -165,6 +176,17 @@ export const NotificationsPage: React.FC = () => {
                         }
                       />
                       Push notifications
+                    </label>
+                    <label className="mt-2 flex items-center gap-2 text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={pref.channel_email}
+                        disabled={toggleEmailMutation.isPending}
+                        onChange={(e) =>
+                          toggleEmailMutation.mutate({ category: pref.category, channel_email: e.target.checked })
+                        }
+                      />
+                      Email notifications
                     </label>
                   </div>
                 ))}

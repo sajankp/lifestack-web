@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryKeys';
+import { trackEvent } from '../lib/analytics';
 import { Link } from 'react-router-dom';
 import { 
   Mic, 
@@ -496,6 +497,9 @@ export const VoiceAgentWidget: React.FC = () => {
 
       ws.onopen = () => {
         const wasReconnect = reconnectAttemptsRef.current > 0;
+        if (!wasReconnect) {
+          trackEvent('capture_session_started');
+        }
         setConnectionStatus('connected');
         setConnectionError(null);
         reconnectAttemptsRef.current = 0;

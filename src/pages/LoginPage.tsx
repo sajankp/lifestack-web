@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { authService } from '../services/auth';
+import { identifyUser, trackEvent } from '../lib/analytics';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ export const LoginPage: React.FC = () => {
       await authService.login(email, password);
       const user = await authService.checkAuth();
       setSession(user);
+      identifyUser(user.public_id);
+      trackEvent('login');
       navigate('/', { replace: true });
     } catch (err: unknown) {
       // Always show a generic message to prevent username/email enumeration
