@@ -9,6 +9,7 @@ import { PageHero } from '../components/layout/PageHero';
 import { HistoricalDataPanel } from '../components/finance/HistoricalDataPanel';
 import { PageShell } from '../components/layout/PageShell';
 import { queryKeys } from '../lib/queryKeys';
+import { useWorkspaceStore } from '../store/workspaceStore';
 import type { NetWorthHistoryItem } from '../types/finance';
 
 const accountTypeLabel = (type: string): string => {
@@ -520,6 +521,7 @@ const NetWorthHistoryChart: React.FC<{
 };
 
 export const NetWorthPage: React.FC = () => {
+  const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.netWorth.summary(),
     queryFn: () => financeService.getNetWorth(),
@@ -629,7 +631,7 @@ export const NetWorthPage: React.FC = () => {
           </div>
 
           {/* History Chart */}
-          {rc && <NetWorthHistoryChart history={historyData} currency={rc} />}
+          {rc && <NetWorthHistoryChart key={activeWorkspaceId ?? 'default'} history={historyData} currency={rc} />}
 
           {/* Investing breakdown */}
           {(data?.investing_cash_total != null || data?.holdings_value != null) && (

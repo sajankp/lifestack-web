@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import api from './api';
 import { paginatedSchema } from '../types/common';
-import { trackEvent } from '../lib/analytics';
 import {
   AccountBalanceResponseSchema,
   AccountSchema,
@@ -95,7 +94,6 @@ export const financeService = {
 
   createTransfer: async (data: CapitalTransferCreate): Promise<CapitalTransfer> => {
     const response = await api.post('/finance/transfers', data);
-    trackEvent('transfer_created');
     return CapitalTransferSchema.parse(response.data);
   },
 

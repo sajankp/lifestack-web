@@ -11,6 +11,7 @@ import { queryKeys } from '../../lib/queryKeys';
 import { financeService } from '../../services/finance';
 import { formatCurrency } from '../../utils/numberFormat';
 import { computeTransferNet } from '../../utils/transferMath';
+import { trackEvent } from '../../lib/analytics';
 import type { Account } from '../../types/finance';
 
 interface TransferModalProps {
@@ -147,7 +148,10 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     [queryKeys.finance.all, queryKeys.spending.all, queryKeys.investing.all, queryKeys.dashboard.all],
     {
       successMessage: 'Transfer created',
-      onSuccess: () => onClose(),
+      onSuccess: () => {
+        trackEvent('transfer_created');
+        onClose();
+      },
     },
   );
 
