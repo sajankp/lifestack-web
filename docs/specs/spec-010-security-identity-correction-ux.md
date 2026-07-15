@@ -69,8 +69,12 @@ Behavior:
   linked instrument's identity via `investingService.updateInstrument(instrument.public_id, {
   ticker, isin, exchange })` (new fields on `InstrumentUpdate`, api spec-083 §5.2). Both calls are
   part of the same save action from the user's perspective (single "Save" button, sequenced
-  mutation or combined optimistic update — implementation detail for the coding agent, not
-  prescribed here beyond "one user-visible save").
+  mutation or combined optimistic update — implementation detail for the coding agent). The **Save
+  button must stay disabled for the full duration of both async calls** (not just the first) to
+  prevent duplicate submissions on a slow second request. **Partial failure must not leave silent
+  inconsistent state**: if the holding update succeeds but the instrument identity PATCH fails, the
+  modal stays open, shows which part failed, and lets the user retry just the failed identity save
+  rather than resubmitting the already-succeeded holding update.
 - On blur of the ticker/ISIN/exchange fields, call the resolve endpoint
   (`GET /v1/investing/reference/resolve`) and show inline status: `✓ resolved (<exchange/name>)`,
   `⚠ unresolved — will still save`, or `⚠ ambiguous — confirm`. This is advisory, not blocking (see
@@ -97,10 +101,14 @@ ticker as if it were the company's name (`AnalyticsTab.tsx:215`). This directly 
 name-based fragmentation api spec-083 fixes at the backend; the UI must stop reproducing it.
 
 Replace the two-column freeform textarea with a structured row entry (table or repeated
-mini-form): **Company name**, **Ticker or ISIN**, **Weight** as three separate fields per row
-(matching api spec-083 §5.3's CSV headers: `company_name`, `company_isin`, `company_ticker`,
-`weight`). Paste-a-CSV-block remains supported as a convenience, but parses into the same three
-fields — never collapses ticker into name.
+mini-form): **Company name**, **Ticker**, **ISIN**, **Weight** as four separate fields per row
+(matching api spec-083 §5.3's CSV headers exactly: `company_name`, `company_isin`,
+`company_ticker`, `weight`). Ticker and ISIN are **not** combined into one field — a single
+"Ticker or ISIN" input would require client-side parsing to guess which backend field a pasted
+value maps to (ISINs are 12 alphanumeric chars starting with a country code; tickers are shorter
+and freeform), which is exactly the kind of inference this spec exists to eliminate. Paste-a-CSV-block
+remains supported as a convenience, but parses into the same four fields — never collapses ticker
+into name, and never conflates ticker with ISIN.
 
 ### 3.4 Import UI — template + preview
 File: `ImportsPage.tsx` (or wherever the constituents template/preview currently render).
