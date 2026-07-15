@@ -1,7 +1,7 @@
 # Spec-010: Security Identity Correction UX (Holdings-primary)
 
 **Created:** 2026-07-15
-**Status:** Approved (implementation)
+**Status:** Implemented (web PR #123, merged 2026-07-16)
 **Scope:** `lifestack-web` only — one web PR.
 **Depends on:** api spec-083 (Security Identity Resolution & Reference Data) — `Instrument`
 `ticker`/`isin`/`exchange` fields on `InstrumentCreate`/`InstrumentUpdate`, the constituent CSV
