@@ -87,6 +87,13 @@ const commonHandlers = (workspaceId: string, workspaceName: string) => [
   http.get('*/v1/spending/category-groups', () =>
     HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
   ),
+  http.get('*/v1/summaries/weekly/settings', () =>
+    HttpResponse.json({
+      cadence_day_of_week: 0,
+      cadence_hour_utc: 1,
+      updated_at: '2026-06-10T00:00:00Z',
+    }),
+  ),
 ];
 
 describe('MasterConfigPage', () => {
@@ -164,6 +171,13 @@ describe('MasterConfigPage', () => {
       ),
       http.get('*/v1/spending/category-groups', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/summaries/weekly/settings', () =>
+        HttpResponse.json({
+          cadence_day_of_week: 0,
+          cadence_hour_utc: 1,
+          updated_at: '2026-06-10T00:00:00Z',
+        }),
       ),
       http.post('*/v1/platform/workspaces/:workspaceId/reset-demo', ({ params }) => {
         resetTarget = String(params.workspaceId);
@@ -253,6 +267,13 @@ describe('MasterConfigPage', () => {
       ),
       http.get('*/v1/spending/category-groups', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/summaries/weekly/settings', () =>
+        HttpResponse.json({
+          cadence_day_of_week: 0,
+          cadence_hour_utc: 1,
+          updated_at: '2026-06-10T00:00:00Z',
+        }),
       ),
     );
 
@@ -370,6 +391,13 @@ describe('MasterConfigPage', () => {
       http.get('*/v1/spending/category-groups', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
       ),
+      http.get('*/v1/summaries/weekly/settings', () =>
+        HttpResponse.json({
+          cadence_day_of_week: 0,
+          cadence_hour_utc: 1,
+          updated_at: '2026-06-10T00:00:00Z',
+        }),
+      ),
     );
 
     renderWithQuery(<MasterConfigPage />);
@@ -473,6 +501,13 @@ describe('MasterConfigPage', () => {
       http.get('*/v1/spending/category-groups', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
       ),
+      http.get('*/v1/summaries/weekly/settings', () =>
+        HttpResponse.json({
+          cadence_day_of_week: 0,
+          cadence_hour_utc: 1,
+          updated_at: '2026-06-10T00:00:00Z',
+        }),
+      ),
     );
 
     renderWithQuery(<MasterConfigPage />);
@@ -573,6 +608,13 @@ describe('MasterConfigPage', () => {
       ),
       http.get('*/v1/spending/category-groups', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/summaries/weekly/settings', () =>
+        HttpResponse.json({
+          cadence_day_of_week: 0,
+          cadence_hour_utc: 1,
+          updated_at: '2026-06-10T00:00:00Z',
+        }),
       ),
     );
 
@@ -729,5 +771,53 @@ describe('MasterConfigPage', () => {
     fireEvent.keyDown(categoriesTab, { key: 'Enter', code: 'Enter' });
     const deleteButton = await screen.findByTestId('master-category-delete-cat-uncategorized');
     expect(deleteButton).not.toBeDisabled();
+  });
+
+  it('loads and saves the weekly-summary cadence (spec-076)', async () => {
+    const workspaceId = '77777777-7777-7777-7777-777777777777';
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+    let savedCadence: { cadence_day_of_week: number; cadence_hour_utc: number } | null = null;
+
+    server.use(
+      // MSW resolves handlers in registration order and the first match wins,
+      // so this override must come BEFORE the spread of commonHandlers' own
+      // (default 0/1) settings handler.
+      http.get('*/v1/summaries/weekly/settings', () =>
+        HttpResponse.json({
+          cadence_day_of_week: 2,
+          cadence_hour_utc: 14,
+          updated_at: '2026-06-10T00:00:00Z',
+        }),
+      ),
+      http.put('*/v1/summaries/weekly/settings', async ({ request }) => {
+        savedCadence = (await request.json()) as {
+          cadence_day_of_week: number;
+          cadence_hour_utc: number;
+        };
+        return HttpResponse.json({
+          ...savedCadence,
+          updated_at: '2026-06-11T00:00:00Z',
+        });
+      }),
+      ...commonHandlers(workspaceId, 'Eta Workspace'),
+    );
+
+    renderWithQuery(<MasterConfigPage />);
+
+    const summariesTab = await screen.findByTestId('settings-tab-summaries');
+    summariesTab.focus();
+    fireEvent.keyDown(summariesTab, { key: 'Enter', code: 'Enter' });
+
+    expect(await screen.findByText('Weekly Summary Cadence')).toBeInTheDocument();
+    // Wait for the fetched cadence (Wed/14:00) to hydrate the dropdowns before
+    // saving — otherwise the save fires with the still-default (Mon/01:00) state.
+    await screen.findByText('Wednesday');
+
+    const saveButton = screen.getByTestId('master-summary-cadence-save');
+    fireEvent.click(saveButton);
+
+    await waitFor(() =>
+      expect(savedCadence).toEqual({ cadence_day_of_week: 2, cadence_hour_utc: 14 }),
+    );
   });
 });
