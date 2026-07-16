@@ -1494,7 +1494,7 @@ export const MasterConfigPage: React.FC = () => {
                 data-testid="master-summary-cadence-save"
                 type="button"
                 onClick={() => updateCadenceSettingsMutation.mutate()}
-                disabled={updateCadenceSettingsMutation.isPending}
+                disabled={updateCadenceSettingsMutation.isPending || !summaryCadenceSettings}
               >
                 {updateCadenceSettingsMutation.isPending ? 'Saving...' : 'Save'}
               </Button>

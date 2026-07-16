@@ -7,6 +7,7 @@ import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { Pagination } from '../components/Pagination';
 import { Button } from '../components/ui/button';
+import { useToast } from '../components/ui/toast';
 import { SkeletonList, EmptyState, ErrorBanner } from '../components/ui/FeedbackStates';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
 import { formatDate, formatDateTime } from '../utils/dateFormat';
@@ -16,6 +17,7 @@ export const WeeklySummariesPage: React.FC = () => {
   const [offset, setOffset] = useState(0);
   const limit = 12;
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const markedRef = useRef<string | null>(null);
   const [regenerateReasons, setRegenerateReasons] = useState<Record<string, string>>({});
   const { data, isLoading, isError, refetch } = useQuery({
@@ -38,6 +40,7 @@ export const WeeklySummariesPage: React.FC = () => {
       void queryClient.invalidateQueries({ queryKey: ['summaries', 'weekly'] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.briefing() });
     },
+    onError: () => showToast('Failed to regenerate summary. Please try again.', 'error'),
   });
 
   // Opening this page counts as reading the latest summary (spec-080): mark it
@@ -133,7 +136,11 @@ export const WeeklySummariesPage: React.FC = () => {
                           [item.public_id]: e.target.value,
                         }))
                       }
-                      className="w-48 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none"
+                      disabled={
+                        regenerateMutation.isPending &&
+                        regenerateMutation.variables?.summaryId === item.public_id
+                      }
+                      className="w-48 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none disabled:opacity-50"
                     />
                   </div>
                 </div>

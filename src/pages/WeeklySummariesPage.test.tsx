@@ -223,4 +223,43 @@ describe('WeeklySummariesPage', () => {
 
     await waitFor(() => expect(regenerateCalledWith).toEqual({ id: summaryId, reason: null }));
   });
+
+  it('shows an error toast when regeneration fails', async () => {
+    const summaryId = '66666666-6666-6666-6666-666666666666';
+    server.use(
+      http.get('*/v1/summaries/weekly', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: summaryId,
+              week_start: '2026-06-15',
+              week_end: '2026-06-21',
+              generated_at: '2026-06-22T01:30:00Z',
+              todo_summary: { tasks_created: 0, tasks_completed: 0 },
+              spending_summary: { status: 'unavailable' },
+              investing_summary: { status: 'unavailable' },
+              highlights: { flags: [] },
+              read_at: '2026-06-22T02:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+      http.post(
+        '*/v1/summaries/weekly/:id/regenerate',
+        () => new HttpResponse(null, { status: 500 }),
+      ),
+    );
+
+    renderPage();
+
+    const regenerateButton = await screen.findByTestId(`regenerate-summary-${summaryId}`);
+    fireEvent.click(regenerateButton);
+
+    expect(
+      await screen.findByText('Failed to regenerate summary. Please try again.'),
+    ).toBeInTheDocument();
+  });
 });
