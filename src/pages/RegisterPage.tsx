@@ -33,6 +33,11 @@ export const RegisterPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({
+    email: false,
+    username: false,
+    password: false,
+  });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const passwordStrength = getPasswordStrength(password);
@@ -41,6 +46,7 @@ export const RegisterPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({ email: false, username: false, password: false });
     setLoading(true);
 
     try {
@@ -49,20 +55,44 @@ export const RegisterPage: React.FC = () => {
     } catch (err: unknown) {
       let status: number | undefined;
       let detail: unknown;
+      let errors: unknown;
       if (axios.isAxiosError(err)) {
         status = err.response?.status;
         detail = err.response?.data?.detail;
+        errors = err.response?.data?.errors;
       }
+
+      type fieldType = 'email' | 'username' | 'password';
+
+      let invalidFields: Array<fieldType> = [];
+      if (Array.isArray(errors)) {
+        const nextFieldErrors = { email: false, username: false, password: false };
+        for (const item of errors) {
+          const loc = (item as { loc?: unknown }).loc;
+          if (!Array.isArray(loc) || loc.length < 2) continue;
+
+          const source = loc[0];
+          const field = loc[1];
+          if (source !== 'body' || typeof field !== 'string') continue;
+
+          if (['email', 'username', 'password'].includes(field)) {
+            nextFieldErrors[field as fieldType] = true;
+          }
+        }
+        setFieldErrors(nextFieldErrors);
+        invalidFields = (Object.keys(nextFieldErrors) as Array<'email' | 'username' | 'password'>).filter(
+          (field) => nextFieldErrors[field]
+        );
+      }
+
       // Normalize 409 / 422 errors to prevent username/email enumeration
       if (
         status === 409 ||
         (typeof detail === 'string' && /already (exists|in use|registered)/i.test(detail))
       ) {
         setError('Registration failed. Please check your details and try again.');
-      } else if (Array.isArray(detail)) {
-        // Expose validation field errors (e.g. pattern mismatch) — safe, not enumeration
-        const firstError = detail[0] as { msg?: string } | undefined;
-        setError(firstError?.msg || 'Registration failed. Please check your details.');
+      } else if (invalidFields.length > 0) {
+        setError(`Invalid fields: ${invalidFields.join(', ')}.`);
       } else {
         setError('Registration failed. Please check your details.');
       }
@@ -97,8 +127,13 @@ export const RegisterPage: React.FC = () => {
                 placeholder="Email address"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border border-slate-600 focus:border-transparent focus:ring-cyan-500 transition-all"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email) {
+                    setFieldErrors((prev) => ({ ...prev, email: false }));
+                  }
+                }}
+                className={`w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border focus:border-transparent transition-all ${fieldErrors.email ? 'border-red-500 focus:ring-red-500' : 'border-slate-600 focus:ring-cyan-500'}`}
               />
             </div>
             <div>
@@ -115,8 +150,13 @@ export const RegisterPage: React.FC = () => {
                 pattern="^[a-zA-Z0-9_\-]+$"
                 title="3–50 characters. Letters, numbers, underscores and hyphens only."
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border border-slate-600 focus:border-transparent focus:ring-cyan-500 transition-all"
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  if (fieldErrors.username) {
+                    setFieldErrors((prev) => ({ ...prev, username: false }));
+                  }
+                }}
+                className={`w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border focus:border-transparent transition-all ${fieldErrors.username ? 'border-red-500 focus:ring-red-500' : 'border-slate-600 focus:ring-cyan-500'}`}
               />
             </div>
             <div>
@@ -130,8 +170,13 @@ export const RegisterPage: React.FC = () => {
                 required
                 minLength={8}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border border-slate-600 focus:border-transparent focus:ring-cyan-500 transition-all"
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) {
+                    setFieldErrors((prev) => ({ ...prev, password: false }));
+                  }
+                }}
+                className={`w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border focus:border-transparent transition-all ${fieldErrors.password ? 'border-red-500 focus:ring-red-500' : 'border-slate-600 focus:ring-cyan-500'}`}
               />
               <div className="mt-2 space-y-2">
                 <p className="text-xs text-slate-400">

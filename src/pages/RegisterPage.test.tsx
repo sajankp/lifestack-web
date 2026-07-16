@@ -86,12 +86,12 @@ describe('RegisterPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows validation field error from array detail', async () => {
+  it('shows invalid fields message and highlights all invalid inputs from api errors', async () => {
     server.use(
       http.post('*/auth/register', () =>
         HttpResponse.json(
           {
-            detail: [{ msg: 'Password must be at least 8 characters', loc: ['body', 'password'] }],
+            errors: [{ msg: 'Password must be at least 8 characters', loc: ['body', 'password'] }],
           },
           { status: 422 },
         ),
@@ -99,18 +99,25 @@ describe('RegisterPage', () => {
     );
 
     renderPage();
-    fireEvent.change(screen.getByPlaceholderText('Email address'), {
+    const emailInput = screen.getByPlaceholderText('Email address');
+    const usernameInput = screen.getByPlaceholderText('Username');
+    const passwordInput = screen.getByPlaceholderText('Password');
+
+    fireEvent.change(emailInput, {
       target: { value: 'user@example.com' },
     });
-    fireEvent.change(screen.getByPlaceholderText('Username'), {
+    fireEvent.change(usernameInput, {
       target: { value: 'testuser' },
     });
-    fireEvent.change(screen.getByPlaceholderText('Password'), {
+    fireEvent.change(passwordInput, {
       target: { value: 'Password123!' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create Account' }));
 
-    expect(await screen.findByText('Password must be at least 8 characters')).toBeInTheDocument();
+    expect(await screen.findByText('Invalid fields: password.')).toBeInTheDocument();
+    expect(passwordInput).toHaveClass('border-red-500');
+    expect(emailInput).toHaveClass('border-slate-600');
+    expect(usernameInput).toHaveClass('border-slate-600');
   });
 
   it('shows loading state while submitting', async () => {
