@@ -5,6 +5,7 @@ import { AlertTriangle, ChevronDown, Edit2 } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { spendingService } from '../services/spending';
 import { platformService } from '../services/platform';
+import { summariesService } from '../services/summaries';
 import { AccountTypeBadge, CurrencyBadge, StatusBadge } from '../components/finance/Badges';
 import { DropdownSelect } from '../components/DropdownSelect';
 import { PageHero } from '../components/layout/PageHero';
@@ -26,8 +27,22 @@ import { queryKeys } from '../lib/queryKeys';
 import { ToggleSwitch } from '../components/ui/toggle-switch';
 import { accountTypeOptions } from '../utils/accountTypes';
 
-const SETTINGS_TABS = ['currency', 'accounts', 'categories', 'danger'] as const;
+const SETTINGS_TABS = ['currency', 'accounts', 'categories', 'summaries', 'danger'] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
+
+const cadenceDayOptions = [
+  { value: '0', label: 'Monday' },
+  { value: '1', label: 'Tuesday' },
+  { value: '2', label: 'Wednesday' },
+  { value: '3', label: 'Thursday' },
+  { value: '4', label: 'Friday' },
+  { value: '5', label: 'Saturday' },
+  { value: '6', label: 'Sunday' },
+] as const;
+const cadenceHourOptions = Array.from({ length: 24 }, (_, hour) => ({
+  value: String(hour),
+  label: `${String(hour).padStart(2, '0')}:00 UTC`,
+}));
 
 // Static dropdown option lists — hoisted to module scope so their identity is
 // stable across renders (a fresh array each render defeats DropdownSelect's
@@ -102,6 +117,8 @@ export const MasterConfigPage: React.FC = () => {
   const [userDisplayPreferenceOverride, setUserDisplayPreferenceOverride] = useState('');
   const [userLocaleOverride, setUserLocaleOverride] = useState('');
   const [userDecimalPlacesOverride, setUserDecimalPlacesOverride] = useState('');
+  const [cadenceDayOfWeek, setCadenceDayOfWeek] = useState('0');
+  const [cadenceHourUtc, setCadenceHourUtc] = useState('1');
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editingAccountName, setEditingAccountName] = useState('');
   const [editingAccountType, setEditingAccountType] = useState<
@@ -220,6 +237,10 @@ export const MasterConfigPage: React.FC = () => {
     queryKey: queryKeys.finance.settings('user'),
     queryFn: () => financeService.getUserSettings(),
   });
+  const { data: summaryCadenceSettings } = useQuery({
+    queryKey: ['summaries', 'weekly', 'settings'],
+    queryFn: () => summariesService.getCadenceSettings(),
+  });
   const { data: categoriesResponse } = useQuery({
     queryKey: queryKeys.masterConfig.categories(),
     queryFn: () => spendingService.getCategories(200, 0),
@@ -260,6 +281,10 @@ export const MasterConfigPage: React.FC = () => {
     settings?.locale,
     settings?.decimal_places,
   ]);
+  React.useEffect(() => {
+    setCadenceDayOfWeek(String(summaryCadenceSettings?.cadence_day_of_week ?? 0));
+    setCadenceHourUtc(String(summaryCadenceSettings?.cadence_hour_utc ?? 1));
+  }, [summaryCadenceSettings?.cadence_day_of_week, summaryCadenceSettings?.cadence_hour_utc]);
   React.useEffect(() => {
     setUserReportingCurrencyOverride(userSettings?.reporting_currency_override_code ?? '');
     setUserDisplayPreferenceOverride(userSettings?.currency_display_preference_override ?? '');
@@ -493,6 +518,16 @@ export const MasterConfigPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.spending.summary() });
     },
   });
+  const updateCadenceSettingsMutation = useMutation({
+    mutationFn: () =>
+      summariesService.updateCadenceSettings({
+        cadence_day_of_week: Number(cadenceDayOfWeek),
+        cadence_hour_utc: Number(cadenceHourUtc),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['summaries', 'weekly', 'settings'] });
+    },
+  });
   const updateUserSettingsMutation = useMutation({
     mutationFn: () =>
       financeService.updateUserSettings({
@@ -623,6 +658,9 @@ export const MasterConfigPage: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="categories" data-testid="settings-tab-categories">
             Categories & Groups
+          </TabsTrigger>
+          <TabsTrigger value="summaries" data-testid="settings-tab-summaries">
+            Weekly Summaries
           </TabsTrigger>
           <TabsTrigger value="danger" data-testid="settings-tab-danger">
             Danger zone
@@ -1171,7 +1209,7 @@ export const MasterConfigPage: React.FC = () => {
                       <td className="px-4 py-3">{category.is_system ? 'System' : 'Custom'}</td>
                       <td className="px-4 py-3">
                         {category.category_group_id
-                          ? groupById.get(category.category_group_id)?.name ?? '-'
+                          ? (groupById.get(category.category_group_id)?.name ?? '-')
                           : '-'}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -1423,6 +1461,43 @@ export const MasterConfigPage: React.FC = () => {
                   ) : null}
                 </tbody>
               </table>
+            </div>
+          </section>
+        </TabsContent>
+
+        <TabsContent value="summaries" className="space-y-6">
+          <section
+            data-testid="master-summary-cadence-settings"
+            className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6"
+          >
+            <h2 className="text-lg font-semibold text-white">Weekly Summary Cadence</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Choose which day and hour (UTC) your weekly summary is generated. Monthly cadence
+              isn&apos;t available yet.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr,1fr,auto] max-w-lg">
+              <DropdownSelect
+                testId="master-summary-cadence-day"
+                value={cadenceDayOfWeek}
+                onChange={setCadenceDayOfWeek}
+                options={cadenceDayOptions}
+                placeholder="Day of week"
+              />
+              <DropdownSelect
+                testId="master-summary-cadence-hour"
+                value={cadenceHourUtc}
+                onChange={setCadenceHourUtc}
+                options={cadenceHourOptions}
+                placeholder="Hour (UTC)"
+              />
+              <Button
+                data-testid="master-summary-cadence-save"
+                type="button"
+                onClick={() => updateCadenceSettingsMutation.mutate()}
+                disabled={updateCadenceSettingsMutation.isPending}
+              >
+                {updateCadenceSettingsMutation.isPending ? 'Saving...' : 'Save'}
+              </Button>
             </div>
           </section>
         </TabsContent>

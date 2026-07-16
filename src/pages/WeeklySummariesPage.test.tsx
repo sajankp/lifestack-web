@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../components/ui/toast';
 import { http, HttpResponse } from 'msw';
@@ -119,5 +119,108 @@ describe('WeeklySummariesPage', () => {
 
     await screen.findByText('Tasks completed');
     await waitFor(() => expect(readCalledWith).toBe(summaryId));
+  });
+
+  it('renders the spec-076 dividend/net-worth/return-metrics sections', async () => {
+    server.use(
+      http.get('*/v1/summaries/weekly', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '33333333-3333-3333-3333-333333333333',
+              week_start: '2026-06-15',
+              week_end: '2026-06-21',
+              generated_at: '2026-06-22T01:30:00Z',
+              todo_summary: { tasks_created: 0, tasks_completed: 0 },
+              spending_summary: { status: 'unavailable' },
+              investing_summary: { status: 'unavailable' },
+              dividend_summary: {
+                status: 'complete',
+                total_net: '90.00',
+                currency: 'USD',
+                count: 1,
+                by_symbol: [{ symbol: 'NVDA', net_amount: '90.00' }],
+                has_multiple_currencies: false,
+              },
+              net_worth_summary: {
+                status: 'complete',
+                net_worth_start: '1000.00',
+                net_worth_end: '1100.00',
+                week_change: '100.00',
+                week_change_pct: '10.00',
+                currency: 'USD',
+                start_snapshot_date: '2026-06-14',
+                end_snapshot_date: '2026-06-21',
+              },
+              return_metrics_summary: {
+                status: 'complete',
+                xirr: '12.50',
+                annualized_return_pct: '12.50',
+                max_drawdown_pct: '3.20',
+                notable: false,
+              },
+              highlights: { flags: [] },
+              read_at: '2026-06-22T02:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('Dividend Income')).toBeInTheDocument();
+    expect(screen.getByText('NVDA')).toBeInTheDocument();
+    expect(screen.getByText('Net Worth')).toBeInTheDocument();
+    expect(screen.getByText('Return Metrics')).toBeInTheDocument();
+    expect(screen.getAllByText('12.50%').length).toBeGreaterThan(0);
+    expect(screen.getByText('3.20%')).toBeInTheDocument();
+  });
+
+  it('regenerates a summary and refreshes the list without prompting a notification', async () => {
+    const summaryId = '44444444-4444-4444-4444-444444444444';
+    const newSummaryId = '55555555-5555-5555-5555-555555555555';
+    let regenerateCalledWith: { id: string; reason: string | null } | null = null;
+    const baseItem = {
+      week_start: '2026-06-15',
+      week_end: '2026-06-21',
+      generated_at: '2026-06-22T01:30:00Z',
+      todo_summary: { tasks_created: 0, tasks_completed: 0 },
+      spending_summary: { status: 'unavailable' },
+      investing_summary: { status: 'unavailable' },
+      highlights: { flags: [] },
+      read_at: '2026-06-22T02:00:00Z',
+    };
+
+    server.use(
+      http.get('*/v1/summaries/weekly', () =>
+        HttpResponse.json({
+          items: [{ ...baseItem, public_id: summaryId }],
+          total: 1,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+      http.post('*/v1/summaries/weekly/:id/regenerate', async ({ params, request }) => {
+        const body = (await request.json()) as { reason: string | null };
+        regenerateCalledWith = { id: params.id as string, reason: body.reason };
+        return HttpResponse.json({
+          ...baseItem,
+          public_id: newSummaryId,
+          regenerated_at: '2026-06-23T00:00:00Z',
+          regeneration_reason: body.reason,
+        });
+      }),
+    );
+
+    renderPage();
+
+    const regenerateButton = await screen.findByTestId(`regenerate-summary-${summaryId}`);
+    fireEvent.click(regenerateButton);
+
+    await waitFor(() => expect(regenerateCalledWith).toEqual({ id: summaryId, reason: null }));
   });
 });
