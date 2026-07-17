@@ -462,6 +462,89 @@ describe('SpendingPage', () => {
     expect(await screen.findByText('No recurring rules yet')).toBeInTheDocument();
   });
 
+  it('blocks creating a recurring rule without an account and shows the inline error', async () => {
+    server.use(...baseHandlers);
+    renderWithQuery(<SpendingPage />);
+
+    await screen.findByText('Spending Overview');
+    fireEvent.click(screen.getByTestId('spending-tab-recurring'));
+    fireEvent.click(await screen.findByText('Add First Rule'));
+
+    await screen.findByTestId('spending-recurring-category');
+    fireEvent.click(screen.getByTestId('spending-recurring-category'));
+    fireEvent.click(await screen.findByRole('option', { name: /Food/ }));
+
+    // No account selected — create stays disabled and the inline error shows,
+    // pointing at Finance Settings (spec-084, same invariant as spec-054).
+    expect(screen.getByTestId('spending-recurring-create')).toBeDisabled();
+    const error = screen.getByTestId('spending-recurring-account-error');
+    expect(error).toBeInTheDocument();
+    expect(within(error).getByRole('link', { name: /default spending account/i })).toHaveAttribute(
+      'href',
+      '/settings',
+    );
+  });
+
+  it('creates a recurring rule once an account is selected', async () => {
+    let capturedPayload: Record<string, unknown> | null = null;
+    server.use(
+      http.post('*/v1/spending/recurring', async ({ request }) => {
+        capturedPayload = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          {
+            public_id: 'rec-new',
+            category_id: 'cat-food-id',
+            account_id: ACCOUNT.public_id,
+            amount: '25.00',
+            type: 'expense',
+            description: null,
+            frequency: 'monthly',
+            interval: 1,
+            anchor_date: '2026-01-01',
+            end_date: null,
+            is_active: true,
+            next_due_date: '2026-01-01',
+            last_generated_at: null,
+            monthly_mode: 'day_of_month',
+            by_weekday: null,
+            by_ordinal: null,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+          { status: 201 },
+        );
+      }),
+      ...baseHandlers,
+    );
+    renderWithQuery(<SpendingPage />);
+
+    await screen.findByText('Spending Overview');
+    fireEvent.click(screen.getByTestId('spending-tab-recurring'));
+    fireEvent.click(await screen.findByText('Add First Rule'));
+
+    await screen.findByTestId('spending-recurring-category');
+    fireEvent.click(screen.getByTestId('spending-recurring-category'));
+    fireEvent.click(await screen.findByRole('option', { name: /Food/ }));
+
+    fireEvent.click(screen.getByTestId('spending-recurring-account'));
+    fireEvent.click(await screen.findByRole('option', { name: /My Wallet/ }));
+
+    const amountInput = screen.getByTestId('spending-recurring-amount');
+    fireEvent.change(amountInput, { target: { value: '25.00' } });
+
+    const saveBtn = screen.getByTestId('spending-recurring-create');
+    expect(saveBtn).not.toBeDisabled();
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(capturedPayload).not.toBeNull();
+    });
+    expect(capturedPayload).toMatchObject({
+      category_id: 'cat-food-id',
+      account_id: ACCOUNT.public_id,
+    });
+  });
+
   it('switches to recurring tab and shows recurring rule cards', async () => {
     server.use(
       http.get('*/v1/spending/recurring', () =>
