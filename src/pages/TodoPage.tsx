@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { formatDate, formatDateTime } from '../utils/dateFormat';
 import { describeRecurrence } from '../utils/recurrenceLabel';
 import { groupTodosByDueDate, splitParentsAndChildren } from './todo/dateBuckets';
+import { isDateOnlyDueDate } from './todo/dueDate';
 import { priorityLabel, priorityTone } from './todo/priorityDisplay';
 import { TaskRow } from './todo/TaskRow';
 
@@ -76,8 +77,7 @@ const ordinalOptions = [
   { value: '-1', label: 'Last' },
 ];
 
-const isUtcMidnight = (value: string): boolean =>
-  /T00:00:00(?:\.\d+)?Z$/.test(value) || /^\d{4}-\d{2}-\d{2}$/.test(value);
+const isUtcMidnight = (value: string): boolean => isDateOnlyDueDate(value);
 
 const toLocalDateInput = (value: string | null | undefined): string => {
   if (!value || Number.isNaN(Date.parse(value))) return '';
