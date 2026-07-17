@@ -735,6 +735,8 @@ export const SpendingPage: React.FC = () => {
     data: transfersPages,
     fetchNextPage: fetchNextTransfersPage,
     hasNextPage: hasNextTransfersPage,
+    isFetchingNextPage: isFetchingNextTransfersPage,
+    isError: isTransfersLookupError,
   } = useInfiniteQuery({
     queryKey: queryKeys.finance.transfers('lookup'),
     queryFn: ({ pageParam }) => financeService.getTransfers(TRANSFERS_LOOKUP_PAGE_SIZE, pageParam),
@@ -745,11 +747,19 @@ export const SpendingPage: React.FC = () => {
     },
     enabled: activeTab === 'ledger',
   });
+  // Guard against re-triggering while a page is already in flight, and stop
+  // walking once a page has errored out (all its retries exhausted) instead
+  // of hammering the endpoint on every re-render (Gemini review, web#129).
   React.useEffect(() => {
-    if (hasNextTransfersPage) {
+    if (hasNextTransfersPage && !isFetchingNextTransfersPage && !isTransfersLookupError) {
       fetchNextTransfersPage();
     }
-  }, [hasNextTransfersPage, fetchNextTransfersPage]);
+  }, [
+    hasNextTransfersPage,
+    isFetchingNextTransfersPage,
+    isTransfersLookupError,
+    fetchNextTransfersPage,
+  ]);
   const { data: userFinanceSettings } = useQuery({
     queryKey: queryKeys.finance.settings('user'),
     queryFn: () => financeService.getUserSettings(),
