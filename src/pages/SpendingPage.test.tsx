@@ -652,8 +652,15 @@ describe('SpendingPage', () => {
 
   it('shows a transfer row on the Account activity tab', async () => {
     server.use(
-      http.get('*/v1/finance/transfers', () =>
-        HttpResponse.json({
+      // The real API rejects limit > 200 (app/core/pagination.py MAX_LIMIT) with a 422 —
+      // mirror that here so a regression to an over-the-cap lookup fetch (like the
+      // getTransfers(500, 0) bug) fails this test instead of silently passing.
+      http.get('*/v1/finance/transfers', ({ request }) => {
+        const limit = Number(new URL(request.url).searchParams.get('limit') ?? '50');
+        if (limit > 200) {
+          return HttpResponse.json({ detail: 'limit must be <= 200' }, { status: 422 });
+        }
+        return HttpResponse.json({
           items: [
             {
               public_id: 'tfr-001',
@@ -680,10 +687,10 @@ describe('SpendingPage', () => {
             },
           ],
           total: 1,
-          limit: 50,
+          limit,
           offset: 0,
-        }),
-      ),
+        });
+      }),
       http.get('*/v1/spending/accounts/*/ledger', () =>
         HttpResponse.json({
           ...EMPTY_LEDGER,
@@ -717,6 +724,105 @@ describe('SpendingPage', () => {
     // Transfer rows render in two responsive layouts (mobile cards + desktop table).
     expect((await screen.findAllByText('Transfer → Monthly top-up')).length).toBeGreaterThan(0);
     expect((await screen.findAllByTitle('Edit transfer')).length).toBeGreaterThan(0);
+  });
+
+  it('finds a transfer past the first 200 by paging through the transfers lookup', async () => {
+    const makeFillerTransfer = (n: number) => ({
+      public_id: `tfr-filler-${n}`,
+      from_account_id: 1,
+      from_account_name: 'My Wallet',
+      from_account_type: 'wallet',
+      from_module: 'spending',
+      to_account_id: 2,
+      to_account_name: 'My Bank',
+      to_account_type: 'bank',
+      to_module: 'spending',
+      from_currency_code: 'USD',
+      to_currency_code: 'USD',
+      gross_amount: '1.00',
+      net_amount_received: '1.00',
+      fx_rate_used: null,
+      fx_fee_amount: '0.00',
+      platform_fee_amount: '0.00',
+      tax_amount: '0.00',
+      occurred_at: '2026-01-01T00:00:00Z',
+      notes: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    });
+    const targetTransfer = {
+      public_id: 'tfr-201',
+      from_account_id: 1,
+      from_account_name: 'My Wallet',
+      from_account_type: 'wallet',
+      from_module: 'spending',
+      to_account_id: 3,
+      to_account_name: 'Brokerage',
+      to_account_type: 'brokerage',
+      to_module: 'investing',
+      from_currency_code: 'USD',
+      to_currency_code: 'USD',
+      gross_amount: '5000.00',
+      net_amount_received: '5000.00',
+      fx_rate_used: null,
+      fx_fee_amount: '0.00',
+      platform_fee_amount: '0.00',
+      tax_amount: '0.00',
+      occurred_at: '2026-06-25T00:00:00Z',
+      notes: 'Brokerage funding',
+      created_at: '2026-06-25T00:00:00Z',
+      updated_at: '2026-06-25T00:00:00Z',
+    };
+    const TOTAL = 201; // one more than a single MAX_LIMIT=200 page
+
+    server.use(
+      http.get('*/v1/finance/transfers', ({ request }) => {
+        const url = new URL(request.url);
+        const limit = Number(url.searchParams.get('limit') ?? '50');
+        const offset = Number(url.searchParams.get('offset') ?? '0');
+        if (limit > 200) {
+          return HttpResponse.json({ detail: 'limit must be <= 200' }, { status: 422 });
+        }
+        const items =
+          offset === 0
+            ? Array.from({ length: 200 }, (_, i) => makeFillerTransfer(i))
+            : [targetTransfer];
+        return HttpResponse.json({ items, total: TOTAL, limit, offset });
+      }),
+      http.get('*/v1/spending/accounts/*/ledger', () =>
+        HttpResponse.json({
+          ...EMPTY_LEDGER,
+          total_entries: 1,
+          items: [
+            {
+              public_id: 'tfr-201',
+              entry_kind: 'transfer_out',
+              account_id: ACCOUNT.public_id,
+              amount: '5000.00',
+              type: null,
+              occurred_at: '2026-06-25T00:00:00Z',
+              description: 'Brokerage funding',
+              running_balance: '-5000.00',
+              source_type: 'transfer',
+              created_at: '2026-06-25T00:00:00Z',
+            },
+          ],
+        }),
+      ),
+      ...baseHandlers,
+    );
+
+    renderWithQuery(<SpendingPage />);
+    await screen.findByText('Spending Overview');
+    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
+    fireEvent.change(screen.getByTestId('ledger-account-select'), {
+      target: { value: ACCOUNT.public_id },
+    });
+
+    expect((await screen.findAllByText('Transfer → Brokerage funding')).length).toBeGreaterThan(
+      0,
+    );
+    expect((await screen.findAllByTitle('Delete transfer')).length).toBeGreaterThan(0);
   });
 
   it('blocks saving an edited transfer with an invalid FX fee', async () => {

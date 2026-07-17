@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -174,6 +174,10 @@ const setLastUsedAccountId = (accountId: string) => {
 // NULL-account rows (forward-only per spec-054/spec-050) are filtered via
 // the backend's `unassigned=true` param, not a real account id.
 const UNASSIGNED_ACCOUNT_FILTER_VALUE = '__unassigned__';
+
+// Page size for the Account activity tab's transfer public_id lookup — matches the
+// API's PaginationParams MAX_LIMIT (app/core/pagination.py), which 422s above 200.
+const TRANSFERS_LOOKUP_PAGE_SIZE = 200;
 
 // Sort options for the transactions list. Values mirror the API's
 // TransactionSort enum; sorting is applied server-side so it holds across pages.
@@ -718,17 +722,44 @@ export const SpendingPage: React.FC = () => {
     queryKey: queryKeys.spending.recurring(recurringOffset),
     queryFn: () => spendingService.getRecurring(limit, recurringOffset, true),
   });
-  // Fetched (unpaginated, generously capped) purely to build a public_id
-  // lookup so the merged Account activity tab can offer edit/delete on the
-  // transfer_in/transfer_out rows it already renders from the ledger.
-  // Only the Account activity (ledger) tab renders transfer rows with
-  // edit/delete affordances, so this lookup fetch is gated to that tab
-  // instead of firing on every Spending page load.
-  const { data: transfersResponse } = useQuery({
+  // Fetched purely to build a public_id lookup so the merged Account activity
+  // tab can offer edit/delete on the transfer_in/transfer_out rows it already
+  // renders from the ledger. Only the Account activity (ledger) tab renders
+  // transfer rows with edit/delete affordances, so this lookup fetch is
+  // gated to that tab instead of firing on every Spending page load.
+  // Paginated in MAX_LIMIT-sized pages (app/core/pagination.py caps `limit`
+  // at 200 and 422s above it) and walked to the end — a single capped
+  // request silently broke this lookup for every workspace once transfer
+  // count passed 200 (2026-07-17 incident: no edit/delete ever rendered).
+  const {
+    data: transfersPages,
+    fetchNextPage: fetchNextTransfersPage,
+    hasNextPage: hasNextTransfersPage,
+    isFetchingNextPage: isFetchingNextTransfersPage,
+    isError: isTransfersLookupError,
+  } = useInfiniteQuery({
     queryKey: queryKeys.finance.transfers('lookup'),
-    queryFn: () => financeService.getTransfers(500, 0),
+    queryFn: ({ pageParam }) => financeService.getTransfers(TRANSFERS_LOOKUP_PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const fetchedSoFar = allPages.reduce((sum, page) => sum + page.items.length, 0);
+      return fetchedSoFar < lastPage.total ? fetchedSoFar : undefined;
+    },
     enabled: activeTab === 'ledger',
   });
+  // Guard against re-triggering while a page is already in flight, and stop
+  // walking once a page has errored out (all its retries exhausted) instead
+  // of hammering the endpoint on every re-render (Gemini review, web#129).
+  React.useEffect(() => {
+    if (hasNextTransfersPage && !isFetchingNextTransfersPage && !isTransfersLookupError) {
+      fetchNextTransfersPage();
+    }
+  }, [
+    hasNextTransfersPage,
+    isFetchingNextTransfersPage,
+    isTransfersLookupError,
+    fetchNextTransfersPage,
+  ]);
   const { data: userFinanceSettings } = useQuery({
     queryKey: queryKeys.finance.settings('user'),
     queryFn: () => financeService.getUserSettings(),
@@ -775,8 +806,11 @@ export const SpendingPage: React.FC = () => {
     userFinanceSettings?.effective_currency_display_preference ?? 'symbol';
   const recurringItems = recurringResponse?.items ?? [];
   const transferByPublicId = useMemo(
-    () => new Map((transfersResponse?.items ?? []).map((t) => [t.public_id, t])),
-    [transfersResponse],
+    () =>
+      new Map(
+        (transfersPages?.pages ?? []).flatMap((page) => page.items).map((t) => [t.public_id, t]),
+      ),
+    [transfersPages],
   );
 
   const {
