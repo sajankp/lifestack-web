@@ -17,27 +17,30 @@ const makeTodo = (overrides: Partial<Todo>): Todo => ({
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
 describe('isOverdueTodo', () => {
   it('treats date-only UTC-midnight due dates as overdue only after local end-of-day', () => {
+    vi.useFakeTimers();
     const todo = makeTodo({ due_date: '2026-07-17T00:00:00Z' });
 
-    vi.spyOn(Date, 'now').mockReturnValue(new Date(2026, 6, 17, 12, 0, 0, 0).getTime());
+    vi.setSystemTime(new Date(2026, 6, 17, 12, 0, 0, 0));
     expect(isOverdueTodo(todo)).toBe(false);
 
-    vi.spyOn(Date, 'now').mockReturnValue(new Date(2026, 6, 18, 0, 0, 0, 0).getTime());
+    vi.setSystemTime(new Date(2026, 6, 18, 0, 0, 0, 0));
     expect(isOverdueTodo(todo)).toBe(true);
   });
 
   it('keeps time-specific due dates overdue immediately after selected time', () => {
+    vi.useFakeTimers();
     const todo = makeTodo({ due_date: '2026-07-17T11:59:00' });
 
-    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-07-17T11:58:00').getTime());
+    vi.setSystemTime(new Date('2026-07-17T11:58:00'));
     expect(isOverdueTodo(todo)).toBe(false);
 
-    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-07-17T12:00:00').getTime());
+    vi.setSystemTime(new Date('2026-07-17T12:00:00'));
     expect(isOverdueTodo(todo)).toBe(true);
   });
 });
