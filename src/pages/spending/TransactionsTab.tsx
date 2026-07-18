@@ -1,7 +1,7 @@
 import React from 'react';
 import { Calendar, Edit2, Plus, Tag, Trash2, Wallet } from 'lucide-react';
 import { Pagination } from '../../components/Pagination';
-import { AccountTypeBadge, CurrencyBadge } from '../../components/finance/Badges';
+import { CurrencyBadge } from '../../components/finance/Badges';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
 import type { Account } from '../../types/finance';
@@ -23,6 +23,13 @@ interface TransactionsTabProps {
   onAddFirst?: () => void;
 }
 
+const hasRenderableLabels = (labels: string | null | undefined): boolean =>
+  !!labels &&
+  labels
+    .split(',')
+    .map((label) => label.trim())
+    .filter(Boolean).length > 0;
+
 const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
   transactions,
   transactionsResponse,
@@ -37,6 +44,8 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
   isDeletePending,
   onAddFirst,
 }) => {
+  const hasAnyTags = (transactions ?? []).some((tx) => hasRenderableLabels(tx.labels));
+
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
       <h3 className="text-xl font-semibold text-white">Transactions in {monthLabel}</h3>
@@ -177,7 +186,7 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
                   <th className="px-6 py-4 font-medium">Category</th>
                   <th className="px-6 py-4 font-medium">Details</th>
                   <th className="px-6 py-4 font-medium">Source</th>
-                  <th className="px-6 py-4 font-medium">Tags</th>
+                  {hasAnyTags ? <th className="px-6 py-4 font-medium">Tags</th> : null}
                   <th className="px-6 py-4 text-right font-medium">Amount (Original)</th>
                   <th className="px-6 py-4 text-right font-medium">Action</th>
                 </tr>
@@ -189,13 +198,10 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
                   const dateObj = new Date(tx.occurred_at);
                   const linkedAccount = tx.account_id ? accountById.get(tx.account_id) : undefined;
                   const sourceName = tx.wallet_name || linkedAccount?.name || '-';
-                  const sourceType = linkedAccount?.account_type
-                    ? linkedAccount.account_type.replace('_', ' ')
-                    : tx.wallet_name
-                      ? 'wallet'
-                      : null;
                   const sourceCurrency = linkedAccount?.default_currency_code ?? displayCurrency;
                   const sourceMetadata = tx.source_metadata;
+                  const shouldShowSourceBadge =
+                    !!sourceMetadata && sourceMetadata.origin !== 'manual_entry';
 
                   return (
                     <tr
@@ -231,9 +237,8 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
                           <span className="inline-flex max-w-[180px] truncate rounded-full bg-slate-700/60 px-2.5 py-1 text-xs text-slate-200">
                             {sourceName}
                           </span>
-                          {sourceType ? <AccountTypeBadge type={sourceType} /> : null}
                           <CurrencyBadge code={sourceCurrency} />
-                          {sourceMetadata ? (
+                          {shouldShowSourceBadge ? (
                             <span
                               data-testid={`transaction-source-metadata-${tx.public_id}`}
                               title={
@@ -255,32 +260,32 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        {tx.labels ? (
-                          <div className="flex max-w-[220px] flex-wrap gap-1">
-                            {tx.labels
-                              .split(',')
-                              .map((label) => label.trim())
-                              .filter(Boolean)
-                              .slice(0, 3)
-                              .map((label, index) => (
-                                <span
-                                  key={`${tx.public_id}-${label}-${index}`}
-                                  className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-xs text-slate-300"
-                                >
-                                  {label}
-                                </span>
-                              ))}
-                          </div>
-                        ) : (
-                          <span className="text-slate-500">-</span>
-                        )}
-                      </td>
+                      {hasAnyTags ? (
+                        <td className="px-6 py-4">
+                          {tx.labels ? (
+                            <div className="flex max-w-[220px] flex-wrap gap-1">
+                              {tx.labels
+                                .split(',')
+                                .map((label) => label.trim())
+                                .filter(Boolean)
+                                .slice(0, 3)
+                                .map((label, index) => (
+                                  <span
+                                    key={`${tx.public_id}-${label}-${index}`}
+                                    className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-xs text-slate-300"
+                                  >
+                                    {label}
+                                  </span>
+                                ))}
+                            </div>
+                          ) : null}
+                        </td>
+                      ) : null}
                       <td className="px-6 py-4 text-right">
                         <div className="flex flex-col items-end gap-1">
                           <span
                             className={`font-semibold ${
-                              isIncome ? 'text-emerald-400' : 'text-slate-200'
+                              isIncome ? 'text-emerald-400' : 'text-slate-100'
                             }`}
                           >
                             {isIncome ? '+' : '-'}
