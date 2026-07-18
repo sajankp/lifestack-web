@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -113,6 +113,7 @@ type BudgetFormValues = z.infer<typeof budgetFormSchema>;
 const recurringFormSchema = z
   .object({
     categoryId: z.string().min(1, 'Select a category'),
+    accountId: z.string().optional(),
     amount: z
       .string()
       .min(1, 'Enter an amount')
@@ -173,6 +174,10 @@ const setLastUsedAccountId = (accountId: string) => {
 // NULL-account rows (forward-only per spec-054/spec-050) are filtered via
 // the backend's `unassigned=true` param, not a real account id.
 const UNASSIGNED_ACCOUNT_FILTER_VALUE = '__unassigned__';
+
+// Page size for the Account activity tab's transfer public_id lookup — matches the
+// API's PaginationParams MAX_LIMIT (app/core/pagination.py), which 422s above 200.
+const TRANSFERS_LOOKUP_PAGE_SIZE = 200;
 
 // Sort options for the transactions list. Values mirror the API's
 // TransactionSort enum; sorting is applied server-side so it holds across pages.
@@ -717,17 +722,44 @@ export const SpendingPage: React.FC = () => {
     queryKey: queryKeys.spending.recurring(recurringOffset),
     queryFn: () => spendingService.getRecurring(limit, recurringOffset, true),
   });
-  // Fetched (unpaginated, generously capped) purely to build a public_id
-  // lookup so the merged Account activity tab can offer edit/delete on the
-  // transfer_in/transfer_out rows it already renders from the ledger.
-  // Only the Account activity (ledger) tab renders transfer rows with
-  // edit/delete affordances, so this lookup fetch is gated to that tab
-  // instead of firing on every Spending page load.
-  const { data: transfersResponse } = useQuery({
+  // Fetched purely to build a public_id lookup so the merged Account activity
+  // tab can offer edit/delete on the transfer_in/transfer_out rows it already
+  // renders from the ledger. Only the Account activity (ledger) tab renders
+  // transfer rows with edit/delete affordances, so this lookup fetch is
+  // gated to that tab instead of firing on every Spending page load.
+  // Paginated in MAX_LIMIT-sized pages (app/core/pagination.py caps `limit`
+  // at 200 and 422s above it) and walked to the end — a single capped
+  // request silently broke this lookup for every workspace once transfer
+  // count passed 200 (2026-07-17 incident: no edit/delete ever rendered).
+  const {
+    data: transfersPages,
+    fetchNextPage: fetchNextTransfersPage,
+    hasNextPage: hasNextTransfersPage,
+    isFetchingNextPage: isFetchingNextTransfersPage,
+    isError: isTransfersLookupError,
+  } = useInfiniteQuery({
     queryKey: queryKeys.finance.transfers('lookup'),
-    queryFn: () => financeService.getTransfers(500, 0),
+    queryFn: ({ pageParam }) => financeService.getTransfers(TRANSFERS_LOOKUP_PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const fetchedSoFar = allPages.reduce((sum, page) => sum + page.items.length, 0);
+      return fetchedSoFar < lastPage.total ? fetchedSoFar : undefined;
+    },
     enabled: activeTab === 'ledger',
   });
+  // Guard against re-triggering while a page is already in flight, and stop
+  // walking once a page has errored out (all its retries exhausted) instead
+  // of hammering the endpoint on every re-render (Gemini review, web#129).
+  React.useEffect(() => {
+    if (hasNextTransfersPage && !isFetchingNextTransfersPage && !isTransfersLookupError) {
+      fetchNextTransfersPage();
+    }
+  }, [
+    hasNextTransfersPage,
+    isFetchingNextTransfersPage,
+    isTransfersLookupError,
+    fetchNextTransfersPage,
+  ]);
   const { data: userFinanceSettings } = useQuery({
     queryKey: queryKeys.finance.settings('user'),
     queryFn: () => financeService.getUserSettings(),
@@ -774,8 +806,11 @@ export const SpendingPage: React.FC = () => {
     userFinanceSettings?.effective_currency_display_preference ?? 'symbol';
   const recurringItems = recurringResponse?.items ?? [];
   const transferByPublicId = useMemo(
-    () => new Map((transfersResponse?.items ?? []).map((t) => [t.public_id, t])),
-    [transfersResponse],
+    () =>
+      new Map(
+        (transfersPages?.pages ?? []).flatMap((page) => page.items).map((t) => [t.public_id, t]),
+      ),
+    [transfersPages],
   );
 
   const {
@@ -789,6 +824,7 @@ export const SpendingPage: React.FC = () => {
     resolver: zodResolver(recurringFormSchema),
     defaultValues: {
       categoryId: '',
+      accountId: '',
       amount: '',
       type: 'expense',
       description: '',
@@ -801,6 +837,7 @@ export const SpendingPage: React.FC = () => {
       by_ordinal: '1',
     },
   });
+  const recurringAccountIdWatch = watchRecurringForm('accountId');
   const recurringFrequencyWatch = watchRecurringForm('frequency');
   const recurringMonthlyModeWatch = watchRecurringForm('monthly_mode');
   const recurringIntervalWatch = watchRecurringForm('interval');
@@ -1143,8 +1180,10 @@ export const SpendingPage: React.FC = () => {
 
   const openRecurringModalForNew = useCallback(() => {
     setEditingRecurring(null);
+    const fallbackAccountId = defaultSpendingAccountId || getLastUsedAccountId();
     resetRecurringForm({
       categoryId: '',
+      accountId: fallbackAccountId && accountById.has(fallbackAccountId) ? fallbackAccountId : '',
       amount: '',
       type: 'expense',
       description: '',
@@ -1158,13 +1197,14 @@ export const SpendingPage: React.FC = () => {
     });
     setShowAdvancedSchedule(false);
     setIsRecurringModalOpen(true);
-  }, [resetRecurringForm]);
+  }, [resetRecurringForm, defaultSpendingAccountId, accountById]);
 
   const openRecurringModalForEdit = useCallback(
     (r: RecurringTransaction) => {
       setEditingRecurring(r);
       resetRecurringForm({
         categoryId: r.category_id,
+        accountId: r.account_id ?? '',
         amount: r.amount.toString(),
         type: r.type,
         description: r.description ?? '',
@@ -1198,6 +1238,10 @@ export const SpendingPage: React.FC = () => {
   const cancelDeactivateRecurring = useCallback(() => setRecurringPendingDeactivate(null), []);
 
   const handleSaveRecurring = (values: RecurringFormValues) => {
+    // Every new recurring rule must resolve to an account (spec-084, same
+    // invariant as spec-054 for manual transactions); editing a legacy
+    // NULL-account rule is still allowed to leave it unassigned.
+    if (!editingRecurring && !values.accountId) return;
     const isNthWeekday = values.frequency === 'monthly' && values.monthly_mode === 'nth_weekday';
     const monthlyMode = values.frequency === 'monthly' ? values.monthly_mode : 'day_of_month';
     const byWeekday = isNthWeekday && values.by_weekday ? parseInt(values.by_weekday, 10) : null;
@@ -1212,11 +1256,13 @@ export const SpendingPage: React.FC = () => {
         monthly_mode: monthlyMode,
         by_weekday: byWeekday,
         by_ordinal: byOrdinal,
+        ...(values.accountId ? { account_id: values.accountId } : {}),
       };
       updateRecurringMutation.mutate({ id: editingRecurring.public_id, data: update });
     } else {
       const create: RecurringTransactionCreate = {
         category_id: values.categoryId,
+        account_id: values.accountId,
         amount: parseFloat(values.amount),
         type: values.type as TransactionType,
         description: values.description || null,
@@ -1812,6 +1858,38 @@ export const SpendingPage: React.FC = () => {
                 </div>
               )}
 
+              {/* Account */}
+              <div>
+                <Label className="mb-2 block">Account</Label>
+                <Controller
+                  control={recurringControl}
+                  name="accountId"
+                  render={({ field }) => (
+                    <DropdownSelect
+                      testId="spending-recurring-account"
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      options={accountOptions}
+                      placeholder="Select account"
+                      showSearch
+                      sortByLabel
+                    />
+                  )}
+                />
+                {!editingRecurring && !recurringAccountIdWatch && (
+                  <p
+                    data-testid="spending-recurring-account-error"
+                    className="mt-2 text-sm text-rose-400"
+                  >
+                    Every recurring rule needs an account. Pick one above, or set a{' '}
+                    <Link to="/settings" className="underline hover:text-rose-300">
+                      default spending account
+                    </Link>{' '}
+                    in Finance Settings.
+                  </p>
+                )}
+              </div>
+
               {/* Type toggle (create only) */}
               {!editingRecurring && (
                 <div>
@@ -2101,7 +2179,11 @@ export const SpendingPage: React.FC = () => {
                   data-testid={
                     editingRecurring ? 'spending-recurring-update' : 'spending-recurring-create'
                   }
-                  disabled={createRecurringMutation.isPending || updateRecurringMutation.isPending}
+                  disabled={
+                    createRecurringMutation.isPending ||
+                    updateRecurringMutation.isPending ||
+                    (!editingRecurring && !recurringAccountIdWatch)
+                  }
                   className="flex-1 rounded-xl bg-gradient-to-tr from-cyan-600 to-cyan-500 py-2.5 text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   {createRecurringMutation.isPending || updateRecurringMutation.isPending

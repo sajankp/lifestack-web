@@ -368,6 +368,7 @@ export type SavingsRateResponse = z.infer<typeof SavingsRateResponseSchema>;
 export const RecurringTransactionSchema = z.object({
   public_id: z.string().default(''),
   category_id: z.string().default(''),
+  account_id: z.string().nullable().default(null),
   amount: z.union([z.number(), z.string()]).default(0),
   type: TransactionTypeSchema,
   description: z.string().nullable().default(null),
@@ -392,6 +393,7 @@ export type MonthlyMode = 'day_of_month' | 'last_day' | 'nth_weekday';
 
 export interface RecurringTransactionCreate {
   category_id: string;
+  account_id?: string | null;
   amount: number;
   type: TransactionType;
   description?: string | null;
@@ -405,6 +407,7 @@ export interface RecurringTransactionCreate {
 }
 
 export interface RecurringTransactionUpdate {
+  account_id?: string | null;
   amount?: number | null;
   description?: string | null;
   frequency?: RecurringFrequency | null;
@@ -419,6 +422,7 @@ export interface RecurringTransactionUpdate {
 export const UpcomingTransactionItemSchema = z.object({
   recurring_public_id: z.string().default(''),
   category_id: z.string().default(''),
+  account_id: z.string().nullable().default(null),
   amount: z.union([z.number(), z.string()]).default(0),
   type: TransactionTypeSchema,
   description: z.string().nullable().default(null),
