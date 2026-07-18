@@ -153,7 +153,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       value={workspace.public_id}
                       onChange={(event) => selectWorkspace(event.target.value)}
                       disabled={isSelectingWorkspace}
-                      className="max-w-[180px] bg-transparent text-sm font-semibold text-slate-100 outline-none"
+                      className="max-w-[260px] bg-transparent text-sm font-semibold text-slate-100 outline-none"
                     >
                       {workspaces.map((item) => (
                         <option
@@ -166,7 +166,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       ))}
                     </select>
                   ) : (
-                    <span className="font-semibold text-slate-100 truncate max-w-[140px]">
+                    <span className="font-semibold text-slate-100 truncate max-w-[240px]">
                       {workspace.name}
                     </span>
                   )}
@@ -188,19 +188,21 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               <div className="hidden items-center gap-2 lg:flex">
                 <Link
                   to="/todo?new=1"
+                  aria-label="Add todo"
                   data-testid="header-quick-todo"
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 text-xs font-semibold text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Todo
+                  Add todo
                 </Link>
                 <Link
                   to="/spending?new=1"
+                  aria-label="Add expense"
                   data-testid="header-quick-spending"
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 text-xs font-semibold text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  Spending
+                  Add expense
                 </Link>
               </div>
             </div>

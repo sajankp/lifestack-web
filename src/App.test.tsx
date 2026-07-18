@@ -159,4 +159,20 @@ describe('App shell', () => {
       expect(useWorkspaceStore.getState().activeWorkspaceId).toBe(workspaceB.public_id);
     });
   });
+
+  it('shows verb-based quick-add labels in header', async () => {
+    server.use(
+      ...defaultHandlers,
+      http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [workspaceA] })),
+    );
+
+    renderApp();
+
+    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Add todo' })).toHaveAttribute('href', '/todo?new=1');
+    expect(screen.getByRole('link', { name: 'Add expense' })).toHaveAttribute(
+      'href',
+      '/spending?new=1',
+    );
+  });
 });

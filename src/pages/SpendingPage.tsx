@@ -272,6 +272,14 @@ export const SpendingPage: React.FC = () => {
     'analytics',
     'ledger',
   ];
+  const tabTitles: Record<SpendingTab, string> = {
+    transactions: 'Transactions',
+    budgets: 'Budgets',
+    kpis: 'KPIs',
+    recurring: 'Recurring rules',
+    analytics: 'Analytics',
+    ledger: 'Account activity',
+  };
   const [activeTab, setActiveTab] = useState<SpendingTab>(() => {
     const requested = new URLSearchParams(window.location.search).get('tab');
     return (SPENDING_TABS as string[]).includes(requested ?? '')
@@ -1413,58 +1421,76 @@ export const SpendingPage: React.FC = () => {
   }, [budgetsSummaryResponse, categoryById]);
 
   const isLoading = isCatsLoading || isTxLoading || isBudgetsLoading || isSummaryLoading;
+  const isTransactionsTab = activeTab === 'transactions';
 
   return (
     <PageShell animated>
-      <PageHero
-        title="Spending Overview"
-        subtitle={`Track your finances across the workspace for ${monthRange.label}.`}
-        actions={
-          <>
-            <button
-              onClick={openTransactionModalForNew}
-              data-testid="spending-open-new-transaction"
-              className="group relative flex h-12 min-w-[170px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-tr from-cyan-600 to-cyan-500 px-5 font-semibold text-white shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.01] hover:shadow-cyan-500/40 active:scale-95"
-            >
-              <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
-              <Plus className="h-5 w-5" />
-              <span className="whitespace-nowrap">New Transaction</span>
-            </button>
+      {isTransactionsTab ? (
+        <PageHero
+          title="Spending Overview"
+          subtitle={`Track your finances across the workspace for ${monthRange.label}.`}
+          actions={
+            <>
+              <button
+                onClick={openTransactionModalForNew}
+                data-testid="spending-open-new-transaction"
+                className="group relative flex h-12 min-w-[170px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-tr from-cyan-600 to-cyan-500 px-5 font-semibold text-white shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.01] hover:shadow-cyan-500/40 active:scale-95"
+              >
+                <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
+                <Plus className="h-5 w-5" />
+                <span className="whitespace-nowrap">New Transaction</span>
+              </button>
 
-            <button
-              onClick={openBudgetModalForNew}
-              data-testid="spending-open-set-budget"
-              className="group relative flex h-12 min-w-[150px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
-            >
-              <Target className="h-5 w-5" />
-              <span className="whitespace-nowrap">Set Budget</span>
-            </button>
-            <button
-              onClick={openRecurringModalForNew}
-              data-testid="spending-open-add-recurring"
-              className="group relative flex h-12 min-w-[160px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
-            >
-              <Clock3 className="h-5 w-5" aria-hidden="true" />
-              <span className="whitespace-nowrap">Add Recurring</span>
-            </button>
-            <button
-              onClick={() => setIsTransferModalOpen(true)}
-              className="group relative flex h-12 min-w-[130px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
-            >
-              <ArrowRightLeft className="h-5 w-5" />
-              <span className="whitespace-nowrap">Transfer</span>
-            </button>
-            <button
-              onClick={() => setIsManageCategoriesOpen(true)}
-              data-testid="spending-open-manage-categories"
-              className="group relative flex h-12 min-w-[160px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
-            >
-              <Tag className="h-5 w-5" />
-              <span className="whitespace-nowrap">Categories</span>
-            </button>
-          </>
-        }
-      />
+              <button
+                onClick={openBudgetModalForNew}
+                data-testid="spending-open-set-budget"
+                className="group relative flex h-12 min-w-[150px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
+              >
+                <Target className="h-5 w-5" />
+                <span className="whitespace-nowrap">Set Budget</span>
+              </button>
+              <button
+                onClick={openRecurringModalForNew}
+                data-testid="spending-open-add-recurring"
+                className="group relative flex h-12 min-w-[160px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
+              >
+                <Clock3 className="h-5 w-5" aria-hidden="true" />
+                <span className="whitespace-nowrap">Add Recurring</span>
+              </button>
+              <button
+                onClick={() => setIsTransferModalOpen(true)}
+                className="group relative flex h-12 min-w-[130px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
+              >
+                <ArrowRightLeft className="h-5 w-5" />
+                <span className="whitespace-nowrap">Transfer</span>
+              </button>
+              <button
+                onClick={() => setIsManageCategoriesOpen(true)}
+                data-testid="spending-open-manage-categories"
+                className="group relative flex h-12 min-w-[160px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
+              >
+                <Tag className="h-5 w-5" />
+                <span className="whitespace-nowrap">Categories</span>
+              </button>
+            </>
+          }
+        />
+      ) : (
+        <div className="mb-4 flex items-start justify-between gap-3 rounded-2xl border border-slate-700/50 bg-slate-900/40 px-4 py-3">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight text-white">Spending Overview</h1>
+            <p className="mt-1 text-xs text-slate-400">Viewing {tabTitles[activeTab]}</p>
+          </div>
+          <button
+            onClick={openTransactionModalForNew}
+            data-testid="spending-open-new-transaction"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20"
+          >
+            <Plus className="h-4 w-4" />
+            Add transaction
+          </button>
+        </div>
+      )}
 
       {activeTab === 'transactions' || activeTab === 'ledger' ? (
         <CompactFilterBar
@@ -1547,88 +1573,100 @@ export const SpendingPage: React.FC = () => {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/80 p-6 backdrop-blur-xl transition-all hover:border-slate-600">
-          <div className="absolute -right-4 -top-4 rounded-full bg-emerald-500/10 p-8 blur-2xl" />
-          <div className="flex items-center gap-4">
-            <div className="rounded-xl bg-emerald-500/20 p-3 text-emerald-400">
-              <ArrowUpCircle className="h-8 w-8" />
+      {isTransactionsTab ? (
+        <>
+          {/* Summary Cards */}
+          <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/80 p-6 backdrop-blur-xl transition-all hover:border-slate-600">
+              <div className="absolute -right-4 -top-4 rounded-full bg-emerald-500/10 p-8 blur-2xl" />
+              <div className="flex items-center gap-4">
+                <div className="rounded-xl bg-emerald-500/20 p-3 text-emerald-400">
+                  <ArrowUpCircle className="h-8 w-8" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-400">Total Income</p>
+                  <h2 className="text-2xl font-bold text-white">
+                    {formatCurrency(summary.income, displayCurrency, currencyDisplayPreference)}
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-slate-400">Total Income</p>
-              <h2 className="text-2xl font-bold text-white">
-                {formatCurrency(summary.income, displayCurrency, currencyDisplayPreference)}
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
-            </div>
-          </div>
-        </div>
 
-        <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/80 p-6 backdrop-blur-xl transition-all hover:border-slate-600">
-          <div className="absolute -right-4 -top-4 rounded-full bg-rose-500/10 p-8 blur-2xl" />
-          <div className="flex items-center gap-4">
-            <div className="rounded-xl bg-rose-500/20 p-3 text-rose-400">
-              <ArrowDownCircle className="h-8 w-8" />
+            <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/80 p-6 backdrop-blur-xl transition-all hover:border-slate-600">
+              <div className="absolute -right-4 -top-4 rounded-full bg-rose-500/10 p-8 blur-2xl" />
+              <div className="flex items-center gap-4">
+                <div className="rounded-xl bg-rose-500/20 p-3 text-rose-400">
+                  <ArrowDownCircle className="h-8 w-8" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-400">Total Expenses</p>
+                  <h2 className="text-2xl font-bold text-white">
+                    {formatCurrency(summary.expense, displayCurrency, currencyDisplayPreference)}
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-slate-400">Total Expenses</p>
-              <h2 className="text-2xl font-bold text-white">
-                {formatCurrency(summary.expense, displayCurrency, currencyDisplayPreference)}
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
-            </div>
-          </div>
-        </div>
 
-        <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800 to-slate-800/80 p-6 backdrop-blur-xl transition-all hover:border-slate-600">
-          <div
-            className={`absolute -right-4 -top-4 rounded-full p-8 blur-2xl ${
-              summary.net >= 0 ? 'bg-cyan-500/10' : 'bg-red-500/10'
-            }`}
-          />
-          <div className="flex items-start justify-between gap-4">
-            <div
-              className={`rounded-xl p-3 ${
-                summary.net >= 0 ? 'bg-cyan-500/20 text-cyan-400' : 'bg-red-500/20 text-red-400'
-              }`}
-            >
-              <Wallet className="h-8 w-8" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-400">Net cash flow (selected period)</p>
-              <h2 className="text-2xl font-bold text-white">
-                {formatCurrency(summary.net, displayCurrency, currencyDisplayPreference)}
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
+            <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800 to-slate-800/80 p-6 backdrop-blur-xl transition-all hover:border-slate-600">
+              <div
+                className={`absolute -right-4 -top-4 rounded-full p-8 blur-2xl ${
+                  summary.net >= 0 ? 'bg-cyan-500/10' : 'bg-red-500/10'
+                }`}
+              />
+              <div className="flex items-start justify-between gap-4">
+                <div
+                  className={`rounded-xl p-3 ${
+                    summary.net >= 0
+                      ? 'bg-cyan-500/20 text-cyan-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}
+                >
+                  <Wallet className="h-8 w-8" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-400">
+                    Net cash flow (selected period)
+                  </p>
+                  <h2 className="text-2xl font-bold text-white">
+                    {formatCurrency(summary.net, displayCurrency, currencyDisplayPreference)}
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-      {activeTab === 'transactions' && showSourceCurrencyHint ? (
-        <div className="mb-6 flex items-start justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/35 px-4 py-3 text-xs text-slate-300">
-          <p>
-            Transaction rows show their original source currency. Summary cards above are reported
-            in {displayCurrency}.
-          </p>
-          <button
-            type="button"
-            className="shrink-0 rounded border border-slate-600 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800"
-            onClick={() => {
-              setShowSourceCurrencyHint(false);
-              try {
-                window.localStorage.setItem(SOURCE_CURRENCY_HINT_DISMISSED_KEY, 'true');
-              } catch {
-                // ignore storage errors
-              }
-            }}
-          >
-            Dismiss
-          </button>
-        </div>
+          {showSourceCurrencyHint ? (
+            <div className="mb-6 flex items-start justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/35 px-4 py-3 text-xs text-slate-300">
+              <p>
+                Transaction rows show their original source currency. Summary cards above are
+                reported in {displayCurrency}.
+              </p>
+              <button
+                type="button"
+                className="shrink-0 rounded border border-slate-600 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800"
+                onClick={() => {
+                  setShowSourceCurrencyHint(false);
+                  try {
+                    window.localStorage.setItem(SOURCE_CURRENCY_HINT_DISMISSED_KEY, 'true');
+                  } catch {
+                    // ignore storage errors
+                  }
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
+          ) : null}
+        </>
       ) : null}
 
-      <div className="mb-6 flex gap-2 overflow-x-auto border-b border-slate-700/50 pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div
+        className={`mb-6 flex gap-2 overflow-x-auto border-b border-slate-700/50 pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+          isTransactionsTab ? '' : 'sticky top-0 z-20 bg-slate-950/95 py-1 backdrop-blur'
+        }`}
+      >
         <button
           data-testid="spending-tab-transactions"
           onClick={() => setActiveTab('transactions')}
