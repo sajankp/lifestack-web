@@ -411,6 +411,8 @@ describe('SpendingPage', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByTestId('spending-account-filter')).not.toBeInTheDocument();
+    expect(screen.queryByText('Total Income')).not.toBeInTheDocument();
+    expect(screen.queryByText('Net cash flow (selected period)')).not.toBeInTheDocument();
   });
 
   it('switches to budgets tab and shows budget cards with progress', async () => {
