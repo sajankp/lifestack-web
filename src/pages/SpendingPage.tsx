@@ -1480,6 +1480,7 @@ export const SpendingPage: React.FC = () => {
             setTxSort('date_desc');
             setTxOffset(0);
             setBudgetOffset(0);
+            setLedgerOffset(0);
           }}
         >
           <CompactFilterField label="Date range">
@@ -1491,6 +1492,7 @@ export const SpendingPage: React.FC = () => {
                 setToDate(to);
                 setTxOffset(0);
                 setBudgetOffset(0);
+                setLedgerOffset(0);
               }}
               placeholder="Select date range"
             />

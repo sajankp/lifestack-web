@@ -330,12 +330,15 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
             const current = parseFloat(kpi.current_value.toString());
             const target =
               kpi.target_value != null ? parseFloat(kpi.target_value.toString()) : null;
-            const progress = target ? Math.min(100, Math.max(0, (current / target) * 100)) : null;
+            const hasPositiveTarget = target != null && Number.isFinite(target) && target > 0;
+            const progress = hasPositiveTarget
+              ? Math.min(100, Math.max(0, (current / target) * 100))
+              : null;
             const breachDeltaPct =
-              target && kpi.is_breached
+              hasPositiveTarget && kpi.is_breached
                 ? kpi.target_direction === 'lte'
-                  ? ((current - target) / target) * 100
-                  : ((target - current) / target) * 100
+                  ? (Math.abs(current - target) / target) * 100
+                  : (Math.abs(target - current) / target) * 100
                 : null;
 
             return (
