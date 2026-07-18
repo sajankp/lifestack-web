@@ -39,6 +39,12 @@ describe('ImportsPage', () => {
       http.get('*/v1/imports', () =>
         HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
       ),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 500, offset: 0 }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
     );
   });
 
@@ -220,6 +226,7 @@ describe('ImportsPage', () => {
     renderWithQuery(<ImportsPage />);
 
     fireEvent.click(await screen.findByTestId(`imports-list-item-${importId}`));
+    expect(await screen.findByText('No errors')).toBeInTheDocument();
     expect(await screen.findByTestId('imports-delete')).toHaveTextContent('Roll back import');
     fireEvent.click(screen.getByTestId('imports-delete'));
     expect(await screen.findByRole('dialog')).toHaveTextContent(/Roll back import\?/i);
@@ -566,5 +573,158 @@ describe('ImportsPage', () => {
 
     expect(await screen.findByText('resolved')).toBeInTheDocument();
     expect(screen.getByText('unresolved')).toBeInTheDocument();
+  });
+
+  it('resolves preview category ids to names and keeps full description in tooltip', async () => {
+    const importId = '33333333-3333-3333-3333-333333333333';
+    const rawCategoryUuid = '5b7a47a3-c7a5-4619-9a9d-111111111111';
+    const longDescription =
+      'Groceries weekly bulk purchase with discount and long memo for preview readability checks';
+
+    server.use(
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({
+          items: [{ public_id: 'cat-food', name: 'Food', icon: null, color: '#64748b', is_system: false }],
+          total: 1,
+          limit: 500,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/imports', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: importId,
+              status: 'validated',
+              module: 'spending-transactions',
+              filename: 'spending.csv',
+              content_type: 'text/csv',
+              file_size_bytes: 128,
+              file_sha256: 'abc',
+              storage_backend: 'db',
+              storage_key: null,
+              total_rows: 1,
+              valid_rows: 1,
+              error_rows: 0,
+              started_at: '2026-06-01T00:00:00Z',
+              validated_at: '2026-06-01T00:00:01Z',
+              committed_at: null,
+            },
+          ],
+          total: 1,
+          limit: 20,
+          offset: 0,
+        }),
+      ),
+      http.get(`*/v1/imports/${importId}`, () =>
+        HttpResponse.json({
+          import_batch: {
+            public_id: importId,
+            status: 'validated',
+            module: 'spending-transactions',
+            filename: 'spending.csv',
+            content_type: 'text/csv',
+            file_size_bytes: 128,
+            file_sha256: 'abc',
+            storage_backend: 'db',
+            storage_key: null,
+            total_rows: 1,
+            valid_rows: 1,
+            error_rows: 0,
+            started_at: '2026-06-01T00:00:00Z',
+            validated_at: '2026-06-01T00:00:01Z',
+            committed_at: null,
+          },
+          errors: [],
+          error_summary: { total_errors: 0, returned_errors: 0, by_code: {}, by_field: {} },
+          preview_rows: [
+            {
+              row_number: 1,
+              payload_json: {
+                occurred_at: '2026-06-01',
+                type: 'expense',
+                amount: '42.50',
+                category_name: rawCategoryUuid,
+                category_id: 'cat-food',
+                description: longDescription,
+              },
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithQuery(<ImportsPage />);
+
+    fireEvent.click(await screen.findByTestId(`imports-list-item-${importId}`));
+
+    expect(await screen.findByText('Food')).toBeInTheDocument();
+    expect(screen.queryByText(rawCategoryUuid)).not.toBeInTheDocument();
+
+    const descriptionCell = screen.getByText(longDescription).closest('td');
+    expect(descriptionCell).toHaveAttribute('title', longDescription);
+  });
+
+  it('refreshes to completed state after apply and keeps recovery below primary action', async () => {
+    const importId = '44444444-4444-4444-4444-444444444444';
+    let status: 'validated' | 'completed' = 'validated';
+
+    const makeBatch = () => ({
+      public_id: importId,
+      status,
+      module: 'spending-budgets',
+      filename: 'budgets.csv',
+      content_type: 'text/csv',
+      file_size_bytes: 128,
+      file_sha256: 'abc',
+      storage_backend: 'db',
+      storage_key: null,
+      total_rows: 1,
+      valid_rows: 1,
+      error_rows: 0,
+      started_at: '2026-06-01T00:00:00Z',
+      validated_at: '2026-06-01T00:00:01Z',
+      committed_at: status === 'completed' ? '2026-06-01T00:00:02Z' : null,
+    });
+
+    server.use(
+      http.get('*/v1/imports', () =>
+        HttpResponse.json({ items: [makeBatch()], total: 1, limit: 20, offset: 0 }),
+      ),
+      http.get(`*/v1/imports/${importId}`, () =>
+        HttpResponse.json({
+          import_batch: makeBatch(),
+          errors: [],
+          error_summary: { total_errors: 0, returned_errors: 0, by_code: {}, by_field: {} },
+          preview_rows: [
+            {
+              row_number: 1,
+              payload_json: { month_start: '2026-06-01', category_id: 'cat-food', amount: '1000' },
+            },
+          ],
+        }),
+      ),
+      http.post(`*/v1/imports/${importId}/commit`, () => {
+        status = 'completed';
+        return HttpResponse.json({ import_batch: makeBatch(), inserted_rows: 1 });
+      }),
+    );
+
+    renderWithQuery(<ImportsPage />);
+
+    fireEvent.click(await screen.findByTestId(`imports-list-item-${importId}`));
+
+    const applyButton = await screen.findByTestId('imports-commit');
+    const recoveryHeading = await screen.findByText('Recovery');
+    expect(
+      Boolean(applyButton.compareDocumentPosition(recoveryHeading) & Node.DOCUMENT_POSITION_FOLLOWING),
+    ).toBe(true);
+
+    fireEvent.click(applyButton);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('imports-commit')).not.toBeInTheDocument();
+    });
+    expect(screen.getByText('Import applied')).toBeInTheDocument();
   });
 });
