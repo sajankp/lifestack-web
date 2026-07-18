@@ -109,6 +109,24 @@ describe('KpisTab (spec-077)', () => {
     expect(screen.queryByText(/over target|below target/i)).not.toBeInTheDocument();
   });
 
+  it('falls back to plain breached badge for invalid current values', async () => {
+    server.use(
+      http.get('*/v1/spending/kpis', () =>
+        HttpResponse.json({
+          items: [kpiRow({ current_value: 'not-a-number', is_breached: true })],
+          total: 1,
+          limit: 20,
+          offset: 0,
+        }),
+      ),
+    );
+    renderTab();
+
+    expect(await screen.findByTestId('kpi-breach-badge-kpi-1')).toHaveTextContent('Breached');
+    expect(screen.queryByText(/NaN%/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/over target|below target/i)).not.toBeInTheDocument();
+  });
+
   it('creates a new KPI via the form', async () => {
     const captured: { body: Record<string, unknown> | null } = { body: null };
     server.use(
