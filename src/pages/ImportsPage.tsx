@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { useToast } from '../components/ui/toast';
 import { importsService } from '../services/imports';
 import { financeService } from '../services/finance';
+import { spendingService } from '../services/spending';
 import { trackEvent } from '../lib/analytics';
 import type { ImportErrorItem, ImportModule, ImportValidateResponse } from '../types/imports';
 import { formatDate } from '../utils/dateFormat';
@@ -123,6 +124,23 @@ const importStatusLabel = (status: string | null | undefined): string => {
   return IMPORT_STATUS_LABELS[status] ?? status.replace(/_/g, ' ');
 };
 
+const isHexChar = (char: string): boolean => {
+  const code = char.toLowerCase().charCodeAt(0);
+  return (code >= 48 && code <= 57) || (code >= 97 && code <= 102);
+};
+
+const isLikelyUuid = (value: string): boolean => {
+  if (value.length !== 36) return false;
+  if (value[8] !== '-' || value[13] !== '-' || value[18] !== '-' || value[23] !== '-') return false;
+
+  for (let i = 0; i < value.length; i += 1) {
+    if (i === 8 || i === 13 || i === 18 || i === 23) continue;
+    if (!isHexChar(value[i])) return false;
+  }
+
+  return true;
+};
+
 export const ImportsPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -152,6 +170,10 @@ export const ImportsPage: React.FC = () => {
   const { data: accountsResponse } = useQuery({
     queryKey: ['finance', 'accounts', 'imports'],
     queryFn: () => financeService.getAccounts(200, 0),
+  });
+  const { data: categoriesResponse } = useQuery({
+    queryKey: ['spending', 'categories', 'imports'],
+    queryFn: () => spendingService.getCategories(500, 0),
   });
   // No account-type restriction for the import-level target account
   // (spec-054) — any active account works, matching how a row's
@@ -224,12 +246,36 @@ export const ImportsPage: React.FC = () => {
     },
   });
 
+  const categoryNameById = useMemo(
+    () => new Map((categoriesResponse?.items ?? []).map((category) => [category.public_id, category.name])),
+    [categoriesResponse?.items],
+  );
+
   const activeDetail = useMemo(() => {
     if (detailQuery.data) return detailQuery.data;
     if (latestValidation && latestValidation.import_batch.public_id === selectedImportId)
       return latestValidation;
     return null;
   }, [detailQuery.data, latestValidation, selectedImportId]);
+
+  const resolvePreviewCategory = (payload: Record<string, unknown>): string => {
+    const categoryName = typeof payload.category_name === 'string' ? payload.category_name.trim() : '';
+    const categoryId = typeof payload.category_id === 'string' ? payload.category_id.trim() : '';
+
+    if (categoryId && categoryNameById.has(categoryId)) {
+      return categoryNameById.get(categoryId) as string;
+    }
+
+    if (categoryName && categoryNameById.has(categoryName)) {
+      return categoryNameById.get(categoryName) as string;
+    }
+
+    if (categoryName && !isLikelyUuid(categoryName)) {
+      return categoryName;
+    }
+
+    return '-';
+  };
 
   const uploadMutation = useMutation({
     mutationFn: () => {
@@ -297,7 +343,66 @@ export const ImportsPage: React.FC = () => {
 
   const commitMutation = useMutation({
     mutationFn: (importPublicId: string) => importsService.commitImport(importPublicId),
-    onSuccess: async (_, importPublicId) => {
+    onMutate: (importPublicId) => {
+      setLatestValidation((previous) => {
+        if (!previous || previous.import_batch.public_id !== importPublicId) return previous;
+        return {
+          ...previous,
+          import_batch: { ...previous.import_batch, status: 'committing' },
+        };
+      });
+
+      queryClient.setQueryData(['imports', 'detail', importPublicId], (previous: ImportValidateResponse) => {
+        if (!previous) return previous;
+        return {
+          ...previous,
+          import_batch: { ...previous.import_batch, status: 'committing' },
+        };
+      });
+
+      queryClient.setQueryData(['imports', 'list'], (previous: { items?: Array<Record<string, unknown>> } | undefined) => {
+        if (!previous?.items) return previous;
+        return {
+          ...previous,
+          items: previous.items.map((item) =>
+            item.public_id === importPublicId ? { ...item, status: 'committing' } : item,
+          ),
+        };
+      });
+    },
+    onSuccess: async (data, importPublicId) => {
+      setLatestValidation((previous) => {
+        if (!previous || previous.import_batch.public_id !== importPublicId) return previous;
+        return {
+          ...previous,
+          import_batch: {
+            ...previous.import_batch,
+            ...data.import_batch,
+          },
+        };
+      });
+
+      queryClient.setQueryData(['imports', 'detail', importPublicId], (previous: ImportValidateResponse) => {
+        if (!previous) return previous;
+        return {
+          ...previous,
+          import_batch: {
+            ...previous.import_batch,
+            ...data.import_batch,
+          },
+        };
+      });
+
+      queryClient.setQueryData(['imports', 'list'], (previous: { items?: Array<Record<string, unknown>> } | undefined) => {
+        if (!previous?.items) return previous;
+        return {
+          ...previous,
+          items: previous.items.map((item) =>
+            item.public_id === importPublicId ? { ...item, ...data.import_batch } : item,
+          ),
+        };
+      });
+
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['imports', 'list'] }),
         queryClient.invalidateQueries({ queryKey: ['imports', 'detail', importPublicId] }),
@@ -614,6 +719,68 @@ export const ImportsPage: React.FC = () => {
 
           {selectedImportId && activeDetail ? (
             <>
+
+
+              <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/40 p-3 text-sm text-slate-200">
+                <p>
+                  Module: <span className="font-semibold">{activeDetail.import_batch.module}</span>
+                </p>
+                <p>
+                  Status:{' '}
+                  <span className="font-semibold">
+                    {importStatusLabel(activeDetail.import_batch.status)}
+                  </span>
+                </p>
+                <p>
+                  Rows: {activeDetail.import_batch.valid_rows}/
+                  {activeDetail.import_batch.total_rows} valid
+                </p>
+                {activeDetail.error_summary ? (
+                  <p>
+                    {activeDetail.error_summary.total_errors === 0
+                      ? 'No errors'
+                      : activeDetail.error_summary.returned_errors <
+                          activeDetail.error_summary.total_errors
+                        ? `Showing ${activeDetail.error_summary.returned_errors} of ${activeDetail.error_summary.total_errors} errors`
+                        : `${activeDetail.error_summary.total_errors} errors`}
+                  </p>
+                ) : null}
+              </div>
+
+              {activeDetail.import_batch.status === 'failed_commit' ? (
+                <div className="mb-4 rounded-lg border border-rose-700/50 bg-rose-950/40 p-3 text-sm">
+                  <p className="mb-1 font-semibold text-rose-300">Apply failed</p>
+                  <p className="text-rose-200">
+                    {activeDetail.import_batch.commit_error ||
+                      'An unexpected error occurred while applying the import.'}
+                  </p>
+                </div>
+              ) : null}
+
+              {activeDetail.import_batch.module === 'investing-demat-cas' ? (
+                <p className="mb-2 text-xs text-slate-500">
+                  Applying writes a read-only verification record — it never creates or changes a
+                  holding, order, or cash balance.
+                </p>
+              ) : null}
+
+              {activeDetail.import_batch.status === 'validated' ? (
+                <button
+                  data-testid="imports-commit"
+                  type="button"
+                  disabled={commitMutation.isPending}
+                  onClick={() => commitMutation.mutate(activeDetail.import_batch.public_id)}
+                  className="mb-4 h-10 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {commitMutation.isPending ? 'Applying...' : 'Apply import'}
+                </button>
+              ) : null}
+              {commitMutation.isError ? (
+                <p className="mb-4 text-sm text-rose-300">
+                  Apply failed. Refresh import details and retry.
+                </p>
+              ) : null}
+
               {(() => {
                 const lifecycle = lifecycleCopy(activeDetail.import_batch.status);
                 const canDelete = [
@@ -643,62 +810,6 @@ export const ImportsPage: React.FC = () => {
                   </div>
                 );
               })()}
-
-              <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/40 p-3 text-sm text-slate-200">
-                <p>
-                  Module: <span className="font-semibold">{activeDetail.import_batch.module}</span>
-                </p>
-                <p>
-                  Status:{' '}
-                  <span className="font-semibold">
-                    {importStatusLabel(activeDetail.import_batch.status)}
-                  </span>
-                </p>
-                <p>
-                  Rows: {activeDetail.import_batch.valid_rows}/
-                  {activeDetail.import_batch.total_rows} valid
-                </p>
-                {activeDetail.error_summary ? (
-                  <p>
-                    Error summary: {activeDetail.error_summary.returned_errors}/
-                    {activeDetail.error_summary.total_errors} returned
-                  </p>
-                ) : null}
-              </div>
-
-              {activeDetail.import_batch.status === 'failed_commit' ? (
-                <div className="mb-4 rounded-lg border border-rose-700/50 bg-rose-950/40 p-3 text-sm">
-                  <p className="mb-1 font-semibold text-rose-300">Apply failed</p>
-                  <p className="text-rose-200">
-                    {activeDetail.import_batch.commit_error ||
-                      'An unexpected error occurred while applying the import.'}
-                  </p>
-                </div>
-              ) : null}
-
-              {activeDetail.import_batch.module === 'investing-demat-cas' ? (
-                <p className="mb-2 text-xs text-slate-500">
-                  Applying writes a read-only verification record — it never creates or changes a
-                  holding, order, or cash balance.
-                </p>
-              ) : null}
-
-              <button
-                data-testid="imports-commit"
-                type="button"
-                disabled={
-                  activeDetail.import_batch.status !== 'validated' || commitMutation.isPending
-                }
-                onClick={() => commitMutation.mutate(activeDetail.import_batch.public_id)}
-                className="mb-4 h-10 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {commitMutation.isPending ? 'Applying...' : 'Apply import'}
-              </button>
-              {commitMutation.isError ? (
-                <p className="mb-4 text-sm text-rose-300">
-                  Apply failed. Refresh import details and retry.
-                </p>
-              ) : null}
 
               {/* Preview Rows Section */}
               {activeDetail.import_batch.status === 'validated' &&
@@ -829,9 +940,16 @@ export const ImportsPage: React.FC = () => {
                                 </td>
                                 <td className="px-3 py-2">{row.payload_json.amount}</td>
                                 <td className="px-3 py-2">
-                                  {row.payload_json.category_name ?? '-'}
+                                  {resolvePreviewCategory(row.payload_json)}
                                 </td>
-                                <td className="px-3 py-2 truncate max-w-xs">
+                                <td
+                                  className="px-3 py-2 max-w-xs whitespace-normal break-words"
+                                  title={
+                                    typeof row.payload_json.description === 'string'
+                                      ? row.payload_json.description
+                                      : undefined
+                                  }
+                                >
                                   {row.payload_json.description ?? '-'}
                                 </td>
                               </>
@@ -840,7 +958,7 @@ export const ImportsPage: React.FC = () => {
                               <>
                                 <td className="px-3 py-2">{row.payload_json.month_start}</td>
                                 <td className="px-3 py-2">
-                                  {row.payload_json.category_name ?? '-'}
+                                  {resolvePreviewCategory(row.payload_json)}
                                 </td>
                                 <td className="px-3 py-2">{row.payload_json.amount}</td>
                               </>
