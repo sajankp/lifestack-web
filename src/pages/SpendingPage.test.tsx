@@ -135,7 +135,7 @@ describe('SpendingPage', () => {
     expect(await screen.findByText('Spending Overview')).toBeInTheDocument();
     expect(await screen.findByText('Total Income')).toBeInTheDocument();
     expect(screen.getByText('Total Expenses')).toBeInTheDocument();
-    expect(screen.getByText('Net Balance')).toBeInTheDocument();
+    expect(screen.getByText('Net cash flow (selected period)')).toBeInTheDocument();
   });
 
   it('shows correct summary totals from API response', async () => {
