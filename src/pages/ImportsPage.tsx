@@ -406,8 +406,6 @@ export const ImportsPage: React.FC = () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['imports', 'list'] }),
         queryClient.invalidateQueries({ queryKey: ['imports', 'detail', importPublicId] }),
-        queryClient.refetchQueries({ queryKey: ['imports', 'list'] }),
-        queryClient.refetchQueries({ queryKey: ['imports', 'detail', importPublicId] }),
       ]);
       trackEvent('import_completed');
       showToast('Import applied', 'success');
