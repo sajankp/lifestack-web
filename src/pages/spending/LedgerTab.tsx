@@ -142,7 +142,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
                 <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
-                  Projected Balance
+                  Current account balance
                 </p>
                 <p
                   className={`text-xl font-bold ${
@@ -162,7 +162,9 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                 )}
               </div>
               <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-                <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Page Opening</p>
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
+                  Opening balance (this page)
+                </p>
                 <p
                   className={`text-xl font-bold ${
                     Number(ledger?.opening_balance ?? 0) >= 0 ? 'text-slate-200' : 'text-rose-400'
@@ -172,7 +174,9 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                 </p>
               </div>
               <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-                <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">Page Closing</p>
+                <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
+                  Closing balance (this page)
+                </p>
                 <p
                   className={`text-xl font-bold ${
                     Number(ledger?.closing_balance ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
@@ -241,14 +245,14 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                           </p>
                         </div>
                         <span
-                          className={`shrink-0 font-mono text-sm font-semibold ${
+                          className={`shrink-0 text-sm font-semibold ${
                             isCredit
                               ? isTransfer
                                 ? 'text-cyan-400'
                                 : 'text-emerald-400'
                               : isTransfer
                                 ? 'text-indigo-400'
-                                : 'text-rose-400'
+                                : 'text-slate-100'
                           }`}
                         >
                           {isCredit ? '+' : '-'}
@@ -269,11 +273,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                         ) : (
                           <span className="text-slate-500">Balance</span>
                         )}
-                        <span
-                          className={`font-mono ${
-                            balance >= 0 ? 'text-slate-200' : 'text-rose-400'
-                          }`}
-                        >
+                        <span className={`${balance >= 0 ? 'text-slate-200' : 'text-rose-400'}`}>
                           {formatCurrency(balance, currency, currencyDisplayPreference)}
                         </span>
                       </div>
@@ -387,21 +387,21 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono">
+                          <td className="px-4 py-3 text-right">
                             {!isCredit && (
-                              <span className={isTransfer ? 'text-indigo-400' : 'text-rose-400'}>
+                              <span className={isTransfer ? 'text-indigo-400' : 'text-slate-100'}>
                                 {formatCurrency(amount, currency, currencyDisplayPreference)}
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono">
+                          <td className="px-4 py-3 text-right">
                             {isCredit && (
                               <span className={isTransfer ? 'text-cyan-400' : 'text-emerald-400'}>
                                 {formatCurrency(amount, currency, currencyDisplayPreference)}
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right font-mono">
+                          <td className="px-4 py-3 text-right">
                             <span className={balance >= 0 ? 'text-slate-200' : 'text-rose-400'}>
                               {formatCurrency(balance, currency, currencyDisplayPreference)}
                             </span>

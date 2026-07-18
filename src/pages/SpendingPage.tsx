@@ -178,6 +178,7 @@ const UNASSIGNED_ACCOUNT_FILTER_VALUE = '__unassigned__';
 // Page size for the Account activity tab's transfer public_id lookup — matches the
 // API's PaginationParams MAX_LIMIT (app/core/pagination.py), which 422s above 200.
 const TRANSFERS_LOOKUP_PAGE_SIZE = 200;
+const SOURCE_CURRENCY_HINT_DISMISSED_KEY = 'spending:sourceCurrencyHintDismissed';
 
 // Sort options for the transactions list. Values mirror the API's
 // TransactionSort enum; sorting is applied server-side so it holds across pages.
@@ -280,6 +281,13 @@ export const SpendingPage: React.FC = () => {
 
   // Ledger tab state
   const [ledgerAccountId, setLedgerAccountId] = useState('');
+  const [showSourceCurrencyHint, setShowSourceCurrencyHint] = useState(() => {
+    try {
+      return window.localStorage.getItem(SOURCE_CURRENCY_HINT_DISMISSED_KEY) !== 'true';
+    } catch {
+      return true;
+    }
+  });
   const [ledgerOffset, setLedgerOffset] = useState(0);
   const ledgerLimit = 50;
 
@@ -1588,7 +1596,7 @@ export const SpendingPage: React.FC = () => {
               <Wallet className="h-8 w-8" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-400">Net Balance</p>
+              <p className="text-sm font-medium text-slate-400">Net cash flow (selected period)</p>
               <h2 className="text-2xl font-bold text-white">
                 {formatCurrency(summary.net, displayCurrency, currencyDisplayPreference)}
               </h2>
@@ -1597,10 +1605,28 @@ export const SpendingPage: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="mb-6 rounded-xl border border-slate-700/50 bg-slate-900/35 px-4 py-3 text-xs text-slate-300">
-        Transaction rows show their original source currency. Summary cards above are reported in{' '}
-        {displayCurrency}.
-      </div>
+      {activeTab === 'transactions' && showSourceCurrencyHint ? (
+        <div className="mb-6 flex items-start justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/35 px-4 py-3 text-xs text-slate-300">
+          <p>
+            Transaction rows show their original source currency. Summary cards above are reported
+            in {displayCurrency}.
+          </p>
+          <button
+            type="button"
+            className="shrink-0 rounded border border-slate-600 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800"
+            onClick={() => {
+              setShowSourceCurrencyHint(false);
+              try {
+                window.localStorage.setItem(SOURCE_CURRENCY_HINT_DISMISSED_KEY, 'true');
+              } catch {
+                // ignore storage errors
+              }
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
 
       <div className="mb-6 flex gap-2 overflow-x-auto border-b border-slate-700/50 pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <button
