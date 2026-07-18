@@ -1,4 +1,5 @@
 import type { Todo } from '../../services/todo';
+import { startOfLocalDayFromDueDate } from './dueDate';
 
 export type TodoBucketLabel = 'Overdue' | 'Today' | 'Upcoming' | 'Later' | 'No due date';
 
@@ -17,11 +18,10 @@ const startOfLocalDay = (date: Date): Date =>
  * the two can differ overnight, accepted for v1). */
 export function bucketForDueDate(dueDate: string | null, now: Date): TodoBucketLabel {
   if (!dueDate) return 'No due date';
-  const due = new Date(dueDate);
-  if (Number.isNaN(due.getTime())) return 'No due date';
+  const dueDay = startOfLocalDayFromDueDate(dueDate);
+  if (!dueDay) return 'No due date';
 
   const today = startOfLocalDay(now);
-  const dueDay = startOfLocalDay(due);
   const diffDays = Math.round((dueDay.getTime() - today.getTime()) / 86_400_000);
 
   if (diffDays < 0) return 'Overdue';

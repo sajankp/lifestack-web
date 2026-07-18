@@ -1,9 +1,21 @@
 import type { Todo } from '../../services/todo';
+import { endOfLocalDayFromDateOnlyDueDate, isDateOnlyDueDate } from './dueDate';
 
 export type TodoPriority = 'low' | 'medium' | 'high';
 
-export const isOverdueTodo = (todo: Pick<Todo, 'completed' | 'due_date'>): boolean =>
-  !todo.completed && !!todo.due_date && new Date(todo.due_date).getTime() < Date.now();
+export const isOverdueTodo = (todo: Pick<Todo, 'completed' | 'due_date'>): boolean => {
+  if (todo.completed || !todo.due_date) return false;
+
+  const dueDate = todo.due_date;
+  const dueTime = isDateOnlyDueDate(dueDate)
+    ? endOfLocalDayFromDateOnlyDueDate(dueDate)
+    : new Date(dueDate).getTime();
+
+  if (dueTime === null) return false;
+
+  if (Number.isNaN(dueTime)) return false;
+  return dueTime < Date.now();
+};
 
 export const priorityLabel = (priority: TodoPriority | undefined): string => {
   switch (priority) {

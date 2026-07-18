@@ -35,6 +35,10 @@ describe('bucketForDueDate', () => {
     expect(bucketForDueDate('2026-07-09T00:30:00', NOW)).toBe('Today');
   });
 
+  it('buckets date-only UTC-midnight values by calendar day as Today', () => {
+    expect(bucketForDueDate('2026-07-09T00:00:00Z', NOW)).toBe('Today');
+  });
+
   it('buckets +7 days as Upcoming (inclusive boundary)', () => {
     expect(bucketForDueDate('2026-07-16T00:00:00', NOW)).toBe('Upcoming');
   });
