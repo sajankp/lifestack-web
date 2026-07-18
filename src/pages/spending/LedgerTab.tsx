@@ -273,7 +273,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                         ) : (
                           <span className="text-slate-500">Balance</span>
                         )}
-                        <span className={`${balance >= 0 ? 'text-slate-200' : 'text-rose-400'}`}>
+                        <span className={balance >= 0 ? 'text-slate-200' : 'text-rose-400'}>
                           {formatCurrency(balance, currency, currencyDisplayPreference)}
                         </span>
                       </div>

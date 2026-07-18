@@ -201,7 +201,7 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
                   const sourceCurrency = linkedAccount?.default_currency_code ?? displayCurrency;
                   const sourceMetadata = tx.source_metadata;
                   const shouldShowSourceBadge =
-                    sourceMetadata && sourceMetadata.origin !== 'manual_entry';
+                    !!sourceMetadata && sourceMetadata.origin !== 'manual_entry';
 
                   return (
                     <tr
