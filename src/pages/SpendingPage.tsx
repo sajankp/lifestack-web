@@ -35,7 +35,7 @@ import {
   Trash2,
   Tag,
   Target,
-  RefreshCw,
+  Clock3,
   ArrowRightLeft,
   Landmark,
   AlertCircle,
@@ -1444,7 +1444,7 @@ export const SpendingPage: React.FC = () => {
               data-testid="spending-open-add-recurring"
               className="group relative flex h-12 min-w-[160px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
             >
-              <RefreshCw className="h-5 w-5" />
+              <Clock3 className="h-5 w-5" aria-hidden="true" />
               <span className="whitespace-nowrap">Add Recurring</span>
             </button>
             <button
@@ -1466,86 +1466,84 @@ export const SpendingPage: React.FC = () => {
         }
       />
 
-      <CompactFilterBar
-        className="mb-6"
-        onReset={() => {
-          const now = new Date();
-          const start = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
-          const end = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0));
-          setFromDate(start.toISOString().split('T')[0]);
-          setToDate(end.toISOString().split('T')[0]);
-          setSelectedCategoryFilter('');
-          setSelectedAccountFilter('');
-          setTxSort('date_desc');
-          setTxOffset(0);
-          setBudgetOffset(0);
-        }}
-      >
-        <CompactFilterField label="Date range">
-          <DateRangePicker
-            from={fromDate}
-            to={toDate}
-            onChange={({ from, to }) => {
-              setFromDate(from);
-              setToDate(to);
-              setTxOffset(0);
-              setBudgetOffset(0);
-            }}
-            placeholder="Select date range"
-          />
-        </CompactFilterField>
-        <CompactFilterField label="Category">
-          <DropdownSelect
-            value={selectedCategoryFilter}
-            onChange={(value) => {
-              setSelectedCategoryFilter(value);
-              setTxOffset(0);
-            }}
-            options={categoryFilterOptions}
-            placeholder="All categories"
-            clearLabel="All categories"
-            showSearch
-            sortByLabel
-          />
-        </CompactFilterField>
-        <CompactFilterField label="Account">
-          <DropdownSelect
-            testId="spending-account-filter"
-            value={selectedAccountFilter}
-            onChange={(value) => {
-              setSelectedAccountFilter(value);
-              setTxOffset(0);
-            }}
-            options={accountFilterOptions}
-            placeholder="All accounts"
-            clearLabel="All accounts"
-            showSearch
-          />
-        </CompactFilterField>
-        {/* Sort only affects the Transactions tab's row order — scoped here
-            instead of the shared bar so it doesn't imply an effect on
-            Budgets/Recurring/Analytics (UX-REVIEW P2 item 4). */}
-        {activeTab === 'transactions' ? (
-          <CompactFilterField label="Sort by">
-            <DropdownSelect
-              testId="spending-sort"
-              value={txSort}
-              onChange={(value) => {
-                setTxSort(value as TransactionSort);
+      {activeTab === 'transactions' || activeTab === 'ledger' ? (
+        <CompactFilterBar
+          className="mb-6"
+          onReset={() => {
+            const now = new Date();
+            const start = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+            const end = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0));
+            setFromDate(start.toISOString().split('T')[0]);
+            setToDate(end.toISOString().split('T')[0]);
+            setSelectedCategoryFilter('');
+            setSelectedAccountFilter('');
+            setTxSort('date_desc');
+            setTxOffset(0);
+            setBudgetOffset(0);
+          }}
+        >
+          <CompactFilterField label="Date range">
+            <DateRangePicker
+              from={fromDate}
+              to={toDate}
+              onChange={({ from, to }) => {
+                setFromDate(from);
+                setToDate(to);
                 setTxOffset(0);
+                setBudgetOffset(0);
               }}
-              options={TRANSACTION_SORT_OPTIONS}
-              placeholder="Sort by"
+              placeholder="Select date range"
             />
           </CompactFilterField>
-        ) : null}
-      </CompactFilterBar>
-      {activeTab === 'budgets' || activeTab === 'recurring' || activeTab === 'analytics' ? (
-        <div className="-mt-4 mb-6 text-xs text-slate-500">
-          Date range, category, and account filters above apply to the summary cards and
-          Transactions/Account activity tabs — not this tab.
+          <CompactFilterField label="Category">
+            <DropdownSelect
+              value={selectedCategoryFilter}
+              onChange={(value) => {
+                setSelectedCategoryFilter(value);
+                setTxOffset(0);
+              }}
+              options={categoryFilterOptions}
+              placeholder="All categories"
+              clearLabel="All categories"
+              showSearch
+              sortByLabel
+            />
+          </CompactFilterField>
+          <CompactFilterField label="Account">
+            <DropdownSelect
+              testId="spending-account-filter"
+              value={selectedAccountFilter}
+              onChange={(value) => {
+                setSelectedAccountFilter(value);
+                setTxOffset(0);
+              }}
+              options={accountFilterOptions}
+              placeholder="All accounts"
+              clearLabel="All accounts"
+              showSearch
+            />
+          </CompactFilterField>
+          {activeTab === 'transactions' ? (
+            <CompactFilterField label="Sort by">
+              <DropdownSelect
+                testId="spending-sort"
+                value={txSort}
+                onChange={(value) => {
+                  setTxSort(value as TransactionSort);
+                  setTxOffset(0);
+                }}
+                options={TRANSACTION_SORT_OPTIONS}
+                placeholder="Sort by"
+              />
+            </CompactFilterField>
+          ) : null}
+        </CompactFilterBar>
+      ) : (
+        <div className="mb-6 rounded-xl border border-slate-700/50 bg-slate-900/35 px-4 py-3 text-xs text-slate-300">
+          Date range, category, and account filters are available on Transactions and Account
+          activity tabs.
         </div>
-      ) : null}
+      )}
 
       {/* Summary Cards */}
       <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -1815,7 +1813,6 @@ export const SpendingPage: React.FC = () => {
           monthOptions={monthFilterOptions}
           displayCurrency={displayCurrency}
           currencyDisplayPreference={currencyDisplayPreference}
-          getCategoryTheme={getCategoryTheme}
         />
       ) : activeTab === 'ledger' ? (
         <LedgerTab
