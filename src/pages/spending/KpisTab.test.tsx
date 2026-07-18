@@ -75,11 +75,11 @@ describe('KpisTab (spec-077)', () => {
     expect(screen.queryByTestId('kpi-breach-badge-kpi-1')).not.toBeInTheDocument();
   });
 
-  it('shows a breach badge when the KPI is over target', async () => {
+  it('shows breach magnitude when KPI is over target', async () => {
     server.use(
       http.get('*/v1/spending/kpis', () =>
         HttpResponse.json({
-          items: [kpiRow({ current_value: '150.00', is_breached: true })],
+          items: [kpiRow({ current_value: '155.00', is_breached: true })],
           total: 1,
           limit: 20,
           offset: 0,
@@ -88,7 +88,25 @@ describe('KpisTab (spec-077)', () => {
     );
     renderTab();
 
-    expect(await screen.findByTestId('kpi-breach-badge-kpi-1')).toBeInTheDocument();
+    expect(await screen.findByTestId('kpi-breach-badge-kpi-1')).toHaveTextContent('55% breach');
+    expect(screen.getByText('55.0% over target')).toBeInTheDocument();
+  });
+
+  it('falls back to plain breached badge for invalid target values', async () => {
+    server.use(
+      http.get('*/v1/spending/kpis', () =>
+        HttpResponse.json({
+          items: [kpiRow({ target_value: '-100.00', current_value: '155.00', is_breached: true })],
+          total: 1,
+          limit: 20,
+          offset: 0,
+        }),
+      ),
+    );
+    renderTab();
+
+    expect(await screen.findByTestId('kpi-breach-badge-kpi-1')).toHaveTextContent('Breached');
+    expect(screen.queryByText(/over target|below target/i)).not.toBeInTheDocument();
   });
 
   it('creates a new KPI via the form', async () => {

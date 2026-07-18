@@ -405,6 +405,12 @@ describe('SpendingPage', () => {
 
     expect(await screen.findByText('No budgets set')).toBeInTheDocument();
     expect(screen.getByText('Set a budget to track your limits.')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Date range, category, and account filters are available on Transactions and Account activity tabs\./,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('spending-account-filter')).not.toBeInTheDocument();
   });
 
   it('switches to budgets tab and shows budget cards with progress', async () => {

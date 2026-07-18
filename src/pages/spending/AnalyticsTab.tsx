@@ -6,13 +6,36 @@ import { spendingService } from '../../services/spending';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatMonthLabel, monthShortLabel } from './format';
 
+const DONUT_COLORS = ['#3987e5', '#199e70', '#c98500', '#008300', '#9085e9', '#e66767'];
+const DONUT_OTHER_COLOR = '#94a3b8';
+
+const niceCeil = (value: number): number => {
+  if (value <= 0) return 100;
+  const exponent = Math.floor(Math.log10(value));
+  const fraction = value / Math.pow(10, exponent);
+
+  let niceFraction = 10;
+  if (fraction <= 1) niceFraction = 1;
+  else if (fraction <= 2) niceFraction = 2;
+  else if (fraction <= 5) niceFraction = 5;
+
+  return niceFraction * Math.pow(10, exponent);
+};
+
+const formatTrendTick = (value: number): string => {
+  if (value >= 1000) {
+    const k = value / 1000;
+    return Number.isInteger(k) ? `${k.toFixed(0)}k` : `${k.toFixed(1)}k`;
+  }
+  return value.toFixed(0);
+};
+
 interface AnalyticsTabProps {
   selectedMonth: string;
   onMonthChange: (value: string) => void;
   monthOptions: readonly DropdownOption[];
   displayCurrency: string;
   currencyDisplayPreference: 'symbol' | 'code';
-  getCategoryTheme: (catId: string) => { name: string; color: string; icon: string | null };
 }
 
 const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
@@ -21,7 +44,6 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
   monthOptions,
   displayCurrency,
   currencyDisplayPreference,
-  getCategoryTheme,
 }) => {
   const [rangeMonths, setRangeMonths] = useState(6);
   const [breakdownType, setBreakdownType] = useState<'income' | 'expense'>('expense');
@@ -131,14 +153,13 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
 
   // --- 1. Trends Bar Chart Setup ---
   const trendsList = trendsData?.months ?? [];
-  const maxTrendVal = Math.max(
-    ...trendsList.flatMap((m) => [Number(m.total_income), Number(m.total_expense)]),
-    100,
+  const maxTrendVal = niceCeil(
+    Math.max(...trendsList.flatMap((m) => [Number(m.total_income), Number(m.total_expense)]), 100),
   );
 
   // --- 2. Savings Rate Area Chart Setup ---
-  const savingsRateList = savingsRateData?.months ?? [];
-  const rates = savingsRateList.map((m) => m.savings_rate_pct ?? 0);
+  const savingsRateList = (savingsRateData?.months ?? []).filter((m) => m.savings_rate_pct != null);
+  const rates = savingsRateList.map((m) => Number(m.savings_rate_pct));
   const minRate = Math.min(...rates, 0);
   const maxRate = Math.max(...rates, 100);
   const rateRange = maxRate - minRate || 100;
@@ -294,7 +315,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
             <div className="h-64 w-full">
               <svg className="h-full w-full" viewBox="0 0 500 300" preserveAspectRatio="none">
                 {/* Horizontal Grid lines & Y Axis Labels */}
-                {[0, 0.25, 0.5, 0.75, 1].map((p, idx) => {
+                {[0, 0.2, 0.4, 0.6, 0.8, 1].map((p, idx) => {
                   const y = 20 + (1 - p) * 235;
                   const labelVal = maxTrendVal * p;
                   return (
@@ -314,9 +335,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                         textAnchor="end"
                         className="text-[10px] font-medium fill-slate-400"
                       >
-                        {labelVal >= 1000
-                          ? `${(labelVal / 1000).toFixed(0)}k`
-                          : labelVal.toFixed(0)}
+                        {formatTrendTick(labelVal)}
                       </text>
                     </g>
                   );
@@ -551,11 +570,11 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                 <svg className="h-full w-full" viewBox="0 0 200 200">
                   {(() => {
                     let currentOffset = 0;
-                    return donutItems.map((cat) => {
+                    return donutItems.map((cat, index) => {
                       const theme =
                         cat.category_id === 'other'
-                          ? { color: '#94a3b8' }
-                          : getCategoryTheme(cat.category_id as string);
+                          ? { color: DONUT_OTHER_COLOR }
+                          : { color: DONUT_COLORS[index % DONUT_COLORS.length] };
                       const strokeDash = `${(Number(cat.pct_of_total) / 100) * 376.99} 376.99`;
                       const offset = -currentOffset;
                       currentOffset += (Number(cat.pct_of_total) / 100) * 376.99;
@@ -597,17 +616,14 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
               </div>
 
               {/* Items List */}
-              <div className="flex-1 w-full max-h-52 overflow-y-auto space-y-2.5 pr-2">
-                {donutItems.map((cat) => {
+              <div className="w-full max-h-52 overflow-y-auto space-y-2.5 pr-2 sm:max-w-sm">
+                {donutItems.map((cat, index) => {
                   const theme =
                     cat.category_id === 'other'
-                      ? { color: '#94a3b8' }
-                      : getCategoryTheme(cat.category_id as string);
+                      ? { color: DONUT_OTHER_COLOR }
+                      : { color: DONUT_COLORS[index % DONUT_COLORS.length] };
                   return (
-                    <div
-                      key={cat.category_id}
-                      className="flex items-center justify-between text-xs"
-                    >
+                    <div key={cat.category_id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 text-xs">
                       <div className="flex items-center gap-2 truncate">
                         <span
                           className="h-2.5 w-2.5 flex-shrink-0 rounded"
@@ -617,18 +633,12 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                           {cat.category_name}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-slate-400 font-semibold">
-                          {Number(cat.pct_of_total).toFixed(1)}%
-                        </span>
-                        <span className="text-slate-100 font-bold">
-                          {formatCurrency(
-                            Number(cat.amount),
-                            displayCurrency,
-                            currencyDisplayPreference,
-                          )}
-                        </span>
-                      </div>
+                      <span className="text-slate-400 font-semibold">
+                        {Number(cat.pct_of_total).toFixed(1)}%
+                      </span>
+                      <span className="text-slate-100 font-bold">
+                        {formatCurrency(Number(cat.amount), displayCurrency, currencyDisplayPreference)}
+                      </span>
                     </div>
                   );
                 })}

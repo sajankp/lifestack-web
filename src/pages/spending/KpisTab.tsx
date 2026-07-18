@@ -330,7 +330,16 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
             const current = parseFloat(kpi.current_value.toString());
             const target =
               kpi.target_value != null ? parseFloat(kpi.target_value.toString()) : null;
-            const progress = target ? Math.min(100, Math.max(0, (current / target) * 100)) : null;
+            const hasPositiveTarget = target != null && Number.isFinite(target) && target > 0;
+            const progress = hasPositiveTarget
+              ? Math.min(100, Math.max(0, (current / target) * 100))
+              : null;
+            const breachDeltaPct =
+              hasPositiveTarget && kpi.is_breached
+                ? kpi.target_direction === 'lte'
+                  ? (Math.abs(current - target) / target) * 100
+                  : (Math.abs(target - current) / target) * 100
+                : null;
 
             return (
               <div
@@ -347,7 +356,7 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
                         className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-400"
                       >
                         <AlertTriangle className="h-3 w-3" />
-                        Breached
+                        {breachDeltaPct != null ? `${Math.round(breachDeltaPct)}% breach` : 'Breached'}
                       </span>
                     ) : null}
                     <button
@@ -399,6 +408,13 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
                   {WINDOW_OPTIONS.find((w) => w.value === kpi.evaluation_window)?.label ??
                     kpi.evaluation_window}
                 </p>
+                {breachDeltaPct != null ? (
+                  <p className="mt-1 text-xs text-red-300">
+                    {kpi.target_direction === 'lte'
+                      ? `${breachDeltaPct.toFixed(1)}% over target`
+                      : `${breachDeltaPct.toFixed(1)}% below target`}
+                  </p>
+                ) : null}
               </div>
             );
           })}
