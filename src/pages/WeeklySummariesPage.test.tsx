@@ -180,6 +180,79 @@ describe('WeeklySummariesPage', () => {
     expect(screen.getByText('3.20%')).toBeInTheDocument();
   });
 
+  it('shows the data-revised warning when a reverted import overlaps the boundary snapshot (spec-086)', async () => {
+    server.use(
+      http.get('*/v1/summaries/weekly', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '77777777-7777-7777-7777-777777777777',
+              week_start: '2026-06-15',
+              week_end: '2026-06-21',
+              generated_at: '2026-06-22T01:30:00Z',
+              todo_summary: { tasks_created: 0, tasks_completed: 0 },
+              spending_summary: { status: 'unavailable' },
+              investing_summary: {
+                status: 'complete',
+                portfolio_value_start: '100000.00',
+                portfolio_value_end: '102500.00',
+                cash_start: '5000.00',
+                cash_end: '5200.00',
+                week_change: '2500.00',
+                week_change_pct: '2.50',
+                currency: 'USD',
+                start_snapshot_date: '2026-06-14',
+                end_snapshot_date: '2026-06-21',
+              },
+              highlights: { flags: [] },
+              read_at: '2026-06-22T02:00:00Z',
+              data_revised_after_snapshot: true,
+            },
+          ],
+          total: 1,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByText(/may reflect an import that was later reverted/),
+    ).toBeInTheDocument();
+  });
+
+  it('does not show the data-revised warning by default', async () => {
+    server.use(
+      http.get('*/v1/summaries/weekly', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '88888888-8888-8888-8888-888888888888',
+              week_start: '2026-06-15',
+              week_end: '2026-06-21',
+              generated_at: '2026-06-22T01:30:00Z',
+              todo_summary: { tasks_created: 0, tasks_completed: 0 },
+              spending_summary: { status: 'unavailable' },
+              investing_summary: { status: 'unavailable' },
+              highlights: { flags: [] },
+              read_at: '2026-06-22T02:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+    );
+
+    renderPage();
+
+    await screen.findByText('Tasks completed');
+    expect(screen.queryByText(/later reverted/)).not.toBeInTheDocument();
+  });
+
   it('regenerates a summary and refreshes the list without prompting a notification', async () => {
     const summaryId = '44444444-4444-4444-4444-444444444444';
     const newSummaryId = '55555555-5555-5555-5555-555555555555';

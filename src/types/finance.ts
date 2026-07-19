@@ -275,6 +275,11 @@ export const NetWorthHistoryItemSchema = z.object({
   spending_cash: z.string().nullable().default(null),
   total_net_worth: z.string().default('0'),
   source: z.string().default('live'),
+  // spec-086 Layer 3: true when this point's date overlaps a since-reverted
+  // import's live window -- the snapshot itself can never be corrected (see
+  // spec-086 "Why restatement is not viable"), so this is an honest
+  // annotation rendered as a footnote marker, not a refresh hint.
+  data_revised: z.boolean().default(false),
 });
 export type NetWorthHistoryItem = z.infer<typeof NetWorthHistoryItemSchema>;
 
