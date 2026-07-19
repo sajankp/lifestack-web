@@ -150,7 +150,7 @@ export const WeeklySummariesPage: React.FC = () => {
                     <p className="text-sm text-amber-200">
                       The Net Worth and Investing figures below may reflect an import that was
                       later reverted. The underlying valuation snapshot can't be recomputed after
-                      the fact, so this figure is preserved as originally recorded — treat the
+                      the fact, so these figures are preserved as originally recorded — treat the
                       movement numbers with that in mind.
                     </p>
                   </div>

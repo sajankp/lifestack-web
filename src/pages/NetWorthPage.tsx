@@ -521,12 +521,8 @@ const NetWorthHistoryChart: React.FC<{
                       y={boxY + headH + rows.length * lineH + 16}
                       className="text-[10px] fill-rose-300"
                     >
-                      <tspan x={boxX + 10} dy="0">
-                        * Includes data from an
-                      </tspan>
-                      <tspan x={boxX + 10} dy="12">
-                        import later reverted
-                      </tspan>
+                      <tspan x={boxX + 10} dy="0">* Includes data from an</tspan>
+                      <tspan x={boxX + 10} dy="12">import later reverted</tspan>
                     </text>
                   )}
                 </g>
