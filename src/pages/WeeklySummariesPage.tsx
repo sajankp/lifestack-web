@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CalendarDays, RefreshCw } from 'lucide-react';
 import { summariesService } from '../services/summaries';
 import { queryKeys } from '../lib/queryKeys';
 import { PageHero } from '../components/layout/PageHero';
@@ -144,6 +144,17 @@ export const WeeklySummariesPage: React.FC = () => {
                     />
                   </div>
                 </div>
+                {item.data_revised_after_snapshot && (
+                  <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-800/60 bg-amber-950/20 p-3">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                    <p className="text-sm text-amber-200">
+                      The Net Worth and Investing figures below may reflect an import that was
+                      later reverted. The underlying valuation snapshot can't be recomputed after
+                      the fact, so this figure is preserved as originally recorded — treat the
+                      movement numbers with that in mind.
+                    </p>
+                  </div>
+                )}
                 <div className="grid gap-3 lg:grid-cols-3">
                   <TodoCard summary={item.todo_summary} />
                   <SpendingCard summary={item.spending_summary} />

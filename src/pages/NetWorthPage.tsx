@@ -132,6 +132,11 @@ const NetWorthHistoryChart: React.FC<{
     hasComponents:
       item.holdings_value != null && item.investing_cash != null && item.spending_cash != null,
     isUserProvided: item.source === 'user_provided',
+    // spec-086 Layer 3: this point's date overlaps a since-reverted
+    // import's live window. The snapshot itself can never be recomputed
+    // (see spec-086 "Why restatement is not viable"), so it's rendered as a
+    // footnote marker, not hidden or corrected.
+    isRevised: item.data_revised,
   }));
 
   const maxVal = Math.max(...points.map((p) => p.total), 1);
@@ -226,6 +231,12 @@ const NetWorthHistoryChart: React.FC<{
             <div className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full border border-dashed border-amber-500 bg-slate-800" />
               <span className="text-amber-400">User-provided</span>
+            </div>
+          )}
+          {points.some((p) => p.isRevised) && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-rose-400">*</span>
+              <span className="text-rose-400">Data later reverted</span>
             </div>
           )}
         </div>
@@ -342,26 +353,40 @@ const NetWorthHistoryChart: React.FC<{
           {/* Dot anchors -- user-provided points render as a hollow/dashed
               ring instead of the solid live-point fill (provenance,
               spec-072 INV-1), with a tooltip note. */}
-          {points.map((p, i) => (
-            <g key={i} className="group cursor-pointer">
-              <circle
-                cx={getX(i)}
-                cy={getY(p.total)}
-                r={4}
-                fill={p.isUserProvided ? '#1e293b' : '#ffffff'}
-                stroke={p.isUserProvided ? '#f59e0b' : '#1e293b'}
-                strokeWidth={1.5}
-                strokeDasharray={p.isUserProvided ? '2 1.5' : undefined}
-              >
-                {p.isUserProvided && (
-                  <title>
-                    User-provided{p.hasComponents ? '' : ' (total only)'} —{' '}
-                    {formatShortDate(p.dateStr)}
-                  </title>
+          {points.map((p, i) => {
+            const titleParts: string[] = [];
+            if (p.isUserProvided) titleParts.push(`User-provided${p.hasComponents ? '' : ' (total only)'}`);
+            if (p.isRevised) titleParts.push('Includes data later reverted');
+            return (
+              <g key={i} className="group cursor-pointer">
+                <circle
+                  cx={getX(i)}
+                  cy={getY(p.total)}
+                  r={4}
+                  fill={p.isUserProvided ? '#1e293b' : '#ffffff'}
+                  stroke={p.isRevised ? '#fb7185' : p.isUserProvided ? '#f59e0b' : '#1e293b'}
+                  strokeWidth={1.5}
+                  strokeDasharray={p.isUserProvided ? '2 1.5' : undefined}
+                >
+                  {titleParts.length > 0 && (
+                    <title>
+                      {titleParts.join(' — ')} — {formatShortDate(p.dateStr)}
+                    </title>
+                  )}
+                </circle>
+                {p.isRevised && (
+                  <text
+                    x={getX(i)}
+                    y={getY(p.total) - 8}
+                    textAnchor="middle"
+                    className="text-[11px] fill-rose-400 font-bold"
+                  >
+                    *
+                  </text>
                 )}
-              </circle>
-            </g>
-          ))}
+              </g>
+            );
+          })}
 
           {/* X Axis Labels */}
           {points.length > 0 && (
@@ -414,10 +439,11 @@ const NetWorthHistoryChart: React.FC<{
                   { label: 'Spending cash', value: p.spending, color: '#06b6d4' },
                 );
               }
-              const boxW = 172;
+              const boxW = 190;
               const lineH = 18;
               const headH = 22;
-              const boxH = headH + rows.length * lineH + 8;
+              const warnH = p.isRevised ? 30 : 0;
+              const boxH = headH + rows.length * lineH + warnH + 8;
               // Flip to the left of the guide when there isn't room on the right.
               const placeRight = hx + 12 + boxW <= width - paddingX;
               const boxX = placeRight ? hx + 12 : hx - 12 - boxW;
@@ -439,7 +465,7 @@ const NetWorthHistoryChart: React.FC<{
                     cy={getY(p.total)}
                     r={5.5}
                     fill={p.isUserProvided ? '#1e293b' : '#ffffff'}
-                    stroke={p.isUserProvided ? '#f59e0b' : '#0ea5e9'}
+                    stroke={p.isRevised ? '#fb7185' : p.isUserProvided ? '#f59e0b' : '#0ea5e9'}
                     strokeWidth={2}
                   />
                   <rect
@@ -489,6 +515,20 @@ const NetWorthHistoryChart: React.FC<{
                       </g>
                     );
                   })}
+                  {p.isRevised && (
+                    <text
+                      x={boxX + 10}
+                      y={boxY + headH + rows.length * lineH + 16}
+                      className="text-[10px] fill-rose-300"
+                    >
+                      <tspan x={boxX + 10} dy="0">
+                        * Includes data from an
+                      </tspan>
+                      <tspan x={boxX + 10} dy="12">
+                        import later reverted
+                      </tspan>
+                    </text>
+                  )}
                 </g>
               );
             })()}

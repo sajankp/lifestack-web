@@ -94,6 +94,12 @@ export const WeeklySummarySchema = z.object({
   regenerated_at: z.string().nullable().default(null),
   regeneration_reason: z.string().nullable().default(null),
   is_superseded: z.boolean().default(false),
+  // spec-086 Layer 2: true when a since-reverted import's live window
+  // overlaps this summary's net-worth/investing boundary snapshot dates --
+  // the underlying snapshot can never be corrected (see spec-086 "Why
+  // restatement is not viable"), so this is an honest annotation, not a
+  // refetch-and-it'll-fix-itself hint.
+  data_revised_after_snapshot: z.boolean().default(false),
 });
 export type WeeklySummary = z.infer<typeof WeeklySummarySchema>;
 
