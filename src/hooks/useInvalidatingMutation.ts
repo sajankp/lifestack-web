@@ -19,7 +19,7 @@ export function useInvalidatingMutation<TArgs = void, TResult = unknown>(
   mutationFn: (args: TArgs) => Promise<TResult>,
   invalidateKeys: readonly (readonly unknown[])[],
   options?: {
-    onSuccess?: (result: TResult) => void;
+    onSuccess?: (result: TResult, variables: TArgs) => void;
     onError?: (error: unknown) => void;
     successMessage?: string | false;
     errorMessage?: string | false;
@@ -29,7 +29,7 @@ export function useInvalidatingMutation<TArgs = void, TResult = unknown>(
   const { showToast } = useToast();
   return useMutation({
     mutationFn,
-    onSuccess: (result: TResult) => {
+    onSuccess: (result: TResult, variables: TArgs) => {
       // One key's invalidation failing must not skip the rest.
       for (const key of [...invalidateKeys]) {
         try {
@@ -41,7 +41,7 @@ export function useInvalidatingMutation<TArgs = void, TResult = unknown>(
       if (options?.successMessage !== false) {
         showToast(options?.successMessage ?? 'Saved', 'success');
       }
-      options?.onSuccess?.(result);
+      options?.onSuccess?.(result, variables);
     },
     onError: (error: unknown) => {
       if (options?.errorMessage !== false) {
