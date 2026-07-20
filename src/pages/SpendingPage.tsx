@@ -715,12 +715,16 @@ export const SpendingPage: React.FC = () => {
         // flight (that lag is what reads as "delete is slow").
         queryClient.setQueriesData<PaginatedResponse<Transaction>>(
           { queryKey: queryKeys.spending.transactions() },
-          (old) =>
-            old && {
+          (old) => {
+            if (!old) return old;
+            const hasItem = old.items.some((tx) => tx.public_id === deletedId);
+            if (!hasItem) return old;
+            return {
               ...old,
               items: old.items.filter((tx) => tx.public_id !== deletedId),
               total: Math.max(0, old.total - 1),
-            },
+            };
+          },
         );
         setPendingDeleteTransactionId(null);
       },
