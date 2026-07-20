@@ -205,6 +205,89 @@ describe('SpendingPage', () => {
     expect((await screen.findAllByText('My Wallet')).length).toBeGreaterThan(0);
   });
 
+  it('removes a deleted transaction from the list immediately, without waiting on the list refetch', async () => {
+    const TXN = {
+      public_id: 'tx-del-1',
+      category_id: 'cat-food-id',
+      account_id: 'acc-wallet-id',
+      amount: '12.00',
+      type: 'expense',
+      occurred_at: '2026-06-15T12:00:00Z',
+      description: 'Coffee Shop',
+      wallet_name: null,
+      labels: null,
+      created_at: '2026-06-15T12:00:00Z',
+      updated_at: '2026-06-15T12:00:00Z',
+    };
+    const OTHER_UNASSIGNED_TXN = {
+      public_id: 'tx-other-unassigned',
+      category_id: 'cat-food-id',
+      account_id: null,
+      amount: '5.00',
+      type: 'expense',
+      occurred_at: '2026-06-10T12:00:00Z',
+      description: 'Cash purchase',
+      wallet_name: null,
+      labels: null,
+      created_at: '2026-06-10T12:00:00Z',
+      updated_at: '2026-06-10T12:00:00Z',
+    };
+    let listCallCount = 0;
+    let unassignedCallCount = 0;
+    // Both queries hang after their first response — the post-delete
+    // invalidation refetch never resolves in this test (simulating a slow
+    // round trip), so any change visible afterward must come from the
+    // optimistic cache update, not a fresh fetch.
+    server.use(
+      http.get('*/v1/spending/transactions', ({ request }) => {
+        const url = new URL(request.url);
+        if (url.searchParams.get('unassigned') === 'true') {
+          unassignedCallCount += 1;
+          if (unassignedCallCount === 1) {
+            return HttpResponse.json({
+              items: [OTHER_UNASSIGNED_TXN],
+              total: 1,
+              limit: 1,
+              offset: 0,
+            });
+          }
+          return new Promise<never>(() => {});
+        }
+        listCallCount += 1;
+        if (listCallCount === 1) {
+          return HttpResponse.json({ items: [TXN], total: 1, limit: 50, offset: 0 });
+        }
+        return new Promise<never>(() => {});
+      }),
+      http.delete('*/v1/spending/transactions/tx-del-1', () => new HttpResponse(null, { status: 204 })),
+      ...baseHandlers,
+    );
+
+    renderWithQuery(<SpendingPage />);
+    expect((await screen.findAllByText('Coffee Shop')).length).toBeGreaterThan(0);
+
+    // Confirm the unrelated "No account" cache entry (which never contained
+    // the transaction being deleted) starts at its real count.
+    fireEvent.click(screen.getByTestId('spending-account-filter'));
+    expect(await screen.findByRole('option', { name: /No account \(1\)/ })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByTestId('spending-account-filter'), { key: 'Escape' });
+
+    fireEvent.click(screen.getByTitle('Delete transaction'));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Delete transaction?')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Coffee Shop')).not.toBeInTheDocument();
+    });
+
+    // The unrelated cache entry must be untouched by the optimistic update
+    // — it never held the deleted transaction, so its total must not drop.
+    fireEvent.click(screen.getByTestId('spending-account-filter'));
+    expect(await screen.findByRole('option', { name: /No account \(1\)/ })).toBeInTheDocument();
+  });
+
   it('opens and closes the new transaction modal', async () => {
     server.use(...baseHandlers);
     renderWithQuery(<SpendingPage />);

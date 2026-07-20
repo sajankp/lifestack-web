@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -56,6 +56,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import type { AccountType } from '../types/finance';
+import type { PaginatedResponse } from '../types/common';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { formatCurrency } from '../utils/numberFormat';
 import { computeTransferNet } from '../utils/transferMath';
@@ -191,6 +192,7 @@ const TRANSACTION_SORT_OPTIONS: { value: TransactionSort; label: string }[] = [
 
 export const SpendingPage: React.FC = () => {
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingDeleteTransactionId, setPendingDeleteTransactionId] = useState<string | null>(null);
@@ -706,7 +708,26 @@ export const SpendingPage: React.FC = () => {
     {
       successMessage: 'Transaction deleted',
       errorMessage: 'Could not delete that transaction. Please try again.',
-      onSuccess: () => setPendingDeleteTransactionId(null),
+      onSuccess: (_result, deletedId) => {
+        // Strip the row from every cached transactions page right away —
+        // the background invalidation refetch still runs, but the list
+        // shouldn't keep showing a row that's already gone while it's in
+        // flight (that lag is what reads as "delete is slow").
+        queryClient.setQueriesData<PaginatedResponse<Transaction>>(
+          { queryKey: queryKeys.spending.transactions() },
+          (old) => {
+            if (!old) return old;
+            const hasItem = old.items.some((tx) => tx.public_id === deletedId);
+            if (!hasItem) return old;
+            return {
+              ...old,
+              items: old.items.filter((tx) => tx.public_id !== deletedId),
+              total: Math.max(0, old.total - 1),
+            };
+          },
+        );
+        setPendingDeleteTransactionId(null);
+      },
     },
   );
 
