@@ -12,6 +12,7 @@ import {
   Loader2,
   AlertCircle,
   CornerDownLeft,
+  RotateCcw,
   Settings,
   HelpCircle,
   CheckSquare,
@@ -28,7 +29,7 @@ interface Message {
   type: 'text' | 'tool_call' | 'tool_response' | 'error';
   content: string;
   timestamp: Date;
-  status?: 'success' | 'error';
+  status?: 'success' | 'error' | 'duplicate_suppressed';
   toolName?: string;
   toolCallId?: string;
   entityType?: string;
@@ -44,11 +45,12 @@ type RealtimeAgentMessage = {
     | 'error'
     | 'interrupted'
     | 'session_resumption'
-    | 'session_state';
+    | 'session_state'
+    | 'session_info';
   content?: string;
   name?: string;
   arguments?: Record<string, unknown>;
-  status?: 'success' | 'error';
+  status?: 'success' | 'error' | 'duplicate_suppressed';
   result?: {
     message?: string;
     entity_type?: string;
@@ -60,11 +62,19 @@ type RealtimeAgentMessage = {
   handle?: string;
   state?: 'closing';
   time_left?: string;
+  // spec-090: server-minted capture session id, sent back as ?prev_session=
+  // on resume so the capture log can correlate resumed sessions.
+  session_id?: string;
 };
 
 // spec-079 Stage B: cap auto-reconnect so a persistently-down backend doesn't
 // loop forever; the user can still retry manually.
 const MAX_RECONNECT_ATTEMPTS = 5;
+
+// spec-090: a resumption handle older than this is dropped instead of resumed —
+// stale restored context is what made Gemini replay already-executed tool calls
+// (production replays observed up to +37 min after a suspended device woke up).
+const RESUME_HANDLE_MAX_AGE_MS = 45 * 60 * 1000;
 
 const CONFIRMATION_CARD_REGISTRY: Record<
   string,
@@ -195,6 +205,10 @@ export const VoiceAgentWidget: React.FC = () => {
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimerRef = useRef<number | null>(null);
   const intentionalCloseRef = useRef(false);
+  // spec-090: when the stored handle was received (for age-expiry) and the
+  // server-minted session id of the current connection (for ?prev_session=).
+  const resumptionHandleAtRef = useRef<number | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
 
   // Sync preference
   useEffect(() => {
@@ -394,6 +408,9 @@ export const VoiceAgentWidget: React.FC = () => {
       ]);
     } else if (msg.type === 'tool_response') {
       const isSuccess = msg.status === 'success';
+      // spec-090: the server suppressed a replay of an already-executed call —
+      // nothing new was saved, so tell the user and skip cache invalidation.
+      const isSuppressedDuplicate = msg.status === 'duplicate_suppressed';
       const entityType = msg.result?.entity_type;
       const entityPublicId = msg.result?.entity_public_id;
       const summary = msg.result?.summary;
@@ -408,6 +425,18 @@ export const VoiceAgentWidget: React.FC = () => {
         }
         const next = matchedIndex < 0 ? prev : prev.filter((_, index) => index !== matchedIndex);
 
+        if (isSuppressedDuplicate) {
+          return [
+            ...next,
+            {
+              id: Math.random().toString(),
+              role: 'system',
+              type: 'text',
+              content: 'Already saved earlier — duplicate skipped.',
+              timestamp: new Date(),
+            },
+          ];
+        }
         if (!isSuccess || entityType) {
           return [
             ...next,
@@ -444,8 +473,14 @@ export const VoiceAgentWidget: React.FC = () => {
     } else if (msg.type === 'interrupted') {
       clearAudioQueue();
     } else if (msg.type === 'session_resumption') {
-      // Store the latest handle so an unexpected drop can resume with context.
+      // Store the latest handle so an unexpected drop can resume with context;
+      // timestamp it so a stale handle can be aged out (spec-090).
       resumptionHandleRef.current = msg.handle ?? null;
+      resumptionHandleAtRef.current = msg.handle ? Date.now() : null;
+    } else if (msg.type === 'session_info') {
+      // spec-090: the server announces its capture session id; round-trip it
+      // as ?prev_session= on resume so the capture log links the sessions.
+      sessionIdRef.current = msg.session_id ?? null;
     } else if (msg.type === 'session_state') {
       // Gemini warned it is about to close this session (goAway). Surface it;
       // the impending close event drives the actual reconnect.
@@ -511,9 +546,25 @@ export const VoiceAgentWidget: React.FC = () => {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       const wsUrl = new URL(getWebSocketUrl());
       wsUrl.searchParams.set('timezone', timezone);
-      // Resume the prior conversation context when reconnecting after a drop.
+      // spec-090: a stale handle must not be resumed — a suspended device
+      // waking up with an old handle is how already-executed tool calls got
+      // replayed. Age it out before deciding whether to resume.
+      if (
+        resumptionHandleRef.current &&
+        resumptionHandleAtRef.current !== null &&
+        Date.now() - resumptionHandleAtRef.current > RESUME_HANDLE_MAX_AGE_MS
+      ) {
+        resumptionHandleRef.current = null;
+        resumptionHandleAtRef.current = null;
+      }
+      // Resume the prior conversation context when reconnecting after a drop,
+      // carrying the prior connection's session id for capture-log correlation
+      // (spec-090).
       if (resumptionHandleRef.current) {
         wsUrl.searchParams.set('resume', resumptionHandleRef.current);
+        if (sessionIdRef.current) {
+          wsUrl.searchParams.set('prev_session', sessionIdRef.current);
+        }
       }
       const ws = new WebSocket(wsUrl.toString());
       wsRef.current = ws;
@@ -767,6 +818,31 @@ export const VoiceAgentWidget: React.FC = () => {
     teardownConnection();
     // Manual retry starts a fresh session — drop any stale resumption handle.
     resumptionHandleRef.current = null;
+    resumptionHandleAtRef.current = null;
+    connectWebSocket();
+  };
+
+  // spec-090: explicit user-facing session clearing — drop the resumption
+  // handle and transcript, and reconnect fresh so no restored context can
+  // replay past tool calls.
+  const startNewSession = () => {
+    trackEvent('capture_session_cleared');
+    stopRecording();
+    clearAudioQueue();
+    teardownConnection();
+    resumptionHandleRef.current = null;
+    resumptionHandleAtRef.current = null;
+    sessionIdRef.current = null;
+    pendingSendRef.current = [];
+    setMessages([
+      {
+        id: Math.random().toString(),
+        role: 'system',
+        type: 'text',
+        content: 'Started a new session.',
+        timestamp: new Date(),
+      },
+    ]);
     connectWebSocket();
   };
 
@@ -872,6 +948,14 @@ export const VoiceAgentWidget: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              onClick={startNewSession}
+              className="rounded p-1 text-slate-400 hover:bg-slate-800/50 hover:text-white transition-colors"
+              aria-label="Start a new capture session"
+              title="New session"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
             <button
               onClick={() => setShowSettings(!showSettings)}
               className="rounded p-1 text-slate-400 hover:bg-slate-800/50 hover:text-white transition-colors"

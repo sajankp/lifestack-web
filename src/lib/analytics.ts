@@ -41,7 +41,8 @@ export type AnalyticsEvent =
   | 'login'
   | 'import_completed'
   | 'transfer_created'
-  | 'capture_session_started';
+  | 'capture_session_started'
+  | 'capture_session_cleared';
 
 export function trackEvent(event: AnalyticsEvent): void {
   if (!initialized) return;
