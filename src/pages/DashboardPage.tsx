@@ -327,8 +327,16 @@ export const DashboardPage: React.FC = () => {
             const overspentCategories = data?.spending?.top_overspent_categories ?? [];
             const guardrailAlerts = data?.todos?.active_guardrail_todo_count ?? 0;
             const statusLower = data?.investing?.valuation_status?.toLowerCase();
-            const isValuationStale =
-              statusLower && statusLower !== 'converted' && statusLower !== 'success';
+            // Alert only on genuinely degraded valuations. 'empty' (nothing to
+            // value yet — pristine workspaces) and 'current' (fresh) must not
+            // alarm the user (2026-07-16 UX review Part 2 #1).
+            const degradedValuationStatuses = [
+              'estimated',
+              'cost_basis_fallback',
+              'multi_currency_unconverted',
+              'conversion_required',
+            ];
+            const isValuationStale = !!statusLower && degradedValuationStatuses.includes(statusLower);
 
             const hasCues =
               overdueCount > 0 ||

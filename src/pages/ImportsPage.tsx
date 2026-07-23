@@ -736,7 +736,7 @@ export const ImportsPage: React.FC = () => {
                   {activeDetail.import_batch.total_rows} valid
                 </p>
                 {activeDetail.error_summary ? (
-                  <p>
+                  <p data-testid="imports-error-summary">
                     {activeDetail.error_summary.total_errors === 0
                       ? 'No errors'
                       : activeDetail.error_summary.returned_errors <
@@ -914,7 +914,7 @@ export const ImportsPage: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {activeDetail.preview_rows.map((row) => (
+                        {activeDetail.preview_rows.map((row, previewIndex) => (
                           <tr
                             key={row.row_number}
                             className="border-b border-slate-800 hover:bg-slate-800/40"
@@ -939,7 +939,10 @@ export const ImportsPage: React.FC = () => {
                                   </span>
                                 </td>
                                 <td className="px-3 py-2">{row.payload_json.amount}</td>
-                                <td className="px-3 py-2">
+                                <td
+                                  className="px-3 py-2"
+                                  data-testid={`import-preview-row-${previewIndex}-category`}
+                                >
                                   {resolvePreviewCategory(row.payload_json)}
                                 </td>
                                 <td

@@ -397,8 +397,13 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                 <p>Status: {exposure?.analysis_status ?? 'N/A'}</p>
                 {!!exposure?.warnings?.length && (
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-300">
-                    {exposure.warnings.map((warning) => (
-                      <li key={warning}>{warning}</li>
+                    {/* Dedupe: the API can repeat a warning (e.g. the same fund
+                        missing a constituent snapshot), which also produced
+                        duplicate React keys (UX review Real-Data #2). */}
+                    {[...new Set(exposure.warnings)].map((warning) => (
+                      <li key={warning} data-testid="analytics-warning-item">
+                        {warning}
+                      </li>
                     ))}
                   </ul>
                 )}
@@ -483,11 +488,16 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                       )
                     : 'N/A'}
                 </p>
-                {(exposure?.warnings ?? []).map((warning, index) => (
-                  <p key={`${warning}-${index}`} className="text-xs text-amber-300">
-                    {warning}
+                {/* The full warning list already renders in Analytics Controls;
+                    repeating it here doubled half the page with real data
+                    (UX review Real-Data scale finding) — show one summary line. */}
+                {!!exposure?.warnings?.length && (
+                  <p data-testid="analytics-warnings-summary" className="text-xs text-amber-300">
+                    {new Set(exposure.warnings).size} data warning
+                    {new Set(exposure.warnings).size === 1 ? '' : 's'} — see Analytics Controls
+                    for details.
                   </p>
-                ))}
+                )}
                 {exposure && (
                   <p className="text-xs text-slate-500">
                     Showing constituents at or above {exposure.display_threshold_pct}% of the

@@ -7,6 +7,7 @@ type CompactFilterBarProps = {
   onReset?: () => void;
   resetLabel?: string;
   className?: string;
+  testId?: string;
 };
 
 type CompactFilterFieldProps = {
@@ -21,10 +22,12 @@ export const CompactFilterBar: React.FC<CompactFilterBarProps> = ({
   onReset,
   resetLabel = 'Reset filters',
   className,
+  testId,
 }) => {
   const customClassName = className ? ` ${className}` : '';
   return (
     <div
+      data-testid={testId}
       className={`rounded-2xl border border-slate-700/50 bg-slate-900/50 p-4 backdrop-blur-xl${customClassName}`}
     >
       <div className="flex flex-wrap items-end gap-3">

@@ -1502,19 +1502,36 @@ export const SpendingPage: React.FC = () => {
             <h1 className="text-xl font-semibold tracking-tight text-white">Spending Overview</h1>
             <p className="mt-1 text-xs text-slate-400">Viewing {tabTitles[activeTab]}</p>
           </div>
-          <button
-            onClick={openTransactionModalForNew}
-            data-testid="spending-open-new-transaction"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20"
-          >
-            <Plus className="h-4 w-4" />
-            Add transaction
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Tab-contextual action: the header collapse removed the full
+                action row from secondary tabs, which left a non-empty
+                Recurring tab with no way to add a rule (UX-review follow-up,
+                issue #215). */}
+            {activeTab === 'recurring' && (
+              <button
+                onClick={openRecurringModalForNew}
+                data-testid="spending-open-add-recurring"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20"
+              >
+                <Clock3 className="h-4 w-4" aria-hidden="true" />
+                Add recurring
+              </button>
+            )}
+            <button
+              onClick={openTransactionModalForNew}
+              data-testid="spending-open-new-transaction"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20"
+            >
+              <Plus className="h-4 w-4" />
+              Add transaction
+            </button>
+          </div>
         </div>
       )}
 
       {activeTab === 'transactions' || activeTab === 'ledger' ? (
         <CompactFilterBar
+          testId="spending-filter-bar"
           className="mb-6"
           onReset={() => {
             const now = new Date();
@@ -2365,18 +2382,23 @@ export const SpendingPage: React.FC = () => {
                     showSearch
                     sortByLabel
                   />
-                  {!editingTransaction && !accountId && (
-                    <p
-                      data-testid="spending-transaction-account-error"
-                      className="mt-2 text-sm text-rose-400"
-                    >
-                      Every transaction needs an account. Pick one above, or set a{' '}
-                      <Link to="/settings" className="underline hover:text-rose-300">
-                        default spending account
-                      </Link>{' '}
-                      in Finance Settings.
-                    </p>
-                  )}
+                  {/* Only nudge once the user has started filling the form — a
+                      red error on a pristine modal reads as premature
+                      validation (2026-07-16 UX review Part 2 #5). */}
+                  {!editingTransaction &&
+                    !accountId &&
+                    (amount !== '' || categoryId !== '' || description !== '') && (
+                      <p
+                        data-testid="spending-transaction-account-error"
+                        className="mt-2 text-sm text-rose-400"
+                      >
+                        Every transaction needs an account. Pick one above, or set a{' '}
+                        <Link to="/settings" className="underline hover:text-rose-300">
+                          default spending account
+                        </Link>{' '}
+                        in Finance Settings.
+                      </p>
+                    )}
                   <button
                     type="button"
                     onClick={() => {
