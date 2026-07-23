@@ -391,6 +391,36 @@ describe('SpendingPage', () => {
     );
   });
 
+  it('keeps a pristine New Transaction form free of the account error until touched', async () => {
+    server.use(...baseHandlers);
+    renderWithQuery(<SpendingPage />);
+
+    await screen.findByText('Spending Overview');
+    fireEvent.click(screen.getByTestId('spending-open-new-transaction'));
+    await screen.findByTestId('spending-transaction-amount');
+
+    // Pristine modal — no red error before any interaction (UX review Part 2 #5).
+    expect(screen.queryByTestId('spending-transaction-account-error')).not.toBeInTheDocument();
+
+    // Once the user starts filling the form, the nudge appears.
+    fireEvent.change(screen.getByTestId('spending-transaction-amount'), {
+      target: { value: '5.00' },
+    });
+    expect(screen.getByTestId('spending-transaction-account-error')).toBeInTheDocument();
+  });
+
+  it('offers Add recurring from the compact hero on the Recurring tab', async () => {
+    // The header collapse removed the full action row from secondary tabs,
+    // which left a non-empty Recurring tab without an add affordance (#215).
+    server.use(...baseHandlers);
+    renderWithQuery(<SpendingPage />);
+
+    await screen.findByText('Spending Overview');
+    fireEvent.click(screen.getByTestId('spending-tab-recurring'));
+    fireEvent.click(await screen.findByTestId('spending-open-add-recurring'));
+    expect(await screen.findByTestId('spending-recurring-category')).toBeInTheDocument();
+  });
+
   it('pre-selects the workspace default spending account on a new transaction', async () => {
     server.use(
       http.get('*/v1/finance/settings', () =>

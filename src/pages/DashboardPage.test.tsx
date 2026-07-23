@@ -147,6 +147,46 @@ describe('DashboardPage', () => {
       }),
     );
 
+  const summaryWithValuationStatus = (status: string) =>
+    http.get('*/v1/dashboard/summary', () =>
+      HttpResponse.json({
+        todos: {
+          open_count: 0,
+          overdue_count: 0,
+          next_due_items: [],
+          active_guardrail_todo_count: 0,
+        },
+        spending: { month_spent: '0.00', budget_spotlight: [], top_overspent_categories: [] },
+        investing: {
+          portfolio_value: '100.00',
+          daily_change: null,
+          holdings_count: 1,
+          valuation_status: status,
+        },
+        system: { generated_at: '2026-05-24T10:00:00Z' },
+      }),
+    );
+
+  it("does not alarm with a valuation alert when the status is 'empty'", async () => {
+    // A pristine workspace has nothing to value — no alert (UX review Part 2 #1).
+    server.use(emptyNotifications(), allClearBriefing(), summaryWithValuationStatus('empty'));
+
+    renderWithQuery(<DashboardPage />);
+
+    // Wait for summary data to render (data-as-of derives from the response)
+    // before asserting the alert's absence, so the check isn't vacuous.
+    expect(await screen.findByTestId('dashboard-data-as-of')).toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-cue-valuation-alert')).not.toBeInTheDocument();
+  });
+
+  it('shows the valuation alert only for genuinely degraded statuses', async () => {
+    server.use(emptyNotifications(), allClearBriefing(), summaryWithValuationStatus('estimated'));
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByTestId('dashboard-cue-valuation-alert')).toBeInTheDocument();
+  });
+
   it('shows an empty state when there are no insights', async () => {
     server.use(emptyNotifications(), allClearBriefing(), minimalSummary());
 
