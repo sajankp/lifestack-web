@@ -155,6 +155,18 @@ export const WeeklySummariesPage: React.FC = () => {
                     </p>
                   </div>
                 )}
+                {item.data_stale && (
+                  <div
+                    data-testid="summary-stale-indicator"
+                    className="mb-3 flex items-start gap-2 rounded-xl border border-amber-800/60 bg-amber-950/20 p-3"
+                  >
+                    <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                    <p className="text-sm text-amber-200">
+                      Data changed since this summary was generated — regenerate for the latest
+                      figures.
+                    </p>
+                  </div>
+                )}
                 <div className="grid gap-3 lg:grid-cols-3">
                   <TodoCard summary={item.todo_summary} />
                   <SpendingCard summary={item.spending_summary} />
@@ -220,6 +232,23 @@ const Metric = ({
     <span className={`text-sm font-semibold ${valueClass}`}>{value}</span>
   </div>
 );
+
+// spec-091 / #183: week_change_pct is null when the start boundary is zero
+// (divide-by-zero, already guarded server-side) — toNumber(null) coerced
+// that to 0 and rendered a fabricated-looking "(0.00%)" next to a real
+// amount. Render the change alone when the percentage is undefined.
+const formatWeeklyMovement = (
+  change: number,
+  changePct: string | null | undefined,
+  currency: string | null,
+): string => {
+  const changeSign = change > 0 ? '+' : '';
+  const amount = changeSign + formatCurrency(change, currency);
+  if (changePct == null) return amount;
+  const pct = toNumber(changePct);
+  const pctSign = pct > 0 ? '+' : '';
+  return `${amount} (${pctSign}${pct.toFixed(2)}%)`;
+};
 
 const TodoCard = ({ summary }: { summary: WeeklySummary['todo_summary'] }) => (
   <SummaryCard title="Todo">
@@ -287,9 +316,6 @@ const InvestingCard = ({ summary }: { summary: WeeklySummary['investing_summary'
   }
 
   const change = toNumber(summary.week_change);
-  const changePct = toNumber(summary.week_change_pct);
-  const changeSign = change > 0 ? '+' : '';
-  const pctSign = changePct > 0 ? '+' : '';
   const movementClass =
     change > 0 ? 'text-emerald-300' : change < 0 ? 'text-rose-300' : 'text-slate-200';
   return (
@@ -301,14 +327,7 @@ const InvestingCard = ({ summary }: { summary: WeeklySummary['investing_summary'
       <Metric label="Investment cash" value={formatCurrency(summary.cash_end, summary.currency)} />
       <Metric
         label="Weekly movement"
-        value={
-          changeSign +
-          formatCurrency(change, summary.currency) +
-          ' (' +
-          pctSign +
-          changePct.toFixed(2) +
-          '%)'
-        }
+        value={formatWeeklyMovement(change, summary.week_change_pct, summary.currency)}
         valueClass={movementClass}
       />
       <Metric
@@ -381,9 +400,6 @@ const NetWorthCard = ({ summary }: { summary: WeeklySummary['net_worth_summary']
     );
   }
   const change = toNumber(summary.week_change);
-  const changePct = toNumber(summary.week_change_pct);
-  const changeSign = change > 0 ? '+' : '';
-  const pctSign = changePct > 0 ? '+' : '';
   const movementClass =
     change > 0 ? 'text-emerald-300' : change < 0 ? 'text-rose-300' : 'text-slate-200';
   return (
@@ -391,14 +407,7 @@ const NetWorthCard = ({ summary }: { summary: WeeklySummary['net_worth_summary']
       <Metric label="Net worth" value={formatCurrency(summary.net_worth_end, summary.currency)} />
       <Metric
         label="Weekly movement"
-        value={
-          changeSign +
-          formatCurrency(change, summary.currency) +
-          ' (' +
-          pctSign +
-          changePct.toFixed(2) +
-          '%)'
-        }
+        value={formatWeeklyMovement(change, summary.week_change_pct, summary.currency)}
         valueClass={movementClass}
       />
       <Metric
