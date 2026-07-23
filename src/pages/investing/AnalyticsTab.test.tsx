@@ -157,4 +157,18 @@ describe('AnalyticsTab', () => {
     const error = await screen.findByTestId('investing-edit-instrument-error');
     expect(error.textContent).toContain('ticker: required for US ETF');
   });
+
+  it('scopes the coverage/status labels to look-through decomposition (#183)', async () => {
+    // "Coverage: 0 / Status: partial" read as contradicting charts that
+    // visibly show data -- the number was correct but unscoped (it measures
+    // fund decomposition, not whether holdings have data at all).
+    mockAnalyticsEndpoints([]);
+
+    renderWithQuery(<AnalyticsTab currencyDisplayPreference="symbol" />);
+
+    expect(await screen.findByText(/Look-through coverage:/)).toBeInTheDocument();
+    expect(screen.getByText(/Decomposition status:/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Coverage:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Status:/)).not.toBeInTheDocument();
+  });
 });

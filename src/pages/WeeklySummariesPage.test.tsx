@@ -335,4 +335,77 @@ describe('WeeklySummariesPage', () => {
       await screen.findByText('Failed to regenerate summary. Please try again.'),
     ).toBeInTheDocument();
   });
+
+  it('does not fabricate "(0.00%)" when week_change_pct is null — a zero-value boundary (#183)', async () => {
+    server.use(
+      http.get('*/v1/summaries/weekly', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '33333333-3333-3333-3333-333333333333',
+              week_start: '2026-06-15',
+              week_end: '2026-06-21',
+              generated_at: '2026-06-22T01:30:00Z',
+              todo_summary: { tasks_created: 0, tasks_completed: 0 },
+              spending_summary: { status: 'unavailable' },
+              investing_summary: {
+                status: 'complete',
+                portfolio_value_start: '0.00',
+                portfolio_value_end: '800000.00',
+                cash_start: '0.00',
+                cash_end: '0.00',
+                week_change: '800000.00',
+                week_change_pct: null,
+                currency: 'INR',
+                start_snapshot_date: '2026-06-14',
+                end_snapshot_date: '2026-06-21',
+              },
+              highlights: { flags: [] },
+              read_at: '2026-06-22T02:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('Weekly movement')).toBeInTheDocument();
+    expect(screen.queryByText(/\(0\.00%\)|\(\+0\.00%\)/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/%\)/)).not.toBeInTheDocument();
+  });
+
+  it('shows a stale-data pill when data_stale is true (#183, spec-085)', async () => {
+    server.use(
+      http.get('*/v1/summaries/weekly', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '44444444-4444-4444-4444-444444444444',
+              week_start: '2026-06-15',
+              week_end: '2026-06-21',
+              generated_at: '2026-06-22T01:30:00Z',
+              todo_summary: { tasks_created: 0, tasks_completed: 0 },
+              spending_summary: { status: 'unavailable' },
+              investing_summary: { status: 'unavailable' },
+              highlights: { flags: [] },
+              read_at: '2026-06-22T02:00:00Z',
+              data_stale: true,
+            },
+          ],
+          total: 1,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+    );
+
+    renderPage();
+
+    expect(await screen.findByTestId('summary-stale-indicator')).toBeInTheDocument();
+    expect(screen.getByText(/Data changed since this summary was generated/)).toBeInTheDocument();
+  });
 });
