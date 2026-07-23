@@ -10,7 +10,7 @@ import { HistoricalDataPanel } from '../components/finance/HistoricalDataPanel';
 import { PageShell } from '../components/layout/PageShell';
 import { queryKeys } from '../lib/queryKeys';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import type { NetWorthHistoryItem } from '../types/finance';
+import type { ExcludedCurrency, NetWorthHistoryItem } from '../types/finance';
 
 const accountTypeLabel = (type: string): string => {
   switch (type) {
@@ -29,10 +29,11 @@ const accountTypeLabel = (type: string): string => {
   }
 };
 
-const StatusBanner: React.FC<{ status: string; reportingCurrency: string | null }> = ({
-  status,
-  reportingCurrency,
-}) => {
+const StatusBanner: React.FC<{
+  status: string;
+  reportingCurrency: string | null;
+  excludedCurrencies: ExcludedCurrency[];
+}> = ({ status, reportingCurrency, excludedCurrencies }) => {
   if (status === 'ok' || status === 'empty') return null;
 
   let message: React.ReactNode = null;
@@ -47,8 +48,13 @@ const StatusBanner: React.FC<{ status: string; reportingCurrency: string | null 
       </>
     );
   } else if (status === 'partial') {
+    // spec-091 / #182: name the missing currencies instead of a vague
+    // "one or more currencies" — totals below still show a partial sum.
+    const missing = excludedCurrencies.map((c) => c.currency_code).join(', ');
     message = reportingCurrency
-      ? `Some balances could not be converted to ${reportingCurrency} — FX rates may be missing for one or more currencies.`
+      ? missing
+        ? `No FX rate for ${missing} to ${reportingCurrency} — totals below exclude ${missing} balances.`
+        : `Some balances could not be converted to ${reportingCurrency} — FX rates may be missing for one or more currencies.`
       : 'Partial data available. Configure a reporting currency and FX rates for full totals.';
   }
 
@@ -69,7 +75,8 @@ const SummaryCard: React.FC<{
   icon: React.ReactNode;
   highlight?: boolean;
   unavailable?: boolean;
-}> = ({ label, value, currency, icon, highlight = false, unavailable = false }) => (
+  partial?: boolean;
+}> = ({ label, value, currency, icon, highlight = false, unavailable = false, partial = false }) => (
   <div
     className={`rounded-2xl border p-5 ${
       highlight
@@ -89,7 +96,10 @@ const SummaryCard: React.FC<{
       </p>
     )}
     {currency && !unavailable && (
-      <p className="mt-1 text-xs text-slate-500 uppercase tracking-wider">{currency}</p>
+      <p className="mt-1 text-xs text-slate-500 uppercase tracking-wider">
+        {currency}
+        {partial ? ' · partial' : ''}
+      </p>
     )}
   </div>
 );
@@ -573,13 +583,23 @@ export const NetWorthPage: React.FC = () => {
     enabled: !isEmpty && !!rc,
   });
 
+  // spec-091 / #182: fall back to the *_partial figure when the exact total
+  // is null on valuation_status 'partial', instead of blanking the headline
+  // over one missing FX rate.
+  const spendingValue = data?.spending_total ?? data?.spending_total_partial ?? null;
+  const spendingIsPartial = data?.spending_total == null && data?.spending_total_partial != null;
+  const netWorthValue = data?.total_net_worth ?? data?.total_net_worth_partial ?? null;
+  const netWorthIsPartial =
+    data?.total_net_worth == null && data?.total_net_worth_partial != null;
+
   const summaryCards = [
     {
       label: 'Spending Cash',
-      value: data?.spending_total ?? null,
+      value: spendingValue,
       currency: rc,
       icon: <Wallet className="h-4 w-4" />,
-      unavailable: data?.spending_total == null || !rc,
+      unavailable: spendingValue == null || !rc,
+      partial: spendingIsPartial,
     },
     {
       label: 'Investing Cash',
@@ -597,11 +617,12 @@ export const NetWorthPage: React.FC = () => {
     },
     {
       label: 'Total Net Worth',
-      value: data?.total_net_worth ?? null,
+      value: netWorthValue,
       currency: rc,
       icon: <PieChart className="h-4 w-4" />,
       highlight: true,
-      unavailable: data?.total_net_worth == null || !rc,
+      unavailable: netWorthValue == null || !rc,
+      partial: netWorthIsPartial,
     },
   ];
 
@@ -646,7 +667,11 @@ export const NetWorthPage: React.FC = () => {
         actions={<HistoricalDataPanel />}
       />
 
-      <StatusBanner status={data?.valuation_status ?? ''} reportingCurrency={rc} />
+      <StatusBanner
+        status={data?.valuation_status ?? ''}
+        reportingCurrency={rc}
+        excludedCurrencies={data?.excluded_currencies ?? []}
+      />
 
       {isEmpty ? (
         <div className="rounded-2xl border border-slate-700/60 bg-slate-800/30 px-8 py-16 text-center">

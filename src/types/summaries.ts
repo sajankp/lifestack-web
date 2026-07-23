@@ -100,6 +100,9 @@ export const WeeklySummarySchema = z.object({
   // restatement is not viable"), so this is an honest annotation, not a
   // refetch-and-it'll-fix-itself hint.
   data_revised_after_snapshot: z.boolean().default(false),
+  // spec-085: read-time-only -- a fresher net-worth/investing boundary
+  // snapshot now exists than what this summary was generated from.
+  data_stale: z.boolean().default(false),
 });
 export type WeeklySummary = z.infer<typeof WeeklySummarySchema>;
 

@@ -393,8 +393,18 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                 />
               </label>
               <div className="rounded-lg border border-slate-700/60 bg-slate-900/50 p-3 text-xs text-slate-300">
-                <p>Coverage: {exposure?.snapshot_coverage ?? 'N/A'}</p>
-                <p>Status: {exposure?.analysis_status ?? 'N/A'}</p>
+                {/* spec-091 / #183: "Coverage: 0 / Status: partial" read as
+                    contradicting charts that visibly show data — the number
+                    was correct but unscoped. It measures look-through
+                    decomposition (resolving funds into underlying companies),
+                    not whether holdings/charts have data at all. */}
+                <p>
+                  Look-through coverage:{' '}
+                  {exposure?.snapshot_coverage != null
+                    ? `${(Number(exposure.snapshot_coverage) * 100).toFixed(0)}% of portfolio value`
+                    : 'N/A'}
+                </p>
+                <p>Decomposition status: {exposure?.analysis_status ?? 'N/A'}</p>
                 {!!exposure?.warnings?.length && (
                   <ul className="mt-2 list-disc space-y-1 pl-4 text-amber-300">
                     {/* Dedupe: the API can repeat a warning (e.g. the same fund

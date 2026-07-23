@@ -99,4 +99,30 @@ describe('NetWorthPage', () => {
     expect(await screen.findByText('Net worth history')).toBeInTheDocument();
     expect(screen.queryByText('Data later reverted')).not.toBeInTheDocument();
   });
+
+  it('shows a partial total and names the excluded currency instead of blanking the headline (#182)', async () => {
+    server.use(
+      http.get('*/v1/finance/net-worth', () =>
+        HttpResponse.json({
+          ...baseNetWorth,
+          valuation_status: 'partial',
+          spending_total: null,
+          total_net_worth: null,
+          spending_total_partial: '500.00',
+          total_net_worth_partial: '3000.00',
+          excluded_currencies: [{ currency_code: 'EUR', total_balance: '300.00' }],
+        }),
+      ),
+      http.get('*/v1/finance/net-worth/history', () => HttpResponse.json([])),
+    );
+
+    renderPage();
+
+    expect(
+      await screen.findByText(/No FX rate for EUR to USD/),
+    ).toBeInTheDocument();
+    expect(screen.getByText('$3,000.00')).toBeInTheDocument();
+    expect(screen.getAllByText('$500.00').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/partial/).length).toBeGreaterThan(0);
+  });
 });

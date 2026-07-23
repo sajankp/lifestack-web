@@ -248,10 +248,22 @@ export const InvestingAccountBalanceSchema = z.object({
 });
 export type InvestingAccountBalance = z.infer<typeof InvestingAccountBalanceSchema>;
 
+export const ExcludedCurrencySchema = z.object({
+  currency_code: z.string().default(''),
+  total_balance: z.string().default('0'),
+});
+export type ExcludedCurrency = z.infer<typeof ExcludedCurrencySchema>;
+
 export const NetWorthDataSchema = z.object({
   reporting_currency: z.string().nullable().default(null),
   spending_accounts: z.array(SpendingAccountBalanceSchema).default([]),
   spending_total: z.string().nullable().default(null),
+  // spec-091 / #182: populated only when valuation_status === 'partial' --
+  // the sum of spending balances that DID convert, so one missing FX rate
+  // doesn't blank the whole headline.
+  spending_total_partial: z.string().nullable().default(null),
+  total_net_worth_partial: z.string().nullable().default(null),
+  excluded_currencies: z.array(ExcludedCurrencySchema).default([]),
   investing_accounts: z.array(InvestingAccountBalanceSchema).default([]),
   investing_cash_total: z.string().nullable().default(null),
   holdings_value: z.string().nullable().default(null),
