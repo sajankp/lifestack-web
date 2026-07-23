@@ -349,4 +349,122 @@ describe('Capture panel verification', () => {
       vi.useRealTimers();
     }
   });
+
+  // ── spec-090: session clearing + replay-dedup client behaviors ───────────
+
+  it('starts a fresh session from the New session control (no resume param, cleared transcript)', () => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({ type: 'session_resumption', handle: 'handle-stale' }),
+      });
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start a new capture session' }));
+
+    expect(sockets).toHaveLength(2);
+    expect(sockets[1].url).not.toContain('resume=');
+    expect(screen.getByText('Started a new session.')).toBeVisible();
+    // Prior transcript content is gone.
+    expect(screen.queryByText(/Connected\. Tap the microphone/)).toBeNull();
+  });
+
+  it('drops a resumption handle older than 45 minutes instead of resuming with it', () => {
+    vi.useFakeTimers();
+    try {
+      renderWidget();
+      const ws = openPanelAndGetSocket();
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      act(() => {
+        ws.onmessage?.({
+          data: JSON.stringify({ type: 'session_resumption', handle: 'handle-old' }),
+        });
+      });
+
+      // The handle ages past the 45-minute cap before the connection drops.
+      act(() => {
+        vi.advanceTimersByTime(46 * 60 * 1000);
+      });
+      act(() => {
+        ws.readyState = FakeWebSocket.CLOSED;
+        ws.onclose?.({ code: 1006 });
+      });
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(sockets).toHaveLength(2);
+      expect(sockets[1].url).not.toContain('resume=');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('sends the prior session id as prev_session when resuming after a drop', () => {
+    vi.useFakeTimers();
+    try {
+      renderWidget();
+      const ws = openPanelAndGetSocket();
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      act(() => {
+        ws.onmessage?.({
+          data: JSON.stringify({ type: 'session_info', session_id: 'sess-abc' }),
+        });
+      });
+      act(() => {
+        ws.onmessage?.({
+          data: JSON.stringify({ type: 'session_resumption', handle: 'handle-xyz' }),
+        });
+      });
+
+      act(() => {
+        ws.readyState = FakeWebSocket.CLOSED;
+        ws.onclose?.({ code: 1006 });
+      });
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(sockets).toHaveLength(2);
+      expect(sockets[1].url).toContain('resume=handle-xyz');
+      expect(sockets[1].url).toContain('prev_session=sess-abc');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('renders a suppressed-duplicate tool response as an informational note, not a save', () => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: 'tool_call',
+          name: 'log_spending_transaction',
+          arguments: { amount: '40' },
+        }),
+      });
+    });
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: 'tool_response',
+          name: 'log_spending_transaction',
+          status: 'duplicate_suppressed',
+          result: {
+            entity_type: 'transaction',
+            entity_public_id: 'txn-orig',
+          },
+        }),
+      });
+    });
+
+    expect(screen.getByText('Already saved earlier — duplicate skipped.')).toBeVisible();
+    expect(screen.queryByText('Saved — view in app')).toBeNull();
+  });
 });
