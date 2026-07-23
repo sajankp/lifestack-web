@@ -402,7 +402,10 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
         </div>
 
         {/* Savings Rate Chart */}
-        <div className="rounded-2xl border border-slate-700/50 bg-slate-800/20 p-5 backdrop-blur-sm">
+        <div
+          data-testid="savings-rate-trend-chart"
+          className="rounded-2xl border border-slate-700/50 bg-slate-800/20 p-5 backdrop-blur-sm"
+        >
           <div className="mb-4 flex items-center justify-between">
             <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
               <Percent className="h-4 w-4 text-emerald-400" />

@@ -279,7 +279,8 @@ const InvestingCard = ({ summary }: { summary: WeeklySummary['investing_summary'
     return (
       <SummaryCard title="Investing">
         <p className="text-sm text-amber-300">
-          Weekly comparison unavailable because compatible start and end snapshots were not found.
+          Investing comparison unavailable — compatible start and end portfolio snapshots were
+          not found.
         </p>
       </SummaryCard>
     );
@@ -374,7 +375,7 @@ const NetWorthCard = ({ summary }: { summary: WeeklySummary['net_worth_summary']
     return (
       <SummaryCard title="Net Worth">
         <p className="text-sm text-amber-300">
-          Weekly comparison unavailable because compatible start and end snapshots were not found.
+          Net worth comparison unavailable — compatible start and end snapshots were not found.
         </p>
       </SummaryCard>
     );
