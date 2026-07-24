@@ -107,11 +107,15 @@ export const VoiceAgentWidget: React.FC = () => {
   const setIsOpen = useCaptureStore((state) => state.setIsOpen);
   const { activeWorkspaceId } = useActiveWorkspace(true);
 
-  const launcherSize = 56;
   const viewportMargin = 24;
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1280;
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
   const isMobileViewport = viewportWidth < 640;
+  // #203: at 56px the FAB covered card corners and filter fields on a 390px
+  // screen. Shrink it on mobile so it tucks further into the corner; keep the
+  // size in sync with the button's h-12/h-14 (sm) breakpoint below so the
+  // drag-clamp math matches the rendered footprint.
+  const launcherSize = isMobileViewport ? 48 : 56;
   const panelWidth = isMobileViewport ? Math.max(320, viewportWidth - viewportMargin * 2) : 384;
   const panelHeight = isMobileViewport ? Math.min(560, Math.max(420, viewportHeight * 0.72)) : 600;
   const launcherStorageKey = 'voice-agent-launcher-pos-v1';
@@ -874,7 +878,7 @@ export const VoiceAgentWidget: React.FC = () => {
           onPointerMove={onDrag}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
-          className={`fixed z-50 flex h-14 w-14 cursor-grab items-center justify-center rounded-full bg-slate-900 border transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(30,41,59,0.5)] ${
+          className={`fixed z-50 flex h-12 w-12 cursor-grab items-center justify-center rounded-full bg-slate-900 border transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(30,41,59,0.5)] sm:h-14 sm:w-14 ${
             isRecording
               ? 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.6)]'
               : 'border-slate-800 hover:border-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)]'

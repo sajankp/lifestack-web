@@ -17,6 +17,10 @@ type DoseChecklistProps = {
   onMarkTaken: (slot: DoseSlot) => void;
   onMarkSkipped: (slot: DoseSlot) => void;
   isMutating?: boolean;
+  /** Prefix each row's meta line with its slot date — used by the Catch-up
+   * section where slots span multiple past days (spec-092). */
+  showDate?: boolean;
+  emptyLabel?: string;
 };
 
 export const DoseChecklist: React.FC<DoseChecklistProps> = ({
@@ -25,6 +29,8 @@ export const DoseChecklist: React.FC<DoseChecklistProps> = ({
   onMarkTaken,
   onMarkSkipped,
   isMutating = false,
+  showDate = false,
+  emptyLabel = 'No medications scheduled today',
 }) => {
   if (isLoading) {
     return <div className="h-24 animate-pulse rounded-xl bg-slate-800/60" />;
@@ -34,7 +40,7 @@ export const DoseChecklist: React.FC<DoseChecklistProps> = ({
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-700 py-10 text-center">
         <Pill className="h-8 w-8 text-slate-600" />
-        <p className="text-sm text-slate-400">No medications scheduled today</p>
+        <p className="text-sm text-slate-400">{emptyLabel}</p>
       </div>
     );
   }
@@ -47,6 +53,10 @@ export const DoseChecklist: React.FC<DoseChecklistProps> = ({
         const time = isValid
           ? parsedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           : '';
+        const dateLabel =
+          showDate && isValid
+            ? `${parsedDate.toLocaleDateString([], { month: 'short', day: 'numeric' })} · `
+            : '';
         return (
           <li
             key={`${slot.medication_public_id}-${slot.scheduled_for}`}
@@ -60,6 +70,7 @@ export const DoseChecklist: React.FC<DoseChecklistProps> = ({
             <div className="min-w-0">
               <p className="truncate font-medium text-white">{slot.medication_name}</p>
               <p className="truncate text-xs text-slate-400">
+                {dateLabel}
                 {slot.dose_text ? `${slot.dose_text} · ` : ''}
                 {time}
                 {slot.status === 'missed' ? ' · missed' : ''}

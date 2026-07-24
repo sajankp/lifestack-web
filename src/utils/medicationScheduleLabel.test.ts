@@ -53,4 +53,26 @@ describe('describeMedicationSchedule', () => {
       describeMedicationSchedule({ frequency: 'daily', interval: 1, times: ['09:00', '21:00'] }),
     ).toBe('Every day, 09:00, 21:00');
   });
+
+  it('describes interval-from-last-dose mode', () => {
+    expect(
+      describeMedicationSchedule({
+        frequency: 'daily',
+        interval: 2,
+        schedule_mode: 'interval_from_last_dose',
+        times: ['09:00'],
+      }),
+    ).toBe('Every 2 days from your last dose, 09:00');
+  });
+
+  it('describes interval-from-last-dose mode with interval 1', () => {
+    expect(
+      describeMedicationSchedule({
+        frequency: 'daily',
+        interval: 1,
+        schedule_mode: 'interval_from_last_dose',
+        times: ['09:00'],
+      }),
+    ).toBe('Every day from your last dose, 09:00');
+  });
 });

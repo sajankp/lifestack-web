@@ -44,6 +44,21 @@ const cadenceHourOptions = Array.from({ length: 24 }, (_, hour) => ({
   label: `${String(hour).padStart(2, '0')}:00 UTC`,
 }));
 
+// #200: the cadence picker only labelled the hour in UTC, leaving the user to
+// do the timezone math. Translate the selected UTC hour into their local time
+// (using the browser timezone) so they can see when the summary actually lands.
+const localTimeForUtcHour = (hourUtc: string): string | null => {
+  const hour = Number(hourUtc);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) return null;
+  const when = new Date();
+  when.setUTCHours(hour, 0, 0, 0);
+  const localTime = when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return `${String(hour).padStart(2, '0')}:00 UTC is ${localTime} your local time${
+    tz ? ` (${tz})` : ''
+  }.`;
+};
+
 // Static dropdown option lists — hoisted to module scope so their identity is
 // stable across renders (a fresh array each render defeats DropdownSelect's
 // internal option memoization).
@@ -1499,6 +1514,14 @@ export const MasterConfigPage: React.FC = () => {
                 {updateCadenceSettingsMutation.isPending ? 'Saving...' : 'Save'}
               </Button>
             </div>
+            {localTimeForUtcHour(cadenceHourUtc) && (
+              <p
+                className="mt-3 text-xs text-slate-500"
+                data-testid="master-summary-cadence-local-hint"
+              >
+                {localTimeForUtcHour(cadenceHourUtc)}
+              </p>
+            )}
           </section>
         </TabsContent>
 

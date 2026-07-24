@@ -15,15 +15,28 @@ const ordinalSuffix = (n: number): string => {
 export interface MedicationScheduleLike {
   frequency: string;
   interval: number;
+  schedule_mode?: string | null;
   days_of_week?: number[] | null;
   times: string[];
   end_date?: string | null;
 }
 
 /** Human-readable medication schedule summary, e.g.
- * "Every week on Mon, Wed, 09:00 — until 15 Aug" (spec-069 §D). */
+ * "Every week on Mon, Wed, 09:00 — until 15 Aug" (spec-069 §D), or for
+ * interval_from_last_dose mode "Every 2 days from your last dose" (spec-092). */
 export const describeMedicationSchedule = (schedule: MedicationScheduleLike): string => {
   const unit = UNIT_NAMES[schedule.frequency] ?? schedule.frequency;
+
+  if (schedule.schedule_mode === 'interval_from_last_dose') {
+    const step = schedule.interval === 1 ? `Every ${unit}` : `Every ${schedule.interval} ${unit}s`;
+    let intervalSummary = `${step} from your last dose`;
+    const times =
+      schedule.times && schedule.times.length > 0 ? schedule.times.join(', ') : null;
+    if (times) intervalSummary += `, ${times}`;
+    if (schedule.end_date) intervalSummary += ` — until ${formatShortDate(schedule.end_date)}`;
+    return intervalSummary;
+  }
+
   let cadence =
     schedule.interval === 1 ? `Every ${unit}` : `Every ${ordinalSuffix(schedule.interval)} ${unit}`;
 

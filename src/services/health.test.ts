@@ -51,6 +51,20 @@ describe('healthService', () => {
     });
   });
 
+  it('fetches overdue doses with and without a lookback window', async () => {
+    const getSpy = vi.spyOn(api, 'get').mockResolvedValue({ data: [] } as never);
+
+    await healthService.getOverdue();
+    await healthService.getOverdue(14);
+
+    expect(getSpy).toHaveBeenNthCalledWith(1, '/health/medications/overdue', {
+      params: undefined,
+    });
+    expect(getSpy).toHaveBeenNthCalledWith(2, '/health/medications/overdue', {
+      params: { lookback_days: 14 },
+    });
+  });
+
   it('calls weight endpoints with expected params/bodies', async () => {
     vi.spyOn(api, 'get')
       .mockResolvedValueOnce({ data: { items: [], total: 0 } } as never)
