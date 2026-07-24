@@ -173,7 +173,7 @@ export const ImportsPage: React.FC = () => {
   });
   const { data: categoriesResponse } = useQuery({
     queryKey: ['spending', 'categories', 'imports'],
-    queryFn: () => spendingService.getCategories(500, 0),
+    queryFn: () => spendingService.getCategories(200, 0),
   });
   // No account-type restriction for the import-level target account
   // (spec-054) — any active account works, matching how a row's

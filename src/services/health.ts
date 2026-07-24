@@ -32,6 +32,7 @@ export type {
   MedicationEventResponse,
   MedicationEventUpsert,
   MedicationFrequency,
+  MedicationScheduleMode,
   MedicationUpdate,
   WeightEntry,
   WeightEntryCreate,
@@ -82,6 +83,12 @@ export const healthService = {
 
   getSchedule: async (date: string) => {
     const response = await api.get('/health/medications/schedule', { params: { date } });
+    return z.array(DoseSlotSchema).parse(response.data);
+  },
+
+  getOverdue: async (lookbackDays?: number) => {
+    const params = lookbackDays !== undefined ? { lookback_days: lookbackDays } : undefined;
+    const response = await api.get('/health/medications/overdue', { params });
     return z.array(DoseSlotSchema).parse(response.data);
   },
 

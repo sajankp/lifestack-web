@@ -408,4 +408,42 @@ describe('WeeklySummariesPage', () => {
     expect(await screen.findByTestId('summary-stale-indicator')).toBeInTheDocument();
     expect(screen.getByText(/Data changed since this summary was generated/)).toBeInTheDocument();
   });
+
+  it('shows only the most recent event on a regenerated summary, not both timestamps (#200)', async () => {
+    server.use(
+      http.get('*/v1/summaries/weekly', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '77777777-7777-7777-7777-777777777777',
+              week_start: '2026-06-15',
+              week_end: '2026-06-21',
+              generated_at: '2026-06-22T01:30:00Z',
+              regenerated_at: '2026-06-23T00:00:00Z',
+              regeneration_reason: 'fixed FX rate',
+              todo_summary: { tasks_created: 0, tasks_completed: 0 },
+              spending_summary: { status: 'unavailable' },
+              investing_summary: { status: 'unavailable' },
+              highlights: { flags: [] },
+              read_at: '2026-06-23T02:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+    );
+
+    renderPage();
+
+    // The regenerated event (with its reason) is shown; the original "Generated"
+    // label is not printed alongside it as a near-duplicate timestamp.
+    expect(await screen.findByText(/Regenerated .*fixed FX rate/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Generated /)).not.toBeInTheDocument();
+    // The Reason field carries helper text explaining where the note goes.
+    expect(
+      screen.getByText(/Saved to this summary's history and shown in the header/),
+    ).toBeInTheDocument();
+  });
 });

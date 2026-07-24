@@ -21,6 +21,7 @@ const medicationFormSchema = z
     dose_text: z.string().max(60).optional(),
     refill_note: z.string().max(500).optional(),
     frequency: z.enum(['daily', 'weekly', 'monthly']),
+    schedule_mode: z.enum(['fixed', 'interval_from_last_dose']),
     interval: z.number().int().min(1, 'Must be at least 1'),
     days_of_week: z.array(z.number()),
     times: z
@@ -30,6 +31,10 @@ const medicationFormSchema = z
     end_date: z.string().optional(),
     timezone: z.string().min(1),
     reminders_enabled: z.boolean(),
+  })
+  .refine((v) => v.schedule_mode !== 'interval_from_last_dose' || v.frequency === 'daily', {
+    message: 'Interval-from-last-dose requires a daily frequency',
+    path: ['schedule_mode'],
   })
   .refine((v) => v.frequency !== 'weekly' || v.days_of_week.length > 0, {
     message: 'Select at least one day of the week',
@@ -48,6 +53,11 @@ const frequencyOptions = [
   { value: 'monthly', label: 'Monthly' },
 ];
 
+const scheduleModeOptions = [
+  { value: 'fixed', label: 'Fixed schedule' },
+  { value: 'interval_from_last_dose', label: 'Every N days from last dose' },
+];
+
 const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 const defaultsFor = (medication?: Medication | null): MedicationFormValues => ({
@@ -55,6 +65,8 @@ const defaultsFor = (medication?: Medication | null): MedicationFormValues => ({
   dose_text: medication?.dose_text ?? '',
   refill_note: medication?.refill_note ?? '',
   frequency: (medication?.frequency as 'daily' | 'weekly' | 'monthly') ?? 'daily',
+  schedule_mode:
+    (medication?.schedule_mode as 'fixed' | 'interval_from_last_dose') ?? 'fixed',
   interval: medication?.interval ?? 1,
   days_of_week: medication?.days_of_week ?? [],
   times: medication?.times && medication.times.length > 0 ? medication.times : ['09:00'],
@@ -89,6 +101,7 @@ export const MedicationFormDialog: React.FC<MedicationFormDialogProps> = ({
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<MedicationFormValues>({
     resolver: zodResolver(medicationFormSchema),
@@ -112,14 +125,18 @@ export const MedicationFormDialog: React.FC<MedicationFormDialogProps> = ({
 
   const watched = watch();
 
+  const isInterval = watched.schedule_mode === 'interval_from_last_dose';
+
   const handleFormSubmit = (values: MedicationFormValues) => {
+    const interval = values.schedule_mode === 'interval_from_last_dose';
     onSubmit({
       name: values.name,
       dose_text: values.dose_text || null,
       refill_note: values.refill_note || null,
-      frequency: values.frequency,
+      frequency: interval ? 'daily' : values.frequency,
+      schedule_mode: values.schedule_mode,
       interval: values.interval,
-      days_of_week: values.frequency === 'weekly' ? values.days_of_week : null,
+      days_of_week: !interval && values.frequency === 'weekly' ? values.days_of_week : null,
       times: values.times,
       anchor_date: values.anchor_date,
       end_date: values.end_date || null,
@@ -162,26 +179,57 @@ export const MedicationFormDialog: React.FC<MedicationFormDialogProps> = ({
             />
           </div>
 
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-300">Schedule</label>
+            <Controller
+              control={control}
+              name="schedule_mode"
+              render={({ field }) => (
+                <DropdownSelect
+                  testId="medication-schedule-mode"
+                  value={field.value}
+                  onChange={(value) => {
+                    field.onChange(value);
+                    // Interval mode is daily-only — normalise so the fixed-mode
+                    // weekly/monthly state can't leak through (spec-092).
+                    if (value === 'interval_from_last_dose') {
+                      setValue('frequency', 'daily');
+                    }
+                  }}
+                  options={scheduleModeOptions}
+                  placeholder="Schedule mode"
+                />
+              )}
+            />
+            {errors.schedule_mode ? (
+              <p className="mt-1 text-sm text-rose-400">{errors.schedule_mode.message}</p>
+            ) : null}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-300">Frequency</label>
-              <Controller
-                control={control}
-                name="frequency"
-                render={({ field }) => (
-                  <DropdownSelect
-                    testId="medication-frequency"
-                    value={field.value}
-                    onChange={field.onChange}
-                    options={frequencyOptions}
-                    placeholder="Frequency"
-                  />
-                )}
-              />
-            </div>
+            {!isInterval ? (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                  Frequency
+                </label>
+                <Controller
+                  control={control}
+                  name="frequency"
+                  render={({ field }) => (
+                    <DropdownSelect
+                      testId="medication-frequency"
+                      value={field.value}
+                      onChange={field.onChange}
+                      options={frequencyOptions}
+                      placeholder="Frequency"
+                    />
+                  )}
+                />
+              </div>
+            ) : null}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-300">
-                Every N {watched.frequency}(s)
+                {isInterval ? 'Every N days from last dose' : `Every N ${watched.frequency}(s)`}
               </label>
               <input
                 type="number"
@@ -196,7 +244,7 @@ export const MedicationFormDialog: React.FC<MedicationFormDialogProps> = ({
             </div>
           </div>
 
-          {watched.frequency === 'weekly' ? (
+          {!isInterval && watched.frequency === 'weekly' ? (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-300">
                 Days of week
@@ -356,8 +404,9 @@ export const MedicationFormDialog: React.FC<MedicationFormDialogProps> = ({
 
           <p data-testid="medication-schedule-summary" className="text-xs text-slate-400">
             {describeMedicationSchedule({
-              frequency: watched.frequency,
+              frequency: isInterval ? 'daily' : watched.frequency,
               interval: watched.interval || 1,
+              schedule_mode: watched.schedule_mode,
               days_of_week: watched.days_of_week,
               times: watched.times ?? [],
               end_date: watched.end_date || null,

@@ -11,6 +11,7 @@ const makeSlot = (overrides: Partial<DoseSlot>): DoseSlot => ({
   status: 'pending',
   event_public_id: null,
   note: null,
+  taken_at: null,
   ...overrides,
 });
 

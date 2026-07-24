@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
@@ -40,6 +40,7 @@ import {
   Landmark,
   AlertCircle,
   ChevronDown,
+  ChevronRight,
   SlidersHorizontal,
   RotateCcw,
   Settings2,
@@ -202,7 +203,7 @@ export const SpendingPage: React.FC = () => {
   const [type, setType] = useState<TransactionType>('expense');
   const [categoryId, setCategoryId] = useState('');
   const [accountId, setAccountId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(localDateInputValue());
   const [fromDate, setFromDate] = useState<string>(() => {
     const now = new Date();
     const start = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
@@ -1058,7 +1059,7 @@ export const SpendingPage: React.FC = () => {
     setEditTransferDate(
       t.occurred_at && !Number.isNaN(Date.parse(t.occurred_at))
         ? new Date(t.occurred_at).toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0],
+        : localDateInputValue(),
     );
     setEditTransferError(null);
   };
@@ -1189,7 +1190,7 @@ export const SpendingPage: React.FC = () => {
     // is available, which blocks submit until one is chosen.
     const fallbackAccountId = defaultSpendingAccountId || getLastUsedAccountId();
     setAccountId(fallbackAccountId && accountById.has(fallbackAccountId) ? fallbackAccountId : '');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(localDateInputValue());
     setIsModalOpen(true);
   }, [defaultSpendingAccountId, accountById]);
 
@@ -1212,7 +1213,7 @@ export const SpendingPage: React.FC = () => {
     setType('expense');
     setCategoryId('');
     setAccountId('');
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(localDateInputValue());
   };
 
   const openRecurringModalForNew = useCallback(() => {
@@ -1444,6 +1445,31 @@ export const SpendingPage: React.FC = () => {
   const isLoading = isCatsLoading || isTxLoading || isBudgetsLoading || isSummaryLoading;
   const isTransactionsTab = activeTab === 'transactions';
 
+  // #203: the tab strip scrolls horizontally on mobile with the scrollbar
+  // hidden, so overflow ("Recu…") was only discoverable by accident. Track
+  // whether it can scroll further in each direction to render an edge fade +
+  // chevron hint, and clear it once the user reaches the end.
+  const tabStripRef = useRef<HTMLDivElement>(null);
+  const [tabOverflow, setTabOverflow] = useState({ start: false, end: false });
+  useEffect(() => {
+    const el = tabStripRef.current;
+    if (!el) return;
+    const update = () => {
+      setTabOverflow({
+        start: el.scrollLeft > 4,
+        end: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+      });
+    };
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener('scroll', update);
+      observer.disconnect();
+    };
+  }, [activeTab]);
+
   return (
     <PageShell animated>
       {isTransactionsTab ? (
@@ -1451,11 +1477,15 @@ export const SpendingPage: React.FC = () => {
           title="Spending Overview"
           subtitle={`Track your finances across the workspace for ${monthRange.label}.`}
           actions={
-            <>
+            // #203: five flex-wrapped buttons wrapped 2-2-1 on a 390px screen,
+            // orphaning "Categories" on its own line. On mobile use a 2-col grid
+            // with the primary action spanning the full top row (1 / 2 / 2, no
+            // orphan); restore the flex row from sm up.
+            <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center lg:w-auto">
               <button
                 onClick={openTransactionModalForNew}
                 data-testid="spending-open-new-transaction"
-                className="group relative flex h-12 min-w-[170px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-tr from-cyan-600 to-cyan-500 px-5 font-semibold text-white shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.01] hover:shadow-cyan-500/40 active:scale-95"
+                className="group relative col-span-2 flex h-12 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-tr from-cyan-600 to-cyan-500 px-5 font-semibold text-white shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.01] hover:shadow-cyan-500/40 active:scale-95 sm:col-span-1 sm:min-w-[170px]"
               >
                 <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
                 <Plus className="h-5 w-5" />
@@ -1465,7 +1495,7 @@ export const SpendingPage: React.FC = () => {
               <button
                 onClick={openBudgetModalForNew}
                 data-testid="spending-open-set-budget"
-                className="group relative flex h-12 min-w-[150px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
+                className="group relative flex h-12 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 sm:min-w-[150px]"
               >
                 <Target className="h-5 w-5" />
                 <span className="whitespace-nowrap">Set Budget</span>
@@ -1473,14 +1503,14 @@ export const SpendingPage: React.FC = () => {
               <button
                 onClick={openRecurringModalForNew}
                 data-testid="spending-open-add-recurring"
-                className="group relative flex h-12 min-w-[160px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
+                className="group relative flex h-12 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 sm:min-w-[160px]"
               >
                 <Clock3 className="h-5 w-5" aria-hidden="true" />
                 <span className="whitespace-nowrap">Add Recurring</span>
               </button>
               <button
                 onClick={() => setIsTransferModalOpen(true)}
-                className="group relative flex h-12 min-w-[130px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
+                className="group relative flex h-12 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 sm:min-w-[130px]"
               >
                 <ArrowRightLeft className="h-5 w-5" />
                 <span className="whitespace-nowrap">Transfer</span>
@@ -1488,12 +1518,12 @@ export const SpendingPage: React.FC = () => {
               <button
                 onClick={() => setIsManageCategoriesOpen(true)}
                 data-testid="spending-open-manage-categories"
-                className="group relative flex h-12 min-w-[160px] flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95"
+                className="group relative flex h-12 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 sm:min-w-[160px]"
               >
                 <Tag className="h-5 w-5" />
                 <span className="whitespace-nowrap">Categories</span>
               </button>
-            </>
+            </div>
           }
         />
       ) : (
@@ -1701,10 +1731,30 @@ export const SpendingPage: React.FC = () => {
       ) : null}
 
       <div
-        className={`mb-6 flex gap-2 overflow-x-auto border-b border-slate-700/50 pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
-          isTransactionsTab ? '' : 'sticky top-0 z-20 bg-slate-950/95 py-1 backdrop-blur'
+        className={`relative mb-6 ${
+          isTransactionsTab ? '' : 'sticky top-0 z-20 bg-slate-950/95 backdrop-blur'
         }`}
       >
+        {tabOverflow.start && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-slate-950 to-transparent"
+          />
+        )}
+        {tabOverflow.end && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 z-10 flex w-10 items-center justify-end bg-gradient-to-l from-slate-950 to-transparent pb-px"
+          >
+            <ChevronRight className="h-4 w-4 text-slate-400" />
+          </div>
+        )}
+        <div
+          ref={tabStripRef}
+          className={`flex gap-2 overflow-x-auto border-b border-slate-700/50 pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+            isTransactionsTab ? '' : 'py-1'
+          }`}
+        >
         <button
           data-testid="spending-tab-transactions"
           onClick={() => setActiveTab('transactions')}
@@ -1771,6 +1821,7 @@ export const SpendingPage: React.FC = () => {
         >
           Account activity
         </button>
+        </div>
       </div>
 
       {isRecurringLoading && activeTab === 'recurring' ? (

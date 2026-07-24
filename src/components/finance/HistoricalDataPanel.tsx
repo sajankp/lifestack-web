@@ -6,6 +6,7 @@ import { financeService } from '../../services/finance';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
+import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { queryKeys } from '../../lib/queryKeys';
 import { Button } from '../ui/button';
 
@@ -21,6 +22,7 @@ import {
 const refreshKeys = [queryKeys.netWorth.all, queryKeys.finance.all];
 
 export const HistoricalDataPanel: React.FC = () => {
+  const displayProfile = useDisplayProfile();
   const [isOpen, setIsOpen] = useState(false);
   const [tab, setTab] = useState<'net-worth' | 'fx'>('net-worth');
 
@@ -128,7 +130,13 @@ export const HistoricalDataPanel: React.FC = () => {
                         >
                           <td className="px-3 py-2">{formatDate(p.snapshot_date)}</td>
                           <td className="px-3 py-2 text-right">
-                            {formatCurrency(p.total_net_worth, p.reporting_currency)}
+                            {formatCurrency(
+                              p.total_net_worth,
+                              p.reporting_currency,
+                              displayProfile.currencyDisplay,
+                              displayProfile.locale,
+                              displayProfile.decimalPlaces,
+                            )}
                           </td>
                           <td className="px-3 py-2 text-right">
                             <button

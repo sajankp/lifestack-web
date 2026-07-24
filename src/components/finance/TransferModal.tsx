@@ -10,8 +10,10 @@ import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { queryKeys } from '../../lib/queryKeys';
 import { financeService } from '../../services/finance';
 import { formatCurrency } from '../../utils/numberFormat';
+import { formatDateInputValue } from '../../utils/dateFormat';
 import { computeTransferNet } from '../../utils/transferMath';
 import { trackEvent } from '../../lib/analytics';
+import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import type { Account } from '../../types/finance';
 
 interface TransferModalProps {
@@ -38,6 +40,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   defaultFromAccountId,
   onCreateAccount,
 }) => {
+  const displayProfile = useDisplayProfile();
   const [fromAccountId, setFromAccountId] = useState('');
   const [toAccountId, setToAccountId] = useState('');
   const [amount, setAmount] = useState('');
@@ -46,7 +49,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [platformFee, setPlatformFee] = useState('0');
   const [tax, setTax] = useState('0');
   const [notes, setNotes] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(formatDateInputValue(new Date()));
   const [showFeesDisclosure, setShowFeesDisclosure] = useState(false);
 
   useEffect(() => {
@@ -291,7 +294,13 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               <div className="flex justify-between">
                 <span className="text-slate-400">Net received</span>
                 <span data-testid="transfer-net-preview" className="font-semibold text-white">
-                  {formatCurrency(netPreview, toAccountForPreview?.default_currency_code)}
+                  {formatCurrency(
+                    netPreview,
+                    toAccountForPreview?.default_currency_code,
+                    displayProfile.currencyDisplay,
+                    displayProfile.locale,
+                    displayProfile.decimalPlaces,
+                  )}
                 </span>
               </div>
             </div>

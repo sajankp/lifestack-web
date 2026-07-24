@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export type MedicationFrequency = 'daily' | 'weekly' | 'monthly';
+export type MedicationScheduleMode = 'fixed' | 'interval_from_last_dose';
 
 export const MedicationSchema = z.object({
   public_id: z.string().default(''),
@@ -9,6 +10,7 @@ export const MedicationSchema = z.object({
   refill_note: z.string().nullable().default(null),
   frequency: z.enum(['daily', 'weekly', 'monthly']).default('daily'),
   interval: z.number().default(1),
+  schedule_mode: z.enum(['fixed', 'interval_from_last_dose']).default('fixed'),
   days_of_week: z.array(z.number()).nullable().default(null),
   anchor_date: z.string().default(''),
   end_date: z.string().nullable().default(null),
@@ -30,6 +32,7 @@ export interface MedicationCreate {
   refill_note?: string | null;
   frequency: MedicationFrequency;
   interval?: number;
+  schedule_mode?: MedicationScheduleMode;
   days_of_week?: number[] | null;
   anchor_date: string;
   end_date?: string | null;
@@ -49,6 +52,7 @@ export const DoseSlotSchema = z.object({
   status: z.enum(['pending', 'taken', 'skipped', 'missed']).default('pending'),
   event_public_id: z.string().nullable().default(null),
   note: z.string().nullable().default(null),
+  taken_at: z.string().nullable().default(null),
 });
 
 export type DoseSlot = z.infer<typeof DoseSlotSchema>;
@@ -59,6 +63,7 @@ export const MedicationEventResponseSchema = z.object({
   scheduled_for: z.string().default(''),
   status: z.enum(['taken', 'skipped']).default('taken'),
   logged_at: z.string().default(''),
+  taken_at: z.string().nullable().default(null),
   note: z.string().nullable().default(null),
   source_type: z.string().default('manual'),
 });
@@ -69,6 +74,7 @@ export interface MedicationEventUpsert {
   scheduled_for: string;
   status: 'taken' | 'skipped';
   note?: string | null;
+  taken_at?: string | null;
 }
 
 export const WeightEntrySchema = z.object({

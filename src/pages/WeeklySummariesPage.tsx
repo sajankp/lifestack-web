@@ -11,6 +11,7 @@ import { useToast } from '../components/ui/toast';
 import { SkeletonList, EmptyState, ErrorBanner } from '../components/ui/FeedbackStates';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
 import { formatDate, formatDateTime } from '../utils/dateFormat';
+import { useDisplayProfile, type DisplayProfile } from '../hooks/useDisplayProfile';
 import type { WeeklySummary } from '../services/summaries';
 
 export const WeeklySummariesPage: React.FC = () => {
@@ -92,14 +93,18 @@ export const WeeklySummariesPage: React.FC = () => {
                     <h2 className="font-semibold text-white">
                       Week of {formatDate(`${item.week_start}T00:00:00Z`, { fallback: 'N/A' })}
                     </h2>
+                    {/* #200: on a regenerated summary generated_at and
+                        regenerated_at are the same event to the minute, so
+                        printing both read as a duplicate. Show only the most
+                        recent event — Regenerated if present, else Generated. */}
                     <p className="mt-1 text-xs text-slate-500">
-                      Generated {formatDateTime(item.generated_at, { fallback: 'N/A' })}
-                      {item.regenerated_at && (
+                      {item.regenerated_at ? (
                         <>
-                          {' · Regenerated '}
-                          {formatDateTime(item.regenerated_at, { fallback: 'N/A' })}
+                          Regenerated {formatDateTime(item.regenerated_at, { fallback: 'N/A' })}
                           {item.regeneration_reason && ` — ${item.regeneration_reason}`}
                         </>
+                      ) : (
+                        <>Generated {formatDateTime(item.generated_at, { fallback: 'N/A' })}</>
                       )}
                     </p>
                   </div>
@@ -126,22 +131,32 @@ export const WeeklySummariesPage: React.FC = () => {
                         ? 'Regenerating...'
                         : 'Regenerate'}
                     </Button>
-                    <input
-                      type="text"
-                      placeholder="Reason (optional)"
-                      value={regenerateReasons[item.public_id] ?? ''}
-                      onChange={(e) =>
-                        setRegenerateReasons((prev) => ({
-                          ...prev,
-                          [item.public_id]: e.target.value,
-                        }))
-                      }
-                      disabled={
-                        regenerateMutation.isPending &&
-                        regenerateMutation.variables?.summaryId === item.public_id
-                      }
-                      className="w-48 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none disabled:opacity-50"
-                    />
+                    {/* #200: the Reason field was unlabelled — nothing said where
+                        the note goes. Spell out that it is saved to this summary's
+                        history and surfaces in the card header after regenerating. */}
+                    <div className="flex flex-col items-end gap-1">
+                      <input
+                        type="text"
+                        placeholder="Reason (optional)"
+                        aria-label="Reason for regenerating (optional)"
+                        value={regenerateReasons[item.public_id] ?? ''}
+                        onChange={(e) =>
+                          setRegenerateReasons((prev) => ({
+                            ...prev,
+                            [item.public_id]: e.target.value,
+                          }))
+                        }
+                        disabled={
+                          regenerateMutation.isPending &&
+                          regenerateMutation.variables?.summaryId === item.public_id
+                        }
+                        className="w-48 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none disabled:opacity-50"
+                      />
+                      <p className="w-48 text-right text-[11px] leading-tight text-slate-500">
+                        Saved to this summary&apos;s history and shown in the header after
+                        regenerating.
+                      </p>
+                    </div>
                   </div>
                 </div>
                 {item.data_revised_after_snapshot && (
@@ -241,9 +256,18 @@ const formatWeeklyMovement = (
   change: number,
   changePct: string | null | undefined,
   currency: string | null,
+  displayProfile: DisplayProfile,
 ): string => {
   const changeSign = change > 0 ? '+' : '';
-  const amount = changeSign + formatCurrency(change, currency);
+  const amount =
+    changeSign +
+    formatCurrency(
+      change,
+      currency,
+      displayProfile.currencyDisplay,
+      displayProfile.locale,
+      displayProfile.decimalPlaces,
+    );
   if (changePct == null) return amount;
   const pct = toNumber(changePct);
   const pctSign = pct > 0 ? '+' : '';
@@ -267,6 +291,7 @@ const TodoCard = ({ summary }: { summary: WeeklySummary['todo_summary'] }) => (
 );
 
 const SpendingCard = ({ summary }: { summary: WeeklySummary['spending_summary'] }) => {
+  const displayProfile = useDisplayProfile();
   if (summary?.status !== 'complete' || !summary.currency || summary.has_multiple_currencies) {
     return (
       <SummaryCard title="Spending">
@@ -277,33 +302,32 @@ const SpendingCard = ({ summary }: { summary: WeeklySummary['spending_summary'] 
       </SummaryCard>
     );
   }
+  const fmt = (amount: string | number | null | undefined) =>
+    formatCurrency(
+      amount,
+      summary.currency,
+      displayProfile.currencyDisplay,
+      displayProfile.locale,
+      displayProfile.decimalPlaces,
+    );
   return (
     <SummaryCard title="Spending">
-      <Metric
-        label="Recorded income"
-        value={formatCurrency(summary.total_income, summary.currency)}
-      />
-      <Metric
-        label="Recorded expense"
-        value={formatCurrency(summary.total_expense, summary.currency)}
-      />
-      <Metric label="Net recorded amount" value={formatCurrency(summary.net, summary.currency)} />
+      <Metric label="Recorded income" value={fmt(summary.total_income)} />
+      <Metric label="Recorded expense" value={fmt(summary.total_expense)} />
+      <Metric label="Net recorded amount" value={fmt(summary.net)} />
       {summary.budget_utilization_pct != null && (
         <Metric label="Budget utilization" value={`${summary.budget_utilization_pct}%`} />
       )}
       <Metric label="Budgets breached" value={summary.budgets_breached ?? 0} />
       {(summary.top_categories ?? []).slice(0, 3).map((category) => (
-        <Metric
-          key={category.name}
-          label={category.name}
-          value={formatCurrency(category.amount, summary.currency)}
-        />
+        <Metric key={category.name} label={category.name} value={fmt(category.amount)} />
       ))}
     </SummaryCard>
   );
 };
 
 const InvestingCard = ({ summary }: { summary: WeeklySummary['investing_summary'] }) => {
+  const displayProfile = useDisplayProfile();
   if (summary?.status !== 'complete' || !summary?.currency) {
     return (
       <SummaryCard title="Investing">
@@ -315,19 +339,24 @@ const InvestingCard = ({ summary }: { summary: WeeklySummary['investing_summary'
     );
   }
 
+  const fmt = (amount: string | number | null | undefined) =>
+    formatCurrency(
+      amount,
+      summary.currency,
+      displayProfile.currencyDisplay,
+      displayProfile.locale,
+      displayProfile.decimalPlaces,
+    );
   const change = toNumber(summary.week_change);
   const movementClass =
     change > 0 ? 'text-emerald-300' : change < 0 ? 'text-rose-300' : 'text-slate-200';
   return (
     <SummaryCard title="Investing">
-      <Metric
-        label="Portfolio value"
-        value={formatCurrency(summary.portfolio_value_end, summary.currency)}
-      />
-      <Metric label="Investment cash" value={formatCurrency(summary.cash_end, summary.currency)} />
+      <Metric label="Portfolio value" value={fmt(summary.portfolio_value_end)} />
+      <Metric label="Investment cash" value={fmt(summary.cash_end)} />
       <Metric
         label="Weekly movement"
-        value={formatWeeklyMovement(change, summary.week_change_pct, summary.currency)}
+        value={formatWeeklyMovement(change, summary.week_change_pct, summary.currency, displayProfile)}
         valueClass={movementClass}
       />
       <Metric
@@ -356,6 +385,7 @@ const HealthCard = ({ summary }: { summary: WeeklySummary['health_summary'] }) =
 };
 
 const DividendCard = ({ summary }: { summary: WeeklySummary['dividend_summary'] }) => {
+  const displayProfile = useDisplayProfile();
   if (!summary || summary.status !== 'complete') {
     return (
       <SummaryCard title="Dividend Income">
@@ -365,24 +395,26 @@ const DividendCard = ({ summary }: { summary: WeeklySummary['dividend_summary'] 
       </SummaryCard>
     );
   }
+  const fmt = (amount: string | number | null | undefined) =>
+    formatCurrency(
+      amount,
+      summary.currency,
+      displayProfile.currencyDisplay,
+      displayProfile.locale,
+      displayProfile.decimalPlaces,
+    );
   return (
     <SummaryCard title="Dividend Income">
       <Metric
         label="Received"
-        value={
-          summary.currency
-            ? formatCurrency(summary.total_net, summary.currency)
-            : (summary.total_net ?? '0')
-        }
+        value={summary.currency ? fmt(summary.total_net) : (summary.total_net ?? '0')}
       />
       <Metric label="Payments" value={summary.count} />
       {summary.by_symbol.slice(0, 3).map((row) => (
         <Metric
           key={row.symbol}
           label={row.symbol}
-          value={
-            summary.currency ? formatCurrency(row.net_amount, summary.currency) : row.net_amount
-          }
+          value={summary.currency ? fmt(row.net_amount) : row.net_amount}
         />
       ))}
     </SummaryCard>
@@ -390,6 +422,7 @@ const DividendCard = ({ summary }: { summary: WeeklySummary['dividend_summary'] 
 };
 
 const NetWorthCard = ({ summary }: { summary: WeeklySummary['net_worth_summary'] }) => {
+  const displayProfile = useDisplayProfile();
   if (!summary || summary.status !== 'complete' || !summary.currency) {
     return (
       <SummaryCard title="Net Worth">
@@ -404,10 +437,19 @@ const NetWorthCard = ({ summary }: { summary: WeeklySummary['net_worth_summary']
     change > 0 ? 'text-emerald-300' : change < 0 ? 'text-rose-300' : 'text-slate-200';
   return (
     <SummaryCard title="Net Worth">
-      <Metric label="Net worth" value={formatCurrency(summary.net_worth_end, summary.currency)} />
+      <Metric
+        label="Net worth"
+        value={formatCurrency(
+          summary.net_worth_end,
+          summary.currency,
+          displayProfile.currencyDisplay,
+          displayProfile.locale,
+          displayProfile.decimalPlaces,
+        )}
+      />
       <Metric
         label="Weekly movement"
-        value={formatWeeklyMovement(change, summary.week_change_pct, summary.currency)}
+        value={formatWeeklyMovement(change, summary.week_change_pct, summary.currency, displayProfile)}
         valueClass={movementClass}
       />
       <Metric

@@ -813,6 +813,12 @@ describe('MasterConfigPage', () => {
     // saving — otherwise the save fires with the still-default (Mon/01:00) state.
     await screen.findByText('Wednesday');
 
+    // #200: the selected UTC hour is translated into the user's local time so
+    // they don't have to do the timezone math themselves.
+    const localHint = await screen.findByTestId('master-summary-cadence-local-hint');
+    expect(localHint).toHaveTextContent('14:00 UTC');
+    expect(localHint).toHaveTextContent(/your local time/);
+
     const saveButton = screen.getByTestId('master-summary-cadence-save');
     fireEvent.click(saveButton);
 

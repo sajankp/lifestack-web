@@ -10,6 +10,7 @@ import { HistoricalDataPanel } from '../components/finance/HistoricalDataPanel';
 import { PageShell } from '../components/layout/PageShell';
 import { queryKeys } from '../lib/queryKeys';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { useDisplayProfile, type DisplayProfile } from '../hooks/useDisplayProfile';
 import type { ExcludedCurrency, NetWorthHistoryItem } from '../types/finance';
 
 const accountTypeLabel = (type: string): string => {
@@ -76,7 +77,17 @@ const SummaryCard: React.FC<{
   highlight?: boolean;
   unavailable?: boolean;
   partial?: boolean;
-}> = ({ label, value, currency, icon, highlight = false, unavailable = false, partial = false }) => (
+  displayProfile: DisplayProfile;
+}> = ({
+  label,
+  value,
+  currency,
+  icon,
+  highlight = false,
+  unavailable = false,
+  partial = false,
+  displayProfile,
+}) => (
   <div
     className={`rounded-2xl border p-5 ${
       highlight
@@ -92,7 +103,15 @@ const SummaryCard: React.FC<{
       <p className="text-lg font-semibold text-slate-500">—</p>
     ) : (
       <p className={`text-2xl font-bold ${highlight ? 'text-cyan-300' : 'text-white'}`}>
-        {value != null ? formatCurrency(value, currency) : '—'}
+        {value != null
+          ? formatCurrency(
+              value,
+              currency,
+              displayProfile.currencyDisplay,
+              displayProfile.locale,
+              displayProfile.decimalPlaces,
+            )
+          : '—'}
       </p>
     )}
     {currency && !unavailable && (
@@ -107,7 +126,8 @@ const SummaryCard: React.FC<{
 const NetWorthHistoryChart: React.FC<{
   history: NetWorthHistoryItem[] | undefined;
   currency: string | null;
-}> = ({ history, currency }) => {
+  displayProfile: DisplayProfile;
+}> = ({ history, currency, displayProfile }) => {
   const [hoverIndex, setHoverIndex] = React.useState<number | null>(null);
 
   if (!history || history.length < 2) {
@@ -520,7 +540,13 @@ const NetWorthHistoryChart: React.FC<{
                           textAnchor="end"
                           className="text-[11px] fill-slate-100 font-medium"
                         >
-                          {formatCurrency(String(row.value), currency)}
+                          {formatCurrency(
+                            String(row.value),
+                            currency,
+                            displayProfile.currencyDisplay,
+                            displayProfile.locale,
+                            displayProfile.decimalPlaces,
+                          )}
                         </text>
                       </g>
                     );
@@ -567,6 +593,15 @@ const NetWorthHistoryChart: React.FC<{
 
 export const NetWorthPage: React.FC = () => {
   const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
+  const displayProfile = useDisplayProfile();
+  const fmt = (amount: string | number | null | undefined, currency: string | null | undefined) =>
+    formatCurrency(
+      amount,
+      currency,
+      displayProfile.currencyDisplay,
+      displayProfile.locale,
+      displayProfile.decimalPlaces,
+    );
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.netWorth.summary(),
     queryFn: () => financeService.getNetWorth(),
@@ -686,7 +721,7 @@ export const NetWorthPage: React.FC = () => {
           {/* Summary cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {summaryCards.map((card) => (
-              <SummaryCard key={card.label} {...card} />
+              <SummaryCard key={card.label} {...card} displayProfile={displayProfile} />
             ))}
           </div>
 
@@ -696,6 +731,7 @@ export const NetWorthPage: React.FC = () => {
               key={activeWorkspaceId ?? 'default'}
               history={historyData}
               currency={rc}
+              displayProfile={displayProfile}
             />
           )}
 
@@ -727,7 +763,7 @@ export const NetWorthPage: React.FC = () => {
                       </td>
                       <td className="px-5 py-3 text-right text-slate-200">
                         {data?.investing_cash_total != null && rc
-                          ? formatCurrency(data.investing_cash_total, rc)
+                          ? fmt(data.investing_cash_total, rc)
                           : '—'}
                       </td>
                     </tr>
@@ -740,7 +776,7 @@ export const NetWorthPage: React.FC = () => {
                       </td>
                       <td className="px-5 py-3 text-right text-slate-200">
                         {data?.holdings_value != null && rc
-                          ? formatCurrency(data.holdings_value, rc)
+                          ? fmt(data.holdings_value, rc)
                           : '—'}
                       </td>
                     </tr>
@@ -748,7 +784,7 @@ export const NetWorthPage: React.FC = () => {
                       <tr className="border-t border-slate-700">
                         <td className="px-5 py-3 font-semibold text-slate-300">Investing total</td>
                         <td className="px-5 py-3 text-right font-semibold text-slate-200">
-                          {formatCurrency(data.investing_total, rc)}
+                          {fmt(data.investing_total, rc)}
                         </td>
                       </tr>
                     )}
@@ -796,7 +832,7 @@ export const NetWorthPage: React.FC = () => {
                         </td>
                         <td className="px-5 py-3 text-right">
                           <span className="text-slate-300">
-                            {formatCurrency(account.balance, account.currency_code)}
+                            {fmt(account.balance, account.currency_code)}
                           </span>
                           <span className="ml-1.5 text-xs text-slate-600 uppercase">
                             {account.currency_code}
@@ -805,7 +841,7 @@ export const NetWorthPage: React.FC = () => {
                         <td className="px-5 py-3 text-right">
                           {account.balance_in_reporting_currency != null && rc ? (
                             <span className="font-medium text-slate-200">
-                              {formatCurrency(account.balance_in_reporting_currency, rc)}
+                              {fmt(account.balance_in_reporting_currency, rc)}
                             </span>
                           ) : (
                             <span className="text-xs text-slate-600">No FX rate</span>
@@ -819,7 +855,7 @@ export const NetWorthPage: React.FC = () => {
                           Investing cash total
                         </td>
                         <td className="px-5 py-3 text-right font-semibold text-slate-200">
-                          {formatCurrency(data.investing_cash_total, rc)}
+                          {fmt(data.investing_cash_total, rc)}
                         </td>
                       </tr>
                     )}
@@ -866,7 +902,7 @@ export const NetWorthPage: React.FC = () => {
                         </td>
                         <td className="px-5 py-3 text-right">
                           <span className="text-slate-300">
-                            {formatCurrency(account.balance, account.currency_code)}
+                            {fmt(account.balance, account.currency_code)}
                           </span>
                           <span className="ml-1.5 text-xs text-slate-600 uppercase">
                             {account.currency_code}
@@ -875,7 +911,7 @@ export const NetWorthPage: React.FC = () => {
                         <td className="px-5 py-3 text-right">
                           {account.balance_in_reporting_currency != null && rc ? (
                             <span className="font-medium text-slate-200">
-                              {formatCurrency(account.balance_in_reporting_currency, rc)}
+                              {fmt(account.balance_in_reporting_currency, rc)}
                             </span>
                           ) : (
                             <span className="text-xs text-slate-600">No FX rate</span>
@@ -889,7 +925,7 @@ export const NetWorthPage: React.FC = () => {
                           Spending total
                         </td>
                         <td className="px-5 py-3 text-right font-semibold text-slate-200">
-                          {formatCurrency(data.spending_total, rc)}
+                          {fmt(data.spending_total, rc)}
                         </td>
                       </tr>
                     )}
@@ -918,7 +954,7 @@ export const NetWorthPage: React.FC = () => {
               <p className="text-3xl font-bold text-cyan-300">
                 {rc ? (
                   <>
-                    {formatCurrency(data.total_net_worth, rc)}
+                    {fmt(data.total_net_worth, rc)}
                     <span className="ml-2 text-lg font-semibold text-cyan-500">{rc}</span>
                   </>
                 ) : (

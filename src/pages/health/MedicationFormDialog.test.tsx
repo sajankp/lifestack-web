@@ -54,6 +54,32 @@ describe('MedicationFormDialog', () => {
     expect(payload.name).toBe('Vitamin D');
   });
 
+  it('switches to interval-from-last-dose mode, hides frequency, and submits daily', async () => {
+    const onSubmit = vi.fn();
+    render(<MedicationFormDialog open onOpenChange={vi.fn()} onSubmit={onSubmit} />);
+
+    fireEvent.change(screen.getByTestId('medication-name-input'), {
+      target: { value: 'Interval Med' },
+    });
+    fireEvent.click(screen.getByTestId('medication-schedule-mode'));
+    fireEvent.click(await screen.findByRole('option', { name: 'Every N days from last dose' }));
+
+    // Frequency selector is hidden in interval mode; summary reflects the mode.
+    expect(screen.queryByTestId('medication-frequency')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('medication-interval-input'), { target: { value: '2' } });
+    expect(screen.getByTestId('medication-schedule-summary')).toHaveTextContent(
+      'Every 2 days from your last dose, 09:00',
+    );
+
+    fireEvent.click(screen.getByTestId('medication-save-button'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    const payload = onSubmit.mock.calls[0][0];
+    expect(payload.schedule_mode).toBe('interval_from_last_dose');
+    expect(payload.frequency).toBe('daily');
+    expect(payload.interval).toBe(2);
+    expect(payload.days_of_week).toBeNull();
+  });
+
   it('uses a native time picker for dose times, defaulting to one entry that cannot be removed', async () => {
     render(<MedicationFormDialog open onOpenChange={vi.fn()} onSubmit={vi.fn()} />);
 

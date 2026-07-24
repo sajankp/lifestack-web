@@ -1,5 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
@@ -13,12 +14,36 @@ import { formatDateInputValue } from '../utils/dateFormat';
 
 const todayDate = (): string => formatDateInputValue(new Date());
 
+/** Shift a YYYY-MM-DD string by whole days, staying in local time. */
+const shiftDate = (dateStr: string, days: number): string => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return formatDateInputValue(new Date(y, m - 1, d + days));
+};
+
+const describeDay = (dateStr: string, today: string): string => {
+  if (dateStr === today) return 'Today';
+  if (dateStr === shiftDate(today, -1)) return 'Yesterday';
+  if (dateStr === shiftDate(today, 1)) return 'Tomorrow';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
 export const HealthPage: React.FC = () => {
   const today = todayDate();
+  const [selectedDate, setSelectedDate] = React.useState(today);
 
   const scheduleQuery = useQuery({
-    queryKey: queryKeys.health.schedule(today),
-    queryFn: () => healthService.getSchedule(today),
+    queryKey: queryKeys.health.schedule(selectedDate),
+    queryFn: () => healthService.getSchedule(selectedDate),
+  });
+
+  const overdueQuery = useQuery({
+    queryKey: queryKeys.health.overdue(),
+    queryFn: () => healthService.getOverdue(),
   });
 
   const weightTrendQuery = useQuery({
@@ -37,7 +62,11 @@ export const HealthPage: React.FC = () => {
         scheduled_for: args.scheduledFor,
         status: args.status,
       }),
-    [queryKeys.health.schedule(today), queryKeys.health.medications()],
+    [
+      queryKeys.health.schedule(selectedDate),
+      queryKeys.health.overdue(),
+      queryKeys.health.medications(),
+    ],
     { successMessage: false },
   );
 
@@ -53,20 +82,20 @@ export const HealthPage: React.FC = () => {
 
   const createMedicationMutation = useInvalidatingMutation(
     (payload: MedicationCreate) => healthService.createMedication(payload),
-    [queryKeys.health.medications(), queryKeys.health.schedule(today)],
+    [queryKeys.health.medications(), queryKeys.health.schedule(selectedDate)],
     { successMessage: 'Medication added' },
   );
 
   const updateMedicationMutation = useInvalidatingMutation(
     (args: { publicId: string; payload: MedicationUpdate }) =>
       healthService.updateMedication(args.publicId, args.payload),
-    [queryKeys.health.medications(), queryKeys.health.schedule(today)],
+    [queryKeys.health.medications(), queryKeys.health.schedule(selectedDate)],
     { successMessage: 'Medication updated' },
   );
 
   const deleteMedicationMutation = useInvalidatingMutation(
     (publicId: string) => healthService.deleteMedication(publicId),
-    [queryKeys.health.medications(), queryKeys.health.schedule(today)],
+    [queryKeys.health.medications(), queryKeys.health.schedule(selectedDate)],
     { successMessage: 'Medication deleted' },
   );
 
@@ -94,16 +123,75 @@ export const HealthPage: React.FC = () => {
       />
 
       <div className="space-y-8">
+        {(overdueQuery.data?.length ?? 0) > 0 ? (
+          <section data-testid="catch-up-section">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-amber-300">
+              Catch up ({overdueQuery.data?.length})
+            </h2>
+            <DoseChecklist
+              slots={overdueQuery.data ?? []}
+              isLoading={overdueQuery.isLoading}
+              onMarkTaken={handleMarkTaken}
+              onMarkSkipped={handleMarkSkipped}
+              isMutating={eventMutation.isPending}
+              showDate
+            />
+          </section>
+        ) : null}
+
         <section>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-slate-300">
-            Today's doses
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-300">
+              Doses
+            </h2>
+            <div className="flex items-center gap-2">
+              {selectedDate !== today ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(today)}
+                  data-testid="dose-date-today"
+                  className="text-xs font-medium text-cyan-400 hover:text-cyan-300"
+                >
+                  Today
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setSelectedDate(shiftDate(selectedDate, -1))}
+                data-testid="dose-date-prev"
+                aria-label="Previous day"
+                className="rounded-md p-1 text-slate-400 hover:text-white"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span
+                data-testid="dose-date-label"
+                className="min-w-24 text-center text-sm font-medium text-slate-200"
+              >
+                {describeDay(selectedDate, today)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedDate(shiftDate(selectedDate, 1))}
+                data-testid="dose-date-next"
+                aria-label="Next day"
+                className="rounded-md p-1 text-slate-400 hover:text-white"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
           <DoseChecklist
             slots={scheduleQuery.data ?? []}
             isLoading={scheduleQuery.isLoading}
             onMarkTaken={handleMarkTaken}
             onMarkSkipped={handleMarkSkipped}
             isMutating={eventMutation.isPending}
+            emptyLabel={
+              selectedDate === today
+                ? 'No medications scheduled today'
+                : 'No medications scheduled this day'
+            }
           />
         </section>
 

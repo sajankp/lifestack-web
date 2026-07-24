@@ -25,6 +25,7 @@ export const queryKeys = {
     medications: <T extends unknown[]>(...params: T) =>
       ['health', 'medications', ...params] as const,
     schedule: <T extends unknown[]>(...params: T) => ['health', 'schedule', ...params] as const,
+    overdue: <T extends unknown[]>(...params: T) => ['health', 'overdue', ...params] as const,
     weight: <T extends unknown[]>(...params: T) => ['health', 'weight', ...params] as const,
     weightTrend: <T extends unknown[]>(...params: T) =>
       ['health', 'weight-trend', ...params] as const,
