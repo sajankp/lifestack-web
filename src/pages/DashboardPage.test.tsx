@@ -400,4 +400,15 @@ describe('DashboardPage', () => {
     ).toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-briefing-line')).not.toBeInTheDocument();
   });
+
+  it('does not orphan the third stat card at tablet-landscape widths (web#204)', async () => {
+    server.use(emptyNotifications(), allClearBriefing(), minimalSummary());
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByTestId('dashboard-stat-grid')).toHaveClass(
+      'md:grid-cols-2',
+      'lg:grid-cols-3',
+    );
+  });
 });

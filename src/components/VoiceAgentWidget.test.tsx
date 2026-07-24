@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../components/ui/toast';
 import { act, fireEvent, render, screen } from '@testing-library/react';
@@ -75,7 +76,7 @@ class FakeMediaRecorder {
   }
 }
 
-const renderWidget = () => {
+const renderWidget = (props: ComponentProps<typeof VoiceAgentWidget> = {}) => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -83,7 +84,7 @@ const renderWidget = () => {
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <MemoryRouter>
-          <VoiceAgentWidget />
+          <VoiceAgentWidget {...props} />
         </MemoryRouter>
       </ToastProvider>
     </QueryClientProvider>,
@@ -466,5 +467,11 @@ describe('Capture panel verification', () => {
 
     expect(screen.getByText('Already saved earlier — duplicate skipped.')).toBeVisible();
     expect(screen.queryByText('Saved — view in app')).toBeNull();
+  });
+
+  it('hides the launcher while the mobile nav drawer is open (web#202)', () => {
+    renderWidget({ hidden: true });
+
+    expect(screen.queryByRole('button', { name: 'Open capture panel' })).not.toBeInTheDocument();
   });
 });
