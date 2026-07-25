@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, Link, NavLink } from 'react-router-dom';
+import { Navigate, Link, NavLink } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Bell, Building2, ChevronDown, Menu, Plus, UserCircle2 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';

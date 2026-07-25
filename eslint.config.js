@@ -21,6 +21,18 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // eslint-plugin-react-hooks 7.1.x's recommended preset promotes these
+      // two React Compiler advisory checks to hard errors (they were off/warn
+      // under 7.0.x, the version this repo ran before the eslint 9->10 bump
+      // forced a plugin bump too). They flag real, pre-existing patterns
+      // across TransferModal/InvestingPage/MasterConfigPage/TodoPage/
+      // HoldingsTab that are worth a dedicated look, but fixing them is an
+      // app-logic change, not a lint-tooling one -- keep as warnings here so
+      // the dependency bump doesn't silently bundle an unrelated refactor.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
+    },
   },
   {
     // spec-075: money/number formatting must go through

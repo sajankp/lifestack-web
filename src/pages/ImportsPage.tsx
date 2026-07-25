@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router';
 import { Plus } from 'lucide-react';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';

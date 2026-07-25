@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryKeys';
 import { trackEvent } from '../lib/analytics';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import {
   Mic,
   MicOff,

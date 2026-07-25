@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router';
 import { Building2, LogOut, X } from 'lucide-react';
 import type { WorkspaceInfo } from '../../services/platform';
 import { NAV_LINKS, NAV_SECTIONS, ROLE_BADGE, SETTINGS_LINK } from './constants';

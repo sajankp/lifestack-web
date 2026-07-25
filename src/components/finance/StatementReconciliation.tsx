@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { CheckCircle2, CircleDashed, Upload } from 'lucide-react';
 import { financeService } from '../../services/finance';
 import { formatCurrency } from '../../utils/numberFormat';
