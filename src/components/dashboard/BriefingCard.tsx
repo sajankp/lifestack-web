@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { CalendarCheck, CheckCircle2 } from 'lucide-react';
 import { SkeletonList } from '../ui/FeedbackStates';
 import type { BriefingLine } from '../../types/dashboard';

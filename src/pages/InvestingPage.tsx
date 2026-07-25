@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Landmark, Plus, WalletCards } from 'lucide-react';
 import { financeService } from '../services/finance';

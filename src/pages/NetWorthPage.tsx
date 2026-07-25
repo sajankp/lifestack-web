@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, Building2, Landmark, PieChart, TrendingUp, Wallet } from 'lucide-react';
 import { financeService } from '../services/finance';

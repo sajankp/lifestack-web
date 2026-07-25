@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { NAV_LINKS, NAV_SECTIONS, SETTINGS_LINK } from './constants';
 import { useCaptureStore } from '../../store/captureStore';

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Trash2, Upload } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { financeService } from '../../services/finance';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';

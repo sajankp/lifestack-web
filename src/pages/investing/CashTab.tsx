@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRightLeft, Plus, Trash2 } from 'lucide-react';
 import { financeService } from '../../services/finance';

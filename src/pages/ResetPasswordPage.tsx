@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { authService } from '../services/auth';
 
 const getPasswordScore = (value: string) => {
