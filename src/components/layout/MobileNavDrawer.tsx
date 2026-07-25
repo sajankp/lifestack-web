@@ -76,7 +76,7 @@ export function MobileNavDrawer({
               <Building2 className="h-3.5 w-3.5 text-slate-500 shrink-0" />
               <p className="text-xs text-slate-400 uppercase tracking-widest">Workspace</p>
             </div>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center justify-between gap-2">
               {workspaces.length > 1 ? (
                 <select
                   aria-label="Active workspace"
@@ -84,7 +84,7 @@ export function MobileNavDrawer({
                   value={workspace.public_id}
                   onChange={(event) => onSelectWorkspace(event.target.value)}
                   disabled={isSelectingWorkspace}
-                  className="w-full bg-transparent text-sm font-semibold text-slate-100 outline-none"
+                  className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-100 outline-none"
                 >
                   {workspaces.map((item) => (
                     <option key={item.public_id} value={item.public_id} className="bg-slate-900">
@@ -93,7 +93,9 @@ export function MobileNavDrawer({
                   ))}
                 </select>
               ) : (
-                <p className="truncate text-sm font-semibold text-slate-100">{workspace.name}</p>
+                <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">
+                  {workspace.name}
+                </p>
               )}
               {roleBadge && (
                 <span

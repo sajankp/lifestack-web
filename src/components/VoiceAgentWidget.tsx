@@ -101,7 +101,7 @@ const CONFIRMATION_CARD_REGISTRY: Record<
   },
 };
 
-export const VoiceAgentWidget: React.FC = () => {
+export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = false }) => {
   const queryClient = useQueryClient();
   const isOpen = useCaptureStore((state) => state.isOpen);
   const setIsOpen = useCaptureStore((state) => state.setIsOpen);
@@ -867,7 +867,7 @@ export const VoiceAgentWidget: React.FC = () => {
   return (
     <>
       {/* Persistent Floating Mic Button */}
-      {showLauncher && (
+      {showLauncher && !hidden && (
         <button
           onClick={() => {
             if (!isDraggingRef.current) {

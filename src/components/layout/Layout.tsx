@@ -136,7 +136,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               <button
                 data-testid="nav-mobile-open"
                 onClick={() => setMobileNavOpen(true)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white lg:hidden"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white lg:hidden"
                 aria-label="Open navigation"
               >
                 <Menu className="h-4 w-4" />
@@ -214,7 +214,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 aria-label="Notifications"
                 data-testid="header-notifications"
                 className={({ isActive }) =>
-                  `relative inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
+                  `relative inline-flex h-11 w-11 items-center justify-center rounded-xl border transition-colors ${
                     isActive
                       ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-300'
                       : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -297,7 +297,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       {/* Keyed by workspace so a switch remounts the widget and clears its
           WebSocket/message-history/resumption-handle state instead of leaking
           it into the new workspace (spec-079 Stage B review finding). */}
-      <VoiceAgentWidget key={workspace?.public_id ?? 'no-workspace'} />
+      <VoiceAgentWidget
+        key={workspace?.public_id ?? 'no-workspace'}
+        hidden={mobileNavOpen}
+      />
     </div>
   );
 };

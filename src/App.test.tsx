@@ -175,4 +175,17 @@ describe('App shell', () => {
       '/spending?new=1',
     );
   });
+
+  it('gives header icon buttons a >=44px touch target (web#202)', async () => {
+    server.use(
+      ...defaultHandlers,
+      http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [workspaceA] })),
+    );
+
+    renderApp();
+
+    await screen.findByRole('heading', { name: 'Dashboard' });
+    expect(screen.getByTestId('nav-mobile-open')).toHaveClass('h-11', 'w-11');
+    expect(screen.getByTestId('header-notifications')).toHaveClass('h-11', 'w-11');
+  });
 });

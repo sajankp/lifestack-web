@@ -185,7 +185,10 @@ export const DashboardPage: React.FC = () => {
             lines={briefingData?.lines}
           />
 
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div
+            data-testid="dashboard-stat-grid"
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+          >
             <MetricCard
               to="/todo"
               label="Open todos"
