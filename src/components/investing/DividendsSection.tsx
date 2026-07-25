@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Trash2, Upload } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { investingService } from '../../services/investing';
 import type { Dividend, DividendCreate, DividendIncomeType } from '../../types/investing';
 import { DIVIDEND_INCOME_TYPES } from '../../types/investing';
