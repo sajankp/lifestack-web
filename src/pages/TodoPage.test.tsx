@@ -105,7 +105,7 @@ describe('TodoPage', () => {
     expect(screen.getByText(/21-Jun-2026/)).toBeInTheDocument();
     expect(screen.queryByText(/21-Jun-2026.*12:00/)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Add Task/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Add todo/i }));
     expect(await screen.findByTestId('todo-new-priority')).toHaveTextContent('Low');
     fireEvent.change(screen.getByTestId('todo-new-title'), {
       target: { value: 'Plan groceries' },
@@ -185,7 +185,7 @@ describe('TodoPage', () => {
     fireEvent.click(screen.getByTestId('todo-delete-todo-1'));
 
     const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveTextContent(/Delete task\?/i);
+    expect(dialog).toHaveTextContent(/Delete todo\?/i);
     expect(deleteCalled).toBe(false);
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
@@ -193,7 +193,7 @@ describe('TodoPage', () => {
     await waitFor(() => {
       expect(deleteCalled).toBe(true);
     });
-    expect(await screen.findByText('Task deleted')).toBeInTheDocument();
+    expect(await screen.findByText('Todo deleted')).toBeInTheDocument();
   });
 
   it('renders subtasks indented under their parent with progress, and cascades completion', async () => {
@@ -301,7 +301,7 @@ describe('TodoPage', () => {
 
     renderWithQuery(<TodoPage />);
 
-    expect(await screen.findByText('No tasks yet.')).toBeInTheDocument();
+    expect(await screen.findByText('No todos yet.')).toBeInTheDocument();
     expect(screen.queryByText('Old task')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('todo-completed-toggle'));
@@ -309,14 +309,14 @@ describe('TodoPage', () => {
 
     fireEvent.click(screen.getByTestId('todo-clear-completed'));
     const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveTextContent(/Clear completed tasks\?/i);
+    expect(dialog).toHaveTextContent(/Clear completed todos\?/i);
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear completed' }));
 
     await waitFor(() => {
       expect(screen.queryByText('Old task')).not.toBeInTheDocument();
     });
-    expect(await screen.findByText('Cleared 1 completed task')).toBeInTheDocument();
+    expect(await screen.findByText('Cleared 1 completed todo')).toBeInTheDocument();
   });
 
   it('renders row actions with a pointer-coarse always-visible class, not hover-only', async () => {
@@ -407,7 +407,7 @@ describe('TodoPage', () => {
 
     renderWithQuery(<TodoPage />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /New recurring todo/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Add recurring todo/i }));
     expect(await screen.findByTestId('todo-recurring-priority')).toHaveTextContent('Low');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 

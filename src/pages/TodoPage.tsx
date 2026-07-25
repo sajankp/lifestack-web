@@ -223,15 +223,15 @@ export const TodoPage: React.FC = () => {
   const toggleMutation = useInvalidatingMutation(
     (todo: Todo) => todoService.updateTodo(todo.public_id, { completed: !todo.completed }),
     [queryKeys.todo.list(), queryKeys.dashboard.all],
-    { successMessage: false, errorMessage: 'Could not update that task. Please try again.' },
+    { successMessage: false, errorMessage: 'Could not update that todo. Please try again.' },
   );
 
   const deleteMutation = useInvalidatingMutation(
     (id: string) => todoService.deleteTodo(id),
     [queryKeys.todo.list(), queryKeys.dashboard.all],
     {
-      successMessage: 'Task deleted',
-      errorMessage: 'Could not delete that task. Please try again.',
+      successMessage: 'Todo deleted',
+      errorMessage: 'Could not delete that todo. Please try again.',
       onSuccess: () => setPendingDeleteTodo(null),
     },
   );
@@ -242,11 +242,11 @@ export const TodoPage: React.FC = () => {
     [queryKeys.todo.list(), queryKeys.dashboard.all],
     {
       successMessage: false,
-      errorMessage: 'Could not clear completed tasks. Please try again.',
+      errorMessage: 'Could not clear completed todos. Please try again.',
       onSuccess: (result) => {
         setIsClearCompletedOpen(false);
         showToast(
-          `Cleared ${result.deleted} completed task${result.deleted === 1 ? '' : 's'}`,
+          `Cleared ${result.deleted} completed todo${result.deleted === 1 ? '' : 's'}`,
           'success',
         );
       },
@@ -459,15 +459,15 @@ export const TodoPage: React.FC = () => {
               className="inline-flex h-12 items-center gap-2 rounded-xl bg-cyan-600 px-5 text-sm font-semibold text-white hover:bg-cyan-500"
             >
               <Plus className="h-4 w-4" />
-              Add Task
+              Add todo
             </button>
             <button
               type="button"
               onClick={openNewRecurringModal}
-              className="inline-flex h-12 items-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white hover:bg-emerald-500"
+              className="inline-flex h-12 items-center gap-2 rounded-xl bg-cyan-600 px-5 text-sm font-semibold text-white hover:bg-cyan-500"
             >
               <Plus className="h-4 w-4" />
-              New recurring todo
+              Add recurring todo
             </button>
           </div>
         }
@@ -480,8 +480,8 @@ export const TodoPage: React.FC = () => {
               {subtaskParent
                 ? `New subtask for "${subtaskParent.title}"`
                 : editingTodo
-                  ? 'Edit task'
-                  : 'New task'}
+                  ? 'Edit todo'
+                  : 'New todo'}
             </DialogTitle>
           </DialogHeader>
           {isTaskModalOpen && (
@@ -491,7 +491,7 @@ export const TodoPage: React.FC = () => {
                   <span data-testid="todo-edit-parent-chip">
                     Subtask of:{' '}
                     <span className="font-semibold text-slate-100">
-                      {editingParentTitle ?? 'parent task'}
+                      {editingParentTitle ?? 'parent todo'}
                     </span>
                   </span>
                   <button
@@ -610,8 +610,8 @@ export const TodoPage: React.FC = () => {
                   {createMutation.isPending || updateMutation.isPending
                     ? 'Saving...'
                     : editingTodo
-                      ? 'Save Task'
-                      : 'Add Task'}
+                      ? 'Save todo'
+                      : 'Add todo'}
                 </button>
               </div>
             </form>
@@ -632,7 +632,7 @@ export const TodoPage: React.FC = () => {
       >
         <TabsList className="mb-6">
           <TabsTrigger value="tasks" data-testid="todo-tab-tasks">
-            Tasks
+            Todos
           </TabsTrigger>
           <TabsTrigger value="recurring" data-testid="todo-tab-recurring">
             Recurring todos
@@ -646,9 +646,9 @@ export const TodoPage: React.FC = () => {
             <div className="space-y-6">
               {topLevelTodos.length === 0 ? (
                 <div className="rounded-2xl border border-slate-800 bg-slate-800/30 p-8 text-center">
-                  <p className="text-slate-300">No tasks yet.</p>
+                  <p className="text-slate-300">No todos yet.</p>
                   <p className="mt-1 text-sm text-slate-500">
-                    Create your first task above to get started.
+                    Create your first todo above to get started.
                   </p>
                 </div>
               ) : (
@@ -764,7 +764,7 @@ export const TodoPage: React.FC = () => {
                                   disabled={deleteMutation.isPending}
                                   onClick={() => setPendingDeleteTodo(todo)}
                                   className="rounded p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-500 disabled:opacity-50"
-                                  title="Delete task"
+                                  title="Delete todo"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
@@ -1026,7 +1026,7 @@ export const TodoPage: React.FC = () => {
       <ConfirmDialog
         open={!!pendingDeleteTodo}
         onOpenChange={(open) => !open && setPendingDeleteTodo(null)}
-        title="Delete task?"
+        title="Delete todo?"
         description={(() => {
           if (!pendingDeleteTodo) return 'This cannot be undone.';
           const subtaskCount = pendingDeleteTodo.subtask_count;
@@ -1036,22 +1036,22 @@ export const TodoPage: React.FC = () => {
         })()}
         isPending={deleteMutation.isPending}
         isError={deleteMutation.isError}
-        errorMessage="Could not delete that task. Please try again."
+        errorMessage="Could not delete that todo. Please try again."
         onConfirm={() => pendingDeleteTodo && deleteMutation.mutate(pendingDeleteTodo.public_id)}
       />
 
       <ConfirmDialog
         open={isClearCompletedOpen}
         onOpenChange={setIsClearCompletedOpen}
-        title="Clear completed tasks?"
+        title="Clear completed todos?"
         description={`This will permanently delete all ${
           completedTodosResponse?.total ?? 0
-        } completed tasks. This cannot be undone.`}
+        } completed todos. This cannot be undone.`}
         confirmLabel="Clear completed"
         pendingLabel="Clearing…"
         isPending={clearCompletedMutation.isPending}
         isError={clearCompletedMutation.isError}
-        errorMessage="Could not clear completed tasks. Please try again."
+        errorMessage="Could not clear completed todos. Please try again."
         onConfirm={() => clearCompletedMutation.mutate()}
       />
 

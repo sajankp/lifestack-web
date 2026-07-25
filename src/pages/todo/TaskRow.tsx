@@ -132,7 +132,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
             data-testid={`todo-edit-${todo.public_id}`}
             onClick={() => onEdit(todo)}
             className="rounded p-2 text-slate-500 hover:bg-slate-700/60 hover:text-slate-100"
-            title="Edit task"
+            title="Edit todo"
           >
             <Edit2 className="h-4 w-4" />
           </button>
@@ -142,7 +142,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
             disabled={isDeleting}
             onClick={() => onDeleteRequest(todo)}
             className="rounded p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-500 disabled:opacity-50"
-            title="Delete task"
+            title="Delete todo"
           >
             <Trash2 className="h-4 w-4" />
           </button>
