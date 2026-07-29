@@ -39,21 +39,25 @@ export const HealthPage: React.FC = () => {
   const scheduleQuery = useQuery({
     queryKey: queryKeys.health.schedule(selectedDate),
     queryFn: () => healthService.getSchedule(selectedDate),
+    staleTime: 60 * 1000,
   });
 
   const overdueQuery = useQuery({
     queryKey: queryKeys.health.overdue(),
     queryFn: () => healthService.getOverdue(),
+    staleTime: 60 * 1000,
   });
 
   const weightTrendQuery = useQuery({
     queryKey: queryKeys.health.weightTrend(30),
     queryFn: () => healthService.getWeightTrend(30),
+    staleTime: 5 * 60 * 1000,
   });
 
   const medicationsQuery = useQuery({
     queryKey: queryKeys.health.medications(),
     queryFn: () => healthService.getMedications(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const eventMutation = useInvalidatingMutation(
