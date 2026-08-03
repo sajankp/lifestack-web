@@ -304,7 +304,7 @@ describe('TodoPage', () => {
     expect(await screen.findByText('No todos yet.')).toBeInTheDocument();
     expect(screen.queryByText('Old task')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId('todo-completed-toggle'));
+    fireEvent.click(await screen.findByTestId('todo-completed-toggle'));
     expect(await screen.findByText('Old task')).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('todo-clear-completed'));
@@ -317,6 +317,73 @@ describe('TodoPage', () => {
       expect(screen.queryByText('Old task')).not.toBeInTheDocument();
     });
     expect(await screen.findByText('Cleared 1 completed todo')).toBeInTheDocument();
+  });
+
+  it('moves a completed todo back to the in-progress list', async () => {
+    let reopened = false;
+    let updatePayload: Record<string, unknown> | null = null;
+
+    server.use(
+      http.get('*/v1/todo/', ({ request }) => {
+        const url = new URL(request.url);
+        const isCompleted = url.searchParams.get('completed') === 'true';
+        const items =
+          isCompleted === !reopened
+            ? [
+                {
+                  public_id: 'done-1',
+                  title: 'Old task',
+                  description: null,
+                  due_date: null,
+                  priority: 'low',
+                  completed: !reopened,
+                  parent_public_id: null,
+                  subtask_count: 0,
+                  created_at: '2026-06-01T00:00:00Z',
+                  updated_at: '2026-06-01T00:00:00Z',
+                },
+              ]
+            : [];
+        return HttpResponse.json({
+          items,
+          total: items.length,
+          limit: isCompleted ? 50 : 200,
+          offset: 0,
+        });
+      }),
+      http.get('*/v1/todo/recurring/', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 100, offset: 0 }),
+      ),
+      http.patch('*/v1/todo/done-1', async ({ request }) => {
+        updatePayload = (await request.json()) as Record<string, unknown>;
+        reopened = updatePayload.completed === false;
+        return HttpResponse.json({
+          public_id: 'done-1',
+          title: 'Old task',
+          description: null,
+          due_date: null,
+          priority: 'low',
+          completed: false,
+          parent_public_id: null,
+          subtask_count: 0,
+          created_at: '2026-06-01T00:00:00Z',
+          updated_at: '2026-06-01T00:00:00Z',
+        });
+      }),
+    );
+
+    renderWithQuery(<TodoPage />);
+
+    fireEvent.click(await screen.findByTestId('todo-completed-toggle'));
+    expect(await screen.findByText('Old task')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('todo-reopen-done-1'));
+
+    await waitFor(() => {
+      expect(updatePayload).toEqual({ completed: false });
+      expect(screen.queryByTestId('todo-completed-item-done-1')).not.toBeInTheDocument();
+    });
+    expect(await screen.findByTestId('todo-item-done-1')).toBeInTheDocument();
   });
 
   it('renders row actions with a pointer-coarse always-visible class, not hover-only', async () => {
