@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight, Edit2, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Edit2, Plus, RotateCcw, Trash2 } from 'lucide-react';
 
 import { DropdownSelect } from '../components/DropdownSelect';
 import { DatePicker } from '../components/DatePicker';
@@ -758,6 +758,17 @@ export const TodoPage: React.FC = () => {
                                 </div>
                               </div>
                               <div className={rowActionsClassName}>
+                                <button
+                                  type="button"
+                                  data-testid={`todo-reopen-${todo.public_id}`}
+                                  aria-label={`Mark todo as in progress: ${todo.title}`}
+                                  disabled={toggleMutation.isPending}
+                                  onClick={() => toggleMutation.mutate(todo)}
+                                  className="rounded p-2 text-slate-500 hover:bg-cyan-500/10 hover:text-cyan-400 disabled:opacity-50"
+                                  title="Mark as in progress"
+                                >
+                                  <RotateCcw className="h-4 w-4" />
+                                </button>
                                 <button
                                   type="button"
                                   data-testid={`todo-delete-${todo.public_id}`}
