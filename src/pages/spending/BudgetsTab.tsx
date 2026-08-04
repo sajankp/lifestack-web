@@ -1,7 +1,7 @@
 import React from 'react';
 import { Edit2, Plus, Tag, Target, Users } from 'lucide-react';
 import { Pagination } from '../../components/Pagination';
-import { formatCurrency } from '../../utils/numberFormat';
+import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import type { PaginatedResponse } from '../../types/common';
 import type { Budget } from '../../types/spending';
 import { formatBudgetRangeLabel } from './format';
@@ -56,6 +56,7 @@ const BudgetsTabImpl: React.FC<BudgetsTabProps> = ({
   isMultiMonth = false,
   multiMonthBudgets = [],
 }) => {
+  const formatCurrency = useCurrencyFormatter();
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
       <h3 className="text-xl font-semibold text-white">

@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import { investingService } from '../../services/investing';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
-import { formatCurrency, toNumber } from '../../utils/numberFormat';
+import { toNumber } from '../../utils/numberFormat';
+import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { DatePicker } from '../../components/DatePicker';
 import { queryKeys } from '../../lib/queryKeys';
 import { DropdownSelect } from '../../components/DropdownSelect';
@@ -62,6 +63,7 @@ interface AnalyticsTabProps {
 }
 
 export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPreference }) => {
+  const formatCurrency = useCurrencyFormatter();
   const [analyticsAsOf, setAnalyticsAsOf] = useState(formatDateInput(new Date()));
   const [isCreateInstrumentModalOpen, setIsCreateInstrumentModalOpen] = useState(false);
   const [isSeedConstituentsModalOpen, setIsSeedConstituentsModalOpen] = useState(false);

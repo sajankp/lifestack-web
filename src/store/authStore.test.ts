@@ -22,6 +22,7 @@ describe('authStore', () => {
       email: 'user@example.com',
       username: 'user',
       is_active: true,
+      timezone: null,
     });
 
     const state = useAuthStore.getState();
@@ -36,6 +37,7 @@ describe('authStore', () => {
       email: 'user@example.com',
       username: 'user',
       is_active: true,
+      timezone: null,
     });
 
     useAuthStore.getState().clearSession();

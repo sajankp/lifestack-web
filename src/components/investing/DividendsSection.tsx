@@ -6,7 +6,7 @@ import { investingService } from '../../services/investing';
 import type { Dividend, DividendCreate, DividendIncomeType } from '../../types/investing';
 import { DIVIDEND_INCOME_TYPES } from '../../types/investing';
 import type { Account } from '../../types/finance';
-import { formatCurrency } from '../../utils/numberFormat';
+import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { formatDate, formatDateInputValue } from '../../utils/dateFormat';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { queryKeys } from '../../lib/queryKeys';
@@ -14,6 +14,7 @@ import { DropdownSelect } from '../DropdownSelect';
 import { Pagination } from '../Pagination';
 import { Button } from '../ui/button';
 import { SkeletonList } from '../ui/FeedbackStates';
+import { FormattedNumberInput } from '../ui/formatted-number-input';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
   accountFilter,
   currencyDisplayPreference,
 }) => {
+  const formatCurrency = useCurrencyFormatter();
   const brokerageAccounts = useMemo(
     () => accounts.filter((a) => a.account_type === 'brokerage'),
     [accounts],
@@ -274,8 +276,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-muted-foreground">Gross amount</label>
-                <input
-                  type="number"
+                <FormattedNumberInput
                   step="0.01"
                   min="0"
                   required
@@ -287,8 +288,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Tax withheld</label>
-                <input
-                  type="number"
+                <FormattedNumberInput
                   step="0.01"
                   min="0"
                   data-testid="dividend-tax-withheld"

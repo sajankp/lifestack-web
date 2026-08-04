@@ -2,7 +2,7 @@ import React from 'react';
 import { Calendar, Edit2, Plus, Tag, Trash2, Wallet } from 'lucide-react';
 import { Pagination } from '../../components/Pagination';
 import { CurrencyBadge } from '../../components/finance/Badges';
-import { formatCurrency } from '../../utils/numberFormat';
+import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { formatDate } from '../../utils/dateFormat';
 import type { Account } from '../../types/finance';
 import type { PaginatedResponse } from '../../types/common';
@@ -44,6 +44,7 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
   isDeletePending,
   onAddFirst,
 }) => {
+  const formatCurrency = useCurrencyFormatter();
   const hasAnyTags = (transactions ?? []).some((tx) => hasRenderableLabels(tx.labels));
 
   return (

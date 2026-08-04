@@ -246,7 +246,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                   <div>
                     <span className="block text-slate-500">Qty × Price</span>
                     <span className="text-slate-200">
-                      {formatQuantity(o.quantity)} ×{' '}
+                      {formatQuantity(o.quantity, 8, displayLocale)} ×{' '}
                       {formatCurrency(
                         toNumber(o.price_per_unit),
                         o.currency,
@@ -477,7 +477,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                     </td>
                     <td className="px-4 py-3 text-slate-300">{o.account_name}</td>
                     <td className="px-4 py-3 text-right text-slate-300">
-                      {formatQuantity(o.quantity)}
+                      {formatQuantity(o.quantity, 8, displayLocale)}
                     </td>
                     <td className="px-4 py-3 text-right text-slate-300">
                       {formatCurrency(

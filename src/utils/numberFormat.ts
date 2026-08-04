@@ -1,4 +1,7 @@
-export const toNumber = (value: number | string | null | undefined): number => {
+export type NumericValue = number | string | null | undefined;
+export type CurrencyDisplay = 'symbol' | 'code';
+
+export const toNumber = (value: NumericValue): number => {
   if (value == null) return 0;
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -12,9 +15,18 @@ export const toNumber = (value: number | string | null | undefined): number => {
 export const formatQuantity = (
   value: number | string | null | undefined,
   maxDecimals = 8,
+  locale = 'en-US',
 ): string => {
-  const str = toNumber(value).toFixed(maxDecimals);
-  return str.includes('.') ? str.replace(/0+$/, '').replace(/\.$/, '') : str;
+  const numericValue = toNumber(value);
+  try {
+    return new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: maxDecimals,
+    }).format(numericValue);
+  } catch {
+    const str = numericValue.toFixed(maxDecimals);
+    return str.includes('.') ? str.replace(/0+$/, '').replace(/\.$/, '') : str;
+  }
 };
 
 /**
@@ -38,9 +50,9 @@ const clampDecimalPlaces = (decimalPlaces: number): number => {
 };
 
 export const formatCurrency = (
-  amount: number | string | null | undefined,
+  amount: NumericValue,
   currency: string | null | undefined = 'USD',
-  currencyDisplay: 'symbol' | 'code' = 'symbol',
+  currencyDisplay: CurrencyDisplay = 'symbol',
   locale: string = DEFAULT_DISPLAY_LOCALE,
   decimalPlaces: number = DEFAULT_DECIMAL_PLACES,
 ): string => {
@@ -57,7 +69,7 @@ export const formatCurrency = (
       maximumFractionDigits: parsedDecimals,
     }).format(numericAmount);
   } catch {
-    return `${normalizedCurrency} ${numericAmount.toFixed(parsedDecimals)}`;
+    return `${normalizedCurrency} ${formatNumber(numericAmount, locale, parsedDecimals)}`;
   }
 };
 
@@ -71,15 +83,36 @@ export const formatNumber = (
   value: number | string | null | undefined,
   locale: string = DEFAULT_DISPLAY_LOCALE,
   decimalPlaces: number = DEFAULT_DECIMAL_PLACES,
+  minimumFractionDigits: number = decimalPlaces,
 ): string => {
   const numericValue = toNumber(value);
   const parsedDecimals = clampDecimalPlaces(decimalPlaces);
+  const parsedMinimumDecimals = Math.min(
+    parsedDecimals,
+    clampDecimalPlaces(minimumFractionDigits),
+  );
   try {
     return new Intl.NumberFormat(locale, {
-      minimumFractionDigits: parsedDecimals,
+      minimumFractionDigits: parsedMinimumDecimals,
       maximumFractionDigits: parsedDecimals,
     }).format(numericValue);
   } catch {
     return numericValue.toFixed(parsedDecimals);
+  }
+};
+
+/** Locale-aware abbreviated values for constrained chart axes. */
+export const formatCompactNumber = (
+  value: NumericValue,
+  locale: string = DEFAULT_DISPLAY_LOCALE,
+): string => {
+  const numericValue = toNumber(value);
+  try {
+    return new Intl.NumberFormat(locale, {
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(numericValue);
+  } catch {
+    return formatNumber(numericValue, DEFAULT_DISPLAY_LOCALE, 0);
   }
 };

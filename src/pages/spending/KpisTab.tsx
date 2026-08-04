@@ -5,7 +5,8 @@ import { DropdownSelect, type DropdownOption } from '../../components/DropdownSe
 import { Pagination } from '../../components/Pagination';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { queryKeys } from '../../lib/queryKeys';
-import { formatCurrency } from '../../utils/numberFormat';
+import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
+import { FormattedNumberInput } from '../../components/ui/formatted-number-input';
 import { spendingService } from '../../services/spending';
 import type { Kpi, KpiCreate, KpiMetricType, KpiWindow } from '../../types/spending';
 
@@ -59,6 +60,7 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
   accountOptions,
   currencyDisplayPreference,
 }) => {
+  const formatCurrency = useCurrencyFormatter();
   const [offset, setOffset] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -265,9 +267,8 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
                 <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wide">
                   Target value
                 </label>
-                <input
+                <FormattedNumberInput
                   data-testid="kpi-target-value"
-                  type="number"
                   step="0.01"
                   value={form.target_value}
                   onChange={(e) => setForm((f) => ({ ...f, target_value: e.target.value }))}

@@ -7,6 +7,7 @@ import { http, HttpResponse } from 'msw';
 
 import { SpendingPage } from './SpendingPage';
 import { server } from '../test/setup';
+import { useAuthStore } from '../store/authStore';
 
 const renderWithQuery = (ui: React.ReactNode) => {
   const client = new QueryClient({
@@ -125,6 +126,17 @@ beforeAll(() => {
 // across renders via localStorage — reset it so tests don't leak state.
 beforeEach(() => {
   window.localStorage.clear();
+  useAuthStore.setState({
+    isAuthenticated: true,
+    isAuthResolved: true,
+    user: {
+      public_id: 'user-1',
+      email: 'user@example.com',
+      username: 'user',
+      is_active: true,
+      timezone: 'UTC',
+    },
+  });
 });
 
 describe('SpendingPage', () => {
@@ -769,6 +781,60 @@ describe('SpendingPage', () => {
     });
 
     expect(await screen.findByText('No transactions for this account yet.')).toBeInTheDocument();
+  });
+
+  it('highlights each daily closing entry in the saved user timezone', async () => {
+    useAuthStore.setState((state) => ({
+      ...state,
+      user: state.user ? { ...state.user, timezone: 'Asia/Kolkata' } : null,
+    }));
+    const ledgerEntry = (public_id: string, occurred_at: string, running_balance: string) => ({
+      public_id,
+      entry_kind: 'transaction',
+      account_id: ACCOUNT.public_id,
+      amount: '10.00',
+      type: 'expense',
+      occurred_at,
+      description: public_id,
+      running_balance,
+      source_type: 'manual',
+      created_at: occurred_at,
+    });
+    server.use(
+      http.get('*/v1/spending/accounts/*/ledger', () =>
+        HttpResponse.json({
+          ...EMPTY_LEDGER,
+          total_entries: 4,
+          items: [
+            ledgerEntry('latest-aug-4', '2026-08-04T18:00:00Z', '90.00'),
+            ledgerEntry('middle-aug-4', '2026-08-04T10:00:00Z', '100.00'),
+            ledgerEntry('utc-aug-3-local-aug-4', '2026-08-03T20:00:00Z', '110.00'),
+            ledgerEntry('latest-aug-3', '2026-08-03T17:00:00Z', '120.00'),
+          ],
+        }),
+      ),
+      ...baseHandlers,
+    );
+
+    renderWithQuery(<SpendingPage />);
+    await screen.findByText('Spending Overview');
+    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
+    fireEvent.change(screen.getByTestId('ledger-account-select'), {
+      target: { value: ACCOUNT.public_id },
+    });
+
+    await screen.findAllByText('latest-aug-4');
+    expect(document.querySelectorAll('[data-daily-close="true"]')).toHaveLength(4);
+    expect(
+      document.querySelectorAll('[data-entry-id="latest-aug-4"][data-daily-close="true"]'),
+    ).toHaveLength(2);
+    expect(
+      document.querySelectorAll('[data-entry-id="latest-aug-3"][data-daily-close="true"]'),
+    ).toHaveLength(2);
+    expect(document.querySelectorAll('[data-entry-id="middle-aug-4"][data-daily-close]')).toHaveLength(
+      0,
+    );
+    expect(screen.getAllByText('4-Aug-2026')).toHaveLength(6);
   });
 
   it('shows a transfer row on the Account activity tab', async () => {

@@ -26,8 +26,18 @@ import { Label } from '../components/ui/label';
 import { queryKeys } from '../lib/queryKeys';
 import { ToggleSwitch } from '../components/ui/toggle-switch';
 import { accountTypeOptions } from '../utils/accountTypes';
+import { authService } from '../services/auth';
+import { useAuthStore } from '../store/authStore';
+import { browserTimezone } from '../utils/timezone';
 
-const SETTINGS_TABS = ['currency', 'accounts', 'categories', 'summaries', 'danger'] as const;
+const SETTINGS_TABS = [
+  'preferences',
+  'currency',
+  'accounts',
+  'categories',
+  'summaries',
+  'danger',
+] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 const cadenceDayOptions = [
@@ -90,6 +100,8 @@ const decimalPlacesOptions = [
 
 export const MasterConfigPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const setSession = useAuthStore((state) => state.setSession);
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
   const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>(
@@ -116,6 +128,8 @@ export const MasterConfigPage: React.FC = () => {
   }, [requestedTab]);
 
   const [newAccountName, setNewAccountName] = useState('');
+  const detectedTimezone = browserTimezone() || 'UTC';
+  const [userTimezone, setUserTimezone] = useState(user?.timezone ?? detectedTimezone);
   const [newAccountType, setNewAccountType] = useState<
     'bank' | 'brokerage' | 'wallet' | 'card' | 'gift_card'
   >('wallet');
@@ -353,6 +367,11 @@ export const MasterConfigPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.finance.accounts() });
       queryClient.invalidateQueries({ queryKey: queryKeys.finance.accounts('master-config') });
     },
+  });
+
+  const updateTimezoneMutation = useMutation({
+    mutationFn: () => authService.updateTimezone(userTimezone.trim()),
+    onSuccess: (updatedUser) => setSession(updatedUser),
   });
 
   const toggleAccountActiveMutation = useMutation({
@@ -657,7 +676,7 @@ export const MasterConfigPage: React.FC = () => {
     <PageShell className="space-y-6">
       <PageHero
         title="Settings"
-        subtitle="Manage shared setup for spending and investing: currencies, accounts, categories, and recurrence anchors."
+        subtitle="Manage your preferences and shared setup for spending and investing."
       />
 
       <Tabs
@@ -665,6 +684,9 @@ export const MasterConfigPage: React.FC = () => {
         onValueChange={(value) => setActiveSettingsTab(value as SettingsTab)}
       >
         <TabsList>
+          <TabsTrigger value="preferences" data-testid="settings-tab-preferences">
+            Preferences
+          </TabsTrigger>
           <TabsTrigger value="currency" data-testid="settings-tab-currency">
             Currency & Display
           </TabsTrigger>
@@ -681,6 +703,53 @@ export const MasterConfigPage: React.FC = () => {
             Danger zone
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="preferences" className="space-y-6">
+          <section
+            data-testid="master-timezone-settings"
+            className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6"
+          >
+            <h2 className="text-lg font-semibold text-white">Timezone</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Sets your calendar-day boundaries across Lifestack. Account activity uses this to
+              identify each day&apos;s closing balance.
+            </p>
+            <div className="mt-4 grid max-w-xl gap-3 sm:grid-cols-[1fr,auto]">
+              <div>
+                <Label htmlFor="user-timezone">IANA timezone</Label>
+                <Input
+                  id="user-timezone"
+                  data-testid="master-user-timezone"
+                  className="mt-1.5"
+                  value={userTimezone}
+                  onChange={(event) => setUserTimezone(event.target.value)}
+                  placeholder="Asia/Kolkata"
+                />
+              </div>
+              <Button
+                data-testid="master-user-timezone-save"
+                type="button"
+                className="self-end"
+                onClick={() => updateTimezoneMutation.mutate()}
+                disabled={updateTimezoneMutation.isPending || !userTimezone.trim()}
+              >
+                {updateTimezoneMutation.isPending ? 'Saving...' : 'Save timezone'}
+              </Button>
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              Browser detected: {detectedTimezone}. Use an IANA name so daylight-saving changes are
+              handled automatically.
+            </p>
+            {updateTimezoneMutation.isSuccess ? (
+              <p className="mt-2 text-sm text-emerald-400">Timezone saved.</p>
+            ) : null}
+            {updateTimezoneMutation.isError ? (
+              <p className="mt-2 text-sm text-rose-400">
+                Could not save that timezone. Enter a valid IANA timezone such as Asia/Kolkata.
+              </p>
+            ) : null}
+          </section>
+        </TabsContent>
 
         <TabsContent value="currency" className="space-y-6">
           <section

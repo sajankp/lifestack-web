@@ -23,6 +23,7 @@ import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Button } from '../components/ui/button';
+import { FormattedNumberInput } from '../components/ui/formatted-number-input';
 import { DropdownSelect } from '../components/DropdownSelect';
 import {
   Dialog,
@@ -722,9 +723,9 @@ export const InvestingPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Quantity</label>
-                  <input
+                  <FormattedNumberInput
                     data-testid="order-quantity"
-                    type="number"
+                    maximumFractionDigits={8}
                     required
                     min="0.00000001"
                     step="any"
@@ -737,9 +738,9 @@ export const InvestingPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Price per unit</label>
-                  <input
+                  <FormattedNumberInput
                     data-testid="order-price"
-                    type="number"
+                    maximumFractionDigits={6}
                     required
                     min="0.000001"
                     step="any"
@@ -752,9 +753,8 @@ export const InvestingPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Brokerage fee</label>
-                  <input
+                  <FormattedNumberInput
                     data-testid="order-brokerage-fee"
-                    type="number"
                     min="0"
                     step="any"
                     value={orderForm.brokerage_fee}
@@ -766,9 +766,8 @@ export const InvestingPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Tax / STT</label>
-                  <input
+                  <FormattedNumberInput
                     data-testid="order-tax"
-                    type="number"
                     min="0"
                     step="any"
                     value={orderForm.tax_amount}
@@ -780,9 +779,8 @@ export const InvestingPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Other fees</label>
-                  <input
+                  <FormattedNumberInput
                     data-testid="order-other-fees"
-                    type="number"
                     min="0"
                     step="any"
                     value={orderForm.other_fees}
@@ -947,8 +945,8 @@ export const InvestingPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Quantity</label>
-                    <input
-                      type="number"
+                    <FormattedNumberInput
+                      maximumFractionDigits={8}
                       required
                       min="0.00000001"
                       step="any"
@@ -961,8 +959,8 @@ export const InvestingPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Price per unit</label>
-                    <input
-                      type="number"
+                    <FormattedNumberInput
+                      maximumFractionDigits={6}
                       required
                       min="0.000001"
                       step="any"
@@ -975,8 +973,7 @@ export const InvestingPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Brokerage fee</label>
-                    <input
-                      type="number"
+                    <FormattedNumberInput
                       min="0"
                       step="any"
                       value={editOrderForm.brokerage_fee}
@@ -988,8 +985,7 @@ export const InvestingPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Tax / STT</label>
-                    <input
-                      type="number"
+                    <FormattedNumberInput
                       min="0"
                       step="any"
                       value={editOrderForm.tax_amount}
@@ -1001,8 +997,7 @@ export const InvestingPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs text-slate-400">Other fees</label>
-                    <input
-                      type="number"
+                    <FormattedNumberInput
                       min="0"
                       step="any"
                       value={editOrderForm.other_fees}
@@ -1097,6 +1092,8 @@ export const InvestingPage: React.FC = () => {
               {pendingDeleteOrder
                 ? `Delete this ${pendingDeleteOrder.order_type} order for ${formatQuantity(
                     pendingDeleteOrder.quantity,
+                    8,
+                    displayLocale,
                   )} ${
                     pendingDeleteOrder.symbol
                   }? The holding will be recomputed from the remaining orders.`
