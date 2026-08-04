@@ -4,6 +4,7 @@ import { DropdownSelect } from '../DropdownSelect';
 import { DatePicker } from '../DatePicker';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { FormattedNumberInput } from '../ui/formatted-number-input';
 import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
@@ -213,8 +214,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label className="mb-2 block">Amount</Label>
-              <Input
-                type="number"
+              <FormattedNumberInput
                 min="0.01"
                 step="0.01"
                 value={amount}
@@ -244,8 +244,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                 <div>
                   <Label className="mb-2 block">FX Rate (optional)</Label>
-                  <Input
-                    type="number"
+                  <FormattedNumberInput
+                    maximumFractionDigits={10}
                     min="0"
                     step="0.0000000001"
                     value={fxRate}
@@ -254,8 +254,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 </div>
                 <div>
                   <Label className="mb-2 block">FX Fee</Label>
-                  <Input
-                    type="number"
+                  <FormattedNumberInput
                     min="0"
                     step="0.01"
                     value={fxFee}
@@ -264,8 +263,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 </div>
                 <div>
                   <Label className="mb-2 block">Platform Fee</Label>
-                  <Input
-                    type="number"
+                  <FormattedNumberInput
                     min="0"
                     step="0.01"
                     value={platformFee}
@@ -274,8 +272,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 </div>
                 <div>
                   <Label className="mb-2 block">Tax</Label>
-                  <Input
-                    type="number"
+                  <FormattedNumberInput
                     min="0"
                     step="0.01"
                     value={tax}

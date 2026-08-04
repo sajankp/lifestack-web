@@ -5,12 +5,14 @@ import { SkeletonList } from '../../components/ui/FeedbackStates';
 import { Pagination } from '../../components/Pagination';
 import { spendingService } from '../../services/spending';
 import { financeService } from '../../services/finance';
-import { formatCurrency } from '../../utils/numberFormat';
-import { formatDate } from '../../utils/dateFormat';
+import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
+import { useEffectiveTimezone } from '../../hooks/useEffectiveTimezone';
+import { calendarDayUtcRange, formatDateInTimezone } from '../../utils/timezone';
 import { ReconciliationCard } from '../../components/finance/ReconciliationCard';
 import { StatementReconciliation } from '../../components/finance/StatementReconciliation';
 import type { LedgerEntry } from '../../types/spending';
 import type { CapitalTransfer } from '../../types/finance';
+import { dailyClosingEntryIds } from './dailyClosing';
 
 interface LedgerTabProps {
   accounts: Array<{
@@ -49,18 +51,51 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
   onRequestDeleteTransfer,
   onAddTransfer,
 }) => {
+  const formatCurrency = useCurrencyFormatter();
+  const effectiveTimezone = useEffectiveTimezone();
   const selectedAccount = accounts.find((a) => a.public_id === selectedAccountId) ?? null;
+  const fromDateRange = fromDate ? calendarDayUtcRange(fromDate, effectiveTimezone) : null;
+  const toDateRange = toDate ? calendarDayUtcRange(toDate, effectiveTimezone) : null;
 
   const { data: ledger, isLoading } = useQuery({
-    queryKey: ['spending', 'ledger', selectedAccountId, offset, limit, fromDate, toDate],
+    queryKey: [
+      'spending',
+      'ledger',
+      selectedAccountId,
+      offset,
+      limit,
+      fromDate,
+      toDate,
+      effectiveTimezone,
+    ],
     queryFn: () =>
       spendingService.getAccountLedger(selectedAccountId, {
         limit,
         offset,
-        from_date: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
-        to_date: toDate ? `${toDate}T23:59:59.999Z` : undefined,
+        from_date: fromDateRange?.from,
+        to_date: toDateRange?.to,
       }),
     enabled: !!selectedAccountId,
+  });
+
+  const { data: precedingLedgerPage } = useQuery({
+    queryKey: [
+      'spending',
+      'ledger-boundary',
+      selectedAccountId,
+      offset,
+      fromDate,
+      toDate,
+      effectiveTimezone,
+    ],
+    queryFn: () =>
+      spendingService.getAccountLedger(selectedAccountId, {
+        limit: 1,
+        offset: offset - 1,
+        from_date: fromDateRange?.from,
+        to_date: toDateRange?.to,
+      }),
+    enabled: !!selectedAccountId && offset > 0,
   });
 
   const { data: balanceData } = useQuery({
@@ -76,6 +111,16 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
   });
 
   const currency = selectedAccount?.default_currency_code ?? 'USD';
+  const ledgerItems = ledger?.items ?? [];
+  // Suppress the first-row highlight while its page-boundary lookup is loading
+  // by temporarily treating that row as its own newer predecessor.
+  const precedingEntry =
+    offset > 0 ? (precedingLedgerPage?.items[0] ?? ledgerItems[0]) : undefined;
+  const dailyClosingIds = dailyClosingEntryIds(
+    ledgerItems,
+    precedingEntry,
+    effectiveTimezone,
+  );
 
   const formatBal = (val: string | number | undefined) =>
     val !== undefined ? formatCurrency(Number(val), currency, currencyDisplayPreference) : '—';
@@ -213,13 +258,14 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
             <>
               {/* Mobile / tablet card list */}
               <div className="space-y-3 lg:hidden">
-                {(ledger?.items ?? []).map((entry: LedgerEntry) => {
+                {ledgerItems.map((entry: LedgerEntry) => {
                   const isTransfer =
                     entry.entry_kind === 'transfer_out' || entry.entry_kind === 'transfer_in';
                   const isCredit = entry.entry_kind === 'transfer_in' || entry.type === 'income';
                   const amount = Number(entry.amount);
                   const balance = Number(entry.running_balance);
-                  const date = formatDate(entry.occurred_at, { fallback: '—' });
+                  const date = formatDateInTimezone(entry.occurred_at, effectiveTimezone);
+                  const isDailyClosing = dailyClosingIds.has(entry.public_id);
                   const descLabel = isTransfer
                     ? entry.description
                       ? entry.entry_kind === 'transfer_out'
@@ -232,8 +278,14 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                   return (
                     <div
                       key={entry.public_id}
-                      className={`rounded-2xl border border-slate-800 p-4 ${
-                        isTransfer ? 'bg-slate-800/40' : 'bg-slate-900/40'
+                      data-daily-close={isDailyClosing ? 'true' : undefined}
+                      data-entry-id={entry.public_id}
+                      className={`rounded-2xl border p-4 ${
+                        isDailyClosing
+                          ? 'border-teal-500/50 bg-teal-950/30 ring-1 ring-inset ring-teal-500/10'
+                          : isTransfer
+                            ? 'border-slate-800 bg-slate-800/40'
+                            : 'border-slate-800 bg-slate-900/40'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -260,19 +312,26 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                         </span>
                       </div>
                       <div className="mt-2 flex items-center justify-between border-t border-slate-800 pt-2 text-xs">
-                        {isTransfer ? (
-                          <span
-                            className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                              entry.entry_kind === 'transfer_out'
-                                ? 'bg-indigo-500/15 text-indigo-400'
-                                : 'bg-cyan-500/15 text-cyan-400'
-                            }`}
-                          >
-                            {entry.entry_kind === 'transfer_out' ? 'Transfer out' : 'Transfer in'}
-                          </span>
-                        ) : (
-                          <span className="text-slate-500">Balance</span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {isTransfer ? (
+                            <span
+                              className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                                entry.entry_kind === 'transfer_out'
+                                  ? 'bg-indigo-500/15 text-indigo-400'
+                                  : 'bg-cyan-500/15 text-cyan-400'
+                              }`}
+                            >
+                              {entry.entry_kind === 'transfer_out' ? 'Transfer out' : 'Transfer in'}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500">Balance</span>
+                          )}
+                          {isDailyClosing ? (
+                            <span className="rounded-full bg-teal-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-teal-300">
+                              Daily close
+                            </span>
+                          ) : null}
+                        </div>
                         <span className={balance >= 0 ? 'text-slate-200' : 'text-rose-400'}>
                           {formatCurrency(balance, currency, currencyDisplayPreference)}
                         </span>
@@ -329,7 +388,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {(ledger?.items ?? []).map((entry: LedgerEntry) => {
+                    {ledgerItems.map((entry: LedgerEntry) => {
                       const isTransfer =
                         entry.entry_kind === 'transfer_out' || entry.entry_kind === 'transfer_in';
                       const relatedTransfer = isTransfer
@@ -339,7 +398,8 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                         entry.entry_kind === 'transfer_in' || entry.type === 'income';
                       const amount = Number(entry.amount);
                       const balance = Number(entry.running_balance);
-                      const date = formatDate(entry.occurred_at, { fallback: '—' });
+                      const date = formatDateInTimezone(entry.occurred_at, effectiveTimezone);
+                      const isDailyClosing = dailyClosingIds.has(entry.public_id);
 
                       // Derive description label for transfer rows
                       const descLabel = isTransfer
@@ -353,12 +413,19 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                         : entry.description ?? '—';
 
                       // Row background tint for transfers
-                      const rowClass = isTransfer
-                        ? 'hover:bg-slate-800/50 transition-colors bg-slate-800/20'
-                        : 'hover:bg-slate-800/30 transition-colors';
+                      const rowClass = isDailyClosing
+                        ? 'bg-teal-950/35 hover:bg-teal-900/35 transition-colors'
+                        : isTransfer
+                          ? 'hover:bg-slate-800/50 transition-colors bg-slate-800/20'
+                          : 'hover:bg-slate-800/30 transition-colors';
 
                       return (
-                        <tr key={entry.public_id} className={rowClass}>
+                        <tr
+                          key={entry.public_id}
+                          className={rowClass}
+                          data-daily-close={isDailyClosing ? 'true' : undefined}
+                          data-entry-id={entry.public_id}
+                        >
                           <td className="px-4 py-3 text-slate-400 whitespace-nowrap text-xs">
                             {date}
                           </td>
@@ -402,9 +469,16 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <span className={balance >= 0 ? 'text-slate-200' : 'text-rose-400'}>
-                              {formatCurrency(balance, currency, currencyDisplayPreference)}
-                            </span>
+                            <div className="flex items-center justify-end gap-2">
+                              {isDailyClosing ? (
+                                <span className="rounded-full bg-teal-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-teal-300">
+                                  Daily close
+                                </span>
+                              ) : null}
+                              <span className={balance >= 0 ? 'text-slate-200' : 'text-rose-400'}>
+                                {formatCurrency(balance, currency, currencyDisplayPreference)}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-right">
                             {relatedTransfer ? (

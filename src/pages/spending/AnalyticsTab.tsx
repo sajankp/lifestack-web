@@ -3,7 +3,8 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { BarChart2, PieChart, PiggyBank, Percent, TrendingUp } from 'lucide-react';
 import { DropdownSelect, type DropdownOption } from '../../components/DropdownSelect';
 import { spendingService } from '../../services/spending';
-import { formatCurrency } from '../../utils/numberFormat';
+import { useCurrencyFormatter, useDisplayProfile } from '../../hooks/useDisplayProfile';
+import { formatCompactNumber } from '../../utils/numberFormat';
 import { formatMonthLabel, monthShortLabel } from './format';
 
 const DONUT_COLORS = ['#3987e5', '#199e70', '#c98500', '#008300', '#9085e9', '#e66767'];
@@ -22,14 +23,6 @@ const niceCeil = (value: number): number => {
   return niceFraction * Math.pow(10, exponent);
 };
 
-const formatTrendTick = (value: number): string => {
-  if (value >= 1000) {
-    const k = value / 1000;
-    return Number.isInteger(k) ? `${k.toFixed(0)}k` : `${k.toFixed(1)}k`;
-  }
-  return value.toFixed(0);
-};
-
 interface AnalyticsTabProps {
   selectedMonth: string;
   onMonthChange: (value: string) => void;
@@ -45,6 +38,9 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
   displayCurrency,
   currencyDisplayPreference,
 }) => {
+  const formatCurrency = useCurrencyFormatter();
+  const displayProfile = useDisplayProfile();
+  const formatTrendTick = (value: number) => formatCompactNumber(value, displayProfile.locale);
   const [rangeMonths, setRangeMonths] = useState(6);
   const [breakdownType, setBreakdownType] = useState<'income' | 'expense'>('expense');
 

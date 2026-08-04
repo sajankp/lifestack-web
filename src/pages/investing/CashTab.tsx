@@ -6,7 +6,9 @@ import { financeService } from '../../services/finance';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { investingService } from '../../services/investing';
 import type { CashBalance } from '../../services/investing';
-import { formatCurrency, toNumber } from '../../utils/numberFormat';
+import { toNumber } from '../../utils/numberFormat';
+import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
+import { FormattedNumberInput } from '../../components/ui/formatted-number-input';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
 import { DateTimePicker } from '../../components/DateTimePicker';
 import { CompactFilterBar, CompactFilterField } from '../../components/filters/CompactFilterBar';
@@ -43,6 +45,7 @@ interface CashTabProps {
 }
 
 export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) => {
+  const formatCurrency = useCurrencyFormatter();
   const [cashAccountFilter, setCashAccountFilter] = useState('');
   const [cashOffset, setCashOffset] = useState(0);
   const [transfersOffset, setTransfersOffset] = useState(0);
@@ -648,10 +651,9 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-semibold text-slate-300">Balance</label>
-                  <input
+                  <FormattedNumberInput
                     className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                     placeholder="Balance"
-                    type="number"
                     step="0.01"
                     value={cashForm.balance}
                     onChange={(e) => setCashForm((s) => ({ ...s, balance: e.target.value }))}

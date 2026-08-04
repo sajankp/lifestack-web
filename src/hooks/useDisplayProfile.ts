@@ -1,7 +1,14 @@
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { financeService } from '../services/finance';
 import { queryKeys } from '../lib/queryKeys';
-import { DEFAULT_DECIMAL_PLACES, DEFAULT_DISPLAY_LOCALE } from '../utils/numberFormat';
+import {
+  DEFAULT_DECIMAL_PLACES,
+  DEFAULT_DISPLAY_LOCALE,
+  formatCurrency,
+  type CurrencyDisplay,
+  type NumericValue,
+} from '../utils/numberFormat';
 
 export interface DisplayProfile {
   locale: string;
@@ -27,4 +34,29 @@ export const useDisplayProfile = (): DisplayProfile => {
     decimalPlaces: data?.effective_decimal_places ?? DEFAULT_DECIMAL_PLACES,
     currencyDisplay: data?.effective_currency_display_preference ?? 'symbol',
   };
+};
+
+/**
+ * Currency formatter bound to the current effective display profile. Keeping
+ * this in one hook prevents leaf components (including their mobile-only
+ * branches) from accidentally falling back to the utility's en-US defaults.
+ */
+export const useCurrencyFormatter = () => {
+  const profile = useDisplayProfile();
+
+  return useCallback(
+    (
+      amount: NumericValue,
+      currency: string | null | undefined = 'USD',
+      currencyDisplay: CurrencyDisplay = profile.currencyDisplay,
+    ) =>
+      formatCurrency(
+        amount,
+        currency,
+        currencyDisplay,
+        profile.locale,
+        profile.decimalPlaces,
+      ),
+    [profile.currencyDisplay, profile.decimalPlaces, profile.locale],
+  );
 };

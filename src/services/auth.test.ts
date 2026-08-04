@@ -51,12 +51,31 @@ describe('authService', () => {
           email: 'e@example.com',
           username: 'name',
           is_active: true,
+          timezone: null,
         }),
       ),
     );
 
     const user = await authService.checkAuth();
     expect(user.username).toBe('name');
+  });
+
+  it('updates the persisted user timezone', async () => {
+    server.use(
+      http.patch(`${BASE_URL}/auth/me/timezone`, async ({ request }) => {
+        const body = (await request.json()) as { timezone: string };
+        return HttpResponse.json({
+          public_id: 'p1',
+          email: 'e@example.com',
+          username: 'name',
+          is_active: true,
+          timezone: body.timezone,
+        });
+      }),
+    );
+
+    const user = await authService.updateTimezone('Asia/Kolkata');
+    expect(user.timezone).toBe('Asia/Kolkata');
   });
 
   it('logs out via /auth/logout', async () => {

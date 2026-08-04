@@ -18,6 +18,7 @@ const user = {
   email: 'sajan@example.com',
   username: 'sajan',
   is_active: true,
+  timezone: null,
 };
 
 const workspaceA = {

@@ -14,6 +14,8 @@ import { spendingService } from '../services/spending';
 import { trackEvent } from '../lib/analytics';
 import type { ImportErrorItem, ImportModule, ImportValidateResponse } from '../types/imports';
 import { formatDate } from '../utils/dateFormat';
+import { formatNumber } from '../utils/numberFormat';
+import { useDisplayProfile } from '../hooks/useDisplayProfile';
 
 const MODULE_OPTIONS: Array<{ value: ImportModule; label: string; testId?: string }> = [
   { value: 'spending-transactions', label: 'Spending Transactions' },
@@ -142,6 +144,22 @@ const isLikelyUuid = (value: string): boolean => {
 };
 
 export const ImportsPage: React.FC = () => {
+  const displayProfile = useDisplayProfile();
+  const formatDisplayNumber = (
+    value: unknown,
+    maximumFractionDigits = displayProfile.decimalPlaces,
+    minimumFractionDigits = displayProfile.decimalPlaces,
+  ) => {
+    if (typeof value !== 'number' && typeof value !== 'string') return '-';
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return '-';
+    return formatNumber(
+      numericValue,
+      displayProfile.locale,
+      maximumFractionDigits,
+      minimumFractionDigits,
+    );
+  };
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -938,7 +956,9 @@ export const ImportsPage: React.FC = () => {
                                     {row.payload_json.type}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2">{row.payload_json.amount}</td>
+                                <td className="px-3 py-2">
+                                  {formatDisplayNumber(row.payload_json.amount)}
+                                </td>
                                 <td
                                   className="px-3 py-2"
                                   data-testid={`import-preview-row-${previewIndex}-category`}
@@ -963,7 +983,9 @@ export const ImportsPage: React.FC = () => {
                                 <td className="px-3 py-2">
                                   {resolvePreviewCategory(row.payload_json)}
                                 </td>
-                                <td className="px-3 py-2">{row.payload_json.amount}</td>
+                                <td className="px-3 py-2">
+                                  {formatDisplayNumber(row.payload_json.amount)}
+                                </td>
                               </>
                             )}
                             {activeDetail.import_batch.module === 'investing-constituents' && (
@@ -981,7 +1003,10 @@ export const ImportsPage: React.FC = () => {
                                 <td className="px-3 py-2">
                                   {row.payload_json.weight &&
                                   !isNaN(parseFloat(row.payload_json.weight))
-                                    ? (parseFloat(row.payload_json.weight) * 100).toFixed(2) + '%'
+                                    ? `${formatDisplayNumber(
+                                        parseFloat(row.payload_json.weight) * 100,
+                                        2,
+                                      )}%`
                                     : '-'}
                                 </td>
                                 <td className="px-3 py-2">{row.payload_json.as_of_date}</td>
@@ -1034,8 +1059,12 @@ export const ImportsPage: React.FC = () => {
                                 <td className="px-3 py-2">
                                   {row.payload_json.account_name ?? '-'}
                                 </td>
-                                <td className="px-3 py-2">{row.payload_json.quantity}</td>
-                                <td className="px-3 py-2">{row.payload_json.price_per_unit}</td>
+                                <td className="px-3 py-2">
+                                  {formatDisplayNumber(row.payload_json.quantity, 8, 0)}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {formatDisplayNumber(row.payload_json.price_per_unit)}
+                                </td>
                                 <td className="px-3 py-2 uppercase">{row.payload_json.currency}</td>
                               </>
                             )}
@@ -1068,10 +1097,22 @@ export const ImportsPage: React.FC = () => {
                                   ) : null}
                                 </td>
                                 <td className="px-3 py-2">
-                                  {row.payload_json.depository_quantity ?? '-'}
+                                  {row.payload_json.depository_quantity == null
+                                    ? '-'
+                                    : formatDisplayNumber(
+                                        row.payload_json.depository_quantity,
+                                        8,
+                                        0,
+                                      )}
                                 </td>
                                 <td className="px-3 py-2">
-                                  {row.payload_json.lifestack_quantity ?? '-'}
+                                  {row.payload_json.lifestack_quantity == null
+                                    ? '-'
+                                    : formatDisplayNumber(
+                                        row.payload_json.lifestack_quantity,
+                                        8,
+                                        0,
+                                      )}
                                 </td>
                               </>
                             )}
@@ -1084,9 +1125,11 @@ export const ImportsPage: React.FC = () => {
                                   {row.payload_json.from_account ?? '-'}
                                 </td>
                                 <td className="px-3 py-2">{row.payload_json.to_account ?? '-'}</td>
-                                <td className="px-3 py-2">{row.payload_json.gross_amount}</td>
                                 <td className="px-3 py-2">
-                                  {row.payload_json.net_amount_received}
+                                  {formatDisplayNumber(row.payload_json.gross_amount)}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {formatDisplayNumber(row.payload_json.net_amount_received)}
                                 </td>
                                 <td className="px-3 py-2 uppercase">
                                   {row.payload_json.from_currency === row.payload_json.to_currency
@@ -1106,9 +1149,13 @@ export const ImportsPage: React.FC = () => {
                                 <td className="px-3 py-2 capitalize">
                                   {row.payload_json.income_type}
                                 </td>
-                                <td className="px-3 py-2">{row.payload_json.gross_amount}</td>
                                 <td className="px-3 py-2">
-                                  {row.payload_json.tax_withheld ?? '-'}
+                                  {formatDisplayNumber(row.payload_json.gross_amount)}
+                                </td>
+                                <td className="px-3 py-2">
+                                  {row.payload_json.tax_withheld == null
+                                    ? '-'
+                                    : formatDisplayNumber(row.payload_json.tax_withheld)}
                                 </td>
                                 <td className="px-3 py-2 uppercase">{row.payload_json.currency}</td>
                                 <td className="px-3 py-2 whitespace-nowrap">
@@ -1124,7 +1171,9 @@ export const ImportsPage: React.FC = () => {
                                 <td className="px-3 py-2 uppercase">
                                   {row.payload_json.quote_currency_code}
                                 </td>
-                                <td className="px-3 py-2">{row.payload_json.rate}</td>
+                                <td className="px-3 py-2">
+                                  {formatDisplayNumber(row.payload_json.rate, 10, 0)}
+                                </td>
                                 <td className="px-3 py-2 whitespace-nowrap">
                                   {formatDate(row.payload_json.as_of_date)}
                                 </td>
@@ -1139,16 +1188,22 @@ export const ImportsPage: React.FC = () => {
                                   {row.payload_json.reporting_currency}
                                 </td>
                                 <td className="px-3 py-2 font-semibold text-white">
-                                  {row.payload_json.total_net_worth}
+                                  {formatDisplayNumber(row.payload_json.total_net_worth)}
                                 </td>
                                 <td className="px-3 py-2">
-                                  {row.payload_json.holdings_value ?? '-'}
+                                  {row.payload_json.holdings_value == null
+                                    ? '-'
+                                    : formatDisplayNumber(row.payload_json.holdings_value)}
                                 </td>
                                 <td className="px-3 py-2">
-                                  {row.payload_json.investing_cash ?? '-'}
+                                  {row.payload_json.investing_cash == null
+                                    ? '-'
+                                    : formatDisplayNumber(row.payload_json.investing_cash)}
                                 </td>
                                 <td className="px-3 py-2">
-                                  {row.payload_json.spending_cash ?? '-'}
+                                  {row.payload_json.spending_cash == null
+                                    ? '-'
+                                    : formatDisplayNumber(row.payload_json.spending_cash)}
                                 </td>
                               </>
                             )}

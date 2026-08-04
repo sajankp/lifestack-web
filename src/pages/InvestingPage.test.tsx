@@ -560,7 +560,7 @@ describe('InvestingPage', () => {
     fireEvent.click(editBtn);
 
     const priceInput = screen.getByTestId('investing-price-input-holding-aapl-id');
-    expect(priceInput).toHaveValue(180);
+    expect(priceInput).toHaveValue('180');
 
     fireEvent.change(priceInput, { target: { value: '190.50' } });
     const saveBtn = screen.getByTestId('investing-save-price-holding-aapl-id');

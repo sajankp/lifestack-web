@@ -6,6 +6,7 @@ export const AuthUserSchema = z.object({
   email: z.string(),
   username: z.string(),
   is_active: z.boolean(),
+  timezone: z.string().nullable().default(null),
 });
 
 export type AuthUser = z.infer<typeof AuthUserSchema>;
@@ -36,6 +37,11 @@ export const authService = {
 
   checkAuth: async (): Promise<AuthUser> => {
     const response = await api.get('/auth/me');
+    return AuthUserSchema.parse(response.data);
+  },
+
+  updateTimezone: async (timezone: string | null): Promise<AuthUser> => {
+    const response = await api.patch('/auth/me/timezone', { timezone });
     return AuthUserSchema.parse(response.data);
   },
 

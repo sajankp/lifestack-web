@@ -8,6 +8,7 @@ import { http, HttpResponse } from 'msw';
 import { MasterConfigPage } from './MasterConfigPage';
 import { server } from '../test/setup';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { useAuthStore } from '../store/authStore';
 
 const renderWithQuery = (ui: React.ReactNode) => {
   const client = new QueryClient({
@@ -100,6 +101,50 @@ describe('MasterConfigPage', () => {
   beforeEach(() => {
     localStorage.clear();
     useWorkspaceStore.getState().clearActiveWorkspace();
+    useAuthStore.setState({
+      isAuthenticated: true,
+      isAuthResolved: true,
+      user: {
+        public_id: 'user-1',
+        email: 'user@example.com',
+        username: 'user',
+        is_active: true,
+        timezone: null,
+      },
+    });
+  });
+
+  it('persists a reusable user timezone preference', async () => {
+    const workspaceId = '11111111-1111-1111-1111-111111111111';
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+    let savedTimezone = '';
+    server.use(
+      http.patch('*/v1/auth/me/timezone', async ({ request }) => {
+        const body = (await request.json()) as { timezone: string };
+        savedTimezone = body.timezone;
+        return HttpResponse.json({
+          ...useAuthStore.getState().user,
+          timezone: body.timezone,
+        });
+      }),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      ...commonHandlers(workspaceId, 'Primary Workspace'),
+    );
+
+    renderWithQuery(<MasterConfigPage />);
+    const preferencesTab = await screen.findByTestId('settings-tab-preferences');
+    preferencesTab.focus();
+    fireEvent.keyDown(preferencesTab, { key: 'Enter', code: 'Enter' });
+    fireEvent.change(await screen.findByTestId('master-user-timezone'), {
+      target: { value: 'Asia/Kolkata' },
+    });
+    fireEvent.click(screen.getByTestId('master-user-timezone-save'));
+
+    expect(await screen.findByText('Timezone saved.')).toBeInTheDocument();
+    expect(savedTimezone).toBe('Asia/Kolkata');
+    expect(useAuthStore.getState().user?.timezone).toBe('Asia/Kolkata');
   });
 
   it('resets the active workspace rather than the first workspace in the list', async () => {

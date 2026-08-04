@@ -13,6 +13,7 @@ import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { queryKeys } from '../../lib/queryKeys';
 import { DropdownSelect } from '../DropdownSelect';
 import { Button } from '../ui/button';
+import { FormattedNumberInput } from '../ui/formatted-number-input';
 import { SkeletonList } from '../ui/FeedbackStates';
 import {
   Dialog,
@@ -269,8 +270,8 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
                 <label className="text-xs text-muted-foreground">
                   {form.action_type === 'bonus' ? 'Held units (base)' : 'Old units (base)'}
                 </label>
-                <input
-                  type="number"
+                <FormattedNumberInput
+                  maximumFractionDigits={8}
                   step="0.0001"
                   min="0.0001"
                   required
@@ -284,8 +285,8 @@ export const CorporateActionsSection: React.FC<CorporateActionsSectionProps> = (
                 <label className="text-xs text-muted-foreground">
                   {form.action_type === 'bonus' ? 'Free units (quote)' : 'New units (quote)'}
                 </label>
-                <input
-                  type="number"
+                <FormattedNumberInput
+                  maximumFractionDigits={8}
                   step="0.0001"
                   min="0.0001"
                   required

@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog';
-import { formatCurrency } from '../../utils/numberFormat';
+import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { formatDate } from '../../utils/dateFormat';
 import { describeRecurrence } from '../../utils/recurrenceLabel';
 import type { PaginatedResponse } from '../../types/common';
@@ -48,6 +48,7 @@ const RecurringTabImpl: React.FC<RecurringTabProps> = ({
   onConfirmDeactivate,
   onPageChange,
 }) => {
+  const formatCurrency = useCurrencyFormatter();
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
       <h3 className="text-xl font-semibold text-white">Recurring Rules</h3>

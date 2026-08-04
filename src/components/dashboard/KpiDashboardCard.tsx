@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Gauge } from 'lucide-react';
 import { queryKeys } from '../../lib/queryKeys';
 import { spendingService } from '../../services/spending';
-import { formatCurrency } from '../../utils/numberFormat';
+import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 
 interface KpiDashboardCardProps {
   currencyDisplayPreference: 'symbol' | 'code';
@@ -19,6 +19,7 @@ interface KpiDashboardCardProps {
 export const KpiDashboardCard: React.FC<KpiDashboardCardProps> = ({
   currencyDisplayPreference,
 }) => {
+  const formatCurrency = useCurrencyFormatter();
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.spending.kpis('dashboard'),
     queryFn: () => spendingService.getKpis(20, 0),

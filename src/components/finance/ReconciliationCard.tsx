@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ReconciliationSummary } from '../../types/finance';
-import { formatCurrency } from '../../utils/numberFormat';
+import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { formatDate } from '../../utils/dateFormat';
 
 interface ReconciliationCardProps {
@@ -47,6 +47,7 @@ export const ReconciliationCard: React.FC<ReconciliationCardProps> = ({
   currencyDisplayPreference,
   testIdPrefix = 'reconciliation',
 }) => {
+  const formatCurrency = useCurrencyFormatter();
   const projected = Number(r.projected_balance);
   const snapshot = r.snapshot_balance !== null ? Number(r.snapshot_balance) : null;
   const disc = r.discrepancy !== null ? Number(r.discrepancy) : null;

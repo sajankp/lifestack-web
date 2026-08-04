@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, Building2, Landmark, PieChart, TrendingUp, Wallet } from 'lucide-react';
 import { financeService } from '../services/finance';
-import { formatCurrency } from '../utils/numberFormat';
+import { formatCompactNumber, formatCurrency } from '../utils/numberFormat';
 import { formatDate, formatShortDate } from '../utils/dateFormat';
 import { PageHero } from '../components/layout/PageHero';
 import { HistoricalDataPanel } from '../components/finance/HistoricalDataPanel';
@@ -223,11 +223,7 @@ const NetWorthHistoryChart: React.FC<{
   // above).
   const pathTotal = points.map((p, i) => `${getX(i)},${getY(p.total)}`).join(' L ');
 
-  const formatShortValue = (val: number) => {
-    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
-    if (val >= 1_000) return `${(val / 1_000).toFixed(0)}k`;
-    return val.toFixed(0);
-  };
+  const formatShortValue = (val: number) => formatCompactNumber(val, displayProfile.locale);
 
   return (
     <div className="rounded-2xl border border-slate-700/60 bg-slate-800/30 p-6">

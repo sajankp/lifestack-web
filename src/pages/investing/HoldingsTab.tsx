@@ -25,6 +25,7 @@ import { queryKeys } from '../../lib/queryKeys';
 import { DropdownSelect } from '../../components/DropdownSelect';
 import { CurrencyBadge } from '../../components/finance/Badges';
 import { Button } from '../../components/ui/button';
+import { FormattedNumberInput } from '../../components/ui/formatted-number-input';
 import { ToggleSwitch } from '../../components/ui/toggle-switch';
 import { SkeletonList } from '../../components/ui/FeedbackStates';
 import { useToast } from '../../components/ui/toast';
@@ -742,7 +743,9 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                       <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-700/40 pt-3 text-xs">
                         <div>
                           <span className="block text-slate-500">Qty</span>
-                          <span className="text-slate-200">{formatQuantity(h.quantity)}</span>
+                          <span className="text-slate-200">
+                            {formatQuantity(h.quantity, 8, displayLocale)}
+                          </span>
                         </div>
                         <div>
                           <span className="block text-slate-500">Avg cost</span>
@@ -988,7 +991,9 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                         <td className="px-4 py-3">
                           <CurrencyBadge code={h.currency} />
                         </td>
-                        <td className="px-4 py-3">{formatQuantity(h.quantity)}</td>
+                        <td className="px-4 py-3">
+                          {formatQuantity(h.quantity, 8, displayLocale)}
+                        </td>
                         <td className="px-4 py-3">
                           {formatCurrency(
                             h.avg_cost,
@@ -1010,9 +1015,8 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                         <td className="px-4 py-3">
                           {editingPriceHoldingId === h.public_id ? (
                             <div className="flex items-center gap-1.5">
-                              <input
+                              <FormattedNumberInput
                                 data-testid={`investing-price-input-${h.public_id}`}
-                                type="number"
                                 step="0.01"
                                 className="w-20 rounded border border-slate-600 bg-slate-900 px-1.5 py-0.5 text-xs text-white"
                                 value={editPriceValue}
@@ -1300,7 +1304,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                               </span>
                             </td>
                             <td className="px-4 py-3 text-right text-slate-300">
-                              {formatQuantity(o.quantity)}
+                              {formatQuantity(o.quantity, 8, displayLocale)}
                             </td>
                             <td className="px-4 py-3 text-right text-slate-300">
                               {formatCurrency(
@@ -1474,10 +1478,10 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-semibold text-slate-300">Quantity</label>
-                    <input
+                    <FormattedNumberInput
                       data-testid="investing-edit-holding-quantity"
                       className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
-                      type="number"
+                      maximumFractionDigits={8}
                       step="0.00000001"
                       value={editHoldingForm.quantity}
                       onChange={(e) =>
@@ -1489,10 +1493,9 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                   </div>
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-semibold text-slate-300">Avg Cost</label>
-                    <input
+                    <FormattedNumberInput
                       data-testid="investing-edit-holding-avg-cost"
                       className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
-                      type="number"
                       step="0.01"
                       value={editHoldingForm.avg_cost}
                       onChange={(e) =>

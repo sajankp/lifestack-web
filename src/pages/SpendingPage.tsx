@@ -55,11 +55,16 @@ import { TransferModal } from '../components/finance/TransferModal';
 import { QuickCreateAccountForm } from '../components/finance/QuickCreateAccountForm';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { FormattedNumberInput } from '../components/ui/formatted-number-input';
 import { Label } from '../components/ui/label';
 import type { AccountType } from '../types/finance';
 import type { PaginatedResponse } from '../types/common';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { formatCurrency } from '../utils/numberFormat';
+import {
+  DEFAULT_DECIMAL_PLACES,
+  DEFAULT_DISPLAY_LOCALE,
+  formatCurrency,
+} from '../utils/numberFormat';
 import { computeTransferNet } from '../utils/transferMath';
 import { describeRecurrence } from '../utils/recurrenceLabel';
 import { formatDate } from '../utils/dateFormat';
@@ -842,6 +847,8 @@ export const SpendingPage: React.FC = () => {
     accountById.get(accountId)?.default_currency_code || displayCurrency;
   const currencyDisplayPreference =
     userFinanceSettings?.effective_currency_display_preference ?? 'symbol';
+  const displayLocale = userFinanceSettings?.effective_locale ?? DEFAULT_DISPLAY_LOCALE;
+  const decimalPlaces = userFinanceSettings?.effective_decimal_places ?? DEFAULT_DECIMAL_PLACES;
   const recurringItems = recurringResponse?.items ?? [];
   const transferByPublicId = useMemo(
     () =>
@@ -1654,7 +1661,13 @@ export const SpendingPage: React.FC = () => {
                 <div>
                   <p className="text-sm font-medium text-slate-400">Total Income</p>
                   <h2 className="text-2xl font-bold text-white">
-                    {formatCurrency(summary.income, displayCurrency, currencyDisplayPreference)}
+                    {formatCurrency(
+                      summary.income,
+                      displayCurrency,
+                      currencyDisplayPreference,
+                      displayLocale,
+                      decimalPlaces,
+                    )}
                   </h2>
                   <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
                 </div>
@@ -1670,7 +1683,13 @@ export const SpendingPage: React.FC = () => {
                 <div>
                   <p className="text-sm font-medium text-slate-400">Total Expenses</p>
                   <h2 className="text-2xl font-bold text-white">
-                    {formatCurrency(summary.expense, displayCurrency, currencyDisplayPreference)}
+                    {formatCurrency(
+                      summary.expense,
+                      displayCurrency,
+                      currencyDisplayPreference,
+                      displayLocale,
+                      decimalPlaces,
+                    )}
                   </h2>
                   <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
                 </div>
@@ -1698,7 +1717,13 @@ export const SpendingPage: React.FC = () => {
                     Net cash flow (selected period)
                   </p>
                   <h2 className="text-2xl font-bold text-white">
-                    {formatCurrency(summary.net, displayCurrency, currencyDisplayPreference)}
+                    {formatCurrency(
+                      summary.net,
+                      displayCurrency,
+                      currencyDisplayPreference,
+                      displayLocale,
+                      decimalPlaces,
+                    )}
                   </h2>
                   <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
                 </div>
@@ -2088,10 +2113,9 @@ export const SpendingPage: React.FC = () => {
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                     {displayCurrency}
                   </span>
-                  <Input
+                  <FormattedNumberInput
                     id="rec-amount"
                     data-testid="spending-recurring-amount"
-                    type="number"
                     step="0.01"
                     min="0.01"
                     className="pl-16"
@@ -2391,9 +2415,8 @@ export const SpendingPage: React.FC = () => {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                       {transactionAmountCurrency}
                     </span>
-                    <Input
+                    <FormattedNumberInput
                       data-testid="spending-transaction-amount"
-                      type="number"
                       step="0.01"
                       min="0.01"
                       required
@@ -2693,10 +2716,9 @@ export const SpendingPage: React.FC = () => {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                       {displayCurrency}
                     </span>
-                    <Input
+                    <FormattedNumberInput
                       id="budget-amount"
                       data-testid="spending-budget-amount"
-                      type="number"
                       step="0.01"
                       min="0.01"
                       required
@@ -2731,9 +2753,8 @@ export const SpendingPage: React.FC = () => {
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label className="mb-2 block text-xs">New amount</Label>
-                            <Input
+                            <FormattedNumberInput
                               data-testid="spending-budget-change-amount-value"
-                              type="number"
                               step="0.01"
                               min="0.01"
                               placeholder="0.00"
@@ -2866,8 +2887,7 @@ export const SpendingPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-slate-300 text-xs mb-1 block">Gross Amount</Label>
-                  <Input
-                    type="number"
+                  <FormattedNumberInput
                     min="0"
                     step="0.01"
                     value={editTransferGross}
@@ -2890,8 +2910,7 @@ export const SpendingPage: React.FC = () => {
                       </button>
                     )}
                   </Label>
-                  <Input
-                    type="number"
+                  <FormattedNumberInput
                     min="0"
                     step="0.01"
                     value={editTransferNet}
@@ -2925,8 +2944,8 @@ export const SpendingPage: React.FC = () => {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-slate-300 text-xs mb-1 block">FX Rate</Label>
-                      <Input
-                        type="number"
+                      <FormattedNumberInput
+                        maximumFractionDigits={10}
                         min="0"
                         step="any"
                         value={editTransferFxRate}
@@ -2937,8 +2956,7 @@ export const SpendingPage: React.FC = () => {
                     </div>
                     <div>
                       <Label className="text-slate-300 text-xs mb-1 block">FX Fee</Label>
-                      <Input
-                        type="number"
+                      <FormattedNumberInput
                         min="0"
                         step="0.01"
                         value={editTransferFxFee}
@@ -2951,8 +2969,7 @@ export const SpendingPage: React.FC = () => {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-slate-300 text-xs mb-1 block">Platform Fee</Label>
-                      <Input
-                        type="number"
+                      <FormattedNumberInput
                         min="0"
                         step="0.01"
                         value={editTransferPlatformFee}
@@ -2963,8 +2980,7 @@ export const SpendingPage: React.FC = () => {
                     </div>
                     <div>
                       <Label className="text-slate-300 text-xs mb-1 block">Tax</Label>
-                      <Input
-                        type="number"
+                      <FormattedNumberInput
                         min="0"
                         step="0.01"
                         value={editTransferTax}
@@ -3049,6 +3065,8 @@ export const SpendingPage: React.FC = () => {
                       Number(deletingTransfer.net_amount_received),
                       deletingTransfer.to_currency_code,
                       currencyDisplayPreference,
+                      displayLocale,
+                      decimalPlaces,
                     )}
                   </span>
                 </div>

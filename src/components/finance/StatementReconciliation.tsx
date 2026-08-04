@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { CheckCircle2, CircleDashed, Upload } from 'lucide-react';
 import { financeService } from '../../services/finance';
-import { formatCurrency } from '../../utils/numberFormat';
+import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { formatDate } from '../../utils/dateFormat';
 import { useToast } from '../ui/toast';
 import type { MatchCandidate } from '../../types/finance';
@@ -23,6 +23,7 @@ export const StatementReconciliation: React.FC<StatementReconciliationProps> = (
   accountId,
   currencyDisplayPreference,
 }) => {
+  const formatCurrency = useCurrencyFormatter();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   // Keyed by accountId so a selection made on one account never leaks into
