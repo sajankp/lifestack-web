@@ -11,6 +11,13 @@ export const AuthUserSchema = z.object({
 
 export type AuthUser = z.infer<typeof AuthUserSchema>;
 
+type OAuthProvider = 'google' | 'github';
+
+export const getOAuthUrl = (provider: OAuthProvider) => {
+  const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/v1';
+  return `${apiBaseUrl.replace(/\/+$/, '')}/auth/oauth/${provider}`;
+};
+
 export const authService = {
   login: async (email: string, password: string) => {
     const formData = new URLSearchParams();
@@ -24,6 +31,15 @@ export const authService = {
       },
     });
     return response.data;
+  },
+
+  // OAuth login - redirects to provider
+  loginWithGoogle: () => {
+    window.location.href = getOAuthUrl('google');
+  },
+
+  loginWithGithub: () => {
+    window.location.href = getOAuthUrl('github');
   },
 
   register: async (email: string, password: string, username: string) => {

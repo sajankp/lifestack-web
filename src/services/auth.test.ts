@@ -1,12 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { http, HttpResponse } from 'msw';
 
-import { authService } from './auth';
+import { authService, getOAuthUrl } from './auth';
 import { server } from '../test/setup';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 describe('authService', () => {
+  it('builds OAuth endpoints from the configured API URL', () => {
+    expect(getOAuthUrl('google')).toBe(`${BASE_URL}/auth/oauth/google`);
+    expect(getOAuthUrl('github')).toBe(`${BASE_URL}/auth/oauth/github`);
+  });
+
   it('submits login as form-urlencoded with username/password fields', async () => {
     let contentType = '';
     let bodyText = '';
