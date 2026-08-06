@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ChevronDown, Edit2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Edit2, Link2, LockKeyhole } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { spendingService } from '../services/spending';
 import { platformService } from '../services/platform';
@@ -32,6 +32,7 @@ import { browserTimezone } from '../utils/timezone';
 
 const SETTINGS_TABS = [
   'preferences',
+  'security',
   'currency',
   'accounts',
   'categories',
@@ -191,6 +192,8 @@ export const MasterConfigPage: React.FC = () => {
   const [isConfirmResetOpen, setIsConfirmResetOpen] = useState(false);
   const [resetConfirmationText, setResetConfirmationText] = useState('');
   const [showLauncher, setShowLauncher] = useState(true);
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirmation, setNewPasswordConfirmation] = useState('');
 
   const { activeWorkspace: currentWorkspace } = useActiveWorkspace(true);
   const activeWorkspaceId = currentWorkspace?.public_id;
@@ -269,6 +272,24 @@ export const MasterConfigPage: React.FC = () => {
   const { data: summaryCadenceSettings } = useQuery({
     queryKey: ['summaries', 'weekly', 'settings'],
     queryFn: () => summariesService.getCadenceSettings(),
+  });
+  const { data: authIdentities } = useQuery({
+    queryKey: ['auth', 'identities'],
+    queryFn: () => authService.getAuthIdentities(),
+  });
+  const setPasswordMutation = useMutation({
+    mutationFn: () => authService.setPassword(newPassword),
+    onSuccess: () => {
+      setNewPassword('');
+      setNewPasswordConfirmation('');
+      void queryClient.invalidateQueries({ queryKey: ['auth', 'identities'] });
+    },
+  });
+  const unlinkOAuthMutation = useMutation({
+    mutationFn: (provider: 'google' | 'github') => authService.unlinkOAuth(provider),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['auth', 'identities'] });
+    },
   });
   const { data: categoriesResponse } = useQuery({
     queryKey: queryKeys.masterConfig.categories(),
@@ -687,6 +708,9 @@ export const MasterConfigPage: React.FC = () => {
           <TabsTrigger value="preferences" data-testid="settings-tab-preferences">
             Preferences
           </TabsTrigger>
+          <TabsTrigger value="security" data-testid="settings-tab-security">
+            Security & sign-in
+          </TabsTrigger>
           <TabsTrigger value="currency" data-testid="settings-tab-currency">
             Currency & Display
           </TabsTrigger>
@@ -748,6 +772,108 @@ export const MasterConfigPage: React.FC = () => {
                 Could not save that timezone. Enter a valid IANA timezone such as Asia/Kolkata.
               </p>
             ) : null}
+          </section>
+        </TabsContent>
+
+        <TabsContent value="security" className="space-y-6">
+          <section
+            data-testid="settings-security-section"
+            className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6"
+          >
+            <div className="flex items-start gap-3">
+              <LockKeyhole className="mt-1 h-5 w-5 text-cyan-300" />
+              <div>
+                <h2 className="text-lg font-semibold text-white">Sign-in methods</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Link another sign-in method to this account. Linking requires you to be signed in
+                  and never merges accounts based on email alone.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {(['google', 'github'] as const).map((provider) => {
+                const linked = authIdentities?.providers.includes(provider);
+                const canUnlink = Boolean(
+                  authIdentities?.has_password || (authIdentities?.providers.length ?? 0) > 1,
+                );
+                return (
+                  <Button
+                    key={provider}
+                    type="button"
+                    variant="secondary"
+                    data-testid={`settings-link-${provider}`}
+                    onClick={() => {
+                      if (linked) {
+                        if (window.confirm(`Unlink ${provider} from this account?`)) {
+                          unlinkOAuthMutation.mutate(provider);
+                        }
+                      } else {
+                        authService.linkOAuth(provider);
+                      }
+                    }}
+                    disabled={unlinkOAuthMutation.isPending || (linked && !canUnlink)}
+                  >
+                    <Link2 className="mr-2 h-4 w-4" />
+                    {linked
+                      ? canUnlink
+                        ? `Unlink ${provider === 'google' ? 'Google' : 'GitHub'}`
+                        : `${provider === 'google' ? 'Google' : 'GitHub'} linked (only method)`
+                      : `Link ${provider === 'google' ? 'Google' : 'GitHub'}`}
+                  </Button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6">
+            <h2 className="text-lg font-semibold text-white">Password sign-in</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              {authIdentities?.has_password
+                ? 'A password is already configured for this account. Use the password change flow to update it.'
+                : 'Add a password so this account can also sign in without an OAuth provider.'}
+            </p>
+            {!authIdentities?.has_password && (
+              <div className="mt-4 grid max-w-xl gap-3 sm:grid-cols-2">
+                <Input
+                  type="password"
+                  aria-label="New password"
+                  placeholder="New password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                />
+                <Input
+                  type="password"
+                  aria-label="Confirm new password"
+                  placeholder="Confirm new password"
+                  value={newPasswordConfirmation}
+                  onChange={(event) => setNewPasswordConfirmation(event.target.value)}
+                />
+                <p className="text-xs text-slate-500 sm:col-span-2">
+                  Password must be 8–128 characters and include uppercase, lowercase, a number, and
+                  a special character.
+                </p>
+                <Button
+                  type="button"
+                  data-testid="settings-set-password"
+                  onClick={() => setPasswordMutation.mutate()}
+                  disabled={
+                    setPasswordMutation.isPending ||
+                    !newPassword ||
+                    newPassword !== newPasswordConfirmation
+                  }
+                >
+                  {setPasswordMutation.isPending ? 'Saving...' : 'Add password'}
+                </Button>
+              </div>
+            )}
+            {setPasswordMutation.isError && (
+              <p className="mt-3 text-sm text-rose-300">Could not configure the password.</p>
+            )}
+            {unlinkOAuthMutation.isError && (
+              <p className="mt-3 text-sm text-rose-300">
+                Could not unlink that provider. Keep at least one sign-in method connected.
+              </p>
+            )}
           </section>
         </TabsContent>
 

@@ -13,9 +13,16 @@ export type AuthUser = z.infer<typeof AuthUserSchema>;
 
 type OAuthProvider = 'google' | 'github';
 
+export type AuthIdentities = { has_password: boolean; providers: OAuthProvider[] };
+
 export const getOAuthUrl = (provider: OAuthProvider) => {
   const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/v1';
   return `${apiBaseUrl.replace(/\/+$/, '')}/auth/oauth/${provider}`;
+};
+
+export const getOAuthLinkUrl = (provider: OAuthProvider) => {
+  const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/v1';
+  return `${apiBaseUrl.replace(/\/+$/, '')}/auth/oauth/${provider}/link`;
 };
 
 export const authService = {
@@ -54,6 +61,25 @@ export const authService = {
   checkAuth: async (): Promise<AuthUser> => {
     const response = await api.get('/auth/me');
     return AuthUserSchema.parse(response.data);
+  },
+
+  getAuthIdentities: async (): Promise<AuthIdentities> => {
+    const response = await api.get('/auth/me/auth-identities');
+    return response.data as AuthIdentities;
+  },
+
+  setPassword: async (newPassword: string) => {
+    const response = await api.post('/auth/set-password', { new_password: newPassword });
+    return response.data;
+  },
+
+  linkOAuth: (provider: OAuthProvider) => {
+    window.location.href = getOAuthLinkUrl(provider);
+  },
+
+  unlinkOAuth: async (provider: OAuthProvider) => {
+    const response = await api.delete(`/auth/me/auth-identities/${provider}`);
+    return response.data;
   },
 
   updateTimezone: async (timezone: string | null): Promise<AuthUser> => {
