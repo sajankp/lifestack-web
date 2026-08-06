@@ -57,6 +57,26 @@ export interface CategoryMergeRequest {
   source_public_ids: string[];
 }
 
+export const TagSchema = z.object({
+  public_id: z.string().default(''),
+  name: z.string().default(''),
+  color: z.string().nullable().default(null),
+  created_at: z.string().default(''),
+  updated_at: z.string().default(''),
+});
+
+export type SpendingTag = z.infer<typeof TagSchema>;
+
+export interface TagCreate {
+  name: string;
+  color?: string | null;
+}
+
+export interface TagUpdate {
+  name?: string | null;
+  color?: string | null;
+}
+
 export const TransactionTypeSchema = z.enum(['income', 'expense']).default('expense');
 export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 
@@ -95,6 +115,7 @@ export const TransactionSchema = z.object({
   description: z.string().nullable().default(null),
   wallet_name: z.string().nullable().default(null),
   labels: z.string().nullable().default(null),
+  tags: z.array(TagSchema).default([]),
   source_type: z.enum(['manual', 'imported', 'synced', 'assistant', 'extracted']).optional(),
   source_ref: z.string().nullable().optional(),
   source_metadata: SourceMetadataSchema.optional(),
@@ -113,6 +134,7 @@ export interface TransactionCreate {
   description?: string | null;
   wallet_name?: string | null;
   labels?: string | null;
+  tag_ids?: string[];
 }
 
 export interface TransactionUpdate {
@@ -124,6 +146,7 @@ export interface TransactionUpdate {
   description?: string | null;
   wallet_name?: string | null;
   labels?: string | null;
+  tag_ids?: string[] | null;
 }
 
 export const BudgetSchema = z.object({
@@ -258,6 +281,26 @@ export const CategoryBreakdownItemSchema = z.object({
 });
 
 export type CategoryBreakdownItem = z.infer<typeof CategoryBreakdownItemSchema>;
+
+export const TagBreakdownItemSchema = z.object({
+  tag_id: z.string().default(''),
+  tag_name: z.string().default(''),
+  amount: z.union([z.number(), z.string()]).default(0),
+  pct_of_total: z.number().default(0),
+  transaction_count: z.number().default(0),
+});
+
+export type TagBreakdownItem = z.infer<typeof TagBreakdownItemSchema>;
+
+export const TagBreakdownResponseSchema = z.object({
+  from: z.string().default(''),
+  to: z.string().default(''),
+  type: TransactionTypeSchema,
+  total: z.union([z.number(), z.string()]).default(0),
+  tags: z.array(TagBreakdownItemSchema).default([]),
+});
+
+export type TagBreakdownResponse = z.infer<typeof TagBreakdownResponseSchema>;
 
 export const CategoryBreakdownOtherSchema = z.object({
   amount: z.union([z.number(), z.string()]).default(0),

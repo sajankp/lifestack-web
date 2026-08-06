@@ -6,6 +6,8 @@ import {
   CategoryBreakdownResponseSchema,
   CategoryGroupSchema,
   CategorySchema,
+  TagBreakdownResponseSchema,
+  TagSchema,
   KpiSchema,
   LedgerResponseSchema,
   RecurringTransactionSchema,
@@ -43,6 +45,10 @@ import type {
   TransactionSort,
   TransactionSummary,
   TransactionUpdate,
+  TagCreate,
+  TagUpdate,
+  SpendingTag,
+  TagBreakdownResponse,
   UpcomingPreviewResponse,
 } from '../types/spending';
 
@@ -66,6 +72,13 @@ const PaginatedCategoryGroupsSchema = z.object({
 
 const PaginatedTransactionsSchema = z.object({
   items: z.array(TransactionSchema).default([]),
+  total: z.number().default(0),
+  limit: z.number().optional().default(50),
+  offset: z.number().optional().default(0),
+});
+
+const PaginatedTagsSchema = z.object({
+  items: z.array(TagSchema).default([]),
   total: z.number().default(0),
   limit: z.number().optional().default(50),
   offset: z.number().optional().default(0),
@@ -149,6 +162,31 @@ export const spendingService = {
   },
 
   // Transactions
+  getTags: async (
+    limit: number = 100,
+    offset: number = 0,
+    search?: string,
+  ): Promise<z.infer<typeof PaginatedTagsSchema>> => {
+    const response = await api.get('/spending/tags', {
+      params: { limit, offset, search: search || undefined },
+    });
+    return PaginatedTagsSchema.parse(response.data);
+  },
+
+  createTag: async (data: TagCreate): Promise<SpendingTag> => {
+    const response = await api.post('/spending/tags', data);
+    return TagSchema.parse(response.data);
+  },
+
+  updateTag: async (publicId: string, data: TagUpdate): Promise<SpendingTag> => {
+    const response = await api.patch(`/spending/tags/${publicId}`, data);
+    return TagSchema.parse(response.data);
+  },
+
+  deleteTag: async (publicId: string): Promise<void> => {
+    await api.delete(`/spending/tags/${publicId}`);
+  },
+
   getTransactions: async (
     limit: number = 50,
     offset: number = 0,
@@ -158,6 +196,8 @@ export const spendingService = {
       unassigned?: boolean;
       fromDate?: string;
       toDate?: string;
+      search?: string;
+      tagId?: string;
       sort?: TransactionSort;
     },
   ): Promise<z.infer<typeof PaginatedTransactionsSchema>> => {
@@ -170,6 +210,8 @@ export const spendingService = {
         unassigned: params?.unassigned || undefined,
         from_date: params?.fromDate,
         to_date: params?.toDate,
+        search: params?.search,
+        tag_id: params?.tagId,
         sort: params?.sort,
       },
     });
@@ -294,6 +336,18 @@ export const spendingService = {
       params: { from: `${fromMonth}-01`, to: `${toMonth}-01` },
     });
     return SavingsRateResponseSchema.parse(response.data);
+  },
+
+  getTagBreakdown: async (
+    from: string,
+    to: string,
+    type: 'income' | 'expense' = 'expense',
+    limit: number = 10,
+  ): Promise<TagBreakdownResponse> => {
+    const response = await api.get('/spending/analytics/tag-breakdown', {
+      params: { from, to, type, limit },
+    });
+    return TagBreakdownResponseSchema.parse(response.data);
   },
 
   // Recurring Transactions

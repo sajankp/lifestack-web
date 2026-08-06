@@ -25,6 +25,7 @@ import type {
   TransactionSort,
   TransactionType,
   TransactionUpdate,
+  SpendingTag,
 } from '../types/spending';
 
 import {
@@ -73,6 +74,7 @@ import { BudgetsTab } from './spending/BudgetsTab';
 import { KpisTab } from './spending/KpisTab';
 import { RecurringTab } from './spending/RecurringTab';
 import { AnalyticsTab } from './spending/AnalyticsTab';
+import { TagPicker } from './spending/TagPicker';
 import { LedgerTab } from './spending/LedgerTab';
 import {
   buildMonthOptions,
@@ -186,6 +188,7 @@ const UNASSIGNED_ACCOUNT_FILTER_VALUE = '__unassigned__';
 // API's PaginationParams MAX_LIMIT (app/core/pagination.py), which 422s above 200.
 const TRANSFERS_LOOKUP_PAGE_SIZE = 200;
 const SOURCE_CURRENCY_HINT_DISMISSED_KEY = 'spending:sourceCurrencyHintDismissed';
+const EMPTY_SPENDING_TAGS: SpendingTag[] = [];
 
 // Sort options for the transactions list. Values mirror the API's
 // TransactionSort enum; sorting is applied server-side so it holds across pages.
@@ -205,6 +208,7 @@ export const SpendingPage: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [type, setType] = useState<TransactionType>('expense');
   const [categoryId, setCategoryId] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -222,6 +226,8 @@ export const SpendingPage: React.FC = () => {
   const selectedMonth = useMemo(() => fromDate.slice(0, 7), [fromDate]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('');
   const [selectedAccountFilter, setSelectedAccountFilter] = useState('');
+  const [selectedTagFilter, setSelectedTagFilter] = useState('');
+  const [transactionSearch, setTransactionSearch] = useState('');
   const [txSort, setTxSort] = useState<TransactionSort>('date_desc');
 
   // Budgets has its own month picker — it must NOT derive from (or be
@@ -375,6 +381,15 @@ export const SpendingPage: React.FC = () => {
     [categories],
   );
   const categoryFilterOptions = categoryOptions;
+  const { data: tagsResponse } = useQuery({
+    queryKey: queryKeys.spending.tags(),
+    queryFn: () => spendingService.getTags(200, 0),
+  });
+  const spendingTags = tagsResponse?.items ?? EMPTY_SPENDING_TAGS;
+  const tagFilterOptions = useMemo(
+    () => spendingTags.map((tag) => ({ value: tag.public_id, label: tag.name })),
+    [spendingTags],
+  );
   // O(1) category lookup — every transaction row / donut slice / budget card
   // resolves its theme through this instead of a per-row linear `.find`.
   const categoryById = useMemo(
@@ -459,6 +474,8 @@ export const SpendingPage: React.FC = () => {
       toDate,
       selectedCategoryFilter,
       selectedAccountFilter,
+      selectedTagFilter,
+      transactionSearch,
       txSort,
     ),
     queryFn: () =>
@@ -468,6 +485,8 @@ export const SpendingPage: React.FC = () => {
         unassigned: isUnassignedFilterActive,
         fromDate: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
         toDate: toDate ? `${toDate}T23:59:59.999Z` : undefined,
+        search: transactionSearch || undefined,
+        tagId: selectedTagFilter || undefined,
         sort: txSort,
       }),
   });
@@ -484,6 +503,8 @@ export const SpendingPage: React.FC = () => {
       fromDate,
       toDate,
       selectedCategoryFilter,
+      selectedTagFilter,
+      transactionSearch,
     ),
     queryFn: () =>
       spendingService.getTransactions(1, 0, {
@@ -491,6 +512,8 @@ export const SpendingPage: React.FC = () => {
         categoryId: selectedCategoryFilter || undefined,
         fromDate: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
         toDate: toDate ? `${toDate}T23:59:59.999Z` : undefined,
+        search: transactionSearch || undefined,
+        tagId: selectedTagFilter || undefined,
       }),
   });
   const unassignedTransactionCount = unassignedCountResponse?.total ?? 0;
@@ -699,6 +722,12 @@ export const SpendingPage: React.FC = () => {
     (newTx: TransactionCreate) => spendingService.createTransaction(newTx),
     [queryKeys.spending.transactions(), queryKeys.spending.summary(), queryKeys.dashboard.all],
     { successMessage: 'Transaction created', onSuccess: () => closeTransactionModal() },
+  );
+
+  const createTagMutation = useInvalidatingMutation(
+    (data: { name: string }) => spendingService.createTag(data),
+    [queryKeys.spending.tags()],
+    { successMessage: false },
   );
 
   const updateMutation = useInvalidatingMutation(
@@ -1153,6 +1182,7 @@ export const SpendingPage: React.FC = () => {
       type,
       occurred_at: parsedTransactionDate.toISOString(),
       description: description || null,
+      tag_ids: selectedTagIds,
     };
 
     if (editingTransaction) {
@@ -1190,6 +1220,7 @@ export const SpendingPage: React.FC = () => {
     setEditingTransaction(null);
     setAmount('');
     setDescription('');
+    setSelectedTagIds([]);
     setType('expense');
     setCategoryId('');
     // Pre-fill: workspace default spending account, else the last account
@@ -1205,6 +1236,7 @@ export const SpendingPage: React.FC = () => {
     setEditingTransaction(tx);
     setAmount(tx.amount.toString());
     setDescription(tx.description ?? '');
+    setSelectedTagIds(tx.tags?.map((tag) => tag.public_id) ?? []);
     setType(tx.type);
     setCategoryId(tx.category_id);
     setAccountId(tx.account_id ?? '');
@@ -1217,6 +1249,7 @@ export const SpendingPage: React.FC = () => {
     setEditingTransaction(null);
     setAmount('');
     setDescription('');
+    setSelectedTagIds([]);
     setType('expense');
     setCategoryId('');
     setAccountId('');
@@ -1578,6 +1611,8 @@ export const SpendingPage: React.FC = () => {
             setToDate(end.toISOString().split('T')[0]);
             setSelectedCategoryFilter('');
             setSelectedAccountFilter('');
+            setSelectedTagFilter('');
+            setTransactionSearch('');
             setTxSort('date_desc');
             setTxOffset(0);
             setBudgetOffset(0);
@@ -1596,6 +1631,17 @@ export const SpendingPage: React.FC = () => {
                 setLedgerOffset(0);
               }}
               placeholder="Select date range"
+            />
+          </CompactFilterField>
+          <CompactFilterField label="Search">
+            <Input
+              value={transactionSearch}
+              onChange={(event) => {
+                setTransactionSearch(event.target.value);
+                setTxOffset(0);
+              }}
+              placeholder="Description or tag"
+              aria-label="Search spending"
             />
           </CompactFilterField>
           <CompactFilterField label="Category">
@@ -1624,6 +1670,20 @@ export const SpendingPage: React.FC = () => {
               placeholder="All accounts"
               clearLabel="All accounts"
               showSearch
+            />
+          </CompactFilterField>
+          <CompactFilterField label="Tag">
+            <DropdownSelect
+              value={selectedTagFilter}
+              onChange={(value) => {
+                setSelectedTagFilter(value);
+                setTxOffset(0);
+              }}
+              options={tagFilterOptions}
+              placeholder="All tags"
+              clearLabel="All tags"
+              showSearch
+              sortByLabel
             />
           </CompactFilterField>
           {activeTab === 'transactions' ? (
@@ -2524,6 +2584,16 @@ export const SpendingPage: React.FC = () => {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="What did you spend on?"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">Tags</label>
+                  <TagPicker
+                    tags={spendingTags}
+                    selectedIds={selectedTagIds}
+                    onChange={setSelectedTagIds}
+                    onCreateTag={(name) => createTagMutation.mutateAsync({ name })}
                   />
                 </div>
               </div>

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { BarChart2, PieChart, PiggyBank, Percent, TrendingUp } from 'lucide-react';
+import { BarChart2, PieChart, PiggyBank, Percent, Tag, TrendingUp } from 'lucide-react';
 import { DropdownSelect, type DropdownOption } from '../../components/DropdownSelect';
 import { spendingService } from '../../services/spending';
 import { useCurrencyFormatter, useDisplayProfile } from '../../hooks/useDisplayProfile';
@@ -99,6 +99,23 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
     placeholderData: keepPreviousData,
   });
 
+  const { data: tagBreakdownData } = useQuery({
+    queryKey: [
+      'spending-tag-breakdown',
+      analyticsRange.fromDate,
+      analyticsRange.toDate,
+      breakdownType,
+    ],
+    queryFn: () =>
+      spendingService.getTagBreakdown(
+        analyticsRange.fromDate,
+        analyticsRange.toDate,
+        breakdownType,
+      ),
+    enabled: !!analyticsRange.fromDate,
+    placeholderData: keepPreviousData,
+  });
+
   const { data: savingsRateData, isLoading: isSavingsRateLoading } = useQuery({
     queryKey: ['spending-savings-rate', analyticsRange.fromMonth, analyticsRange.toMonth],
     queryFn: () => spendingService.getSavingsRate(analyticsRange.fromMonth, analyticsRange.toMonth),
@@ -173,6 +190,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
       transaction_count: 0,
     });
   }
+  const tagBreakdownItems = tagBreakdownData?.tags ?? [];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -645,6 +663,41 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
             </div>
           )}
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-700/50 bg-slate-800/20 p-5 backdrop-blur-sm">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h4 className="flex items-center gap-2 text-sm font-semibold text-white">
+            <Tag className="h-4 w-4 text-cyan-400" />
+            Spending by Tag
+          </h4>
+          <span className="text-xs text-slate-500">Tags can cross categories</span>
+        </div>
+        {tagBreakdownItems.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            Add tags to transactions to see trips, people, merchants, and behaviors here.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {tagBreakdownItems.map((item) => (
+              <div key={item.tag_id} className="flex items-center gap-3">
+                <span className="min-w-24 truncate text-sm text-slate-200">{item.tag_name}</span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className="h-full rounded-full bg-cyan-500"
+                    style={{ width: `${Math.min(100, Number(item.pct_of_total))}%` }}
+                  />
+                </div>
+                <span className="w-20 text-right text-sm font-semibold text-slate-100">
+                  {formatCurrency(Number(item.amount), displayCurrency, currencyDisplayPreference)}
+                </span>
+                <span className="w-12 text-right text-xs text-slate-500">
+                  {Number(item.pct_of_total).toFixed(0)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

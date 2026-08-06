@@ -86,6 +86,46 @@ describe('spendingService', () => {
     expect(api.delete).toHaveBeenCalledWith('/spending/transactions/tx1');
   });
 
+  it('calls tag management, searchable transactions, and tag analytics endpoints', async () => {
+    vi.spyOn(api, 'get')
+      .mockResolvedValueOnce({ data: { items: [], total: 0 } } as never)
+      .mockResolvedValueOnce({ data: { items: [], total: 0 } } as never)
+      .mockResolvedValueOnce({
+        data: { from: '2026-05-01', to: '2026-05-31', type: 'expense', total: '100', tags: [] },
+      } as never);
+    vi.spyOn(api, 'post').mockResolvedValueOnce({ data: { public_id: 'tag1', name: 'work' } } as never);
+
+    await spendingService.getTags(100, 0, 'wo');
+    await spendingService.createTag({ name: 'work' });
+    await spendingService.getTransactions(20, 0, {
+      search: 'coffee',
+      tagId: 'tag1',
+    });
+    await spendingService.getTagBreakdown('2026-05-01', '2026-05-31');
+
+    expect(api.get).toHaveBeenNthCalledWith(1, '/spending/tags', {
+      params: { limit: 100, offset: 0, search: 'wo' },
+    });
+    expect(api.post).toHaveBeenCalledWith('/spending/tags', { name: 'work' });
+    expect(api.get).toHaveBeenNthCalledWith(2, '/spending/transactions', {
+      params: {
+        limit: 20,
+        offset: 0,
+        category_id: undefined,
+        account_id: undefined,
+        unassigned: undefined,
+        from_date: undefined,
+        to_date: undefined,
+        search: 'coffee',
+        tag_id: 'tag1',
+        sort: undefined,
+      },
+    });
+    expect(api.get).toHaveBeenNthCalledWith(3, '/spending/analytics/tag-breakdown', {
+      params: { from: '2026-05-01', to: '2026-05-31', type: 'expense', limit: 10 },
+    });
+  });
+
   it('calls budgets and trends endpoints', async () => {
     vi.spyOn(api, 'get')
       .mockResolvedValueOnce({ data: { items: [], total: 0 } } as never)

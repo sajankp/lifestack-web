@@ -43,6 +43,7 @@ export const queryKeys = {
       ['spending', 'categories', ...params] as const,
     categoryGroups: <T extends unknown[]>(...params: T) =>
       ['spending', 'category-groups', ...params] as const,
+    tags: <T extends unknown[]>(...params: T) => ['spending', 'tags', ...params] as const,
     transactions: <T extends unknown[]>(...params: T) =>
       ['spending', 'transactions', ...params] as const,
     summary: <T extends unknown[]>(...params: T) => ['spending', 'summary', ...params] as const,
