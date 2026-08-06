@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { http, HttpResponse } from 'msw';
 
-import { authService, getOAuthUrl } from './auth';
+import { authService, getOAuthLinkUrl, getOAuthUrl } from './auth';
 import { server } from '../test/setup';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
@@ -10,6 +10,27 @@ describe('authService', () => {
   it('builds OAuth endpoints from the configured API URL', () => {
     expect(getOAuthUrl('google')).toBe(`${BASE_URL}/auth/oauth/google`);
     expect(getOAuthUrl('github')).toBe(`${BASE_URL}/auth/oauth/github`);
+    expect(getOAuthLinkUrl('github')).toBe(`${BASE_URL}/auth/oauth/github/link`);
+  });
+
+  it('loads and unlinks authentication identities', async () => {
+    let deleted = '';
+    server.use(
+      http.get(`${BASE_URL}/auth/me/auth-identities`, () =>
+        HttpResponse.json({ has_password: false, providers: ['google'] }),
+      ),
+      http.delete(`${BASE_URL}/auth/me/auth-identities/:provider`, ({ params }) => {
+        deleted = String(params.provider);
+        return HttpResponse.json({ message: 'unlinked' });
+      }),
+    );
+
+    await expect(authService.getAuthIdentities()).resolves.toEqual({
+      has_password: false,
+      providers: ['google'],
+    });
+    await authService.unlinkOAuth('google');
+    expect(deleted).toBe('google');
   });
 
   it('submits login as form-urlencoded with username/password fields', async () => {
