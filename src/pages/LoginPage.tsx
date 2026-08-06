@@ -14,6 +14,7 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const nextPath = new URLSearchParams(location.search).get('next') ?? undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +29,8 @@ export const LoginPage: React.FC = () => {
         identifyUser(user.public_id);
       }
       trackEvent('login');
-      navigate('/', { replace: true });
+      const safeNext = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '/';
+      navigate(safeNext, { replace: true });
     } catch (err: unknown) {
       // Always show a generic message to prevent username/email enumeration
       let status: number | undefined;
@@ -69,7 +71,7 @@ export const LoginPage: React.FC = () => {
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={authService.loginWithGoogle}
+            onClick={() => authService.loginWithGoogle(nextPath)}
             disabled={loading}
             className="rounded-lg border border-slate-600 bg-slate-800/50 p-3 text-sm font-medium text-white hover:bg-slate-700/50 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
@@ -95,7 +97,7 @@ export const LoginPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={authService.loginWithGithub}
+            onClick={() => authService.loginWithGithub(nextPath)}
             disabled={loading}
             className="rounded-lg border border-slate-600 bg-slate-800/50 p-3 text-sm font-medium text-white hover:bg-slate-700/50 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >

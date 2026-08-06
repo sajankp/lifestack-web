@@ -119,7 +119,7 @@ export const RegisterPage: React.FC = () => {
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={authService.loginWithGoogle}
+            onClick={() => authService.loginWithGoogle()}
             disabled={loading}
             className="rounded-lg border border-slate-600 bg-slate-800/50 p-3 text-sm font-medium text-white hover:bg-slate-700/50 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
@@ -145,7 +145,7 @@ export const RegisterPage: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={authService.loginWithGithub}
+            onClick={() => authService.loginWithGithub()}
             disabled={loading}
             className="rounded-lg border border-slate-600 bg-slate-800/50 p-3 text-sm font-medium text-white hover:bg-slate-700/50 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >

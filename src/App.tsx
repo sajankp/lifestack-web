@@ -15,6 +15,7 @@ import { WeeklySummariesPage } from './pages/WeeklySummariesPage';
 import { ImportsPage } from './pages/ImportsPage';
 import { ExportsPage } from './pages/ExportsPage';
 import { MasterConfigPage } from './pages/MasterConfigPage';
+import { McpAuthorizePage } from './pages/McpAuthorizePage';
 import { useAuthStore } from './store/authStore';
 import { useWorkspaceStore } from './store/workspaceStore';
 import { authService } from './services/auth';
@@ -72,6 +73,8 @@ function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
+          <Route path="/mcp/authorize" element={<McpAuthorizePage />} />
+
           <Route
             path="/login"
             element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}

@@ -14,10 +14,13 @@ export type AuthUser = z.infer<typeof AuthUserSchema>;
 type OAuthProvider = 'google' | 'github';
 
 export type AuthIdentities = { has_password: boolean; providers: OAuthProvider[] };
+export type McpAuthorizationRequest = { client_name: string; scopes: string[] };
 
-export const getOAuthUrl = (provider: OAuthProvider) => {
+export const getOAuthUrl = (provider: OAuthProvider, next?: string) => {
   const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/v1';
-  return `${apiBaseUrl.replace(/\/+$/, '')}/auth/oauth/${provider}`;
+  const url = new URL(`${apiBaseUrl.replace(/\/+$/, '')}/auth/oauth/${provider}`);
+  if (next) url.searchParams.set('next', next);
+  return url.toString();
 };
 
 export const getOAuthLinkUrl = (provider: OAuthProvider) => {
@@ -41,12 +44,12 @@ export const authService = {
   },
 
   // OAuth login - redirects to provider
-  loginWithGoogle: () => {
-    window.location.href = getOAuthUrl('google');
+  loginWithGoogle: (next?: string) => {
+    window.location.href = getOAuthUrl('google', next);
   },
 
-  loginWithGithub: () => {
-    window.location.href = getOAuthUrl('github');
+  loginWithGithub: (next?: string) => {
+    window.location.href = getOAuthUrl('github', next);
   },
 
   register: async (email: string, password: string, username: string) => {
@@ -61,6 +64,21 @@ export const authService = {
   checkAuth: async (): Promise<AuthUser> => {
     const response = await api.get('/auth/me');
     return AuthUserSchema.parse(response.data);
+  },
+
+  getMcpAuthorizationRequest: async (state: string): Promise<McpAuthorizationRequest> => {
+    const response = await api.get('/auth/mcp/authorize', { params: { state } });
+    return response.data as McpAuthorizationRequest;
+  },
+
+  approveMcpAuthorization: async (state: string): Promise<string> => {
+    const response = await api.post('/auth/mcp/authorize', { state });
+    return response.data.redirect_uri as string;
+  },
+
+  denyMcpAuthorization: async (state: string): Promise<string> => {
+    const response = await api.post('/auth/mcp/authorize/deny', { state });
+    return response.data.redirect_uri as string;
   },
 
   getAuthIdentities: async (): Promise<AuthIdentities> => {
