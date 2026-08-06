@@ -21,6 +21,7 @@ import {
 import { VoiceAgentFailureAlert } from './VoiceAgentFailureAlert';
 import { useCaptureStore } from '../store/captureStore';
 import { useActiveWorkspace } from '../hooks/useActiveWorkspace';
+import { useEffectiveTimezone } from '../hooks/useEffectiveTimezone';
 import { ToggleSwitch } from './ui/toggle-switch';
 
 interface Message {
@@ -106,6 +107,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
   const isOpen = useCaptureStore((state) => state.isOpen);
   const setIsOpen = useCaptureStore((state) => state.setIsOpen);
   const { activeWorkspaceId } = useActiveWorkspace(true);
+  const effectiveTimezone = useEffectiveTimezone();
 
   const viewportMargin = 24;
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1280;
@@ -547,9 +549,8 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
     setConnectionStatus('connecting');
     setConnectionError(null);
     try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
       const wsUrl = new URL(getWebSocketUrl());
-      wsUrl.searchParams.set('timezone', timezone);
+      wsUrl.searchParams.set('timezone', effectiveTimezone);
       // spec-090: a stale handle must not be resumed — a suspended device
       // waking up with an old handle is how already-executed tool calls got
       // replayed. Age it out before deciding whether to resume.

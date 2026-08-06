@@ -80,6 +80,11 @@ const baseHandlers = [
   http.get('*/v1/spending/categories', () =>
     HttpResponse.json({ items: [CATEGORY], total: 1, limit: 200, offset: 0 }),
   ),
+  http.get('*/v1/spending/tags', () => HttpResponse.json(EMPTY_PAGE)),
+  http.get('*/v1/spending/category-groups', () => HttpResponse.json(EMPTY_PAGE)),
+  http.get('*/v1/spending/analytics/tag-breakdown', () =>
+    HttpResponse.json({ from: '2026-01-01', to: '2026-01-31', type: 'expense', total: 0, tags: [] }),
+  ),
   http.get('*/v1/finance/accounts', () =>
     HttpResponse.json({ items: [ACCOUNT], total: 1, limit: 200, offset: 0 }),
   ),

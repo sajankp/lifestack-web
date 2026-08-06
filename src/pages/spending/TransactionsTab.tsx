@@ -30,6 +30,16 @@ const hasRenderableLabels = (labels: string | null | undefined): boolean =>
     .map((label) => label.trim())
     .filter(Boolean).length > 0;
 
+const transactionTagNames = (tx: Transaction): string[] => {
+  if (tx.tags?.length) return tx.tags.map((tag) => tag.name);
+  return tx.labels
+    ? tx.labels
+        .split(',')
+        .map((label) => label.trim())
+        .filter(Boolean)
+    : [];
+};
+
 const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
   transactions,
   transactionsResponse,
@@ -45,7 +55,9 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
   onAddFirst,
 }) => {
   const formatCurrency = useCurrencyFormatter();
-  const hasAnyTags = (transactions ?? []).some((tx) => hasRenderableLabels(tx.labels));
+  const hasAnyTags = (transactions ?? []).some(
+    (tx) => transactionTagNames(tx).length > 0 || hasRenderableLabels(tx.labels),
+  );
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
@@ -80,13 +92,7 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
               const linkedAccount = tx.account_id ? accountById.get(tx.account_id) : undefined;
               const sourceName = tx.wallet_name || linkedAccount?.name || '-';
               const sourceCurrency = linkedAccount?.default_currency_code ?? displayCurrency;
-              const labels = tx.labels
-                ? tx.labels
-                    .split(',')
-                    .map((l) => l.trim())
-                    .filter(Boolean)
-                    .slice(0, 3)
-                : [];
+              const labels = transactionTagNames(tx).slice(0, 3);
 
               return (
                 <div
@@ -263,12 +269,9 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
                       </td>
                       {hasAnyTags ? (
                         <td className="px-6 py-4">
-                          {tx.labels ? (
+                          {transactionTagNames(tx).length > 0 ? (
                             <div className="flex max-w-[220px] flex-wrap gap-1">
-                              {tx.labels
-                                .split(',')
-                                .map((label) => label.trim())
-                                .filter(Boolean)
+                              {transactionTagNames(tx)
                                 .slice(0, 3)
                                 .map((label, index) => (
                                   <span
