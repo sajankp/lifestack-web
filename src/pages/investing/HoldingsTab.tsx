@@ -99,7 +99,10 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
   const [holdingsCurrencyFilter, setHoldingsCurrencyFilter] = useState('');
   const [holdingsTypeFilter, setHoldingsTypeFilter] = useState('');
   const [holdingsSearch, setHoldingsSearch] = useState('');
-  const [hideZeroBookValue, setHideZeroBookValue] = useState(false);
+  // Real workspaces can contain many closed/zeroed-out positions. Keep the
+  // default list focused on active capital while leaving the toggle available
+  // when historical zero-value rows are needed (#191).
+  const [hideZeroBookValue, setHideZeroBookValue] = useState(true);
   const [holdingsSortCol, setHoldingsSortCol] = useState('symbol');
   const [holdingsSortDir, setHoldingsSortDir] = useState<SortDir>('asc');
 
@@ -585,7 +588,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
               setHoldingsCurrencyFilter('');
               setHoldingsTypeFilter('');
               setHoldingsSearch('');
-              setHideZeroBookValue(false);
+              setHideZeroBookValue(true);
             }}
           >
             <CompactFilterField label="Search">
