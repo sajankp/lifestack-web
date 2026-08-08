@@ -19,7 +19,7 @@ export const statusLabel = (status: string | undefined): string => {
     case 'converted_available':
       return 'Converted totals available in reporting currency.';
     default:
-      return 'Valuation status unavailable.';
+      return 'Unavailable.';
   }
 };
 

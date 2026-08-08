@@ -131,15 +131,15 @@ describe('CashTab pagination (spec-009)', () => {
   it('shows section totals in the headers', async () => {
     baseHandlers({ cashTotal: 25, transferCount: 3 });
     renderTab();
-    expect(await screen.findByText('Cash Balances (25)')).toBeInTheDocument();
+    expect(await screen.findByText('Cash Balance History (25)')).toBeInTheDocument();
     expect(await screen.findByText('Transfers (3)')).toBeInTheDocument();
   });
 
-  it('renders sections in reachability order: Cash Balances, Dividends, Transfers', async () => {
+  it('renders sections in reachability order: Cash history, Dividends, Transfers', async () => {
     baseHandlers({ cashTotal: 1, transferCount: 1 });
     renderTab();
-    await screen.findByText('Cash Balances (1)');
-    const cash = screen.getByText(/^Cash Balances/);
+    await screen.findByText('Cash Balance History (1)');
+    const cash = screen.getByText(/^Cash Balance History/);
     const dividends = screen.getByText(/^Dividends \/ Income/);
     const transfers = screen.getByText(/^Transfers/);
     // compareDocumentPosition: FOLLOWING = 4 (argument comes after node).
@@ -154,5 +154,14 @@ describe('CashTab pagination (spec-009)', () => {
     expect(screen.getByText(byParagraphText('Showing 1 to 10 of 17 results'))).toBeInTheDocument();
     // Desktop table renders 10 transfer rows, not all 17.
     await waitFor(() => expect(screen.getAllByTestId(/investing-transfer-row-/)).toHaveLength(10));
+  });
+
+  it('uses a plain empty state instead of an empty cash or transfer table (#189)', async () => {
+    baseHandlers({ cashTotal: 0, transferCount: 0 });
+    renderTab();
+
+    expect(await screen.findByTestId('investing-cash-empty')).toBeInTheDocument();
+    expect(screen.getByTestId('investing-transfers-empty')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Date' })).not.toBeInTheDocument();
   });
 });

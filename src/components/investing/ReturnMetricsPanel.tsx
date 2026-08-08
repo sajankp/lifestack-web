@@ -13,7 +13,9 @@ interface ReturnMetricsPanelProps {
 
 function formatXirr(value: PositionMetrics['xirr'] | undefined): string {
   if (value == null) return 'N/A';
-  return `${(toNumber(value) * 100).toFixed(1)}%`;
+  // Number() normalizes rounded negative zero, avoiding a misleading -0.0%.
+  const percentage = Number((toNumber(value) * 100).toFixed(1));
+  return `${percentage.toFixed(1)}%`;
 }
 
 function formatHoldingPeriod(days: number | null | undefined): string {
@@ -128,7 +130,7 @@ export const ReturnMetricsPanel: React.FC<ReturnMetricsPanelProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-            Investment returns
+            Portfolio returns (all positions)
           </h3>
           <p className="mt-1 text-2xl font-bold text-white" data-testid="investing-xirr-overall">
             {overall.annualization_reliable && overall.annualized_return_pct != null

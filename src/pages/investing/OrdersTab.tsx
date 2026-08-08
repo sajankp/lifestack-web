@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Edit2, Plus, Trash2 } from 'lucide-react';
-import { Button } from '../../components/ui/button';
+import { Edit2, Trash2 } from 'lucide-react';
 import { financeService } from '../../services/finance';
 import { investingService } from '../../services/investing';
 import type { InvestingOrder } from '../../services/investing';
@@ -22,10 +21,6 @@ interface OrdersTabProps {
   onDeleteOrder: (order: InvestingOrder) => void;
   deleteOrderPending: boolean;
   updateOrderPending: boolean;
-  /** Place Order is hoisted to the Investing page hero so it's reachable
-      from every tab (UX-REVIEW P2 item 13) — this section still lists
-      orders, but opens the page-level modal instead of owning its own. */
-  onOpenPlaceOrder: () => void;
 }
 
 const ORDERS_PAGE_SIZE = 50;
@@ -36,7 +31,6 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   onDeleteOrder,
   deleteOrderPending,
   updateOrderPending,
-  onOpenPlaceOrder,
 }) => {
   const { locale: displayLocale, decimalPlaces } = useDisplayProfile();
   const [ordersAccountFilter, setOrdersAccountFilter] = useState('');
@@ -142,16 +136,6 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
         className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <h3 className="font-semibold text-white text-base">Orders</h3>
-        <Button
-          type="button"
-          data-testid="investing-place-order-btn"
-          onClick={onOpenPlaceOrder}
-          size="sm"
-          className="rounded-lg"
-        >
-          <Plus className="h-4 w-4" />
-          Place Order
-        </Button>
       </div>
 
       {/* Filters */}

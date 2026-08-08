@@ -188,7 +188,20 @@ const UNASSIGNED_ACCOUNT_FILTER_VALUE = '__unassigned__';
 // API's PaginationParams MAX_LIMIT (app/core/pagination.py), which 422s above 200.
 const TRANSFERS_LOOKUP_PAGE_SIZE = 200;
 const SOURCE_CURRENCY_HINT_DISMISSED_KEY = 'spending:sourceCurrencyHintDismissed';
+const RECENT_SPENDING_CATEGORIES_KEY = 'spending:recentCategories';
 const EMPTY_SPENDING_TAGS: SpendingTag[] = [];
+
+const readRecentSpendingCategories = (): string[] => {
+  try {
+    const stored = window.localStorage.getItem(RECENT_SPENDING_CATEGORIES_KEY);
+    const parsed: unknown = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+};
 
 // Sort options for the transactions list. Values mirror the API's
 // TransactionSort enum; sorting is applied server-side so it holds across pages.
@@ -211,6 +224,7 @@ export const SpendingPage: React.FC = () => {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [type, setType] = useState<TransactionType>('expense');
   const [categoryId, setCategoryId] = useState('');
+  const [recentCategoryIds, setRecentCategoryIds] = useState<string[]>(readRecentSpendingCategories);
   const [accountId, setAccountId] = useState('');
   const [date, setDate] = useState(localDateInputValue());
   const [fromDate, setFromDate] = useState<string>(() => {
@@ -229,6 +243,19 @@ export const SpendingPage: React.FC = () => {
   const [selectedTagFilter, setSelectedTagFilter] = useState('');
   const [transactionSearch, setTransactionSearch] = useState('');
   const [txSort, setTxSort] = useState<TransactionSort>('date_desc');
+
+  const rememberCategory = useCallback((nextCategoryId: string) => {
+    if (!nextCategoryId) return;
+    setRecentCategoryIds((current) => {
+      const next = [nextCategoryId, ...current.filter((value) => value !== nextCategoryId)].slice(0, 5);
+      try {
+        window.localStorage.setItem(RECENT_SPENDING_CATEGORIES_KEY, JSON.stringify(next));
+      } catch {
+        // Local storage can be unavailable in privacy-restricted contexts.
+      }
+      return next;
+    });
+  }, []);
 
   // Budgets has its own month picker — it must NOT derive from (or be
   // filtered by) the Transactions date-range/category/account filter bar,
@@ -2079,11 +2106,15 @@ export const SpendingPage: React.FC = () => {
                       <DropdownSelect
                         testId="spending-recurring-category"
                         value={field.value}
-                        onChange={field.onChange}
+                        onChange={(value) => {
+                          field.onChange(value);
+                          rememberCategory(value);
+                        }}
                         options={categoryOptions}
                         placeholder="Select category"
                         showSearch
                         sortByLabel
+                        recentValues={recentCategoryIds}
                       />
                     )}
                   />
@@ -2494,11 +2525,15 @@ export const SpendingPage: React.FC = () => {
                   <DropdownSelect
                     testId="spending-transaction-category"
                     value={categoryId}
-                    onChange={setCategoryId}
+                    onChange={(value) => {
+                      setCategoryId(value);
+                      rememberCategory(value);
+                    }}
                     options={categoryOptions}
                     placeholder="Select category"
                     showSearch
                     sortByLabel
+                    recentValues={recentCategoryIds}
                   />
                 </div>
 
@@ -2704,12 +2739,16 @@ export const SpendingPage: React.FC = () => {
                         <DropdownSelect
                           testId="spending-budget-category"
                           value={field.value ?? ''}
-                          onChange={field.onChange}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            rememberCategory(value);
+                          }}
                           options={categoryOptions}
                           placeholder="Select category"
                           disabled={!!editingBudgetId}
                           showSearch
                           sortByLabel
+                          recentValues={recentCategoryIds}
                         />
                       )}
                     />

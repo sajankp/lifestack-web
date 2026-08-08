@@ -160,6 +160,47 @@ describe('Capture panel verification', () => {
     expect(createdSources[0].stop).toHaveBeenCalled();
   });
 
+  it('keeps one current connection status instead of stacking transient events (#197)', () => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+
+    expect(screen.getAllByTestId('voice-status-log-item')).toHaveLength(1);
+    expect(
+      screen.getByTestId('voice-status-log-item'),
+    ).toHaveTextContent('Connected. Tap the microphone to talk or type a message.');
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: 'error',
+          message: 'Voice capture is temporarily unavailable. Please try again.',
+        }),
+      });
+    });
+
+    expect(screen.getAllByTestId('voice-status-log-item')).toHaveLength(1);
+    expect(screen.getByTestId('voice-status-log-item')).toHaveTextContent(
+      'Voice capture is temporarily unavailable. Please try again.',
+    );
+    expect(
+      screen.queryByText('Connected. Tap the microphone to talk or type a message.'),
+    ).toBeNull();
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({ type: 'session_state', state: 'closing' }),
+      });
+    });
+
+    expect(screen.getAllByTestId('voice-status-log-item')).toHaveLength(1);
+    expect(screen.getByTestId('voice-status-log-item')).toHaveTextContent(
+      'Renewing the live session…',
+    );
+    expect(
+      screen.queryByText('Voice capture is temporarily unavailable. Please try again.'),
+    ).toBeNull();
+  });
+
   it('clears the audio queue when the mic is toggled off', async () => {
     renderWidget();
     const ws = openPanelAndGetSocket();

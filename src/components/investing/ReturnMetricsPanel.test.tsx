@@ -94,6 +94,24 @@ describe('ReturnMetricsPanel', () => {
     expect(screen.queryByText(/XIRR/)).not.toBeInTheDocument();
   });
 
+  it('normalizes a rounded negative-zero XIRR display (#188)', async () => {
+    mockReturns({
+      currency: 'USD',
+      valuation_status: 'current',
+      overall: scope({
+        xirr: '-0.0001',
+        annualized_return_pct: '-0.01',
+        annualization_reliable: true,
+        open: positionBlock({ invested: '1000' }),
+      }),
+      by_account: [],
+      by_currency: [],
+    });
+    renderWithQuery(<ReturnMetricsPanel currencyDisplayPreference="code" />);
+    expect(await screen.findByTestId('investing-xirr-overall')).toHaveTextContent('XIRR 0.0%');
+    expect(screen.queryByText(/XIRR -0\.0%/)).not.toBeInTheDocument();
+  });
+
   it('renders the conversion_required guidance instead of a blended number', async () => {
     mockReturns({
       currency: null,

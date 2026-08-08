@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Landmark, Plus, WalletCards } from 'lucide-react';
+import { ArrowUpDown, ChartNoAxesCombined, Landmark, PiggyBank, Plus, WalletCards } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { investingService } from '../services/investing';
@@ -434,7 +434,7 @@ export const InvestingPage: React.FC = () => {
                     )
                   : 'N/A'
           }
-          icon={<Landmark className="h-5 w-5" />}
+          icon={<PiggyBank className="h-5 w-5" />}
           testId="investing-portfolio-value"
         />
         <SummaryCard
@@ -450,7 +450,7 @@ export const InvestingPage: React.FC = () => {
                 )
               : 'N/A'
           }
-          icon={<Landmark className="h-5 w-5" />}
+          icon={<ChartNoAxesCombined className="h-5 w-5" />}
           testId="investing-invested-value"
         />
         <SummaryCard
@@ -482,9 +482,10 @@ export const InvestingPage: React.FC = () => {
                   displayLocale,
                   decimalPlaces,
                 )
-              : 'N/A'
+              : '—'
           }
-          icon={<Landmark className="h-5 w-5" />}
+          valueTitle="Unavailable until a previous-day snapshot exists."
+          icon={<ArrowUpDown className="h-5 w-5" />}
           testId="investing-daily-change"
         />
         <SummaryCard
@@ -631,7 +632,6 @@ export const InvestingPage: React.FC = () => {
             onDeleteOrder={setPendingDeleteOrder}
             deleteOrderPending={deleteOrderMutation.isPending}
             updateOrderPending={updateOrderMutation.isPending}
-            onOpenPlaceOrder={openPlaceOrderModal}
           />
         </TabsContent>
 

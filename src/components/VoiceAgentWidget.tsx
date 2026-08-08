@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryKeys';
 import { trackEvent } from '../lib/analytics';
@@ -122,7 +122,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
   const panelHeight = isMobileViewport ? Math.min(560, Math.max(420, viewportHeight * 0.72)) : 600;
   const launcherStorageKey = 'voice-agent-launcher-pos-v1';
 
-  const clampLauncherPos = (position: { x: number; y: number }) => {
+  const clampLauncherPos = useCallback((position: { x: number; y: number }) => {
     if (typeof window === 'undefined') return position;
     return {
       x: Math.min(
@@ -134,7 +134,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
         window.innerHeight - launcherSize - viewportMargin,
       ),
     };
-  };
+  }, [launcherSize, viewportMargin]);
 
   const getDefaultLauncherPos = () =>
     clampLauncherPos({
@@ -172,6 +172,10 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
     'disconnected' | 'connecting' | 'connected' | 'error'
   >('disconnected');
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  // Connection lifecycle updates are transient state, not conversation
+  // messages. Keeping one notice prevents reconnect/error events from
+  // accumulating into a contradictory status log.
+  const [connectionNotice, setConnectionNotice] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showLauncher, setShowLauncher] = useState(true);
@@ -271,7 +275,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [clampLauncherPos]);
 
   const startDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
     isDraggingRef.current = false;
@@ -491,28 +495,10 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
       // Gemini warned it is about to close this session (goAway). Surface it;
       // the impending close event drives the actual reconnect.
       if (msg.state === 'closing') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Math.random().toString(),
-            role: 'system',
-            type: 'text',
-            content: 'Renewing the live session…',
-            timestamp: new Date(),
-          },
-        ]);
+        setConnectionNotice('Renewing the live session…');
       }
     } else if (msg.type === 'error') {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Math.random().toString(),
-          role: 'system',
-          type: 'error',
-          content: msg.message ?? 'Unknown error',
-          timestamp: new Date(),
-        },
-      ]);
+      setConnectionNotice(msg.message ?? 'Unknown error');
     }
   };
 
@@ -522,13 +508,16 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
     if (reconnectTimerRef.current !== null) return;
     if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
       setConnectionStatus('error');
+      setConnectionNotice('Reconnection stopped after several attempts.');
       setConnectionError('Reconnection failed after several attempts. Tap retry to start over.');
       return;
     }
     const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 8000);
     reconnectAttemptsRef.current += 1;
     setConnectionStatus('connecting');
-    setConnectionError(`Connection lost — reconnecting (attempt ${reconnectAttemptsRef.current})…`);
+    const reconnectMessage = `Connection lost — reconnecting (attempt ${reconnectAttemptsRef.current})…`;
+    setConnectionNotice(reconnectMessage);
+    setConnectionError(reconnectMessage);
     reconnectTimerRef.current = window.setTimeout(() => {
       reconnectTimerRef.current = null;
       connectWebSocket();
@@ -547,6 +536,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
     // A fresh connect attempt is not an intentional teardown; allow reconnects.
     intentionalCloseRef.current = false;
     setConnectionStatus('connecting');
+    setConnectionNotice('Connecting…');
     setConnectionError(null);
     try {
       const wsUrl = new URL(getWebSocketUrl());
@@ -582,19 +572,12 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
         }
         setConnectionStatus('connected');
         setConnectionError(null);
+        setConnectionNotice(
+          wasReconnect
+            ? 'Reconnected — continuing your session.'
+            : 'Connected. Tap the microphone to talk or type a message.',
+        );
         reconnectAttemptsRef.current = 0;
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Math.random().toString(),
-            role: 'system',
-            type: 'text',
-            content: wasReconnect
-              ? 'Reconnected — continuing your session.'
-              : 'Connected. Tap the microphone to talk or type a message.',
-            timestamp: new Date(),
-          },
-        ]);
 
         // Flush any pending text sends
         while (pendingSendRef.current.length > 0) {
@@ -642,19 +625,10 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
           return;
         }
         setConnectionStatus('disconnected');
+        setConnectionNotice(`Session closed (${event.code}).`);
         if (event.code !== 1000 && !intentionalCloseRef.current) {
           setConnectionError(`Capture disconnected unexpectedly (${event.code}).`);
         }
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Math.random().toString(),
-            role: 'system',
-            type: 'text',
-            content: `Session closed (${event.code}).`,
-            timestamp: new Date(),
-          },
-        ]);
       };
     } catch (err) {
       console.error(
@@ -662,17 +636,8 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
         err instanceof Error ? err.message : 'Unknown error',
       );
       setConnectionStatus('error');
+      setConnectionNotice('Capture could not start a live session.');
       setConnectionError('Capture could not start a live session.');
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Math.random().toString(),
-          role: 'system',
-          type: 'error',
-          content: 'Failed to connect: ' + (err as Error).message,
-          timestamp: new Date(),
-        },
-      ]);
     }
   };
 
@@ -1026,7 +991,22 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
           <>
             {/* Scrollable Message Transcripts */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 select-text">
-              {messages.length === 0 && (
+              {connectionNotice && (
+                <div className="flex justify-center" data-testid="voice-status-log-item">
+                  <div
+                    role="status"
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium bg-slate-900/40 ${
+                      connectionStatus === 'error'
+                        ? 'border-rose-500/10 text-rose-400/80'
+                        : 'border-slate-800/40 text-slate-500'
+                    }`}
+                  >
+                    {connectionNotice}
+                  </div>
+                </div>
+              )}
+
+              {messages.length === 0 && !connectionNotice && (
                 <div className="flex h-full flex-col items-center justify-center text-center p-6 text-slate-500 space-y-3">
                   <Bot className="h-12 w-12 text-slate-700 animate-bounce" />
                   <p className="text-sm font-medium">
