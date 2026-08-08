@@ -361,6 +361,7 @@ export const SpendingPage: React.FC = () => {
   const [isQuickAccountModalOpen, setIsQuickAccountModalOpen] = useState(false);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState('#3b82f6');
   const [newCategoryIcon, setNewCategoryIcon] = useState('');
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountType, setNewAccountType] = useState<AccountType>('wallet');
@@ -1172,14 +1173,19 @@ export const SpendingPage: React.FC = () => {
   );
 
   const createCategoryMutation = useInvalidatingMutation(
-    (data: { name: string; icon?: string }) =>
-      spendingService.createCategory({ name: data.name, icon: data.icon || null }),
+    (data: { name: string; color?: string; icon?: string }) =>
+      spendingService.createCategory({
+        name: data.name,
+        color: data.color || null,
+        icon: data.icon || null,
+      }),
     [queryKeys.spending.categories()],
     {
       successMessage: 'Category created',
       errorMessage: false,
       onSuccess: () => {
         setNewCategoryName('');
+        setNewCategoryColor('#3b82f6');
         setNewCategoryIcon('');
         setIsManageCategoriesOpen(false);
       },
@@ -3225,6 +3231,7 @@ export const SpendingPage: React.FC = () => {
                 if (createCategoryMutation.isPending || !newCategoryName.trim()) return;
                 createCategoryMutation.mutate({
                   name: newCategoryName.trim(),
+                  color: newCategoryColor,
                   icon: newCategoryIcon.trim() || undefined,
                 });
               }}
@@ -3237,6 +3244,24 @@ export const SpendingPage: React.FC = () => {
                   onChange={(e) => setNewCategoryName(e.target.value)}
                   placeholder="e.g. Dining Out"
                 />
+              </div>
+              <div>
+                <Label htmlFor="spending-category-color" className="mb-2 block">
+                  Color
+                </Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    id="spending-category-color"
+                    data-testid="spending-category-color"
+                    type="color"
+                    value={newCategoryColor}
+                    onChange={(e) => setNewCategoryColor(e.target.value)}
+                    className="h-10 w-14 cursor-pointer p-1"
+                  />
+                  <span className="text-xs text-slate-400">
+                    Used for category badges and charts.
+                  </span>
+                </div>
               </div>
               <div>
                 <Label className="mb-2 block">Icon (emoji)</Label>

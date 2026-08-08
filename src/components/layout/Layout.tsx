@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Link, NavLink } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Bell, Building2, ChevronDown, Menu, Plus, UserCircle2 } from 'lucide-react';
@@ -60,6 +60,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   } = useActiveWorkspace(isAuthenticated && isAuthResolved);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator === 'undefined' ? true : navigator.onLine,
+  );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       const saved = localStorage.getItem('lifestack:sidebar-collapsed');
@@ -80,6 +83,17 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       return next;
     });
   };
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   if (!isAuthResolved) {
     return (
@@ -110,6 +124,16 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <div className="flex min-h-screen bg-slate-900">
+      {!isOnline ? (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="offline-mode-banner"
+          className="fixed inset-x-0 top-0 z-[60] border-b border-amber-500/40 bg-amber-950/95 px-4 py-2 text-center text-xs font-medium text-amber-100 shadow-lg"
+        >
+          You&apos;re offline. Showing cached data where available; changes will resume when you reconnect.
+        </div>
+      ) : null}
       {/* Desktop sidebar */}
       <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 
@@ -136,7 +160,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               <button
                 data-testid="nav-mobile-open"
                 onClick={() => setMobileNavOpen(true)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white lg:hidden"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white md:hidden"
                 aria-label="Open navigation"
               >
                 <Menu className="h-4 w-4" />
@@ -185,7 +209,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               )}
 
               {/* Quick-add shortcuts (≥lg only) */}
-              <div className="hidden items-center gap-2 lg:flex">
+              <div className="hidden items-center gap-2 md:flex">
                 <Link
                   to="/todo?new=1"
                   aria-label="Add todo"

@@ -43,7 +43,7 @@ export function MobileNavDrawer({
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${
+        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         aria-hidden="true"
@@ -52,7 +52,7 @@ export function MobileNavDrawer({
 
       {/* Drawer */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-700 bg-slate-900 p-6 shadow-2xl transition-transform duration-300 ease-out lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-slate-700 bg-slate-900 p-6 shadow-2xl transition-transform duration-300 ease-out md:hidden ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
         aria-label="Mobile navigation"

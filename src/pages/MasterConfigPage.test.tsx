@@ -565,7 +565,7 @@ describe('MasterConfigPage', () => {
     fireEvent.click(decimalsPicker);
     fireEvent.click(await screen.findByRole('option', { name: '0 decimal places' }));
 
-    fireEvent.click(screen.getByTestId('master-workspace-save-format'));
+    fireEvent.click(screen.getByTestId('master-workspace-save'));
 
     await waitFor(() => {
       expect(workspacePayload).toMatchObject({ locale: 'en-IN', decimal_places: 0 });
@@ -574,7 +574,7 @@ describe('MasterConfigPage', () => {
     const userLocalePicker = screen.getByTestId('master-user-locale-override');
     fireEvent.click(userLocalePicker);
     fireEvent.click(await screen.findByRole('option', { name: /Override: UK/ }));
-    fireEvent.click(screen.getByTestId('master-user-save-format-override'));
+    fireEvent.click(screen.getByTestId('master-user-save-override'));
 
     await waitFor(() => {
       expect(userPayload).toMatchObject({ locale_override: 'en-GB' });
@@ -783,7 +783,7 @@ describe('MasterConfigPage', () => {
     expect(screen.getByTestId('master-category-row-cat-rent')).toBeInTheDocument();
   });
 
-  it('enables delete for system categories (spec-062)', async () => {
+  it('protects system categories from deletion', async () => {
     const workspaceId = '88888888-8888-8888-8888-888888888888';
     useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
 
@@ -814,8 +814,8 @@ describe('MasterConfigPage', () => {
     const categoriesTab = await screen.findByTestId('settings-tab-categories');
     categoriesTab.focus();
     fireEvent.keyDown(categoriesTab, { key: 'Enter', code: 'Enter' });
-    const deleteButton = await screen.findByTestId('master-category-delete-cat-uncategorized');
-    expect(deleteButton).not.toBeDisabled();
+    expect(screen.queryByTestId('master-category-delete-cat-uncategorized')).not.toBeInTheDocument();
+    expect(screen.getByText('Protected')).toBeInTheDocument();
   });
 
   it('loads and saves the weekly-summary cadence (spec-076)', async () => {

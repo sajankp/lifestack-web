@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ChevronDown, Edit2, Link2, LockKeyhole } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Edit2, Link2, LockKeyhole, Trash2 } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { spendingService } from '../services/spending';
 import { platformService } from '../services/platform';
@@ -909,7 +909,7 @@ export const MasterConfigPage: React.FC = () => {
                 onClick={() => updateSettingsMutation.mutate()}
                 disabled={updateSettingsMutation.isPending}
               >
-                {updateSettingsMutation.isPending ? 'Saving...' : 'Save'}
+                {updateSettingsMutation.isPending ? 'Saving workspace settings...' : 'Save workspace settings'}
               </Button>
             </div>
             <div className="mt-4 border-t border-slate-800 pt-4">
@@ -932,14 +932,9 @@ export const MasterConfigPage: React.FC = () => {
                   options={decimalPlacesOptions}
                   placeholder="Decimal places"
                 />
-                <Button
-                  data-testid="master-workspace-save-format"
-                  type="button"
-                  onClick={() => updateSettingsMutation.mutate()}
-                  disabled={updateSettingsMutation.isPending}
-                >
-                  {updateSettingsMutation.isPending ? 'Saving...' : 'Save'}
-                </Button>
+                <p className="self-center text-xs text-slate-500 sm:col-span-3">
+                  Locale and decimal changes are included with workspace settings.
+                </p>
               </div>
             </div>
             <div className="mt-4 border-t border-slate-800 pt-4">
@@ -984,14 +979,9 @@ export const MasterConfigPage: React.FC = () => {
                   className="h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-slate-100"
                 />
               </label>
-              <Button
-                type="button"
-                className="self-end"
-                onClick={() => updateSettingsMutation.mutate()}
-                disabled={updateSettingsMutation.isPending}
-              >
-                {updateSettingsMutation.isPending ? 'Saving...' : 'Save'}
-              </Button>
+              <p className="self-end text-xs text-slate-500">
+                Included with workspace settings.
+              </p>
             </div>
           </section>
 
@@ -1038,14 +1028,9 @@ export const MasterConfigPage: React.FC = () => {
                 placeholder="Inherit workspace display style"
                 clearLabel="Inherit workspace display style"
               />
-              <Button
-                data-testid="master-user-save-override"
-                type="button"
-                onClick={() => updateUserSettingsMutation.mutate()}
-                disabled={updateUserSettingsMutation.isPending}
-              >
-                {updateUserSettingsMutation.isPending ? 'Saving...' : 'Save Override'}
-              </Button>
+              <p className="self-center text-xs text-slate-500 sm:col-span-3">
+                Both override rows are saved together below.
+              </p>
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-[1fr,1fr,auto]">
               <DropdownSelect
@@ -1064,14 +1049,16 @@ export const MasterConfigPage: React.FC = () => {
                 placeholder="Inherit workspace decimal places"
                 clearLabel="Inherit workspace decimal places"
               />
-              <Button
-                data-testid="master-user-save-format-override"
-                type="button"
-                onClick={() => updateUserSettingsMutation.mutate()}
-                disabled={updateUserSettingsMutation.isPending}
-              >
-                {updateUserSettingsMutation.isPending ? 'Saving...' : 'Save Override'}
-              </Button>
+              <div className="flex justify-end sm:col-span-3">
+                <Button
+                  data-testid="master-user-save-override"
+                  type="button"
+                  onClick={() => updateUserSettingsMutation.mutate()}
+                  disabled={updateUserSettingsMutation.isPending}
+                >
+                  {updateUserSettingsMutation.isPending ? 'Saving overrides...' : 'Save overrides'}
+                </Button>
+              </div>
             </div>
             {userSettings ? (
               <p className="mt-3 text-xs text-slate-500">
@@ -1239,8 +1226,8 @@ export const MasterConfigPage: React.FC = () => {
                       <td className="px-4 py-3 text-right">
                         <Button
                           type="button"
-                          variant="secondary"
-                          className="h-9 px-3 text-rose-300 hover:text-rose-200"
+                          variant="ghost"
+                          size="icon"
                           onClick={() =>
                             setAccountPendingDelete({
                               publicId: account.public_id,
@@ -1248,8 +1235,10 @@ export const MasterConfigPage: React.FC = () => {
                             })
                           }
                           disabled={deleteAccountMutation.isPending}
+                          aria-label={`Delete account ${account.name}`}
+                          title="Delete account"
                         >
-                          Delete
+                          <Trash2 className="h-4 w-4 text-slate-500 hover:text-rose-300" />
                         </Button>
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -1314,17 +1303,14 @@ export const MasterConfigPage: React.FC = () => {
                 Merge Categories
               </Button>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-                <Label className="text-slate-400">Total categories</Label>
-                <p className="mt-2 text-2xl font-semibold text-white">{categories.length}</p>
-              </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-                <Label className="text-slate-400">System categories</Label>
-                <p className="mt-2 text-2xl font-semibold text-white">
-                  {categories.filter((category) => category.is_system).length}
-                </p>
-              </div>
+            <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+              <Label className="text-slate-400">Category inventory</Label>
+              <p className="mt-2 text-2xl font-semibold text-white">
+                {categories.length} categories
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                {categories.filter((category) => category.is_system).length} system categories
+              </p>
             </div>
 
             {editingCategoryId ? (
@@ -1434,23 +1420,28 @@ export const MasterConfigPage: React.FC = () => {
                         </button>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="h-9 px-3 text-rose-300 hover:text-rose-200"
-                          onClick={() => {
-                            setDeleteCategoryError(null);
-                            setCategoryPendingDelete({
-                              publicId: category.public_id,
-                              name: category.name,
-                            });
-                          }}
-                          disabled={deleteCategoryMutation.isPending}
-                          title="Delete category"
-                          data-testid={`master-category-delete-${category.public_id}`}
-                        >
-                          Delete
-                        </Button>
+                        {category.is_system ? (
+                          <span className="text-xs text-slate-500">Protected</span>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setDeleteCategoryError(null);
+                              setCategoryPendingDelete({
+                                publicId: category.public_id,
+                                name: category.name,
+                              });
+                            }}
+                            disabled={deleteCategoryMutation.isPending}
+                            title="Delete category"
+                            aria-label={`Delete category ${category.name}`}
+                            data-testid={`master-category-delete-${category.public_id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-slate-500 hover:text-rose-300" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1483,12 +1474,18 @@ export const MasterConfigPage: React.FC = () => {
                 onChange={(e) => setNewGroupName(e.target.value)}
                 placeholder="Group name"
               />
-              <Input
-                data-testid="master-group-color"
-                type="color"
-                value={newGroupColor}
-                onChange={(e) => setNewGroupColor(e.target.value)}
-              />
+              <label className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-300">
+                <span>Color</span>
+                <Input
+                  data-testid="master-group-color"
+                  aria-label="Category group color"
+                  type="color"
+                  value={newGroupColor}
+                  onChange={(e) => setNewGroupColor(e.target.value)}
+                  className="h-8 w-12 cursor-pointer p-1"
+                />
+                <span className="h-5 w-5 rounded-full" style={{ backgroundColor: newGroupColor }} />
+              </label>
               <Input
                 data-testid="master-group-icon"
                 value={newGroupIcon}
@@ -1724,6 +1721,7 @@ export const MasterConfigPage: React.FC = () => {
           {currentWorkspace ? (
             <details
               data-testid="master-demo-reset-section"
+              open={activeSettingsTab === 'danger'}
               className="group rounded-2xl border border-rose-900/50 bg-rose-950/10 p-6"
             >
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3">

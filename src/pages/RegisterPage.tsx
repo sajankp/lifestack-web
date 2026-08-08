@@ -41,7 +41,7 @@ export const RegisterPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const passwordStrength = getPasswordStrength(password);
-  const passwordStrengthWidth = getPasswordStrengthWidth(password);
+  const passwordStrengthScore = password ? getPasswordStrengthWidth(password) / 25 : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,11 +234,24 @@ export const RegisterPage: React.FC = () => {
                   symbol.
                 </p>
                 <div className="flex items-center gap-3">
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-700">
-                    <div
-                      className={`h-full transition-all ${passwordStrength.color}`}
-                      style={{ width: `${passwordStrengthWidth}%` }}
-                    />
+                  <div
+                    className="flex flex-1 gap-1"
+                    role="meter"
+                    aria-label="Password strength"
+                    aria-valuemin={0}
+                    aria-valuemax={4}
+                    aria-valuenow={passwordStrengthScore}
+                    aria-valuetext={password ? passwordStrength.label : 'Required'}
+                  >
+                    {[0, 1, 2, 3].map((segment) => (
+                      <span
+                        key={segment}
+                        data-testid={`password-strength-segment-${segment + 1}`}
+                        className={`h-2 flex-1 rounded-full transition-colors ${
+                          segment < passwordStrengthScore ? passwordStrength.color : 'bg-slate-700'
+                        }`}
+                      />
+                    ))}
                   </div>
                   <span className="text-xs font-medium text-slate-300">
                     {password ? passwordStrength.label : 'Required'}

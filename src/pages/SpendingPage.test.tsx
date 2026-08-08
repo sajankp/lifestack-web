@@ -320,6 +320,44 @@ describe('SpendingPage', () => {
     });
   });
 
+  it('creates a category with an explicit color from Manage Categories (#193)', async () => {
+    let capturedPayload: Record<string, unknown> | null = null;
+    server.use(
+      http.post('*/v1/spending/categories', async ({ request }) => {
+        capturedPayload = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({
+          ...CATEGORY,
+          public_id: 'cat-dining',
+          name: 'Dining Out',
+          color: capturedPayload.color,
+          icon: capturedPayload.icon,
+        });
+      }),
+      ...baseHandlers,
+    );
+
+    renderWithQuery(<SpendingPage />);
+    await screen.findByText('Spending Overview');
+    fireEvent.click(screen.getByTestId('spending-open-manage-categories'));
+
+    fireEvent.change(screen.getByTestId('spending-category-name'), {
+      target: { value: 'Dining Out' },
+    });
+    fireEvent.change(screen.getByTestId('spending-category-color'), {
+      target: { value: '#f97316' },
+    });
+    fireEvent.change(screen.getByTestId('spending-category-icon'), {
+      target: { value: '🍽️' },
+    });
+    fireEvent.click(screen.getByTestId('spending-category-create'));
+
+    await waitFor(() => expect(capturedPayload).toMatchObject({
+      name: 'Dining Out',
+      color: '#f97316',
+      icon: '🍽️',
+    }));
+  });
+
   it('creates a transaction and closes modal on success', async () => {
     let capturedPayload: Record<string, unknown> | null = null;
 
