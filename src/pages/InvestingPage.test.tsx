@@ -1862,7 +1862,7 @@ describe('InvestingPage', () => {
     });
   });
 
-  it('hides zero book value holdings when the toggle is checked', async () => {
+  it('hides zero book value holdings by default and reveals them when toggled off (#191)', async () => {
     server.use(
       http.get('*/v1/investing/holdings', () =>
         HttpResponse.json({
@@ -1969,14 +1969,14 @@ describe('InvestingPage', () => {
     renderWithQuery(<InvestingPage />);
 
     await screen.findByTestId('investing-holding-row-holding-live-id');
-    expect(screen.getByTestId('investing-holding-row-holding-zeroed-out-id')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('investing-holding-row-holding-zeroed-out-id'),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('investing-holdings-hide-zero-book-value'));
 
     expect(screen.getByTestId('investing-holding-row-holding-live-id')).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('investing-holding-row-holding-zeroed-out-id'),
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('investing-holding-row-holding-zeroed-out-id')).toBeInTheDocument();
   });
 
   it('shows the account name for each order in the Orders tab', async () => {
