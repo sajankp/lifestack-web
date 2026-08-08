@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryKeys';
 import { trackEvent } from '../lib/analytics';
@@ -122,7 +122,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
   const panelHeight = isMobileViewport ? Math.min(560, Math.max(420, viewportHeight * 0.72)) : 600;
   const launcherStorageKey = 'voice-agent-launcher-pos-v1';
 
-  const clampLauncherPos = (position: { x: number; y: number }) => {
+  const clampLauncherPos = useCallback((position: { x: number; y: number }) => {
     if (typeof window === 'undefined') return position;
     return {
       x: Math.min(
@@ -134,7 +134,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
         window.innerHeight - launcherSize - viewportMargin,
       ),
     };
-  };
+  }, [launcherSize, viewportMargin]);
 
   const getDefaultLauncherPos = () =>
     clampLauncherPos({
@@ -271,7 +271,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [clampLauncherPos]);
 
   const startDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
     isDraggingRef.current = false;
