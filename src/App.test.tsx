@@ -189,4 +189,21 @@ describe('App shell', () => {
     expect(screen.getByTestId('nav-mobile-open')).toHaveClass('h-11', 'w-11');
     expect(screen.getByTestId('header-notifications')).toHaveClass('h-11', 'w-11');
   });
+
+  it('keeps the authenticated shell available when the auth probe fails offline', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    server.use(
+      http.get('*/v1/auth/me', () => HttpResponse.error()),
+      ...defaultHandlers,
+      http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [workspaceA] })),
+    );
+
+    try {
+      renderApp();
+      expect(await screen.findByTestId('offline-mode-banner')).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    }
+  });
 });

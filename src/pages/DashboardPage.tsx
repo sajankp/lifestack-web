@@ -187,7 +187,7 @@ export const DashboardPage: React.FC = () => {
 
           <div
             data-testid="dashboard-stat-grid"
-            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
+            className="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
           >
             <MetricCard
               to="/todo"

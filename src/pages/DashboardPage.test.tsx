@@ -408,7 +408,7 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByTestId('dashboard-stat-grid')).toHaveClass(
       'md:grid-cols-2',
-      'lg:grid-cols-3',
+      'xl:grid-cols-3',
     );
   });
 });

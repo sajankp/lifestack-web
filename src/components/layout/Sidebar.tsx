@@ -21,7 +21,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <nav
-      className={`hidden shrink-0 border-r border-slate-800 bg-slate-900/50 py-6 lg:flex lg:flex-col transition-all duration-300 ${
+      className={`hidden shrink-0 border-r border-slate-800 bg-slate-900/50 py-6 md:flex md:flex-col transition-all duration-300 ${
         collapsed ? 'w-16 px-2' : 'w-64 px-4'
       }`}
     >

@@ -11,8 +11,10 @@ import { initAnalytics } from './lib/analytics.ts';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000,
+      staleTime: 5 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
     },
   },
 });

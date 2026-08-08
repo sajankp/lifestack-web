@@ -32,6 +32,8 @@ describe('RegisterPage', () => {
 
     // No password → Required label
     expect(screen.getByText('Required')).toBeInTheDocument();
+    expect(screen.getAllByRole('meter')).toHaveLength(1);
+    expect(screen.getAllByTestId(/password-strength-segment-/)).toHaveLength(4);
 
     // Weak password (short)
     fireEvent.change(passwordInput, { target: { value: 'abc' } });
