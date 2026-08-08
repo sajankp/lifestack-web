@@ -193,6 +193,22 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
   // account rule.
   const cashBalances = useMemo(() => cashRes.data?.items ?? [], [cashRes.data]);
   const cashTotal = cashRes.data?.total ?? 0;
+  // The API orders snapshots newest-first. Only expose deletion for the first
+  // visible snapshot per account on the first page; historical rows remain
+  // available for review without a prominent destructive action (#189).
+  const latestCashIds = useMemo(() => {
+    const seenAccounts = new Set<string>();
+    const ids = new Set<string>();
+    for (const balance of cashBalances) {
+      if (!seenAccounts.has(balance.account_id)) {
+        seenAccounts.add(balance.account_id);
+        ids.add(balance.public_id);
+      }
+    }
+    return ids;
+  }, [cashBalances]);
+  const canDeleteCash = (balance: CashBalance) =>
+    cashOffset === 0 && latestCashIds.has(balance.public_id);
 
   // If the server total shrinks below the current offset (e.g. deletions),
   // snap back to the first page instead of stranding an empty page with the
@@ -284,7 +300,14 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
             data-testid="investing-cash-heading"
             className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
           >
-            <h3 className="font-semibold text-white text-base">Cash Balances ({cashTotal})</h3>
+            <div>
+              <h3 className="font-semibold text-white text-base">
+                Cash Balance History ({cashTotal})
+              </h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Newest snapshots appear first. Historical entries are read-only.
+              </p>
+            </div>
             <div className="flex w-full sm:w-auto">
               <button
                 type="button"
@@ -317,14 +340,18 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
                         <p className="truncate font-medium text-white">{c.account_name}</p>
                         <p className="mt-0.5 text-xs text-slate-500">{formatDateTime(c.as_of)}</p>
                       </div>
-                      <button
-                        disabled={deleteCashMutation.isPending}
-                        onClick={() => setPendingDeleteCash(c)}
-                        className="shrink-0 rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10"
-                        title="Delete cash balance"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {canDeleteCash(c) ? (
+                        <button
+                          disabled={deleteCashMutation.isPending}
+                          onClick={() => setPendingDeleteCash(c)}
+                          className="shrink-0 rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10"
+                          title="Delete latest cash balance"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-500">History</span>
+                      )}
                     </div>
                     <div className="mt-2 flex items-center justify-between">
                       <span className="text-lg font-semibold text-slate-100">
@@ -349,6 +376,14 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
               )}
             </div>
 
+            {!cashRes.isLoading && cashBalances.length === 0 ? (
+              <div
+                data-testid="investing-cash-empty"
+                className="hidden rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400 lg:block"
+              >
+                No cash balance history yet.
+              </div>
+            ) : (
             <div className="hidden overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-800/30 lg:block">
               <table className="w-full text-left text-sm text-slate-300 min-w-[600px]">
                 <thead className="border-b border-slate-700/50 bg-slate-800/50 text-xs uppercase text-slate-400">
@@ -356,20 +391,15 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
                     <th className="px-4 py-3">Account</th>
                     <th className="px-4 py-3">Balance</th>
                     <th className="px-4 py-3">As Of</th>
+                    <th className="px-4 py-3">Source</th>
                     <th className="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700/50">
                   {cashRes.isLoading ? (
                     <tr>
-                      <td className="px-4 py-6 text-slate-400" colSpan={4}>
+                      <td className="px-4 py-6 text-slate-400" colSpan={5}>
                         Loading cash balances…
-                      </td>
-                    </tr>
-                  ) : cashBalances.length === 0 ? (
-                    <tr>
-                      <td className="px-4 py-6 text-slate-400" colSpan={4}>
-                        No cash balances yet.
                       </td>
                     </tr>
                   ) : (
@@ -397,14 +427,18 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            aria-label="Delete cash balance"
-                            disabled={deleteCashMutation.isPending}
-                            onClick={() => setPendingDeleteCash(c)}
-                            className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {canDeleteCash(c) ? (
+                            <button
+                              aria-label="Delete latest cash balance"
+                              disabled={deleteCashMutation.isPending}
+                              onClick={() => setPendingDeleteCash(c)}
+                              className="rounded-lg border border-rose-500/40 p-2 text-rose-300 hover:bg-rose-500/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <span className="text-xs text-slate-500">History</span>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -412,6 +446,7 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
                 </tbody>
               </table>
             </div>
+            )}
             <Pagination
               total={cashTotal}
               limit={CASH_PAGE_SIZE}
@@ -530,6 +565,14 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
               )}
             </div>
 
+            {!transfersRes.isLoading && visibleTransfers.length === 0 ? (
+              <div
+                data-testid="investing-transfers-empty"
+                className="hidden rounded-2xl border border-slate-700/50 bg-slate-800/30 p-6 text-center text-sm text-slate-400 lg:block"
+              >
+                No transfers for this account yet.
+              </div>
+            ) : (
             <div className="hidden overflow-x-auto rounded-2xl border border-slate-700/50 bg-slate-800/30 lg:block">
               <table className="w-full text-left text-sm text-slate-300 min-w-[600px]">
                 <thead className="border-b border-slate-700/50 bg-slate-800/50 text-xs uppercase text-slate-400">
@@ -546,12 +589,6 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
                     <tr>
                       <td className="px-4 py-6 text-slate-400" colSpan={5}>
                         Loading…
-                      </td>
-                    </tr>
-                  ) : visibleTransfers.length === 0 ? (
-                    <tr>
-                      <td className="px-4 py-6 text-slate-400" colSpan={5}>
-                        No transfers for this account yet.
                       </td>
                     </tr>
                   ) : (
@@ -609,6 +646,7 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
                 </tbody>
               </table>
             </div>
+            )}
             <Pagination
               total={visibleTransfers.length}
               limit={CASH_PAGE_SIZE}

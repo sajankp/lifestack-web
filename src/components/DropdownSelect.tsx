@@ -35,6 +35,7 @@ type DropdownSelectProps = {
   disabled?: boolean;
   showSearch?: boolean;
   sortByLabel?: boolean;
+  recentValues?: readonly string[];
   'aria-label'?: string;
 };
 
@@ -49,6 +50,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
   disabled = false,
   showSearch = false,
   sortByLabel = false,
+  recentValues = [],
   'aria-label': ariaLabel,
 }) => {
   const [open, setOpen] = React.useState(false);
@@ -62,6 +64,15 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
   }, [options, sortByLabel]);
 
   const selectedOption = displayOptions.find((opt) => opt.value === value);
+  const recentValueSet = React.useMemo(() => new Set(recentValues), [recentValues]);
+  const recentOptions = React.useMemo(
+    () => displayOptions.filter((option) => recentValueSet.has(option.value)),
+    [displayOptions, recentValueSet],
+  );
+  const otherOptions = React.useMemo(
+    () => displayOptions.filter((option) => !recentValueSet.has(option.value)),
+    [displayOptions, recentValueSet],
+  );
 
   if (!showSearch) {
     const clearValue = '__clear__';
@@ -120,7 +131,30 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
           <CommandInput placeholder="Search..." />
           <CommandList className="max-h-60 overflow-y-auto">
             <CommandEmpty>No matches found</CommandEmpty>
-            <CommandGroup>
+            {recentOptions.length > 0 ? (
+              <CommandGroup heading="Recent">
+                {recentOptions.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={option.label + ' ' + option.value}
+                    onSelect={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Check
+                      className={cn(
+                        'h-4 w-4 text-cyan-300',
+                        value === option.value ? 'opacity-100' : 'opacity-0',
+                      )}
+                    />
+                    <span className="truncate">{option.label}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+            <CommandGroup heading={recentOptions.length > 0 ? 'All options' : undefined}>
               {clearLabel && (
                 <CommandItem
                   value={clearLabel}
@@ -136,7 +170,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
                   <span>{clearLabel}</span>
                 </CommandItem>
               )}
-              {displayOptions.map((option) => (
+              {otherOptions.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.label + ' ' + option.value}

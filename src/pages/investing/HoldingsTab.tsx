@@ -23,6 +23,7 @@ import { formatDate } from '../../utils/dateFormat';
 import { CompactFilterBar, CompactFilterField } from '../../components/filters/CompactFilterBar';
 import { queryKeys } from '../../lib/queryKeys';
 import { DropdownSelect } from '../../components/DropdownSelect';
+import { Pagination } from '../../components/Pagination';
 import { CurrencyBadge } from '../../components/finance/Badges';
 import { Button } from '../../components/ui/button';
 import { FormattedNumberInput } from '../../components/ui/formatted-number-input';
@@ -61,6 +62,7 @@ const extractApiErrorDetail = (error: unknown, fallback: string): string =>
   fallback;
 
 const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
+const HOLDINGS_PAGE_SIZE = 25;
 
 // Mobile sort options. Values mirror the desktop SortableHeader `col` props
 // (and the sortedHoldings switch), so the mobile dropdown and the desktop
@@ -105,6 +107,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
   const [hideZeroBookValue, setHideZeroBookValue] = useState(true);
   const [holdingsSortCol, setHoldingsSortCol] = useState('symbol');
   const [holdingsSortDir, setHoldingsSortDir] = useState<SortDir>('asc');
+  const [holdingsOffset, setHoldingsOffset] = useState(0);
 
   const [isEditHoldingModalOpen, setIsEditHoldingModalOpen] = useState(false);
   const [selectedHolding, setSelectedHolding] = useState<Holding | null>(null);
@@ -438,6 +441,18 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
     });
   }, [filteredHoldings, holdingsSortCol, holdingsSortDir]);
 
+  // Keep the mobile card list bounded as well as the desktop table. The
+  // account summary below intentionally still uses the full filtered set.
+  const maxHoldingsOffset = Math.max(
+    0,
+    (Math.ceil(sortedHoldings.length / HOLDINGS_PAGE_SIZE) - 1) * HOLDINGS_PAGE_SIZE,
+  );
+  const safeHoldingsOffset = Math.min(holdingsOffset, maxHoldingsOffset);
+  const pagedHoldings = useMemo(
+    () => sortedHoldings.slice(safeHoldingsOffset, safeHoldingsOffset + HOLDINGS_PAGE_SIZE),
+    [safeHoldingsOffset, sortedHoldings],
+  );
+
   const holdingsByCurrency = useMemo(() => {
     return filteredHoldings.reduce<Record<string, number>>((acc, item) => {
       const currency = item.currency?.toUpperCase() || 'USD';
@@ -689,7 +704,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                     {holdingsSortDir === 'asc' ? 'Asc' : 'Desc'}
                   </button>
                 </div>
-                {sortedHoldings.map((h) => {
+                {pagedHoldings.map((h) => {
                   const gainLoss = toNumber(h.gain_loss ?? 0);
                   const gainLossPct = toNumber(h.gain_loss_pct ?? 0);
                   const isPositive = gainLoss > 0;
@@ -951,7 +966,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  sortedHoldings.map((h) => {
+                  pagedHoldings.map((h) => {
                     const gainLoss = toNumber(h.gain_loss ?? 0);
                     const gainLossPct = toNumber(h.gain_loss_pct ?? 0);
                     const isPositive = gainLoss > 0;
@@ -1158,6 +1173,12 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                 </tfoot>
               ) : null}
             </table>
+            <Pagination
+              total={sortedHoldings.length}
+              limit={HOLDINGS_PAGE_SIZE}
+              offset={safeHoldingsOffset}
+              onPageChange={setHoldingsOffset}
+            />
           </div>
         </div>
 

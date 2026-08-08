@@ -40,6 +40,9 @@ const renderAtPath = (ui: React.ReactNode, path: string) => {
   );
 };
 
+const byParagraphText = (text: string) => (_content: string, element: Element | null) =>
+  element?.tagName === 'P' && element.textContent === text;
+
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
@@ -121,6 +124,11 @@ describe('InvestingPage', () => {
     expect(screen.getByText(/Multiple currencies detected/)).toBeInTheDocument();
     expect(screen.getByText('Not configured')).toBeInTheDocument();
     expect(screen.getByTestId('investing-portfolio-value')).toHaveTextContent('N/A');
+    expect(screen.getByTestId('investing-daily-change')).toHaveTextContent('—');
+    expect(screen.getByTestId('investing-daily-change')).toHaveAttribute(
+      'title',
+      'Unavailable until a previous-day snapshot exists.',
+    );
 
     const holdingsHeading = screen.getByTestId('investing-holdings-heading');
     expect(holdingsHeading).toHaveClass('flex-col', 'sm:flex-row');
@@ -1977,6 +1985,68 @@ describe('InvestingPage', () => {
 
     expect(screen.getByTestId('investing-holding-row-holding-live-id')).toBeInTheDocument();
     expect(screen.getByTestId('investing-holding-row-holding-zeroed-out-id')).toBeInTheDocument();
+  });
+
+  it('pages the holdings card list and table at 25 rows (#191)', async () => {
+    const items = Array.from({ length: 30 }, (_, index) => ({
+      public_id: `holding-${index}`,
+      symbol: `SYM${String(index).padStart(2, '0')}`,
+      account_id: '11111111-1111-1111-1111-111111111111',
+      account_name: 'Brokerage A',
+      quantity: '1.00000000',
+      avg_cost: '10.00',
+      currency: 'USD',
+      current_price: '10.00',
+      current_value: '10.00',
+      book_value: '10.00',
+      gain_loss: '0',
+      gain_loss_pct: '0',
+      created_at: '2026-05-24T00:00:00Z',
+      updated_at: '2026-05-24T00:00:00Z',
+    }));
+    server.use(
+      http.get('*/v1/investing/holdings', () =>
+        HttpResponse.json({ items, total: items.length, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/investing/cash-balances', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/currencies', () => HttpResponse.json([])),
+      http.get('*/v1/finance/settings/user', () => HttpResponse.json({})),
+      http.get('*/v1/investing/summary', () => HttpResponse.json({ valuation_status: 'empty' })),
+      http.get('*/v1/investing/instruments', () => HttpResponse.json([])),
+      http.get('*/v1/investing/performance/summary', () => HttpResponse.json({})),
+      http.get('*/v1/investing/performance/returns', () =>
+        HttpResponse.json({
+          currency: 'USD',
+          valuation_status: 'current',
+          overall: {
+            annualization_reliable: false,
+            annualized_return_pct: null,
+            total_return_pct: null,
+            holding_days: null,
+            xirr: null,
+            open: { invested: '0' },
+            closed: { invested: '0' },
+          },
+          by_account: [],
+          by_currency: [],
+        }),
+      ),
+    );
+
+    renderWithQuery(<InvestingPage />);
+
+    expect(await screen.findByTestId('investing-holding-row-holding-0')).toBeInTheDocument();
+    expect(screen.queryByTestId('investing-holding-row-holding-29')).not.toBeInTheDocument();
+    expect(screen.getByText(byParagraphText('Showing 1 to 25 of 30 results'))).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await screen.findByTestId('investing-holding-row-holding-29')).toBeInTheDocument();
+    expect(screen.getByText(byParagraphText('Showing 26 to 30 of 30 results'))).toBeInTheDocument();
   });
 
   it('shows the account name for each order in the Orders tab', async () => {
