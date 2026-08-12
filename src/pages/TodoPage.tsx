@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Edit2, Plus, RotateCcw, Trash2 } from 'lucide-react';
@@ -192,6 +192,20 @@ export const TodoPage: React.FC = () => {
     ? parentTitleById.get(editingTodo.parent_public_id)
     : undefined;
 
+  const openNewTaskModal = useCallback(() => {
+    setTaskForm({
+      title: '',
+      description: '',
+      due_date: '',
+      due_time: '',
+      priority: 'low',
+    });
+    setEditingTodo(null);
+    setSubtaskParent(null);
+    setRemoveFromParent(false);
+    setIsTaskModalOpen(true);
+  }, []);
+
   // Header "+ Todo" quick-add navigates here with ?new=1; open the create
   // modal once, then strip the param so back/refresh doesn't reopen it.
   useEffect(() => {
@@ -205,8 +219,7 @@ export const TodoPage: React.FC = () => {
         { replace: true },
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [openNewTaskModal, searchParams, setSearchParams]);
 
   const createMutation = useInvalidatingMutation(
     (newTodo: TodoCreate) => todoService.createTodo(newTodo),
@@ -288,20 +301,6 @@ export const TodoPage: React.FC = () => {
     setSubtaskParent(null);
     setRemoveFromParent(false);
     setIsTaskModalOpen(false);
-  }
-
-  function openNewTaskModal() {
-    setTaskForm({
-      title: '',
-      description: '',
-      due_date: '',
-      due_time: '',
-      priority: 'low',
-    });
-    setEditingTodo(null);
-    setSubtaskParent(null);
-    setRemoveFromParent(false);
-    setIsTaskModalOpen(true);
   }
 
   function openNewSubtaskModal(parent: Todo) {

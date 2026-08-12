@@ -219,6 +219,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
   // server-minted session id of the current connection (for ?prev_session=).
   const resumptionHandleAtRef = useRef<number | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const unmountCleanupRef = useRef<(() => void) | null>(null);
 
   // Sync preference
   useEffect(() => {
@@ -770,6 +771,14 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
     }
   };
 
+  // Keep the unmount cleanup pointed at the latest lifecycle functions without
+  // re-running the cleanup effect on every render.
+  unmountCleanupRef.current = () => {
+    stopRecording();
+    clearAudioQueue();
+    teardownConnection();
+  };
+
   const toggleOpen = () => {
     if (!isOpen) {
       setIsOpen(true);
@@ -819,15 +828,12 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopRecording();
-      clearAudioQueue();
-      teardownConnection();
+      unmountCleanupRef.current?.();
       if (audioCtxRef.current) {
         void audioCtxRef.current.close();
         audioCtxRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
