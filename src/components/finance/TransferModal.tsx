@@ -66,8 +66,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       setDate(new Date().toISOString().split('T')[0]);
       setShowFeesDisclosure(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [defaultFromAccountId, open]);
 
   const grossNum = Number(amount) || 0;
   const netPreview = computeTransferNet({

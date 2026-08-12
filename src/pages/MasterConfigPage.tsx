@@ -125,8 +125,7 @@ export const MasterConfigPage: React.FC = () => {
         { replace: true },
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestedTab]);
+  }, [requestedTab, setSearchParams]);
 
   const [newAccountName, setNewAccountName] = useState('');
   const detectedTimezone = browserTimezone() || 'UTC';
