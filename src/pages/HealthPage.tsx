@@ -48,6 +48,15 @@ export const HealthPage: React.FC = () => {
     staleTime: 60 * 1000,
   });
 
+  const scheduledSlotKeys = new Set(
+    (scheduleQuery.data ?? []).map(
+      (slot) => `${slot.medication_public_id}-${slot.scheduled_for}`,
+    ),
+  );
+  const catchUpSlots = (overdueQuery.data ?? []).filter(
+    (slot) => !scheduledSlotKeys.has(`${slot.medication_public_id}-${slot.scheduled_for}`),
+  );
+
   const weightTrendQuery = useQuery({
     queryKey: queryKeys.health.weightTrend(30),
     queryFn: () => healthService.getWeightTrend(30),
@@ -127,13 +136,13 @@ export const HealthPage: React.FC = () => {
       />
 
       <div className="space-y-8">
-        {(overdueQuery.data?.length ?? 0) > 0 ? (
+        {catchUpSlots.length > 0 ? (
           <section data-testid="catch-up-section">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-amber-300">
-              Catch up ({overdueQuery.data?.length})
+              Catch up ({catchUpSlots.length})
             </h2>
             <DoseChecklist
-              slots={overdueQuery.data ?? []}
+              slots={catchUpSlots}
               isLoading={overdueQuery.isLoading}
               onMarkTaken={handleMarkTaken}
               onMarkSkipped={handleMarkSkipped}
