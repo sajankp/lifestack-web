@@ -73,6 +73,22 @@ describe('HealthPage', () => {
     expect(screen.queryByTestId('catch-up-section')).not.toBeInTheDocument();
   });
 
+  it('does not duplicate a current-day overdue dose in Catch up and Doses', async () => {
+    server.use(
+      ...emptyDefaults(),
+      http.get('*/v1/health/medications/schedule', () => HttpResponse.json([overdueSlot])),
+      http.get('*/v1/health/medications/overdue', () => HttpResponse.json([overdueSlot])),
+    );
+
+    renderPage();
+
+    const dose = await screen.findByTestId(
+      `dose-slot-${overdueSlot.medication_public_id}-${overdueSlot.scheduled_for}`,
+    );
+    expect(dose).toBeInTheDocument();
+    expect(screen.queryByTestId('catch-up-section')).not.toBeInTheDocument();
+  });
+
   it('navigates between days and requests the schedule for the selected date', async () => {
     const requestedDates: string[] = [];
     server.use(
