@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '../components/ui/toast';
+import { reportException } from '../lib/analytics';
 
 function extractErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
@@ -35,7 +36,7 @@ export function useInvalidatingMutation<TArgs = void, TResult = unknown>(
         try {
           queryClient.invalidateQueries({ queryKey: [...key] });
         } catch (error) {
-          console.error('useInvalidatingMutation: failed to invalidate query key', key, error);
+          reportException(error, 'query_invalidation');
         }
       }
       if (options?.successMessage !== false) {

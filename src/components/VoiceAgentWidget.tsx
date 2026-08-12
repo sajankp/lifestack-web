@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryKeys';
-import { trackEvent } from '../lib/analytics';
+import { reportException, trackEvent } from '../lib/analytics';
 import { Link } from 'react-router';
 import {
   Mic,
@@ -597,17 +597,14 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
             const msg = JSON.parse(event.data);
             handleServerMessage(msg);
           } catch (err) {
-            console.error(
-              'Failed parsing server message:',
-              err instanceof Error ? err.message : 'Unknown error',
-            );
+            reportException(err, 'capture_message_parse');
             setConnectionError('Capture received an unreadable response. Retry the session.');
           }
         }
       };
 
       ws.onerror = (err) => {
-        console.error('WS Error:', err instanceof Error ? err.message : 'Unknown error');
+        reportException(err, 'capture_websocket_error');
         setConnectionStatus('error');
         setConnectionError('Capture could not connect to the live session.');
       };
@@ -632,10 +629,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
         }
       };
     } catch (err) {
-      console.error(
-        'Failed to establish WebSocket connection:',
-        err instanceof Error ? err.message : 'Unknown error',
-      );
+      reportException(err, 'capture_websocket_connect');
       setConnectionStatus('error');
       setConnectionNotice('Capture could not start a live session.');
       setConnectionError('Capture could not start a live session.');
@@ -674,10 +668,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
               wsRef.current.send(buffer);
             }
           } catch (e) {
-            console.error(
-              'Failed to send audio chunk:',
-              e instanceof Error ? e.message : 'Unknown error',
-            );
+            reportException(e, 'capture_audio_chunk_send');
           }
         }
       };
@@ -685,7 +676,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
       mediaRecorder.start(100);
       setIsRecording(true);
     } catch (err) {
-      console.error('Mic access failed:', err instanceof Error ? err.message : 'Unknown error');
+      reportException(err, 'capture_microphone_access');
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }

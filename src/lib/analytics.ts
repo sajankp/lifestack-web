@@ -35,6 +35,21 @@ export function resetAnalyticsIdentity(): void {
   posthog.reset();
 }
 
+/**
+ * Report an operational exception without making telemetry a new failure path.
+ * Context labels are fixed call-site identifiers; callers must not pass user
+ * text, financial values, entity names, query keys, or URLs here.
+ */
+export function reportException(error: unknown, context: string): void {
+  if (!initialized) return;
+  const safeError = error instanceof Error ? error : new Error('Non-Error exception');
+  try {
+    posthog.captureException(safeError, { error_context: context });
+  } catch {
+    // Error reporting must never break the user-facing recovery path.
+  }
+}
+
 // Explicit event names only (spec-081 privacy gate) — event names + counts,
 // never property payloads carrying amounts, captured text, or entity names.
 export type AnalyticsEvent =

@@ -1,3 +1,5 @@
+import { reportException } from './lib/analytics';
+
 export function registerServiceWorker(): void {
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) {
     return;
@@ -10,7 +12,7 @@ export function registerServiceWorker(): void {
         void registration.update();
       })
       .catch((error: unknown) => {
-        console.error('Unable to register the Lifestack service worker', error);
+        reportException(error, 'service_worker_registration');
       });
   };
 

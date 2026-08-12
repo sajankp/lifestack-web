@@ -1,4 +1,5 @@
 import axios, { AxiosHeaders, type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { reportException } from '../lib/analytics';
 
 // ─── Axios instance ───────────────────────────────────────────────────────────
 
@@ -103,7 +104,7 @@ const attemptRefresh = (): Promise<void> => {
         try {
           cb();
         } catch (e) {
-          console.error('Session extended callback failed:', e);
+          reportException(e, 'session_extended_callback');
         }
       });
     })
@@ -116,7 +117,7 @@ const attemptRefresh = (): Promise<void> => {
           try {
             cb();
           } catch (e) {
-            console.error('Unauthorized callback failed:', e);
+            reportException(e, 'unauthorized_callback');
           }
         });
       }

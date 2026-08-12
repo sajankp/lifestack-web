@@ -28,6 +28,7 @@ import { ToggleSwitch } from '../components/ui/toggle-switch';
 import { accountTypeOptions } from '../utils/accountTypes';
 import { authService } from '../services/auth';
 import { useAuthStore } from '../store/authStore';
+import { reportException } from '../lib/analytics';
 import { browserTimezone } from '../utils/timezone';
 
 const SETTINGS_TABS = [
@@ -685,7 +686,7 @@ export const MasterConfigPage: React.FC = () => {
       setResetConfirmationText('');
       void queryClient.invalidateQueries();
     } catch (err) {
-      console.error(err);
+      reportException(err, 'demo_reset');
       setResetStatus('error');
     } finally {
       setIsResetting(false);
