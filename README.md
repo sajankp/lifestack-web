@@ -244,11 +244,13 @@ The current browser E2E suite in this repo focuses on frontend behavior. The ful
 
 ### E2E Strategy
 
-- Current frontend Playwright tests mock API responses for fast UI regression checks.
+- Keep `e2e/investing-lookthrough.spec.ts` as a frontend Playwright smoke flow: it verifies
+  browser navigation from Investing into Look-through Analytics and the mocked API boundary.
+  The lower-level rendering and request-shape assertions belong in
+  `src/pages/investing/AnalyticsTab.test.tsx`.
 - Full-stack FE+BE+DB coverage is handled in the dedicated `lifestack-e2e` repo because FE and BE are separate repositories.
-- Remaining follow-up:
-  - seeded deterministic test data and cross-repo CI gate
-  - screenshot/accessibility pass for responsive layouts
+- New real-data investing scenarios should be added to `lifestack-e2e`, not duplicated in this
+  mocked browser suite. Remaining cross-repo follow-up is seeded deterministic data and a CI gate.
 
 ---
 
