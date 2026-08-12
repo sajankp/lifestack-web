@@ -302,7 +302,9 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
       try {
         window.localStorage.setItem(launcherStorageKey, JSON.stringify(snappedPos));
       } catch (e) {
-        console.warn('Failed to save voice agent position to localStorage:', e);
+        // Local storage can be unavailable in privacy-restricted contexts;
+        // launcher dragging remains usable for the current session.
+        void e;
       }
     }
     dragOffsetRef.current = null;
