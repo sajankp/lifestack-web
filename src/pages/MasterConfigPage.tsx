@@ -29,6 +29,7 @@ import { accountTypeOptions } from '../utils/accountTypes';
 import { authService } from '../services/auth';
 import { useAuthStore } from '../store/authStore';
 import { browserTimezone } from '../utils/timezone';
+import { useDisplayProfile } from '../hooks/useDisplayProfile';
 
 const SETTINGS_TABS = [
   'preferences',
@@ -100,6 +101,7 @@ const decimalPlacesOptions = [
 ] as const;
 
 export const MasterConfigPage: React.FC = () => {
+  const { locale: displayLocale } = useDisplayProfile();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const setSession = useAuthStore((state) => state.setSession);
@@ -938,7 +940,7 @@ export const MasterConfigPage: React.FC = () => {
                       <p className="mt-1 text-xs text-slate-500">
                         {connection.scopes.join(', ') || 'No scopes'}
                         {connection.last_used_at
-                          ? ` · Last used ${new Date(connection.last_used_at).toLocaleString()}`
+                          ? ` · Last used ${new Date(connection.last_used_at).toLocaleString(displayLocale)}`
                           : ''}
                       </p>
                     </div>
