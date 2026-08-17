@@ -36,6 +36,8 @@ type DropdownSelectProps = {
   showSearch?: boolean;
   sortByLabel?: boolean;
   recentValues?: readonly string[];
+  onCreateOption?: () => void;
+  createOptionLabel?: string;
   'aria-label'?: string;
 };
 
@@ -51,6 +53,8 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
   showSearch = false,
   sortByLabel = false,
   recentValues = [],
+  onCreateOption,
+  createOptionLabel = 'Create new',
   'aria-label': ariaLabel,
 }) => {
   const [open, setOpen] = React.useState(false);
@@ -131,6 +135,21 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
           <CommandInput placeholder="Search..." />
           <CommandList className="max-h-60 overflow-y-auto">
             <CommandEmpty>No matches found</CommandEmpty>
+            {onCreateOption ? (
+              <CommandGroup forceMount>
+                <CommandItem
+                  value={`create ${createOptionLabel}`}
+                  forceMount
+                  onSelect={() => {
+                    onCreateOption();
+                    setOpen(false);
+                  }}
+                  className="border-b border-slate-800 text-cyan-300"
+                >
+                  <span className="font-medium">+ {createOptionLabel}</span>
+                </CommandItem>
+              </CommandGroup>
+            ) : null}
             {recentOptions.length > 0 ? (
               <CommandGroup heading="Recent">
                 {recentOptions.map((option) => (

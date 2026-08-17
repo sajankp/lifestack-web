@@ -37,4 +37,25 @@ describe('DropdownSelect', () => {
     expect(screen.getByRole('option', { name: 'Utilities' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Rent' })).toBeInTheDocument();
   });
+
+  it('keeps the create action available while searching', () => {
+    const onCreate = vi.fn();
+    render(
+      <DropdownSelect
+        value=""
+        options={[{ value: 'food', label: 'Food' }]}
+        onChange={vi.fn()}
+        placeholder="Select category"
+        showSearch
+        onCreateOption={onCreate}
+        createOptionLabel="Create category"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select category' }));
+    fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: 'zzz' } });
+    fireEvent.click(screen.getByRole('option', { name: /Create category/ }));
+
+    expect(onCreate).toHaveBeenCalledOnce();
+  });
 });

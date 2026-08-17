@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ChevronDown, Edit2, Link2, LockKeyhole, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Edit2, Link2, LockKeyhole, Trash2, Unplug } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { spendingService } from '../services/spending';
 import { platformService } from '../services/platform';
@@ -277,6 +277,11 @@ export const MasterConfigPage: React.FC = () => {
     queryKey: ['auth', 'identities'],
     queryFn: () => authService.getAuthIdentities(),
   });
+  const { data: mcpConnections } = useQuery({
+    queryKey: queryKeys.auth.mcpConnections(),
+    queryFn: authService.listMcpConnections,
+    enabled: activeSettingsTab === 'security',
+  });
   const setPasswordMutation = useMutation({
     mutationFn: () => authService.setPassword(newPassword),
     onSuccess: () => {
@@ -289,6 +294,18 @@ export const MasterConfigPage: React.FC = () => {
     mutationFn: (provider: 'google' | 'github') => authService.unlinkOAuth(provider),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['auth', 'identities'] });
+    },
+  });
+  const revokeMcpMutation = useMutation({
+    mutationFn: authService.revokeMcpConnection,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.auth.mcpConnections() });
+    },
+  });
+  const revokeAllMcpMutation = useMutation({
+    mutationFn: authService.revokeAllMcpConnections,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.auth.mcpConnections() });
     },
   });
   const { data: categoriesResponse } = useQuery({
@@ -874,6 +891,85 @@ export const MasterConfigPage: React.FC = () => {
                 Could not unlink that provider. Keep at least one sign-in method connected.
               </p>
             )}
+          </section>
+
+          <section
+            data-testid="settings-mcp-connections"
+            className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6"
+          >
+            <div className="flex items-start gap-3">
+              <Unplug className="mt-1 h-5 w-5 text-cyan-300" />
+              <div>
+                <h2 className="text-lg font-semibold text-white">
+                  Connected MCP apps ({mcpConnections?.total ?? 0})
+                </h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Review and revoke applications that can access Lifestack through MCP.
+                </p>
+              </div>
+              {(mcpConnections?.total ?? 0) > 0 ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="ml-auto shrink-0 text-rose-300 hover:text-rose-200"
+                  disabled={revokeAllMcpMutation.isPending}
+                  onClick={() => {
+                    if (window.confirm('Revoke access for all connected MCP apps?')) {
+                      revokeAllMcpMutation.mutate();
+                    }
+                  }}
+                  data-testid="settings-mcp-revoke-all"
+                >
+                  Revoke all
+                </Button>
+              ) : null}
+            </div>
+            {mcpConnections?.items.length ? (
+              <div className="mt-5 space-y-3">
+                {mcpConnections.items.map((connection) => (
+                  <div
+                    key={connection.public_id}
+                    className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/40 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-100">
+                        {connection.client_name}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {connection.scopes.join(', ') || 'No scopes'}
+                        {connection.last_used_at
+                          ? ` · Last used ${new Date(connection.last_used_at).toLocaleString()}`
+                          : ''}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="shrink-0 text-rose-300 hover:text-rose-200"
+                      disabled={revokeMcpMutation.isPending}
+                      onClick={() => {
+                        if (window.confirm(`Revoke MCP access for ${connection.client_name}?`)) {
+                          revokeMcpMutation.mutate(connection.public_id);
+                        }
+                      }}
+                      data-testid={`settings-mcp-revoke-${connection.public_id}`}
+                    >
+                      Revoke
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-5 rounded-xl border border-dashed border-slate-700 px-4 py-5 text-sm text-slate-500">
+                No MCP apps are connected to this account.
+              </p>
+            )}
+            {revokeMcpMutation.isError ? (
+              <p className="mt-3 text-sm text-rose-300">Could not revoke that MCP connection.</p>
+            ) : null}
+            {revokeAllMcpMutation.isError ? (
+              <p className="mt-3 text-sm text-rose-300">Could not revoke MCP connections.</p>
+            ) : null}
           </section>
         </TabsContent>
 
