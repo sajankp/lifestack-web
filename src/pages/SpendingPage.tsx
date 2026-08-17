@@ -870,6 +870,22 @@ export const SpendingPage: React.FC = () => {
   });
   const defaultSpendingAccountId = workspaceFinanceSettings?.default_spending_account_id ?? null;
 
+  const openTransactionModalForNew = useCallback(() => {
+    setEditingTransaction(null);
+    setAmount('');
+    setDescription('');
+    setSelectedTagIds([]);
+    setType('expense');
+    setCategoryId('');
+    // Pre-fill: workspace default spending account, else the last account
+    // this user picked (spec-054) — falls back to empty only when neither
+    // is available, which blocks submit until one is chosen.
+    const fallbackAccountId = defaultSpendingAccountId || getLastUsedAccountId();
+    setAccountId(fallbackAccountId && accountById.has(fallbackAccountId) ? fallbackAccountId : '');
+    setDate(localDateInputValue());
+    setIsModalOpen(true);
+  }, [defaultSpendingAccountId, accountById]);
+
   // Header "+ Spending" quick-add navigates here with ?new=1; open the
   // create modal once, then strip the param so back/refresh doesn't reopen it.
   React.useEffect(() => {
@@ -883,8 +899,7 @@ export const SpendingPage: React.FC = () => {
         { replace: true },
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [openTransactionModalForNew, searchParams, setSearchParams]);
 
   // If the workspace default (or accounts list) is still loading when the
   // "new transaction" modal opens, pre-fill it reactively once it arrives
@@ -1248,22 +1263,6 @@ export const SpendingPage: React.FC = () => {
       amount: '',
     });
   };
-
-  const openTransactionModalForNew = useCallback(() => {
-    setEditingTransaction(null);
-    setAmount('');
-    setDescription('');
-    setSelectedTagIds([]);
-    setType('expense');
-    setCategoryId('');
-    // Pre-fill: workspace default spending account, else the last account
-    // this user picked (spec-054) — falls back to empty only when neither
-    // is available, which blocks submit until one is chosen.
-    const fallbackAccountId = defaultSpendingAccountId || getLastUsedAccountId();
-    setAccountId(fallbackAccountId && accountById.has(fallbackAccountId) ? fallbackAccountId : '');
-    setDate(localDateInputValue());
-    setIsModalOpen(true);
-  }, [defaultSpendingAccountId, accountById]);
 
   const openTransactionModalForEdit = useCallback((tx: Transaction) => {
     setEditingTransaction(tx);

@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { reportException } from '../lib/analytics';
 
 interface Props {
   children: ReactNode;
@@ -20,7 +21,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error in ErrorBoundary:', error, errorInfo);
+    reportException(error, 'react_error_boundary');
+    void errorInfo;
   }
 
   public render() {

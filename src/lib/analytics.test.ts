@@ -7,6 +7,7 @@ vi.mock('posthog-js', () => ({
     identify: vi.fn(),
     reset: vi.fn(),
     capture: vi.fn(),
+    captureException: vi.fn(),
   },
 }));
 
@@ -74,5 +75,17 @@ describe('analytics (spec-081)', () => {
 
     expect(posthog.identify).toHaveBeenCalledWith('user-public-id');
     expect(posthog.reset).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports exceptions with a fixed context only after initialization', async () => {
+    vi.stubEnv('VITE_POSTHOG_KEY', 'test-key');
+    const { initAnalytics, reportException } = await import('./analytics');
+    const error = new Error('failure');
+    initAnalytics();
+    reportException(error, 'test_context');
+
+    expect(posthog.captureException).toHaveBeenCalledWith(error, {
+      error_context: 'test_context',
+    });
   });
 });
