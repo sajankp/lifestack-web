@@ -1620,6 +1620,14 @@ export const SpendingPage: React.FC = () => {
               </button>
             )}
             <button
+              onClick={() => setIsManageCategoriesOpen(true)}
+              data-testid="spending-open-manage-categories-compact"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white"
+            >
+              <Tag className="h-4 w-4" aria-hidden="true" />
+              Categories
+            </button>
+            <button
               onClick={openTransactionModalForNew}
               data-testid="spending-open-new-transaction"
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20"
@@ -2120,6 +2128,8 @@ export const SpendingPage: React.FC = () => {
                         showSearch
                         sortByLabel
                         recentValues={recentCategoryIds}
+                        onCreateOption={() => setIsManageCategoriesOpen(true)}
+                        createOptionLabel="Create category"
                       />
                     )}
                   />
@@ -2539,6 +2549,8 @@ export const SpendingPage: React.FC = () => {
                     showSearch
                     sortByLabel
                     recentValues={recentCategoryIds}
+                    onCreateOption={() => setIsManageCategoriesOpen(true)}
+                    createOptionLabel="Create category"
                   />
                 </div>
 
@@ -2754,6 +2766,8 @@ export const SpendingPage: React.FC = () => {
                           showSearch
                           sortByLabel
                           recentValues={recentCategoryIds}
+                          onCreateOption={() => setIsManageCategoriesOpen(true)}
+                          createOptionLabel="Create category"
                         />
                       )}
                     />

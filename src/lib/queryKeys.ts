@@ -61,6 +61,11 @@ export const queryKeys = {
     unreadCount: () => ['notifications', 'unread-count'] as const,
   },
 
+  auth: {
+    all: ['auth'] as const,
+    mcpConnections: () => ['auth', 'mcp-connections'] as const,
+  },
+
   // ── Net Worth ──────────────────────────────────────────────────────────────
   netWorth: {
     all: ['net-worth'] as const,

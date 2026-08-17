@@ -15,6 +15,13 @@ type OAuthProvider = 'google' | 'github';
 
 export type AuthIdentities = { has_password: boolean; providers: OAuthProvider[] };
 export type McpAuthorizationRequest = { client_name: string; scopes: string[] };
+export type McpConnection = {
+  public_id: string;
+  client_name: string;
+  scopes: string[];
+  created_at: string;
+  last_used_at: string | null;
+};
 
 export const getOAuthUrl = (provider: OAuthProvider, next?: string) => {
   const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/v1';
@@ -79,6 +86,19 @@ export const authService = {
   denyMcpAuthorization: async (state: string): Promise<string> => {
     const response = await api.post('/auth/mcp/authorize/deny', { state });
     return response.data.redirect_uri as string;
+  },
+
+  listMcpConnections: async (): Promise<{ items: McpConnection[]; total: number }> => {
+    const response = await api.get('/auth/mcp/connections');
+    return response.data as { items: McpConnection[]; total: number };
+  },
+
+  revokeMcpConnection: async (publicId: string): Promise<void> => {
+    await api.delete(`/auth/mcp/connections/${publicId}`);
+  },
+
+  revokeAllMcpConnections: async (): Promise<void> => {
+    await api.delete('/auth/mcp/connections');
   },
 
   getAuthIdentities: async (): Promise<AuthIdentities> => {
