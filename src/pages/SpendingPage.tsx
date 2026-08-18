@@ -68,6 +68,7 @@ import {
 } from '../utils/numberFormat';
 import { computeTransferNet } from '../utils/transferMath';
 import { describeRecurrence } from '../utils/recurrenceLabel';
+import { describeRecurrenceHelp } from '../utils/recurrenceHelp';
 import { formatDate } from '../utils/dateFormat';
 import { TransactionsTab } from './spending/TransactionsTab';
 import { BudgetsTab } from './spending/BudgetsTab';
@@ -958,6 +959,7 @@ export const SpendingPage: React.FC = () => {
   const recurringFrequencyWatch = watchRecurringForm('frequency');
   const recurringMonthlyModeWatch = watchRecurringForm('monthly_mode');
   const recurringIntervalWatch = watchRecurringForm('interval');
+  const recurringAnchorDateWatch = watchRecurringForm('anchor_date');
   const recurringByOrdinalWatch = watchRecurringForm('by_ordinal');
   const recurringByWeekdayWatch = watchRecurringForm('by_weekday');
   const isRecurringNthWeekdayMode =
@@ -965,9 +967,18 @@ export const SpendingPage: React.FC = () => {
   const recurringScheduleSummary = describeRecurrence({
     frequency: recurringFrequencyWatch,
     interval: parseInt(recurringIntervalWatch, 10) || 1,
+    anchor_date: recurringAnchorDateWatch,
     monthly_mode: recurringMonthlyModeWatch,
     by_ordinal: recurringByOrdinalWatch != null ? parseInt(recurringByOrdinalWatch, 10) : null,
     by_weekday: recurringByWeekdayWatch != null ? parseInt(recurringByWeekdayWatch, 10) : null,
+  });
+  const recurringScheduleHelp = describeRecurrenceHelp({
+    frequency: recurringFrequencyWatch,
+    interval: parseInt(recurringIntervalWatch, 10) || 1,
+    anchorDate: recurringAnchorDateWatch,
+    monthlyMode: recurringMonthlyModeWatch,
+    byOrdinal: recurringByOrdinalWatch != null ? parseInt(recurringByOrdinalWatch, 10) : null,
+    byWeekday: recurringByWeekdayWatch != null ? parseInt(recurringByWeekdayWatch, 10) : null,
   });
   const [showAdvancedSchedule, setShowAdvancedSchedule] = useState(false);
 
@@ -2289,7 +2300,7 @@ export const SpendingPage: React.FC = () => {
                     </div>
                     <div>
                       <Label htmlFor="rec-interval" className="mb-2 block">
-                        Every N
+                        Every N {recurringFrequencyWatch === 'monthly' ? 'months' : recurringFrequencyWatch === 'weekly' ? 'weeks' : recurringFrequencyWatch === 'yearly' ? 'years' : 'days'}
                       </Label>
                       <Input
                         id="rec-interval"
@@ -2307,6 +2318,13 @@ export const SpendingPage: React.FC = () => {
                       )}
                     </div>
                   </div>
+                  <div
+                    data-testid="spending-recurring-schedule-help"
+                    className="flex gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 text-xs leading-relaxed text-slate-300"
+                  >
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
+                    <p>{recurringScheduleHelp}</p>
+                  </div>
 
                   {/* Monthly recurrence mode (spec-053) */}
                   {recurringFrequencyWatch === 'monthly' && (
@@ -2322,8 +2340,8 @@ export const SpendingPage: React.FC = () => {
                               value={field.value ?? 'day_of_month'}
                               onChange={field.onChange}
                               options={[
-                                { value: 'day_of_month', label: 'On day N' },
-                                { value: 'last_day', label: 'On the last day' },
+                                { value: 'day_of_month', label: 'On day N (from Start Date)' },
+                                { value: 'last_day', label: 'On the last day of month' },
                                 { value: 'nth_weekday', label: 'On the Nth weekday' },
                               ]}
                               placeholder="Select monthly mode"
@@ -2386,32 +2404,38 @@ export const SpendingPage: React.FC = () => {
                 </div>
               </details>
 
-              {/* Start date (create only) */}
-              {!editingRecurring && (
-                <div>
-                  <Label htmlFor="rec-anchor" className="mb-2 block">
-                    Start Date
-                  </Label>
-                  <Controller
-                    control={recurringControl}
-                    name="anchor_date"
-                    render={({ field }) => (
-                      <DatePicker
-                        testId="spending-recurring-anchor-date"
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Select start date"
-                        required
-                      />
-                    )}
-                  />
-                  {recurringErrors.anchor_date && (
-                    <p className="mt-2 text-sm text-rose-400">
-                      {recurringErrors.anchor_date.message}
-                    </p>
+              {/* The anchor date determines the day-of-month for day_of_month rules. */}
+              <div>
+                <Label htmlFor="rec-anchor" className="mb-2 block">
+                  {editingRecurring ? 'Start Date (fixed)' : 'Start Date'}
+                </Label>
+                <Controller
+                  control={recurringControl}
+                  name="anchor_date"
+                  render={({ field }) => (
+                    <DatePicker
+                      testId="spending-recurring-anchor-date"
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Select start date"
+                      required
+                      disabled={!!editingRecurring}
+                    />
                   )}
-                </div>
-              )}
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  {recurringFrequencyWatch === 'monthly' && recurringMonthlyModeWatch === 'last_day'
+                    ? 'This date sets when the rule can begin; the due date is always the month’s final calendar day.'
+                    : recurringFrequencyWatch === 'monthly' && recurringMonthlyModeWatch === 'nth_weekday'
+                      ? 'This date sets the earliest allowed occurrence; Occurrence and Weekday choose the monthly pattern.'
+                      : 'This date sets the day of month for “On day N” schedules.'}
+                </p>
+                {recurringErrors.anchor_date && (
+                  <p className="mt-2 text-sm text-rose-400">
+                    {recurringErrors.anchor_date.message}
+                  </p>
+                )}
+              </div>
 
               {/* End date (optional) */}
               <div>

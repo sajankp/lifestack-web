@@ -10,6 +10,17 @@ describe('describeRecurrence', () => {
 
   it('describes day-of-month monthly recurrence with no special mode', () => {
     expect(
+      describeRecurrence({
+        frequency: 'monthly',
+        interval: 1,
+        anchor_date: '2026-08-15',
+        monthly_mode: 'day_of_month',
+      }),
+    ).toBe('Every month on the 15th');
+  });
+
+  it('describes a monthly cadence without an anchor day', () => {
+    expect(
       describeRecurrence({ frequency: 'monthly', interval: 1, monthly_mode: 'day_of_month' }),
     ).toBe('Every month');
   });

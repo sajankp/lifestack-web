@@ -36,6 +36,7 @@ const capitalize = (s: string): string =>
 export interface RecurrenceLike {
   frequency: string;
   interval: number;
+  anchor_date?: string | null;
   monthly_mode?: string | null;
   by_weekday?: number | null;
   by_ordinal?: number | null;
@@ -54,6 +55,13 @@ export const describeRecurrence = (rule: RecurrenceLike): string => {
 
   if (rule.monthly_mode === 'last_day') {
     return capitalize(`${cadence} on the last day`);
+  }
+
+  if (rule.monthly_mode !== 'nth_weekday' && rule.anchor_date) {
+    const day = Number(rule.anchor_date.slice(8, 10));
+    if (Number.isInteger(day) && day >= 1 && day <= 31) {
+      return capitalize(`${cadence} on the ${ordinalSuffix(day)}`);
+    }
   }
 
   if (rule.monthly_mode === 'nth_weekday' && rule.by_weekday != null && rule.by_ordinal != null) {
