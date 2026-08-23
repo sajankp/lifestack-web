@@ -301,6 +301,7 @@ export type ExposureCompanyRow = z.infer<typeof ExposureCompanyRowSchema>;
 export const ExposureAnalyticsSchema = z.object({
   as_of_date: z.string().default(''),
   analysis_status: z.enum(['complete', 'partial', 'unavailable']).default('complete'),
+  valuation_basis: z.string().default('market_value'),
   currency: z.string().nullable().default(null),
   fx_as_of: z.string().nullable().default(null),
   fx_rates_used: z.record(z.string(), z.union([z.number(), z.string()])).default({}),
@@ -329,6 +330,7 @@ export type OverlapRow = z.infer<typeof OverlapRowSchema>;
 export const OverlapAnalyticsSchema = z.object({
   as_of_date: z.string().default(''),
   analysis_status: z.enum(['complete', 'partial', 'unavailable']).default('complete'),
+  valuation_basis: z.string().default('market_value'),
   currency: z.string().nullable().default(null),
   fx_as_of: z.string().nullable().default(null),
   fx_rates_used: z.record(z.string(), z.union([z.number(), z.string()])).default({}),

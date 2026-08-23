@@ -480,8 +480,11 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
               <p className="text-sm text-slate-400">Loading exposure…</p>
             ) : (
               <div className="space-y-2 text-sm text-slate-300">
+                <p className="text-xs text-slate-500">
+                  Market-value basis, converted to the reporting currency.
+                </p>
                 <p data-testid="investing-total-direct">
-                  Total direct:{' '}
+                  Total direct market value:{' '}
                   {exposure?.total_direct_exposure != null && analyticsCurrency
                     ? formatCurrency(
                         exposure.total_direct_exposure,
@@ -491,7 +494,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                     : 'N/A'}
                 </p>
                 <p data-testid="investing-total-lookthrough">
-                  Total look-through:{' '}
+                  Total look-through market value:{' '}
                   {exposure?.total_lookthrough_exposure != null && analyticsCurrency
                     ? formatCurrency(
                         exposure.total_lookthrough_exposure,
@@ -609,8 +612,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                     <thead className="bg-slate-800/60 text-slate-400">
                       <tr>
                         <th className="px-3 py-2">Company</th>
-                        <th className="px-3 py-2">Direct</th>
-                        <th className="px-3 py-2">Look-through</th>
+                        <th className="px-3 py-2">Direct market value</th>
+                        <th className="px-3 py-2">Look-through market value</th>
                       </tr>
                     </thead>
                     <tbody>
