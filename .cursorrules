@@ -7,10 +7,10 @@
 ## Project Overview
 
 - React 19, TypeScript, Vite
-- State management: Zustand
+- State management: Zustand for auth/session and local UI state; TanStack Query for server state
 - HTTP client: Axios with interceptors
 - Styling: Tailwind CSS + shadcn/ui components
-- API validation: Zod schemas (in services that have been migrated)
+- API validation: Zod schemas (all domain services parse responses)
 - Package manager: npm
 
 ## Quick Commands
@@ -38,7 +38,7 @@ Use these prefixes for all commits:
 
 Follow this sequence for all feature work:
 
-1. **Specification** — Create `docs/specs/NNN-*.md`. Get explicit user approval before coding.
+1. **Specification** — Create `docs/specs/spec-NNN-*.md`. Get explicit user approval before coding.
 2. **Test-First (Red)** — Create feature branch. Add failing or coverage-extending tests first. Confirm they enforce the intended behavior.
 3. **Implementation (Green)** — Implement the minimum required behavior. Follow the approved spec exactly. Pause if the spec is ambiguous.
 4. **Verify** — Run full frontend validation (`test`, `build`, `lint`). Mark spec as `Implemented`.
@@ -135,3 +135,4 @@ PR ready for review.
 - Protected main blocks push → Push feature branch and open PR instead
 - Flaky UI assertions → Prefer role-based queries and explicit waits in tests
 - Pre-commit failure → Fix hooks, recommit, re-verify with `git status`
+- Full-stack confidence → Web CI has no E2E dispatch sender yet, and the E2E workflow has no `repository_dispatch` receiver. Use a fresh manual/nightly composed run until the contract is completed.

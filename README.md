@@ -104,6 +104,9 @@ Today the web app focuses on the personal OS foundation:
 - Real workspace name/role display from the platform API
 - Shared loading, empty, and error states on key daily-use pages
 - Voice agent widget (`VoiceAgentWidget`, always mounted in the app shell layout) for voice/text capture via the backend capture API
+- Voice transaction correction flow with lookup, confirmation, update feedback, and persisted backend verification in full-stack E2E
+- Health Memory V1: medication schedules/adherence, late-dose catch-up, interval-from-last-dose mode, weight logging/trends, and briefing integration
+- OAuth sign-in/account-link management, persisted user timezone, display preferences, and revocable MCP connection management in Settings
 - PWA/installable shell with push notifications: service worker (`public/sw.js`), web app manifest (`public/manifest.webmanifest`), and push subscription management (`PushSubscriptionSettings`, wired into the Notifications page)
 - Page decomposition: large feature pages (Spending, Investing) are split into focused `*Tab` components under `src/pages/spending/` and `src/pages/investing/`
 
@@ -116,11 +119,10 @@ The current implementation is intentionally centered on a single-user personal w
 These tracks are planned product direction, not current web functionality. (Voice/AI capture and PWA/push are already shipped — see "What Works Today" — and are not listed here.)
 
 - **Mobile companion:** camera upload, background sync, and native health-app sync review.
-- **Health tracking:** sleep, weight, vitals, labs, symptoms, medications, and workouts, with manual entry before health-app sync.
-- **Medication reminders:** schedules, adherence check-ins, refill notes, and dashboard follow-up tasks.
+- **Health expansion:** sleep, vitals, labs, symptoms, workouts, and health-app sync. Medication/weight V1 is already shipped.
 - **Document intelligence:** upload, extraction review, source-linked records, and privacy-focused lifecycle controls.
 - **Second brain:** notes, journal, documents, health records, tasks, and finance events combined into source-backed retrieval.
-- **MCP and agent access:** permissioned access for trusted external assistants to selected preferences, second-brain memory, todos, documents, and domain summaries.
+- **MCP expansion:** the authenticated connection/grant UI and scoped finance/task/health tools are shipped; future work may add documents, memory, and richer review surfaces.
 - **Personal coach:** planning and recommendations over structured life data, with citations and user-confirmed actions.
 
 The frontend should keep these tracks visually integrated with the existing dashboard, capture, notification, and review surfaces instead of presenting them as disconnected apps.
@@ -191,11 +193,11 @@ The UI goal is not just "good CRUD." It is to help users notice what matters, de
   - `POST /v1/investing/instruments/{instrument_id}/constituents`
   - `GET /v1/investing/analytics/exposure?as_of=YYYY-MM-DD`
   - `GET /v1/investing/analytics/overlap?as_of=YYYY-MM-DD`
-- Investing page includes a `Look-through Analytics` tab with:
+- Investing page includes an `Analytics` tab with:
   - instrument creation
   - constituent seeding for manual bootstrap
   - exposure table and overlap summary
-- Analytics responses may be partial; UI surfaces `analysis_status`, coverage, and warnings.
+- Analytics responses may be partial; UI surfaces `analysis_status`, coverage, and warnings. Exposure values are reporting-currency **market value**, not cost basis.
 
 ### Phase 1.1 surfaces
 
@@ -241,16 +243,20 @@ The UI goal is not just "good CRUD." It is to help users notice what matters, de
   - `e2e/investing-lookthrough.spec.ts`
 
 The current browser E2E suite in this repo focuses on frontend behavior. The full-stack end-to-end harness now lives in the standalone `lifestack-e2e` repo, where the UI, API, and database run together against real contracts.
+As of 2026-08-24 that suite discovers 60 tests across 28 files; this repo has 54
+Vitest test files and one bounded mocked Playwright smoke file.
 
 ### E2E Strategy
 
 - Keep `e2e/investing-lookthrough.spec.ts` as a frontend Playwright smoke flow: it verifies
-  browser navigation from Investing into Look-through Analytics and the mocked API boundary.
+  browser navigation from Investing into Analytics and the mocked API boundary.
   The lower-level rendering and request-shape assertions belong in
   `src/pages/investing/AnalyticsTab.test.tsx`.
 - Full-stack FE+BE+DB coverage is handled in the dedicated `lifestack-e2e` repo because FE and BE are separate repositories.
 - New real-data investing scenarios should be added to `lifestack-e2e`, not duplicated in this
-  mocked browser suite. Remaining cross-repo follow-up is seeded deterministic data and a CI gate.
+  mocked browser suite. Cross-repo dispatch remains incomplete: API has a sender,
+  E2E has no `repository_dispatch` receiver, and Web has no sender. Use a fresh
+  manual/nightly composed run until that contract is closed.
 
 ---
 
