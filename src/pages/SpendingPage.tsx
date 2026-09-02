@@ -2100,6 +2100,7 @@ export const SpendingPage: React.FC = () => {
             setDeleteTransferError(null);
           }}
           onAddTransfer={() => setIsTransferModalOpen(true)}
+          getCategoryTheme={getCategoryTheme}
         />
       ) : null}
 
