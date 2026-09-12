@@ -18,6 +18,7 @@ export function initAnalytics(): void {
   posthog.init(apiKey, {
     api_host: import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com',
     autocapture: false,
+    capture_dead_clicks: false,
     disable_session_recording: true,
     person_profiles: 'identified_only',
     capture_pageview: true,

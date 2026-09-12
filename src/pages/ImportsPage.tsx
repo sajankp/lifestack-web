@@ -177,14 +177,41 @@ export const ImportsPage: React.FC = () => {
       ? legacyModule
       : '') as ImportModule | '';
   const [module, setModule] = useState<ImportModule | ''>(initialModule);
+  const targetAccountParam =
+    searchParams.get('target_account_id') ?? searchParams.get('account_id') ?? '';
+  const shouldOpenUpload =
+    searchParams.get('upload') === 'true' || searchParams.get('new') === 'true';
 
-  // Deep-link support: when the ?module= param changes while this page stays
+  const [file, setFile] = useState<File | null>(null);
+  const [targetAccountId, setTargetAccountId] = useState(targetAccountParam);
+  const [filePassword, setFilePassword] = useState('');
+  const [dateFormat, setDateFormat] = useState(
+    initialModule === 'finance-account-statement' ? 'yyyy-MM-dd' : '',
+  );
+  const [selectedImportId, setSelectedImportId] = useState<string | null>(null);
+  const [latestValidation, setLatestValidation] = useState<ImportValidateResponse | null>(null);
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(shouldOpenUpload);
+
+  // Deep-link support: when the ?module= or ?upload= param changes while this page stays
   // mounted (e.g. navigating between two "Bulk import" links), sync the
   // selected module. Guarded on a non-empty param so a plain /imports visit
   // never clobbers a manual dropdown selection.
   useEffect(() => {
-    if (initialModule) setModule(initialModule);
-  }, [initialModule]);
+    if (initialModule) {
+      setModule(initialModule);
+      if (initialModule === 'finance-account-statement') {
+        setDateFormat((prev) => prev || 'yyyy-MM-dd');
+      }
+    }
+    if (targetAccountParam) {
+      setTargetAccountId(targetAccountParam);
+    }
+    if (shouldOpenUpload) {
+      setIsUploadModalOpen(true);
+    }
+  }, [initialModule, targetAccountParam, shouldOpenUpload]);
 
   useEffect(() => {
     const isImportsRoot = location.pathname === '/imports' || location.pathname === '/imports/';
@@ -196,16 +223,6 @@ export const ImportsPage: React.FC = () => {
       navigate('/imports', { replace: true });
     }
   }, [legacyModule, location.pathname, navigate, routeModule]);
-
-  const [file, setFile] = useState<File | null>(null);
-  const [targetAccountId, setTargetAccountId] = useState('');
-  const [filePassword, setFilePassword] = useState('');
-  const [dateFormat, setDateFormat] = useState('');
-  const [selectedImportId, setSelectedImportId] = useState<string | null>(null);
-  const [latestValidation, setLatestValidation] = useState<ImportValidateResponse | null>(null);
-  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   const { data: accountsResponse } = useQuery({
     queryKey: ['finance', 'accounts', 'imports'],
@@ -530,7 +547,7 @@ export const ImportsPage: React.FC = () => {
                     navigate(`/imports/${nextModule}`);
                     setTargetAccountId('');
                     setFilePassword('');
-                    setDateFormat('');
+                    setDateFormat(nextModule === 'finance-account-statement' ? 'yyyy-MM-dd' : '');
                     setFile(null);
                     setUploadError(null);
                   }}
@@ -953,6 +970,14 @@ export const ImportsPage: React.FC = () => {
                               <th className="px-3 py-2 text-left">Spd Cash</th>
                             </>
                           )}
+                          {activeDetail.import_batch.module === 'finance-account-statement' && (
+                            <>
+                              <th className="px-3 py-2 text-left">Date</th>
+                              <th className="px-3 py-2 text-left">Description</th>
+                              <th className="px-3 py-2 text-left">Amount</th>
+                              <th className="px-3 py-2 text-left">Balance</th>
+                            </>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -1228,6 +1253,37 @@ export const ImportsPage: React.FC = () => {
                                   {row.payload_json.spending_cash == null
                                     ? '-'
                                     : formatDisplayNumber(row.payload_json.spending_cash)}
+                                </td>
+                              </>
+                            )}
+                            {activeDetail.import_batch.module === 'finance-account-statement' && (
+                              <>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  {formatDate(row.payload_json.occurred_at)}
+                                </td>
+                                <td
+                                  className="px-3 py-2 max-w-xs whitespace-normal break-words"
+                                  title={
+                                    typeof row.payload_json.description === 'string'
+                                      ? row.payload_json.description
+                                      : undefined
+                                  }
+                                >
+                                  {row.payload_json.description ?? '-'}
+                                </td>
+                                <td
+                                  className={`px-3 py-2 font-mono ${
+                                    Number(row.payload_json.amount) >= 0
+                                      ? 'text-emerald-400'
+                                      : 'text-rose-400'
+                                  }`}
+                                >
+                                  {formatDisplayNumber(row.payload_json.amount)}
+                                </td>
+                                <td className="px-3 py-2 font-mono text-slate-300">
+                                  {row.payload_json.balance != null
+                                    ? formatDisplayNumber(row.payload_json.balance)
+                                    : '-'}
                                 </td>
                               </>
                             )}
