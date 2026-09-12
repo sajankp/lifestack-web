@@ -254,6 +254,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
           <StatementReconciliation
             accountId={selectedAccountId}
             currencyDisplayPreference={currencyDisplayPreference}
+            getCategoryTheme={getCategoryTheme}
           />
 
           {/* Ledger table */}

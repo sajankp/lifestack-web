@@ -202,6 +202,11 @@ export const StatementLineSchema = z.object({
   matched_transfer_id: z.string().nullable().default(null),
   matched_transfer_leg: z.enum(['from', 'to']).nullable().default(null),
   matched_at: z.string().nullable().default(null),
+  matched_description: z.string().nullable().default(null),
+  matched_category_id: z.string().nullable().default(null),
+  matched_category_name: z.string().nullable().default(null),
+  matched_category_color: z.string().nullable().default(null),
+  matched_category_icon: z.string().nullable().default(null),
 });
 export type StatementLine = z.infer<typeof StatementLineSchema>;
 
@@ -212,6 +217,10 @@ export const MatchCandidateSchema = z.object({
   amount: z.string(),
   description: z.string(),
   leg: z.enum(['from', 'to']).nullable().default(null),
+  category_id: z.string().nullable().default(null),
+  category_name: z.string().nullable().default(null),
+  category_color: z.string().nullable().default(null),
+  category_icon: z.string().nullable().default(null),
 });
 export type MatchCandidate = z.infer<typeof MatchCandidateSchema>;
 
