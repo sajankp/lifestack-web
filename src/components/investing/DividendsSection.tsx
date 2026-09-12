@@ -140,7 +140,7 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
         </h3>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" asChild>
-            <Link to="/imports?module=investing-dividends">
+            <Link to="/imports/investing-dividends">
               <Upload className="h-4 w-4 mr-1" /> Bulk import
             </Link>
           </Button>

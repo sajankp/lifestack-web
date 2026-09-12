@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { Plus } from 'lucide-react';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
@@ -58,6 +58,7 @@ const MODULE_OPTIONS: Array<{ value: ImportModule; label: string; testId?: strin
     testId: 'import-type-finance-account-statement',
   },
 ];
+const IMPORT_MODULES = new Set(MODULE_OPTIONS.map((option) => option.value));
 
 // Small fixed set, no bank-specific fixtures (owner decision, spec-078) —
 // keep in sync with app/imports/finance_account_statement_import.py::ALLOWED_DATE_FORMATS.
@@ -144,6 +145,8 @@ const isLikelyUuid = (value: string): boolean => {
 };
 
 export const ImportsPage: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const displayProfile = useDisplayProfile();
   const formatDisplayNumber = (
     value: unknown,
@@ -164,7 +167,15 @@ export const ImportsPage: React.FC = () => {
   const { showToast } = useToast();
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [searchParams] = useSearchParams();
-  const initialModule = (searchParams.get('module') as ImportModule) || '';
+  const routeModule = location.pathname.startsWith('/imports/')
+    ? location.pathname.slice('/imports/'.length)
+    : '';
+  const legacyModule = searchParams.get('module') ?? '';
+  const initialModule = (IMPORT_MODULES.has(routeModule as ImportModule)
+    ? routeModule
+    : IMPORT_MODULES.has(legacyModule as ImportModule)
+      ? legacyModule
+      : '') as ImportModule | '';
   const [module, setModule] = useState<ImportModule | ''>(initialModule);
 
   // Deep-link support: when the ?module= param changes while this page stays
@@ -174,6 +185,17 @@ export const ImportsPage: React.FC = () => {
   useEffect(() => {
     if (initialModule) setModule(initialModule);
   }, [initialModule]);
+
+  useEffect(() => {
+    const isImportsRoot = location.pathname === '/imports' || location.pathname === '/imports/';
+    const isUnknownImportBranch = location.pathname.startsWith('/imports/') && !IMPORT_MODULES.has(routeModule as ImportModule);
+    if (!isImportsRoot && !isUnknownImportBranch) return;
+    if (legacyModule && IMPORT_MODULES.has(legacyModule as ImportModule)) {
+      navigate(`/imports/${legacyModule}`, { replace: true });
+    } else if (isUnknownImportBranch) {
+      navigate('/imports', { replace: true });
+    }
+  }, [legacyModule, location.pathname, navigate, routeModule]);
 
   const [file, setFile] = useState<File | null>(null);
   const [targetAccountId, setTargetAccountId] = useState('');
@@ -503,7 +525,9 @@ export const ImportsPage: React.FC = () => {
                   data-testid="imports-module-select"
                   value={module}
                   onChange={(e) => {
-                    setModule(e.target.value as ImportModule);
+                    const nextModule = e.target.value as ImportModule;
+                    setModule(nextModule);
+                    navigate(`/imports/${nextModule}`);
                     setTargetAccountId('');
                     setFilePassword('');
                     setDateFormat('');
@@ -1224,7 +1248,7 @@ export const ImportsPage: React.FC = () => {
                   <p className="mb-2 text-xs text-amber-200/80">
                     A price or quantity jump this large usually means a split, reverse split, or
                     bonus issue was never recorded.{' '}
-                    <Link to="/investing?tab=orders" className="underline hover:text-amber-100">
+                    <Link to="/investing/orders" className="underline hover:text-amber-100">
                       Record it under Investing → Orders → Corporate actions.
                     </Link>
                   </p>

@@ -485,7 +485,7 @@ export const CashTab: React.FC<CashTabProps> = ({ currencyDisplayPreference }) =
                   Transfer
                 </button>
                 <Link
-                  to="/spending?tab=ledger"
+                  to="/spending/account-activity"
                   data-testid="investing-transfers-manage-link"
                   className="text-xs font-medium text-slate-400 hover:text-slate-300"
                 >

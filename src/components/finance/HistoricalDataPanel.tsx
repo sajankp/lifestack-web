@@ -106,7 +106,7 @@ export const HistoricalDataPanel: React.FC = () => {
                 — components are optional but must be all-or-none per row.
               </p>
               <Button asChild variant="secondary" size="sm">
-                <Link to="/imports?module=finance-net-worth-history">
+                <Link to="/imports/finance-net-worth-history">
                   <Upload className="h-4 w-4 mr-1" /> Import Net Worth CSV
                 </Link>
               </Button>
@@ -164,7 +164,7 @@ export const HistoricalDataPanel: React.FC = () => {
                 date; never affects present-day live figures.
               </p>
               <Button asChild variant="secondary" size="sm">
-                <Link to="/imports?module=finance-fx-rates">
+                <Link to="/imports/finance-fx-rates">
                   <Upload className="h-4 w-4 mr-1" /> Import FX Rates CSV
                 </Link>
               </Button>

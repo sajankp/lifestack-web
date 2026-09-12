@@ -16,9 +16,9 @@ const baseSteps: OnboardingChecklistStep[] = [
     id: 'currency',
     label: 'Set your reporting currency',
     done: false,
-    to: '/settings?tab=currency',
+    to: '/settings/currency',
   },
-  { id: 'account', label: 'Add your first account', done: false, to: '/settings?tab=accounts' },
+  { id: 'account', label: 'Add your first account', done: false, to: '/settings/accounts' },
   {
     id: 'activity',
     label: 'Add your first transaction or todo',
@@ -42,11 +42,11 @@ describe('OnboardingChecklist', () => {
     expect(screen.getByText('Get started')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-onboarding-step-currency')).toHaveAttribute(
       'href',
-      '/settings?tab=currency',
+      '/settings/currency',
     );
     expect(screen.getByTestId('dashboard-onboarding-step-account')).toHaveAttribute(
       'href',
-      '/settings?tab=accounts',
+      '/settings/accounts',
     );
     expect(screen.getByText('Add transaction')).toHaveAttribute('href', '/spending?new=1');
     expect(screen.getByText('Add todo')).toHaveAttribute('href', '/todo?new=1');

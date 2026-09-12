@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Edit2, Plus, RotateCcw, Trash2 } from 'lucide-react';
 
@@ -119,7 +119,20 @@ const formatUtcDate = (value: string | null | undefined): string | null => {
 };
 
 export const TodoPage: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const todoTab = location.pathname.slice('/todo/'.length) === 'recurring' ? 'recurring' : 'tasks';
+
+  useEffect(() => {
+    const isTodoRoot = location.pathname === '/todo' || location.pathname === '/todo/';
+    const isUnknownTodoBranch = location.pathname.startsWith('/todo/') && !['tasks', 'recurring'].includes(location.pathname.slice('/todo/'.length));
+    if (!isTodoRoot && !isUnknownTodoBranch) return;
+    const params = new URLSearchParams(location.search);
+    params.delete('tab');
+    const legacyTab = searchParams.get('tab') === 'recurring' ? 'recurring' : 'tasks';
+    navigate(`/todo/${legacyTab}${params.toString() ? `?${params}` : ''}`, { replace: true });
+  }, [location.pathname, location.search, navigate, searchParams]);
   const [taskForm, setTaskForm] = useState({
     title: '',
     description: '',
@@ -619,13 +632,9 @@ export const TodoPage: React.FC = () => {
       </Dialog>
 
       <Tabs
-        value={searchParams.get('tab') || 'tasks'}
+        value={todoTab}
         onValueChange={(value) => {
-          setSearchParams((params) => {
-            const nextParams = new URLSearchParams(params);
-            nextParams.set('tab', value);
-            return nextParams;
-          });
+          navigate(`/todo/${value}`);
         }}
         className="w-full"
       >

@@ -95,22 +95,22 @@ const CONFIRMATION_CARD_REGISTRY: Record<
   recurring_todo: {
     icon: CheckSquare,
     label: 'Recurring Todo',
-    getRoute: () => '/todo?tab=recurring',
+    getRoute: () => '/todo/recurring',
   },
   transaction: {
     icon: CreditCard,
     label: 'Spending',
-    getRoute: () => '/spending?tab=transactions',
+    getRoute: () => '/spending/transactions',
   },
   capital_transfer: {
     icon: ArrowRightLeft,
     label: 'Transfer',
-    getRoute: () => '/spending?tab=ledger',
+    getRoute: () => '/spending/account-activity',
   },
   investment_dividend: {
     icon: TrendingUp,
     label: 'Investment income',
-    getRoute: () => '/investing?tab=cash',
+    getRoute: () => '/investing/cash',
   },
 };
 

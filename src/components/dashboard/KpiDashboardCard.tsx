@@ -43,7 +43,7 @@ export const KpiDashboardCard: React.FC<KpiDashboardCardProps> = ({
             <h2 className="text-xl font-semibold text-white">Custom KPIs</h2>
           </div>
           <Link
-            to="/spending?tab=kpis"
+            to="/spending/kpis"
             className="text-xs font-medium text-cyan-400 hover:text-cyan-300"
           >
             Manage
