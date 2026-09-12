@@ -133,4 +133,70 @@ describe('LedgerTab category and transfer rendering (Spec-095)', () => {
     // Verify transfer row renders Transfer label
     expect(screen.getAllByText(/Transfer → Savings/i).length).toBeGreaterThan(0);
   });
+
+  it('renders pagination and invokes onLimitChange when page size is changed', async () => {
+    const onLimitChange = vi.fn();
+    const onOffsetChange = vi.fn();
+
+    server.use(
+      http.get('*/v1/spending/accounts/acc-1/ledger', () =>
+        HttpResponse.json({
+          account_public_id: 'acc-1',
+          account_name: 'Checking Account',
+          account_currency: 'USD',
+          opening_balance: '1000.00',
+          closing_balance: '900.00',
+          total_entries: 100,
+          items: [
+            {
+              public_id: 'entry-tx-1',
+              entry_kind: 'transaction',
+              category_id: null,
+              account_id: 'acc-1',
+              amount: '50.00',
+              type: 'expense',
+              occurred_at: '2026-08-15T12:00:00Z',
+              description: 'Expense 1',
+              wallet_name: null,
+              labels: null,
+              source_type: 'manual',
+              running_balance: '950.00',
+              created_at: '2026-08-15T12:00:00Z',
+            },
+          ],
+        }),
+      ),
+      http.get('*/v1/finance/accounts/acc-1/balance', () =>
+        HttpResponse.json({
+          account_public_id: 'acc-1',
+          calculated_balance: '950.00',
+          currency_code: 'USD',
+          as_of: '2026-08-15T12:00:00Z',
+        }),
+      ),
+      http.get('*/v1/finance/accounts/acc-1/reconciliation', () =>
+        HttpResponse.json({
+          account_public_id: 'acc-1',
+          reconciliation_status: 'matched',
+          discrepancy: '0.00',
+        }),
+      ),
+    );
+
+    const { fireEvent } = await import('@testing-library/react');
+    renderLedgerTab({
+      offset: 0,
+      limit: 25,
+      onLimitChange,
+      onOffsetChange,
+    });
+
+    const select = await screen.findByTestId('pagination-page-size-select');
+    expect(select).toBeInTheDocument();
+    expect((select as HTMLSelectElement).value).toBe('25');
+
+    fireEvent.change(select, { target: { value: '100' } });
+    expect(onLimitChange).toHaveBeenCalledWith(100);
+    expect(onOffsetChange).toHaveBeenCalledWith(0);
+  });
 });

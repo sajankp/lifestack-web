@@ -23,8 +23,6 @@ interface OrdersTabProps {
   updateOrderPending: boolean;
 }
 
-const ORDERS_PAGE_SIZE = 50;
-
 export const OrdersTab: React.FC<OrdersTabProps> = ({
   currencyDisplayPreference,
   onEditOrder,
@@ -39,6 +37,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   const [ordersSortCol, setOrdersSortCol] = useState('occurred_at');
   const [ordersSortDir, setOrdersSortDir] = useState<SortDir>('desc');
   const [ordersOffset, setOrdersOffset] = useState(0);
+  const [ordersLimit, setOrdersLimit] = useState(50);
 
   const accountsRes = useQuery({
     queryKey: queryKeys.finance.accounts(),
@@ -51,9 +50,9 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   );
 
   const ordersRes = useQuery({
-    queryKey: queryKeys.investing.orders(ordersOffset, orderSymbolFilter, orderTypeFilter),
+    queryKey: queryKeys.investing.orders(ordersOffset, ordersLimit, orderSymbolFilter, orderTypeFilter),
     queryFn: () =>
-      investingService.getOrders(ORDERS_PAGE_SIZE, ordersOffset, {
+      investingService.getOrders(ordersLimit, ordersOffset, {
         search: orderSymbolFilter || undefined,
         order_type: orderTypeFilter || undefined,
       }),
@@ -551,9 +550,10 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
       </div>
       <Pagination
         total={ordersRes.data?.total ?? 0}
-        limit={ORDERS_PAGE_SIZE}
+        limit={ordersLimit}
         offset={ordersOffset}
         onPageChange={setOrdersOffset}
+        onLimitChange={setOrdersLimit}
       />
 
       <CorporateActionsSection accounts={accounts} accountFilter={ordersAccountFilter} />

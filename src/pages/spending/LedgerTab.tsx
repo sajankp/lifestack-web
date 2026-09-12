@@ -27,6 +27,7 @@ interface LedgerTabProps {
   offset: number;
   limit: number;
   onOffsetChange: (offset: number) => void;
+  onLimitChange?: (limit: number) => void;
   currencyDisplayPreference: 'symbol' | 'code';
   fromDate?: string;
   toDate?: string;
@@ -49,6 +50,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
   offset,
   limit,
   onOffsetChange,
+  onLimitChange,
   currencyDisplayPreference,
   fromDate,
   toDate,
@@ -578,12 +580,13 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
           )}
 
           {/* Pagination */}
-          {ledger && ledger.total_entries > limit && (
+          {ledger && (
             <Pagination
               total={ledger.total_entries}
               limit={limit}
               offset={offset}
               onPageChange={onOffsetChange}
+              onLimitChange={onLimitChange}
             />
           )}
         </>
