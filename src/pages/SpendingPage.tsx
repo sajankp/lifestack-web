@@ -203,6 +203,7 @@ const UNASSIGNED_ACCOUNT_FILTER_VALUE = '__unassigned__';
 // Page size for the Account activity tab's transfer public_id lookup — matches the
 // API's PaginationParams MAX_LIMIT (app/core/pagination.py), which 422s above 200.
 const TRANSFERS_LOOKUP_PAGE_SIZE = 200;
+const DEFAULT_PAGE_SIZE = 50;
 const SOURCE_CURRENCY_HINT_DISMISSED_KEY = 'spending:sourceCurrencyHintDismissed';
 const RECENT_SPENDING_CATEGORIES_KEY = 'spending:recentCategories';
 const EMPTY_SPENDING_TAGS: SpendingTag[] = [];
@@ -387,7 +388,7 @@ export const SpendingPage: React.FC = () => {
     }
   });
   const [ledgerOffset, setLedgerOffset] = useState(0);
-  const ledgerLimit = 50;
+  const [ledgerLimit, setLedgerLimit] = useState(50);
 
   // Budget Modal
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
@@ -397,9 +398,9 @@ export const SpendingPage: React.FC = () => {
   const [isChangeAmountOpen, setIsChangeAmountOpen] = useState(false);
   const [changeAmountError, setChangeAmountError] = useState<string | null>(null);
   const [txOffset, setTxOffset] = useState(0);
+  const [txLimit, setTxLimit] = useState(50);
   const [budgetOffset, setBudgetOffset] = useState(0);
   const [recurringOffset, setRecurringOffset] = useState(0);
-  const limit = 50;
   const monthRange = useMemo(() => monthValueToDateRange(selectedMonth), [selectedMonth]);
   const monthFilterOptions = useMemo(() => buildMonthOptions(), []);
 
@@ -547,6 +548,7 @@ export const SpendingPage: React.FC = () => {
   const { data: transactionsResponse, isLoading: isTxLoading } = useQuery({
     queryKey: queryKeys.spending.transactions(
       txOffset,
+      txLimit,
       fromDate,
       toDate,
       selectedCategoryFilter,
@@ -556,7 +558,7 @@ export const SpendingPage: React.FC = () => {
       txSort,
     ),
     queryFn: () =>
-      spendingService.getTransactions(limit, txOffset, {
+      spendingService.getTransactions(txLimit, txOffset, {
         categoryId: selectedCategoryFilter || undefined,
         accountId: isUnassignedFilterActive ? undefined : selectedAccountFilter || undefined,
         unassigned: isUnassignedFilterActive,
@@ -634,7 +636,7 @@ export const SpendingPage: React.FC = () => {
 
   const { data: budgetsResponse, isLoading: isBudgetsLoading } = useQuery({
     queryKey: queryKeys.spending.budgets(budgetOffset, budgetsMonth),
-    queryFn: () => spendingService.getBudgets(limit, budgetOffset, budgetsMonthRange.monthStart),
+    queryFn: () => spendingService.getBudgets(DEFAULT_PAGE_SIZE, budgetOffset, budgetsMonthRange.monthStart),
     enabled: budgetsMonthRange.isValid,
   });
   // The API's month_start query param already filters by range containment
@@ -869,7 +871,7 @@ export const SpendingPage: React.FC = () => {
   // ----- Recurring Queries & Mutations -----
   const { data: recurringResponse, isLoading: isRecurringLoading } = useQuery({
     queryKey: queryKeys.spending.recurring(recurringOffset),
-    queryFn: () => spendingService.getRecurring(limit, recurringOffset, true),
+    queryFn: () => spendingService.getRecurring(DEFAULT_PAGE_SIZE, recurringOffset, true),
   });
   // Fetched purely to build a public_id lookup so the merged Account activity
   // tab can offer edit/delete on the transfer_in/transfer_out rows it already
@@ -2035,6 +2037,7 @@ export const SpendingPage: React.FC = () => {
           onEdit={openTransactionModalForEdit}
           onDelete={setPendingDeleteTransactionId}
           onPageChange={setTxOffset}
+          onLimitChange={setTxLimit}
           isDeletePending={deleteMutation.isPending}
           onAddFirst={openTransactionModalForNew}
         />
@@ -2138,6 +2141,7 @@ export const SpendingPage: React.FC = () => {
           offset={ledgerOffset}
           limit={ledgerLimit}
           onOffsetChange={setLedgerOffset}
+          onLimitChange={setLedgerLimit}
           currencyDisplayPreference={currencyDisplayPreference}
           fromDate={fromDate}
           toDate={toDate}

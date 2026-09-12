@@ -19,6 +19,7 @@ interface TransactionsTabProps {
   onEdit: (tx: Transaction) => void;
   onDelete: (publicId: string) => void;
   onPageChange: (offset: number) => void;
+  onLimitChange?: (limit: number) => void;
   isDeletePending?: boolean;
   onAddFirst?: () => void;
 }
@@ -51,6 +52,7 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
   onEdit,
   onDelete,
   onPageChange,
+  onLimitChange,
   isDeletePending,
   onAddFirst,
 }) => {
@@ -340,6 +342,7 @@ const TransactionsTabImpl: React.FC<TransactionsTabProps> = ({
           limit={transactionsResponse.limit}
           offset={transactionsResponse.offset}
           onPageChange={onPageChange}
+          onLimitChange={onLimitChange}
         />
       )}
     </div>
