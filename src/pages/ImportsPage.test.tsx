@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 import { ToastProvider } from '../components/ui/toast';
 import { http, HttpResponse } from 'msw';
+import { userEvent } from '@testing-library/user-event';
 
 import { ImportsPage } from './ImportsPage';
 import { server } from '../test/setup';
@@ -44,6 +45,13 @@ describe('ImportsPage', () => {
       ),
       http.get('*/v1/finance/accounts', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          id: 'user-1',
+          name: 'Test User',
+          // minimal user settings to satisfy the request
+        }),
       ),
     );
   });
@@ -139,18 +147,19 @@ describe('ImportsPage', () => {
     // Open Modal
     fireEvent.click(screen.getByText('New Import'));
 
-    // Select module
-    const select = screen.getByTestId('imports-module-select');
-    fireEvent.change(select, { target: { value: 'spending-transactions' } });
+    // Wait for module select and select module
+    const moduleSelect = await screen.findByTestId('imports-module-select');
+    fireEvent.change(moduleSelect, { target: { value: 'spending-transactions' } });
 
     // Mock file
-    const file = new File(['col1,col2\nval1,val2'], 'test.csv', { type: 'text/csv' });
-    const fileInput = screen.getByTestId('imports-file-input');
-    fireEvent.change(fileInput, { target: { files: [file] } });
+    const file = new File(['hello,world'], 'test.csv', { type: 'text/csv' });
+    const fileInput = await screen.findByTestId('imports-file-input');
+    await userEvent.upload(fileInput, file);
 
-    // Click upload
-    const uploadBtn = screen.getByTestId('imports-upload-validate');
-    fireEvent.click(uploadBtn);
+    // Wait for upload button to be enabled and click
+    const uploadBtn = await screen.findByTestId('imports-upload-validate');
+    expect(uploadBtn).not.toBeDisabled();
+    await userEvent.click(uploadBtn);
 
     await waitFor(() => {
       expect(uploadedFile).not.toBeNull();
@@ -295,8 +304,8 @@ describe('ImportsPage', () => {
     let uploadedTargetAccountId: string | null | undefined;
 
     server.use(
-      http.get('*/v1/finance/accounts', () =>
-        HttpResponse.json({
+      http.get('*/v1/finance/accounts', () => {
+        return HttpResponse.json({
           items: [
             {
               public_id: 'acc-checking',
@@ -311,8 +320,8 @@ describe('ImportsPage', () => {
           total: 1,
           limit: 200,
           offset: 0,
-        }),
-      ),
+        });
+      }),
       http.post('*/v1/imports', async ({ request }) => {
         const formData = await request.formData();
         uploadedTargetAccountId = formData.get('target_account_id') as string | null;
@@ -337,26 +346,24 @@ describe('ImportsPage', () => {
     // Not shown until spending-transactions is selected.
     expect(screen.queryByTestId('imports-target-account')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByTestId('imports-module-select'), {
-      target: { value: 'spending-transactions' },
-    });
+    // Wait for module select and change value
+    const moduleSelect = await screen.findByTestId('imports-module-select');
+    fireEvent.change(moduleSelect, { target: { value: 'spending-transactions' } });
     expect(await screen.findByTestId('imports-target-account')).toBeInTheDocument();
 
     // Not shown for a module spec-054 doesn't cover.
-    fireEvent.change(screen.getByTestId('imports-module-select'), {
-      target: { value: 'spending-budgets' },
-    });
+    fireEvent.change(moduleSelect, { target: { value: 'spending-budgets' } });
     expect(screen.queryByTestId('imports-target-account')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByTestId('imports-module-select'), {
-      target: { value: 'spending-transactions' },
-    });
+    fireEvent.change(moduleSelect, { target: { value: 'spending-transactions' } });
     fireEvent.click(await screen.findByTestId('imports-target-account'));
-    fireEvent.click(await screen.findByRole('option', { name: /Checking/ }));
+    // Use getByText with regex to select the option since cmdk CommandItem doesn't expose role="option"
+    fireEvent.click(screen.getByText(/Checking/));
 
     const file = new File(['col1,col2\nval1,val2'], 'test.csv', { type: 'text/csv' });
-    fireEvent.change(screen.getByTestId('imports-file-input'), { target: { files: [file] } });
-    fireEvent.click(screen.getByTestId('imports-upload-validate'));
+    const fileInput = await screen.findByTestId('imports-file-input');
+    await userEvent.upload(fileInput, file);
+    fireEvent.click(await screen.findByTestId('imports-upload-validate'));
 
     await waitFor(() => {
       expect(uploadedTargetAccountId).toBe('acc-checking');
@@ -412,7 +419,8 @@ describe('ImportsPage', () => {
     expect(screen.getByTestId('imports-upload-validate')).toBeDisabled();
 
     fireEvent.click(screen.getByTestId('imports-target-account-brokerage'));
-    fireEvent.click(await screen.findByRole('option', { name: /Zerodha/ }));
+    // Use getByText with regex to select the option since cmdk CommandItem doesn't expose role="option"
+    fireEvent.click(screen.getByText(/Zerodha/));
 
     expect(screen.getByTestId('imports-upload-validate')).not.toBeDisabled();
   });
@@ -423,9 +431,18 @@ describe('ImportsPage', () => {
     let uploadedPassword: string | null = null;
 
     server.use(
-      http.get('*/v1/finance/accounts', () =>
-        HttpResponse.json({
+      http.get('*/v1/finance/accounts', () => {
+        return HttpResponse.json({
           items: [
+            {
+              public_id: 'acc-checking',
+              name: 'Checking',
+              account_type: 'bank',
+              default_currency_code: 'USD',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
             {
               public_id: 'acc-zerodha',
               name: 'Zerodha',
@@ -436,11 +453,11 @@ describe('ImportsPage', () => {
               updated_at: '2026-01-01T00:00:00Z',
             },
           ],
-          total: 1,
+          total: 2,
           limit: 200,
           offset: 0,
-        }),
-      ),
+        });
+      }),
       http.post('*/v1/imports', async ({ request }) => {
         const formData = await request.formData();
         uploadedModule = formData.get('module') as string;
@@ -464,20 +481,22 @@ describe('ImportsPage', () => {
     renderWithQuery(<ImportsPage />);
     fireEvent.click(screen.getByText('New Import'));
 
-    fireEvent.change(screen.getByTestId('imports-module-select'), {
-      target: { value: 'investing-demat-cas' },
-    });
+    // Wait for module select and change value
+    const moduleSelect = await screen.findByTestId('imports-module-select');
+    fireEvent.change(moduleSelect, { target: { value: 'investing-demat-cas' } });
 
     fireEvent.click(await screen.findByTestId('imports-target-account-brokerage'));
-    fireEvent.click(await screen.findByRole('option', { name: /Zerodha/ }));
+    // Use getByText with regex to select the option since cmdk CommandItem doesn't expose role="option"
+    fireEvent.click(screen.getByText(/Zerodha/));
 
     fireEvent.change(screen.getByTestId('imports-file-password'), {
       target: { value: 'ABCDE1234F' },
     });
 
     const file = new File(['%PDF-1.4'], 'cas.pdf', { type: 'application/pdf' });
-    fireEvent.change(screen.getByTestId('imports-file-input'), { target: { files: [file] } });
-    fireEvent.click(screen.getByTestId('imports-upload-validate'));
+    const fileInput = await screen.findByTestId('imports-file-input');
+    await userEvent.upload(fileInput, file);
+    fireEvent.click(await screen.findByTestId('imports-upload-validate'));
 
     await waitFor(() => {
       expect(uploadedModule).toBe('investing-demat-cas');
