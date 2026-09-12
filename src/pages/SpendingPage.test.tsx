@@ -30,6 +30,11 @@ const renderWithQuery = (ui: React.ReactNode, initialEntry = '/spending') => {
   );
 };
 
+const chooseLedgerAccount = async () => {
+  fireEvent.click(screen.getByTestId('ledger-account-select'));
+  fireEvent.click(await screen.findByRole('option', { name: /My Wallet/ }));
+};
+
 const CATEGORY = {
   public_id: 'cat-food-id',
   name: 'Food',
@@ -853,9 +858,7 @@ describe('SpendingPage', () => {
 
     await screen.findByText('Spending Overview');
     fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    fireEvent.change(screen.getByTestId('ledger-account-select'), {
-      target: { value: ACCOUNT.public_id },
-    });
+    await chooseLedgerAccount();
 
     expect(await screen.findByText('No transactions for this account yet.')).toBeInTheDocument();
   });
@@ -896,9 +899,7 @@ describe('SpendingPage', () => {
     renderWithQuery(<SpendingPage />);
     await screen.findByText('Spending Overview');
     fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    fireEvent.change(screen.getByTestId('ledger-account-select'), {
-      target: { value: ACCOUNT.public_id },
-    });
+    await chooseLedgerAccount();
 
     await screen.findAllByText('latest-aug-4');
     expect(document.querySelectorAll('[data-daily-close="true"]')).toHaveLength(4);
@@ -981,9 +982,7 @@ describe('SpendingPage', () => {
     renderWithQuery(<SpendingPage />);
     await screen.findByText('Spending Overview');
     fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    fireEvent.change(screen.getByTestId('ledger-account-select'), {
-      target: { value: ACCOUNT.public_id },
-    });
+    await chooseLedgerAccount();
 
     // Transfer rows render in two responsive layouts (mobile cards + desktop table).
     expect((await screen.findAllByText('Transfer → Monthly top-up')).length).toBeGreaterThan(0);
@@ -1079,9 +1078,7 @@ describe('SpendingPage', () => {
     renderWithQuery(<SpendingPage />);
     await screen.findByText('Spending Overview');
     fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    fireEvent.change(screen.getByTestId('ledger-account-select'), {
-      target: { value: ACCOUNT.public_id },
-    });
+    await chooseLedgerAccount();
 
     expect((await screen.findAllByText('Transfer → Brokerage funding')).length).toBeGreaterThan(
       0,
@@ -1164,9 +1161,7 @@ describe('SpendingPage', () => {
     renderWithQuery(<SpendingPage />);
     await screen.findByText('Spending Overview');
     fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    fireEvent.change(screen.getByTestId('ledger-account-select'), {
-      target: { value: ACCOUNT.public_id },
-    });
+    await chooseLedgerAccount();
     await screen.findAllByText('Transfer → Monthly top-up');
 
     fireEvent.click(screen.getAllByTitle('Edit transfer')[0]);
@@ -1242,9 +1237,7 @@ describe('SpendingPage', () => {
     renderWithQuery(<SpendingPage />);
     await screen.findByText('Spending Overview');
     fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    fireEvent.change(screen.getByTestId('ledger-account-select'), {
-      target: { value: ACCOUNT.public_id },
-    });
+    await chooseLedgerAccount();
     await screen.findAllByText('Transfer → Self transfer edge case');
 
     fireEvent.click(screen.getAllByTitle('Edit transfer')[0]);

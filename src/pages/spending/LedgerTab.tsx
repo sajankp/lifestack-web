@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRightLeft, Edit2, Landmark, Tag, Trash2, Wallet } from 'lucide-react';
 import { SkeletonList } from '../../components/ui/FeedbackStates';
+import { DropdownSelect } from '../../components/DropdownSelect';
 import { Pagination } from '../../components/Pagination';
 import { spendingService } from '../../services/spending';
 import { financeService } from '../../services/finance';
@@ -117,6 +118,10 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
   });
 
   const currency = selectedAccount?.default_currency_code ?? 'USD';
+  const accountOptions = accounts.map((account) => ({
+    value: account.public_id,
+    label: `${account.name} (${account.account_type.replace('_', ' ')})`,
+  }));
   const ledgerItems = ledger?.items ?? [];
   // Suppress the first-row highlight while its page-boundary lookup is loading
   // by temporarily treating that row as its own newer predecessor.
@@ -157,19 +162,16 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
             <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
               Select Account
             </label>
-            <select
-              data-testid="ledger-account-select"
+            <DropdownSelect
+              testId="ledger-account-select"
               value={selectedAccountId}
-              onChange={(e) => onAccountChange(e.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-            >
-              <option value="">— Pick an account —</option>
-              {accounts.map((a) => (
-                <option key={a.public_id} value={a.public_id}>
-                  {a.name} ({a.account_type.replace('_', ' ')})
-                </option>
-              ))}
-            </select>
+              onChange={onAccountChange}
+              options={accountOptions}
+              placeholder="Pick an account"
+              clearLabel="All accounts"
+              showSearch
+              sortByLabel
+            />
           </div>
         </div>
       </div>
