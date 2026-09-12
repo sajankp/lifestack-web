@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRightLeft, Edit2, Landmark, Trash2, Wallet } from 'lucide-react';
+import { ArrowRightLeft, Edit2, Landmark, Tag, Trash2, Wallet } from 'lucide-react';
 import { SkeletonList } from '../../components/ui/FeedbackStates';
 import { Pagination } from '../../components/Pagination';
 import { spendingService } from '../../services/spending';
@@ -34,6 +34,11 @@ interface LedgerTabProps {
   onEditTransfer?: (transfer: CapitalTransfer) => void;
   onRequestDeleteTransfer?: (transfer: CapitalTransfer) => void;
   onAddTransfer?: () => void;
+  getCategoryTheme?: (catId: string | null) => {
+    name: string;
+    color: string;
+    icon?: string | null;
+  };
 }
 
 export const LedgerTab: React.FC<LedgerTabProps> = ({
@@ -50,6 +55,7 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
   onEditTransfer,
   onRequestDeleteTransfer,
   onAddTransfer,
+  getCategoryTheme,
 }) => {
   const formatCurrency = useCurrencyFormatter();
   const effectiveTimezone = useEffectiveTimezone();
@@ -290,7 +296,34 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm text-slate-200">{descLabel}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="truncate text-sm text-slate-200">{descLabel}</p>
+                            {!isTransfer && entry.category_id ? (
+                              (() => {
+                                const catTheme = getCategoryTheme?.(entry.category_id) ?? {
+                                  name: 'Unknown',
+                                  color: '#64748b',
+                                  icon: '',
+                                };
+                                return (
+                                  <span
+                                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                    style={{
+                                      backgroundColor: `${catTheme.color}20`,
+                                      color: catTheme.color,
+                                    }}
+                                  >
+                                    {catTheme.icon ? (
+                                      <span>{catTheme.icon}</span>
+                                    ) : (
+                                      <Tag className="h-2.5 w-2.5" />
+                                    )}
+                                    {catTheme.name}
+                                  </span>
+                                );
+                              })()
+                            ) : null}
+                          </div>
                           <p className="mt-0.5 text-xs text-slate-500">
                             {date}
                             {!isTransfer && entry.wallet_name ? ` · ${entry.wallet_name}` : ''}
@@ -371,6 +404,9 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                         Date
                       </th>
                       <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Category
+                      </th>
+                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
                         Description
                       </th>
                       <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 text-right">
@@ -428,6 +464,35 @@ export const LedgerTab: React.FC<LedgerTabProps> = ({
                         >
                           <td className="px-4 py-3 text-slate-400 whitespace-nowrap text-xs">
                             {date}
+                          </td>
+                          <td className="px-4 py-3">
+                            {!isTransfer && entry.category_id ? (
+                              (() => {
+                                const catTheme = getCategoryTheme?.(entry.category_id) ?? {
+                                  name: 'Unknown',
+                                  color: '#64748b',
+                                  icon: '',
+                                };
+                                return (
+                                  <span
+                                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                                    style={{
+                                      backgroundColor: `${catTheme.color}20`,
+                                      color: catTheme.color,
+                                    }}
+                                  >
+                                    {catTheme.icon ? (
+                                      <span>{catTheme.icon}</span>
+                                    ) : (
+                                      <Tag className="h-3 w-3" />
+                                    )}
+                                    {catTheme.name}
+                                  </span>
+                                );
+                              })()
+                            ) : (
+                              <span className="text-slate-500">—</span>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <span

@@ -266,6 +266,33 @@ describe('Capture panel verification', () => {
     expect(viewLink).toHaveAttribute('href', '/todo?id=123-uuid');
   });
 
+  it.each([
+    ['capital_transfer', 'Transfer', '/spending?tab=ledger'],
+    ['investment_dividend', 'Investment income', '/investing?tab=cash'],
+  ])('renders a route-aware confirmation card for %s', (entityType, label, href) => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+
+    act(() => {
+      ws.onmessage?.({
+        data: JSON.stringify({
+          type: 'tool_response',
+          name: entityType === 'capital_transfer' ? 'create_transfer' : 'create_investment_dividend',
+          status: 'success',
+          result: {
+            entity_type: entityType,
+            entity_public_id: `${entityType}-123`,
+            summary: `Saved ${label}`,
+          },
+        }),
+      });
+    });
+
+    expect(screen.getByText(label)).toBeVisible();
+    expect(screen.getByText(`Saved ${label}`)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'View →' })).toHaveAttribute('href', href);
+  });
+
   it('falls back to a generic card when entity_type is unknown', () => {
     renderWidget();
     const ws = openPanelAndGetSocket();

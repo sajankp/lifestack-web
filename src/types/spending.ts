@@ -85,7 +85,18 @@ export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 export type TransactionSort = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
 
 export const SourceMetadataSchema = z.object({
-  source_type: z.enum(['manual', 'imported', 'synced', 'assistant', 'extracted']).default('manual'),
+  source_type: z
+    .enum([
+      'manual',
+      'imported',
+      'synced',
+      'assistant',
+      'extracted',
+      'voice_agent',
+      'mcp_agent',
+      'order',
+    ])
+    .default('manual'),
   source_ref: z.string().nullable().default(null),
   origin: z
     .enum([
@@ -116,7 +127,18 @@ export const TransactionSchema = z.object({
   wallet_name: z.string().nullable().default(null),
   labels: z.string().nullable().default(null),
   tags: z.array(TagSchema).default([]),
-  source_type: z.enum(['manual', 'imported', 'synced', 'assistant', 'extracted']).optional(),
+  source_type: z
+    .enum([
+      'manual',
+      'imported',
+      'synced',
+      'assistant',
+      'extracted',
+      'voice_agent',
+      'mcp_agent',
+      'order',
+    ])
+    .optional(),
   source_ref: z.string().nullable().optional(),
   source_metadata: SourceMetadataSchema.optional(),
   created_at: z.string().default(''),

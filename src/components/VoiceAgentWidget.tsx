@@ -17,6 +17,8 @@ import {
   HelpCircle,
   CheckSquare,
   CreditCard,
+  ArrowRightLeft,
+  TrendingUp,
 } from 'lucide-react';
 import { VoiceAgentFailureAlert } from './VoiceAgentFailureAlert';
 import { useCaptureStore } from '../store/captureStore';
@@ -99,6 +101,16 @@ const CONFIRMATION_CARD_REGISTRY: Record<
     icon: CreditCard,
     label: 'Spending',
     getRoute: () => '/spending?tab=transactions',
+  },
+  capital_transfer: {
+    icon: ArrowRightLeft,
+    label: 'Transfer',
+    getRoute: () => '/spending?tab=ledger',
+  },
+  investment_dividend: {
+    icon: TrendingUp,
+    label: 'Investment income',
+    getRoute: () => '/investing?tab=cash',
   },
 };
 
