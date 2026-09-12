@@ -746,4 +746,126 @@ describe('ImportsPage', () => {
     });
     expect(screen.getByText('Import applied')).toBeInTheDocument();
   });
+
+  it('opens upload modal prefilled when deep-linked with target_account_id and upload=true', async () => {
+    server.use(
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-checking',
+              name: 'Main Checking',
+              account_type: 'bank',
+              default_currency_code: 'USD',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+    );
+
+    renderWithQuery(
+      <ImportsPage />,
+      '/imports/finance-account-statement?target_account_id=acc-checking&upload=true',
+    );
+
+    // Modal should be open automatically
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByTestId('imports-module-select')).toHaveValue('finance-account-statement');
+    expect(screen.getByTestId('imports-statement-date-format')).toHaveValue('yyyy-MM-dd');
+    expect(screen.getByTestId('imports-target-account-statement')).toBeInTheDocument();
+    expect(await screen.findByText(/Main Checking/)).toBeInTheDocument();
+  });
+
+  it('renders preview rows for finance-account-statement with Date, Description, Amount, and Balance', async () => {
+    const importId = '55555555-5555-5555-5555-555555555555';
+
+    server.use(
+      http.get('*/v1/imports', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: importId,
+              status: 'validated',
+              module: 'finance-account-statement',
+              filename: 'statement.csv',
+              content_type: 'text/csv',
+              file_size_bytes: 128,
+              file_sha256: 'abc',
+              storage_backend: 'db',
+              storage_key: null,
+              total_rows: 2,
+              valid_rows: 2,
+              error_rows: 0,
+              started_at: '2026-06-01T00:00:00Z',
+              validated_at: '2026-06-01T00:00:01Z',
+              committed_at: null,
+            },
+          ],
+          total: 1,
+          limit: 20,
+          offset: 0,
+        }),
+      ),
+      http.get(`*/v1/imports/${importId}`, () =>
+        HttpResponse.json({
+          import_batch: {
+            public_id: importId,
+            status: 'validated',
+            module: 'finance-account-statement',
+            filename: 'statement.csv',
+            content_type: 'text/csv',
+            file_size_bytes: 128,
+            file_sha256: 'abc',
+            storage_backend: 'db',
+            storage_key: null,
+            total_rows: 2,
+            valid_rows: 2,
+            error_rows: 0,
+            started_at: '2026-06-01T00:00:00Z',
+            validated_at: '2026-06-01T00:00:01Z',
+            committed_at: null,
+          },
+          errors: [],
+          error_summary: { total_errors: 0, returned_errors: 0, by_code: {}, by_field: {} },
+          preview_rows: [
+            {
+              row_number: 1,
+              payload_json: {
+                occurred_at: '2026-06-01',
+                description: 'Grocery store supermarket',
+                amount: '-45.20',
+                balance: '1200.00',
+              },
+            },
+            {
+              row_number: 2,
+              payload_json: {
+                occurred_at: '2026-06-02',
+                description: 'Salary deposit',
+                amount: '3000.00',
+                balance: '4200.00',
+              },
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithQuery(<ImportsPage />);
+
+    fireEvent.click(await screen.findByTestId(`imports-list-item-${importId}`));
+
+    expect(await screen.findByText('Grocery store supermarket')).toBeInTheDocument();
+    expect(screen.getByText('Salary deposit')).toBeInTheDocument();
+    expect(screen.getByText('-45.20')).toBeInTheDocument();
+    expect(screen.getByText('3,000.00')).toBeInTheDocument();
+    expect(screen.getByText('1,200.00')).toBeInTheDocument();
+    expect(screen.getByText('4,200.00')).toBeInTheDocument();
+  });
 });

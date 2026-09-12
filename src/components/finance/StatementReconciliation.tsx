@@ -153,7 +153,7 @@ export const StatementReconciliation: React.FC<StatementReconciliationProps> = (
           Statement reconciliation
         </span>
         <Link
-          to="/imports/finance-account-statement"
+          to={`/imports/finance-account-statement?target_account_id=${accountId}&upload=true`}
           className="flex items-center gap-1.5 rounded-lg border border-slate-700/50 bg-slate-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 transition-colors"
         >
           <Upload className="h-3.5 w-3.5" />

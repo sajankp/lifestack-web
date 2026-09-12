@@ -42,6 +42,7 @@ describe('analytics (spec-081)', () => {
     expect(key).toBe('test-key');
     expect(config).toMatchObject({
       autocapture: false,
+      capture_dead_clicks: false,
       disable_session_recording: true,
       person_profiles: 'identified_only',
       capture_exceptions: true,
