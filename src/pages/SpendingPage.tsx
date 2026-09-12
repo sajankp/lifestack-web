@@ -363,8 +363,22 @@ export const SpendingPage: React.FC = () => {
     });
   }, [legacyTab, location.pathname, location.search, navigate, pathTab]);
 
-  // Ledger tab state
-  const [ledgerAccountId, setLedgerAccountId] = useState('');
+  // The Account activity selection is URL state so refresh/reload preserves the
+  // account whose latest ledger data the user is viewing.
+  const ledgerAccountId = searchParams.get('account') ?? '';
+  const setLedgerAccountId = useCallback(
+    (nextAccountId: string) => {
+      setSearchParams(
+        (params) => {
+          if (nextAccountId) params.set('account', nextAccountId);
+          else params.delete('account');
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   const [showSourceCurrencyHint, setShowSourceCurrencyHint] = useState(() => {
     try {
       return window.localStorage.getItem(SOURCE_CURRENCY_HINT_DISMISSED_KEY) !== 'true';
