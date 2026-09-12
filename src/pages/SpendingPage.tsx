@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -118,6 +118,21 @@ const budgetFormSchema = z
     path: ['endMonth'],
   });
 
+type SpendingTab = 'transactions' | 'budgets' | 'kpis' | 'recurring' | 'analytics' | 'ledger';
+
+const SPENDING_TAB_ROUTES: Record<SpendingTab, string> = {
+  transactions: 'transactions',
+  budgets: 'budgets',
+  kpis: 'kpis',
+  recurring: 'recurring',
+  analytics: 'analytics',
+  ledger: 'account-activity',
+};
+
+const SPENDING_ROUTE_TABS = Object.fromEntries(
+  Object.entries(SPENDING_TAB_ROUTES).map(([tab, route]) => [route, tab]),
+) as Record<string, SpendingTab>;
+
 type BudgetFormValues = z.infer<typeof budgetFormSchema>;
 
 const recurringFormSchema = z
@@ -216,6 +231,8 @@ const TRANSACTION_SORT_OPTIONS: { value: TransactionSort; label: string }[] = [
 export const SpendingPage: React.FC = () => {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pendingDeleteTransactionId, setPendingDeleteTransactionId] = useState<string | null>(null);
@@ -301,19 +318,12 @@ export const SpendingPage: React.FC = () => {
   // specific month's breakdown can be selected independently of that filter.
   const [analyticsMonth, setAnalyticsMonth] = useState(() => getCurrentMonthValue());
 
-  // Tabs — deep-linkable via ?tab= so dashboard cues can land on the right one.
+  // Tabs are real child routes so browser refreshes preserve the active
+  // spending branch and remount its data queries. Legacy ?tab= links are
+  // redirected to their canonical child route below.
   // "Transfers" was merged into "Account activity" (formerly Ledger) — the
   // ledger already rendered transfer_in/out rows; it now also carries their
   // edit/delete affordances (UX-REVIEW Theme 3 / spec: money-movement restructure).
-  type SpendingTab = 'transactions' | 'budgets' | 'kpis' | 'recurring' | 'analytics' | 'ledger';
-  const SPENDING_TABS: SpendingTab[] = [
-    'transactions',
-    'budgets',
-    'kpis',
-    'recurring',
-    'analytics',
-    'ledger',
-  ];
   const tabTitles: Record<SpendingTab, string> = {
     transactions: 'Transactions',
     budgets: 'Budgets',
@@ -322,12 +332,36 @@ export const SpendingPage: React.FC = () => {
     analytics: 'Analytics',
     ledger: 'Account activity',
   };
-  const [activeTab, setActiveTab] = useState<SpendingTab>(() => {
-    const requested = new URLSearchParams(window.location.search).get('tab');
-    return (SPENDING_TABS as string[]).includes(requested ?? '')
-      ? (requested as SpendingTab)
-      : 'transactions';
-  });
+  const requestedLegacyTab = searchParams.get('tab');
+  const pathTab = SPENDING_ROUTE_TABS[location.pathname.slice('/spending/'.length)];
+  const legacyTab = requestedLegacyTab && requestedLegacyTab in SPENDING_TAB_ROUTES
+    ? (requestedLegacyTab as SpendingTab)
+    : null;
+  const activeTab = pathTab ?? legacyTab ?? 'transactions';
+
+  const setActiveTab = useCallback(
+    (nextTab: SpendingTab) => {
+      const params = new URLSearchParams(location.search);
+      params.delete('tab');
+      const query = params.toString();
+      navigate(`/spending/${SPENDING_TAB_ROUTES[nextTab]}${query ? `?${query}` : ''}`);
+    },
+    [location.search, navigate],
+  );
+
+  useEffect(() => {
+    const isSpendingRoot = location.pathname === '/spending' || location.pathname === '/spending/';
+    const isUnknownSpendingBranch = location.pathname.startsWith('/spending/') && !pathTab;
+    if (!isSpendingRoot && !isUnknownSpendingBranch) return;
+
+    const targetTab = legacyTab ?? 'transactions';
+    const params = new URLSearchParams(location.search);
+    params.delete('tab');
+    const query = params.toString();
+    navigate(`/spending/${SPENDING_TAB_ROUTES[targetTab]}${query ? `?${query}` : ''}`, {
+      replace: true,
+    });
+  }, [legacyTab, location.pathname, location.search, navigate, pathTab]);
 
   // Ledger tab state
   const [ledgerAccountId, setLedgerAccountId] = useState('');

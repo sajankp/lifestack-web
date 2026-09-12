@@ -38,7 +38,7 @@ describe('HistoricalDataPanel', () => {
     renderPanel();
     openDialog();
     const link = await screen.findByRole('link', { name: /Import Net Worth CSV/ });
-    expect(link).toHaveAttribute('href', '/imports?module=finance-net-worth-history');
+    expect(link).toHaveAttribute('href', '/imports/finance-net-worth-history');
   });
 
   it('lists existing user points and deletes one', async () => {
@@ -109,7 +109,7 @@ describe('HistoricalDataPanel', () => {
     // Import routes to the shared /imports flow (spec-074); management (list +
     // delete of existing user rates) stays inline on the panel.
     const link = screen.getByRole('link', { name: /Import FX Rates CSV/ });
-    expect(link).toHaveAttribute('href', '/imports?module=finance-fx-rates');
+    expect(link).toHaveAttribute('href', '/imports/finance-fx-rates');
 
     fireEvent.click(screen.getByLabelText('Delete rate'));
     await waitFor(() => expect(deleted).toBe(true));

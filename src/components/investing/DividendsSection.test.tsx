@@ -111,7 +111,7 @@ describe('DividendsSection', () => {
     );
     renderSection();
     const link = await screen.findByRole('link', { name: /Bulk import/ });
-    expect(link).toHaveAttribute('href', '/imports?module=investing-dividends');
+    expect(link).toHaveAttribute('href', '/imports/investing-dividends');
   });
 
   it('deletes a dividend after confirmation', async () => {

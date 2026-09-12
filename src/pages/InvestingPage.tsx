@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpDown, ChartNoAxesCombined, Landmark, PiggyBank, Plus, WalletCards } from 'lucide-react';
 import { financeService } from '../services/finance';
@@ -44,16 +44,27 @@ import { queryKeys } from '../lib/queryKeys';
 
 const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
 
-const VALID_TABS = ['holdings', 'orders', 'cash', 'analytics'] as const;
+type InvestingTab = 'holdings' | 'orders' | 'cash' | 'analytics';
+const INVESTING_TAB_ROUTES: Record<InvestingTab, string> = {
+  holdings: 'holdings',
+  orders: 'orders',
+  cash: 'cash',
+  analytics: 'analytics',
+};
+const INVESTING_ROUTE_TABS: Record<string, InvestingTab> = Object.fromEntries(
+  Object.entries(INVESTING_TAB_ROUTES).map(([tab, route]) => [route, tab]),
+) as Record<string, InvestingTab>;
 
 export const InvestingPage: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
-  const [tab, setTab] = useState<'holdings' | 'orders' | 'cash' | 'analytics'>(
-    (VALID_TABS as readonly string[]).includes(requestedTab ?? '')
-      ? (requestedTab as (typeof VALID_TABS)[number])
-      : 'holdings',
-  );
+  const pathTab = INVESTING_ROUTE_TABS[location.pathname.slice('/investing/'.length)];
+  const legacyTab = requestedTab && requestedTab in INVESTING_TAB_ROUTES
+    ? (requestedTab as InvestingTab)
+    : null;
+  const tab = pathTab ?? legacyTab ?? 'holdings';
 
   // The Holdings empty state deep-links here as ?tab=orders&order=1 to open
   // the Place Order flow directly; consume the params once, then strip them.
@@ -63,22 +74,38 @@ export const InvestingPage: React.FC = () => {
   const [isPlaceOrderModalOpen, setIsPlaceOrderModalOpen] = useState(false);
   React.useEffect(() => {
     if (requestedTab || shouldAutoOpenOrder) {
-      if (requestedTab && (VALID_TABS as readonly string[]).includes(requestedTab)) {
-        setTab(requestedTab as (typeof VALID_TABS)[number]);
-      }
       if (shouldAutoOpenOrder) {
         setIsPlaceOrderModalOpen(true);
       }
-      setSearchParams(
-        (params) => {
-          params.delete('tab');
-          params.delete('order');
-          return params;
-        },
-        { replace: true },
-      );
+      if (requestedTab) {
+        const params = new URLSearchParams(location.search);
+        params.delete('tab');
+        params.delete('order');
+        navigate(`/investing/${INVESTING_TAB_ROUTES[legacyTab ?? 'holdings']}${params.toString() ? `?${params}` : ''}`, {
+          replace: true,
+        });
+      } else {
+        setSearchParams(
+          (params) => {
+            params.delete('order');
+            return params;
+          },
+          { replace: true },
+        );
+      }
     }
-  }, [requestedTab, shouldAutoOpenOrder, setSearchParams]);
+  }, [location.search, navigate, requestedTab, shouldAutoOpenOrder, setSearchParams, legacyTab]);
+
+  React.useEffect(() => {
+    const isInvestingRoot = location.pathname === '/investing' || location.pathname === '/investing/';
+    const isUnknownInvestingBranch = location.pathname.startsWith('/investing/') && !pathTab;
+    if (!isInvestingRoot && !isUnknownInvestingBranch) return;
+    const params = new URLSearchParams(location.search);
+    params.delete('tab');
+    navigate(`/investing/${INVESTING_TAB_ROUTES[legacyTab ?? 'holdings']}${params.toString() ? `?${params}` : ''}`, {
+      replace: true,
+    });
+  }, [legacyTab, location.pathname, location.search, navigate, pathTab]);
 
   const summary = useQuery({
     queryKey: queryKeys.investing.summary(),
@@ -580,7 +607,7 @@ export const InvestingPage: React.FC = () => {
 
       <Tabs
         value={tab}
-        onValueChange={(value) => setTab(value as 'holdings' | 'orders' | 'cash' | 'analytics')}
+        onValueChange={(value) => navigate(`/investing/${INVESTING_TAB_ROUTES[value as InvestingTab]}`)}
       >
         <div className="-mx-1 mb-6 overflow-x-auto px-1 pb-1">
           <TabsList className="min-w-max">

@@ -2,14 +2,19 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../components/ui/toast';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useLocation } from 'react-router';
 import { http, HttpResponse } from 'msw';
 
 import { SpendingPage } from './SpendingPage';
 import { server } from '../test/setup';
 import { useAuthStore } from '../store/authStore';
 
-const renderWithQuery = (ui: React.ReactNode) => {
+const LocationProbe = () => {
+  const location = useLocation();
+  return <output data-testid="route-location">{`${location.pathname}${location.search}`}</output>;
+};
+
+const renderWithQuery = (ui: React.ReactNode, initialEntry = '/spending') => {
   const client = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -19,7 +24,7 @@ const renderWithQuery = (ui: React.ReactNode) => {
   return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <MemoryRouter>{ui}</MemoryRouter>
+        <MemoryRouter initialEntries={[initialEntry]}>{ui}</MemoryRouter>
       </ToastProvider>
     </QueryClientProvider>,
   );
@@ -145,6 +150,35 @@ beforeEach(() => {
 });
 
 describe('SpendingPage', () => {
+  it('uses a refreshable child route for Account activity', async () => {
+    renderWithQuery(
+      <>
+        <SpendingPage />
+        <LocationProbe />
+      </>,
+      '/spending/account-activity',
+    );
+
+    expect(await screen.findByText('Viewing Account activity')).toBeInTheDocument();
+    expect(screen.getByTestId('spending-tab-ledger')).toHaveClass('text-cyan-400');
+    expect(screen.getByTestId('route-location')).toHaveTextContent('/spending/account-activity');
+  });
+
+  it('redirects legacy tab links to canonical child routes', async () => {
+    renderWithQuery(
+      <>
+        <SpendingPage />
+        <LocationProbe />
+      </>,
+      '/spending?tab=ledger',
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('route-location')).toHaveTextContent('/spending/account-activity');
+    });
+    expect(screen.queryByText('Viewing Transactions')).not.toBeInTheDocument();
+  });
+
   it('renders page hero and summary cards', async () => {
     server.use(...baseHandlers);
     renderWithQuery(<SpendingPage />);

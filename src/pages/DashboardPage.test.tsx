@@ -277,11 +277,11 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('Get started')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-onboarding-step-currency')).toHaveAttribute(
       'href',
-      '/settings?tab=currency',
+      '/settings/currency',
     );
     expect(screen.getByTestId('dashboard-onboarding-step-account')).toHaveAttribute(
       'href',
-      '/settings?tab=accounts',
+      '/settings/accounts',
     );
     expect(screen.getByText('0 of 4 steps done')).toBeInTheDocument();
   });

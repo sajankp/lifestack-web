@@ -115,7 +115,7 @@ function App() {
           />
 
           <Route
-            path="/todo"
+            path="/todo/*"
             element={
               <Layout>
                 <TodoPage />
@@ -133,7 +133,7 @@ function App() {
           />
 
           <Route
-            path="/spending"
+            path="/spending/*"
             element={
               <Layout>
                 <SpendingPage />
@@ -141,7 +141,7 @@ function App() {
             }
           />
           <Route
-            path="/investing"
+            path="/investing/*"
             element={
               <Layout>
                 <InvestingPage />
@@ -174,7 +174,7 @@ function App() {
             }
           />
           <Route
-            path="/imports"
+            path="/imports/*"
             element={
               <Layout>
                 <ImportsPage />
@@ -190,7 +190,7 @@ function App() {
             }
           />
           <Route
-            path="/settings"
+            path="/settings/*"
             element={
               <Layout>
                 <MasterConfigPage />

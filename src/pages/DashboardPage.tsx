@@ -111,13 +111,13 @@ export const DashboardPage: React.FC = () => {
       id: 'currency',
       label: 'Set your reporting currency',
       done: Boolean(userFinanceSettings?.workspace_reporting_currency_code),
-      to: '/settings?tab=currency',
+      to: '/settings/currency',
     },
     {
       id: 'account',
       label: 'Add your first account',
       done: (accountsData?.total ?? 0) > 0,
-      to: '/settings?tab=accounts',
+      to: '/settings/accounts',
     },
     {
       id: 'activity',
@@ -198,7 +198,7 @@ export const DashboardPage: React.FC = () => {
               accent="from-cyan-500/25 to-sky-500/10"
             />
             <MetricCard
-              to="/spending?tab=budgets"
+              to="/spending/budgets"
               label="This month spent"
               value={formatCurrency(
                 data.spending.month_spent,
@@ -369,7 +369,7 @@ export const DashboardPage: React.FC = () => {
                 )}
                 {guardrailAlerts > 0 && (
                   <Link
-                    to="/spending?tab=budgets"
+                    to="/spending/budgets"
                     data-testid="dashboard-cue-budget-guardrails"
                     className="flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-950/20 p-4 text-amber-200 transition hover:border-amber-500/40 hover:bg-amber-950/30"
                   >
@@ -386,7 +386,7 @@ export const DashboardPage: React.FC = () => {
                 )}
                 {overspentCategories.length > 0 && (
                   <Link
-                    to="/spending?tab=budgets"
+                    to="/spending/budgets"
                     data-testid="dashboard-cue-overspent-budgets"
                     className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-950/20 p-4 text-rose-200 transition hover:border-rose-500/40 hover:bg-rose-950/30"
                   >

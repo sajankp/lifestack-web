@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ChevronDown, Edit2, Link2, LockKeyhole, Trash2, Unplug } from 'lucide-react';
 import { financeService } from '../services/finance';
@@ -42,6 +42,18 @@ const SETTINGS_TABS = [
   'danger',
 ] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
+const SETTINGS_TAB_ROUTES: Record<SettingsTab, string> = {
+  preferences: 'preferences',
+  security: 'security',
+  currency: 'currency',
+  accounts: 'accounts',
+  categories: 'categories',
+  summaries: 'summaries',
+  danger: 'danger',
+};
+const SETTINGS_ROUTE_TABS: Record<string, SettingsTab> = Object.fromEntries(
+  Object.entries(SETTINGS_TAB_ROUTES).map(([tab, route]) => [route, tab]),
+) as Record<string, SettingsTab>;
 
 const cadenceDayOptions = [
   { value: '0', label: 'Monday' },
@@ -103,32 +115,41 @@ const decimalPlacesOptions = [
 
 export const MasterConfigPage: React.FC = () => {
   const { locale: displayLocale } = useDisplayProfile();
+  const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const setSession = useAuthStore((state) => state.setSession);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTab = searchParams.get('tab');
-  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>(
-    (SETTINGS_TABS as readonly string[]).includes(requestedTab ?? '')
-      ? (requestedTab as SettingsTab)
-      : 'currency',
-  );
+  const requestedTab = new URLSearchParams(location.search).get('tab');
+  const pathTab = SETTINGS_ROUTE_TABS[location.pathname.slice('/settings/'.length)];
+  const legacyTab = requestedTab && requestedTab in SETTINGS_TAB_ROUTES
+    ? (requestedTab as SettingsTab)
+    : null;
+  const activeSettingsTab = pathTab ?? legacyTab ?? 'currency';
 
   // Deep links (e.g. from the Dashboard onboarding checklist or the Net
   // Worth currency banner) land here with ?tab=accounts; sync once, then
   // strip the param so it doesn't fight manual tab clicks afterward.
   React.useEffect(() => {
     if (requestedTab && (SETTINGS_TABS as readonly string[]).includes(requestedTab)) {
-      setActiveSettingsTab(requestedTab as SettingsTab);
-      setSearchParams(
-        (params) => {
-          params.delete('tab');
-          return params;
-        },
-        { replace: true },
-      );
+      const params = new URLSearchParams(location.search);
+      params.delete('tab');
+      navigate(`/settings/${SETTINGS_TAB_ROUTES[legacyTab ?? 'currency']}${params.toString() ? `?${params}` : ''}`, {
+        replace: true,
+      });
     }
-  }, [requestedTab, setSearchParams]);
+  }, [location.search, navigate, requestedTab, legacyTab]);
+
+  React.useEffect(() => {
+    const isSettingsRoot = location.pathname === '/settings' || location.pathname === '/settings/';
+    const isUnknownSettingsBranch = location.pathname.startsWith('/settings/') && !pathTab;
+    if (!isSettingsRoot && !isUnknownSettingsBranch) return;
+    const params = new URLSearchParams(location.search);
+    params.delete('tab');
+    navigate(`/settings/${SETTINGS_TAB_ROUTES[legacyTab ?? 'currency']}${params.toString() ? `?${params}` : ''}`, {
+      replace: true,
+    });
+  }, [legacyTab, location.pathname, location.search, navigate, pathTab]);
 
   const [newAccountName, setNewAccountName] = useState('');
   const detectedTimezone = browserTimezone() || 'UTC';
@@ -721,7 +742,7 @@ export const MasterConfigPage: React.FC = () => {
 
       <Tabs
         value={activeSettingsTab}
-        onValueChange={(value) => setActiveSettingsTab(value as SettingsTab)}
+        onValueChange={(value) => navigate(`/settings/${SETTINGS_TAB_ROUTES[value as SettingsTab]}`)}
       >
         <TabsList>
           <TabsTrigger value="preferences" data-testid="settings-tab-preferences">
