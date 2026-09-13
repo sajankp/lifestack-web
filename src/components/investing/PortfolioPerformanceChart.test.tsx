@@ -22,6 +22,9 @@ describe('PortfolioPerformanceChart', () => {
           currency: 'USD',
           net_change: '1500.00',
           net_change_pct: '3.00',
+          benchmark_symbol: 'SPY',
+          benchmark_return_pct: '1.50',
+          alpha_pct: '1.50',
           points: [
             {
               snapshot_date: '2026-08-01',
@@ -30,6 +33,8 @@ describe('PortfolioPerformanceChart', () => {
               cash_balance: '2000.00',
               unrealized_gain: '5000.00',
               unrealized_gain_pct: '11.11',
+              benchmark_value: '50000.00',
+              benchmark_return_pct: '0.00',
             },
             {
               snapshot_date: '2026-09-01',
@@ -38,6 +43,8 @@ describe('PortfolioPerformanceChart', () => {
               cash_balance: '2000.00',
               unrealized_gain: '6500.00',
               unrealized_gain_pct: '14.44',
+              benchmark_value: '50750.00',
+              benchmark_return_pct: '1.50',
             },
           ],
         }),
@@ -51,6 +58,8 @@ describe('PortfolioPerformanceChart', () => {
     expect(screen.getByText('Cost Basis')).toBeInTheDocument();
     expect(screen.getByText('$51,500.00')).toBeInTheDocument();
     expect(screen.getByText('+$1,500.00')).toBeInTheDocument();
+    expect(screen.getByText('+1.50%')).toBeInTheDocument();
+    expect(screen.getByText(/Benchmark \(SPY\)/)).toBeInTheDocument();
 
 
     // Range buttons

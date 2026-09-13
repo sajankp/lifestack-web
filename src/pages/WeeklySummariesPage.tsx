@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CalendarDays, Plus, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Plus, RefreshCw, Sparkles } from 'lucide-react';
 import { summariesService } from '../services/summaries';
 import { queryKeys } from '../lib/queryKeys';
 import { PageHero } from '../components/layout/PageHero';
@@ -289,6 +289,35 @@ export const WeeklySummariesPage: React.FC = () => {
                         <li key={`${flag.type}-${index}`}>{flag.message}</li>
                       ))}
                     </ul>
+                  </div>
+                )}
+                {((item.behavioral_correlations?.length ?? 0) > 0 ||
+                  (item.highlights?.behavioral_correlations?.length ?? 0) > 0) && (
+                  <div className="mt-3 rounded-xl border border-emerald-800/50 bg-emerald-950/20 p-4" data-testid="behavioral-correlations-section">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Behavioral Correlations & Cross-Module Synergies
+                    </div>
+                    <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
+                      {(item.behavioral_correlations?.length
+                        ? item.behavioral_correlations
+                        : item.highlights?.behavioral_correlations ?? []
+                      ).map((corr, idx) => (
+                        <div
+                          key={`${corr.type}-${idx}`}
+                          className="rounded-lg border border-emerald-700/30 bg-slate-900/50 p-3"
+                        >
+                          {corr.title && (
+                            <p className="text-xs font-semibold text-emerald-400 mb-1">
+                              {corr.title}
+                            </p>
+                          )}
+                          <p className="text-xs text-slate-300 leading-relaxed">
+                            {corr.message}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </article>

@@ -81,4 +81,32 @@ describe('DividendTrajectoryCard', () => {
 
     expect(await screen.findByText(/No dividend payments recorded yet/)).toBeInTheDocument();
   });
+
+  it('correctly handles backend API schema fields (monthly_history, trailing_12m_dividends, total_dividends_received, payment_count)', async () => {
+    server.use(
+      http.get('*/v1/investing/dividends/history', () =>
+        HttpResponse.json({
+          currency: 'USD',
+          trailing_12m_dividends: '2400.00',
+          total_dividends_received: '5000.00',
+          monthly_history: [
+            {
+              month: '2026-08',
+              gross_amount: '220.00',
+              tax_withheld: '20.00',
+              net_amount: '200.00',
+              payment_count: 4,
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderComponent();
+
+    expect(await screen.findByText('Dividend Income Trajectory')).toBeInTheDocument();
+    expect(screen.getByText('$2,400.00')).toBeInTheDocument();
+    expect(screen.getByText('$200.00')).toBeInTheDocument();
+    expect(screen.getByText('$5,000.00')).toBeInTheDocument();
+  });
 });

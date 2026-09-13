@@ -514,20 +514,46 @@ export const PortfolioAllocationResponseSchema = z.object({
 });
 export type PortfolioAllocationResponse = z.infer<typeof PortfolioAllocationResponseSchema>;
 
-export const MonthlyDividendPointSchema = z.object({
-  month: z.string().default(''),
-  gross_amount: z.union([z.number(), z.string()]).default(0),
-  net_amount: z.union([z.number(), z.string()]).default(0),
-  count: z.number().default(0),
-});
+export const MonthlyDividendPointSchema = z
+  .object({
+    month: z.string().default(''),
+    gross_amount: z.union([z.number(), z.string()]).default(0),
+    tax_withheld: z.union([z.number(), z.string()]).optional().default(0),
+    net_amount: z.union([z.number(), z.string()]).default(0),
+    payment_count: z.number().optional(),
+    count: z.number().optional(),
+  })
+  .transform((data) => ({
+    ...data,
+    payment_count: data.payment_count ?? data.count ?? 0,
+    count: data.count ?? data.payment_count ?? 0,
+  }));
 export type MonthlyDividendPoint = z.infer<typeof MonthlyDividendPointSchema>;
 
-export const DividendHistoryResponseSchema = z.object({
-  currency: z.string().default('USD'),
-  points: z.array(MonthlyDividendPointSchema).default([]),
-  trailing_12m_total: z.union([z.number(), z.string()]).default(0),
-  all_time_total: z.union([z.number(), z.string()]).default(0),
-});
+export const DividendHistoryResponseSchema = z
+  .object({
+    currency: z.string().default('USD'),
+    monthly_history: z.array(MonthlyDividendPointSchema).optional(),
+    points: z.array(MonthlyDividendPointSchema).optional(),
+    trailing_12m_dividends: z.union([z.number(), z.string()]).optional(),
+    trailing_12m_total: z.union([z.number(), z.string()]).optional(),
+    total_dividends_received: z.union([z.number(), z.string()]).optional(),
+    all_time_total: z.union([z.number(), z.string()]).optional(),
+  })
+  .transform((data) => {
+    const pointsList = data.monthly_history ?? data.points ?? [];
+    const trailing12m = data.trailing_12m_dividends ?? data.trailing_12m_total ?? 0;
+    const allTime = data.total_dividends_received ?? data.all_time_total ?? 0;
+    return {
+      currency: data.currency,
+      monthly_history: pointsList,
+      points: pointsList,
+      trailing_12m_dividends: trailing12m,
+      trailing_12m_total: trailing12m,
+      total_dividends_received: allTime,
+      all_time_total: allTime,
+    };
+  });
 export type DividendHistoryResponse = z.infer<typeof DividendHistoryResponseSchema>;
 
 
