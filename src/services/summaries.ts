@@ -1,12 +1,17 @@
 import type { z } from 'zod';
 import api from './api';
 import { paginatedSchema } from '../types/common';
-import { WeeklySummarySchema, WorkspaceSummarySettingSchema } from '../types/summaries';
-import type { WeeklySummary, WorkspaceSummarySetting } from '../types/summaries';
+import {
+  MonthlySummarySchema,
+  WeeklySummarySchema,
+  WorkspaceSummarySettingSchema,
+} from '../types/summaries';
+import type { MonthlySummary, WeeklySummary, WorkspaceSummarySetting } from '../types/summaries';
 
-export type { WeeklySummary, WorkspaceSummarySetting } from '../types/summaries';
+export type { MonthlySummary, WeeklySummary, WorkspaceSummarySetting } from '../types/summaries';
 
 const PaginatedWeeklySummariesSchema = paginatedSchema(WeeklySummarySchema);
+const PaginatedMonthlySummariesSchema = paginatedSchema(MonthlySummarySchema);
 
 export const summariesService = {
   listWeekly: async (
@@ -30,6 +35,35 @@ export const summariesService = {
     });
     return WeeklySummarySchema.parse(res.data);
   },
+  listMonthly: async (
+    limit = 20,
+    offset = 0,
+  ): Promise<z.infer<typeof PaginatedMonthlySummariesSchema>> => {
+    const res = await api.get('/summaries/monthly', { params: { limit, offset } });
+    return PaginatedMonthlySummariesSchema.parse(res.data);
+  },
+  latestMonthly: async (): Promise<MonthlySummary> => {
+    const res = await api.get('/summaries/monthly/latest');
+    return MonthlySummarySchema.parse(res.data);
+  },
+  getMonthlyById: async (summaryId: string): Promise<MonthlySummary> => {
+    const res = await api.get(`/summaries/monthly/${summaryId}`);
+    return MonthlySummarySchema.parse(res.data);
+  },
+  markMonthlyRead: async (summaryId: string): Promise<MonthlySummary> => {
+    const res = await api.post(`/summaries/monthly/${summaryId}/read`);
+    return MonthlySummarySchema.parse(res.data);
+  },
+  regenerateMonthly: async (summaryId: string, reason?: string): Promise<MonthlySummary> => {
+    const res = await api.post(`/summaries/monthly/${summaryId}/regenerate`, {
+      reason: reason || null,
+    });
+    return MonthlySummarySchema.parse(res.data);
+  },
+  generateMonthly: async (year: number, month: number): Promise<MonthlySummary> => {
+    const res = await api.post('/summaries/monthly/generate', { year, month });
+    return MonthlySummarySchema.parse(res.data);
+  },
   getCadenceSettings: async (): Promise<WorkspaceSummarySetting> => {
     const res = await api.get('/summaries/weekly/settings');
     return WorkspaceSummarySettingSchema.parse(res.data);
@@ -42,3 +76,4 @@ export const summariesService = {
     return WorkspaceSummarySettingSchema.parse(res.data);
   },
 };
+

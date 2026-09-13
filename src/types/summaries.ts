@@ -106,9 +106,19 @@ export const WeeklySummarySchema = z.object({
 });
 export type WeeklySummary = z.infer<typeof WeeklySummarySchema>;
 
+export const MonthlySummarySchema = WeeklySummarySchema.omit({
+  week_start: true,
+  week_end: true,
+}).extend({
+  month_start: z.string().default(''),
+  month_end: z.string().default(''),
+});
+export type MonthlySummary = z.infer<typeof MonthlySummarySchema>;
+
 export const WorkspaceSummarySettingSchema = z.object({
   cadence_day_of_week: z.number().default(0),
   cadence_hour_utc: z.number().default(1),
   updated_at: z.string().default(''),
 });
 export type WorkspaceSummarySetting = z.infer<typeof WorkspaceSummarySettingSchema>;
+

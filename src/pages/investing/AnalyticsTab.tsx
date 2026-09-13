@@ -28,6 +28,10 @@ import type {
   InstrumentType,
 } from '../../types/investing';
 import { formatDateInput, instrumentTypeLabel, instrumentTypeOptions } from './format';
+import { PortfolioPerformanceChart } from '../../components/investing/PortfolioPerformanceChart';
+import { PortfolioAllocationCard } from '../../components/investing/PortfolioAllocationCard';
+import { DividendTrajectoryCard } from '../../components/investing/DividendTrajectoryCard';
+
 
 const EMPTY_IDENTITY: IdentifierFieldsValue = { ticker: '', isin: '', exchange: '' };
 
@@ -350,7 +354,22 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
           <h3 className="font-semibold text-white text-base">Analytics</h3>
         </div>
 
+        {/* Portfolio Performance Over Time Chart */}
+        <PortfolioPerformanceChart currencyDisplayPreference={currencyDisplayPreference} />
+
+        {/* Portfolio Asset & Sector Allocation + Dividend Trajectory */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <PortfolioAllocationCard
+            asOf={analyticsAsOf}
+            currencyDisplayPreference={currencyDisplayPreference}
+          />
+          <DividendTrajectoryCard
+            currencyDisplayPreference={currencyDisplayPreference}
+          />
+        </div>
+
         {/* Instrument/constituent authoring is workspace setup, not a daily
+
             analytics action — tucked behind an Advanced disclosure so it
             doesn't compete with the read-only analytics below (UX-REVIEW D5). */}
         <details className="group rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4">

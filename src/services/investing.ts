@@ -14,6 +14,9 @@ import {
   PaginatedCorporateActionsSchema,
   PaginatedDividendsSchema,
   PerformanceSummarySchema,
+  PerformanceHistoryResponseSchema,
+  PortfolioAllocationResponseSchema,
+  DividendHistoryResponseSchema,
   ReferenceResolveResultSchema,
   ReturnMetricsResponseSchema,
 } from '../types/investing';
@@ -43,9 +46,13 @@ import type {
   OrderType,
   OverlapAnalytics,
   PerformanceSummary,
+  PerformanceHistoryResponse,
+  PortfolioAllocationResponse,
+  DividendHistoryResponse,
   ReferenceResolveResult,
   ReturnMetricsResponse,
 } from '../types/investing';
+
 
 // Schemas and types live in src/types/investing.ts (G4); re-exported here so
 // existing `from '../services/investing'` imports keep working.
@@ -226,6 +233,29 @@ export const investingService = {
     const response = await api.get('/investing/performance/returns');
     return ReturnMetricsResponseSchema.parse(response.data);
   },
+
+  getPerformanceHistory: async (params?: {
+    account_id?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<PerformanceHistoryResponse> => {
+    const response = await api.get('/investing/performance/history', { params });
+    return PerformanceHistoryResponseSchema.parse(response.data);
+  },
+
+  getAllocationAnalytics: async (asOf?: string): Promise<PortfolioAllocationResponse> => {
+    const response = await api.get('/investing/analytics/allocation', {
+      params: asOf ? { as_of: asOf } : undefined,
+    });
+    return PortfolioAllocationResponseSchema.parse(response.data);
+  },
+
+  getDividendHistory: async (): Promise<DividendHistoryResponse> => {
+    const response = await api.get('/investing/dividends/history');
+    return DividendHistoryResponseSchema.parse(response.data);
+  },
+
+
 
   refreshPrices: async (): Promise<{ updated: string[] }> => {
     const response = await api.post('/investing/prices/refresh');

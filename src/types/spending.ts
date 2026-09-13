@@ -538,3 +538,51 @@ export const LedgerResponseSchema = z.object({
 });
 
 export type LedgerResponse = z.infer<typeof LedgerResponseSchema>;
+
+export const CategoryPacingItemSchema = z.object({
+  category_id: z.string().default(''),
+  category_name: z.string().default(''),
+  category_color: z.string().nullable().optional(),
+  category_icon: z.string().nullable().optional(),
+  actual_spend: z.union([z.number(), z.string()]).default(0),
+  daily_burn_rate: z.union([z.number(), z.string()]).default(0),
+  projected_spend: z.union([z.number(), z.string()]).default(0),
+  budget_amount: z.union([z.number(), z.string()]).nullable().optional(),
+  budget_consumed_pct: z.union([z.number(), z.string()]).nullable().optional(),
+  pacing_status: z.string().optional(),
+  status: z.string().optional(),
+  is_recurring: z.boolean().default(false),
+});
+
+export type CategoryPacingItem = z.infer<typeof CategoryPacingItemSchema>;
+
+export const SpendPacingResponseSchema = z.object({
+  currency: z.string().nullable().default(null),
+  month: z.string().default(''),
+  days_in_month: z.number().default(0),
+  days_elapsed: z.number().default(0),
+  days_remaining: z.number().default(0),
+  month_elapsed_pct: z.union([z.number(), z.string()]).optional(),
+  month_progress_pct: z.union([z.number(), z.string()]).optional(),
+  total_spent: z.union([z.number(), z.string()]).optional(),
+  actual_spend: z.union([z.number(), z.string()]).optional(),
+  daily_burn_rate: z.union([z.number(), z.string()]).default(0),
+  projected_spend: z.union([z.number(), z.string()]).optional(),
+  projected_month_end_spend: z.union([z.number(), z.string()]).optional(),
+  fixed_spend: z.union([z.number(), z.string()]).optional(),
+  discretionary_spend: z.union([z.number(), z.string()]).optional(),
+  fixed_burn_rate: z.union([z.number(), z.string()]).optional(),
+  discretionary_burn_rate: z.union([z.number(), z.string()]).optional(),
+  total_budget: z.union([z.number(), z.string()]).nullable().default(null),
+  budget_consumed_pct: z.union([z.number(), z.string()]).nullable().default(null),
+  target_pace_pct: z.union([z.number(), z.string()]).optional(),
+  pacing_status: z.string().optional(),
+  status: z.string().optional(),
+  pacing_delta_pct: z.union([z.number(), z.string()]).nullable().optional(),
+  pacing_delta: z.union([z.number(), z.string()]).nullable().optional(),
+  categories: z.array(CategoryPacingItemSchema).default([]),
+});
+
+export type SpendPacingResponse = z.infer<typeof SpendPacingResponseSchema>;
+
+

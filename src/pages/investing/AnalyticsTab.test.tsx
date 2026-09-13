@@ -63,6 +63,32 @@ const mockAnalyticsEndpoints = (instruments: unknown[] = []) => {
     http.get('*/v1/investing/instruments', () => HttpResponse.json(instruments)),
     http.get('*/v1/investing/analytics/exposure', () => HttpResponse.json(EMPTY_EXPOSURE)),
     http.get('*/v1/investing/analytics/overlap', () => HttpResponse.json(EMPTY_OVERLAP)),
+    http.get('*/v1/investing/performance/history', () =>
+      HttpResponse.json({ currency: 'USD', points: [], net_change: '0', net_change_pct: '0' }),
+    ),
+    http.get('*/v1/investing/analytics/allocation', () =>
+      HttpResponse.json({
+        currency: 'USD',
+        total_portfolio_value: '0.00',
+        as_of: '2026-09-13T00:00:00Z',
+        by_asset_class: [],
+        by_sector: [],
+      }),
+    ),
+    http.get('*/v1/investing/dividends/history', () =>
+      HttpResponse.json({
+        currency: 'USD',
+        trailing_12m_total: '0.00',
+        all_time_total: '0.00',
+        points: [],
+      }),
+    ),
+    http.get('*/v1/finance/settings/user', () =>
+      HttpResponse.json({
+        base_currency: 'USD',
+        currency_display_preference: 'symbol',
+      }),
+    ),
   );
 };
 
