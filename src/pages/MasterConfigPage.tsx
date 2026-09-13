@@ -1,11 +1,19 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ChevronDown, Edit2, Link2, LockKeyhole, Trash2, Unplug } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, Edit2, Layers, Link2, LockKeyhole, Plus, Search, Trash2, Unplug } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { spendingService } from '../services/spending';
 import { platformService } from '../services/platform';
 import { summariesService } from '../services/summaries';
+import {
+  investingService,
+  type Instrument,
+  type InstrumentType,
+  type InstrumentCreate,
+  type InstrumentUpdate,
+  type InstrumentConstituentUpsert,
+} from '../services/investing';
 import { AccountTypeBadge, CurrencyBadge, StatusBadge } from '../components/finance/Badges';
 import { DropdownSelect } from '../components/DropdownSelect';
 import { PageHero } from '../components/layout/PageHero';
@@ -38,6 +46,7 @@ const SETTINGS_TABS = [
   'currency',
   'accounts',
   'categories',
+  'instruments',
   'summaries',
   'danger',
 ] as const;
@@ -48,12 +57,19 @@ const SETTINGS_TAB_ROUTES: Record<SettingsTab, string> = {
   currency: 'currency',
   accounts: 'accounts',
   categories: 'categories',
+  instruments: 'instruments',
   summaries: 'summaries',
   danger: 'danger',
 };
 const SETTINGS_ROUTE_TABS: Record<string, SettingsTab> = Object.fromEntries(
   Object.entries(SETTINGS_TAB_ROUTES).map(([tab, route]) => [route, tab]),
 ) as Record<string, SettingsTab>;
+
+const instrumentTypeOptions = [
+  { value: 'stock', label: 'Stock (Equity)' },
+  { value: 'etf', label: 'ETF (Exchange-Traded Fund)' },
+  { value: 'mutual_fund', label: 'Mutual Fund' },
+] as const;
 
 const cadenceDayOptions = [
   { value: '0', label: 'Monday' },
@@ -218,6 +234,36 @@ export const MasterConfigPage: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirmation, setNewPasswordConfirmation] = useState('');
 
+  // Instruments & Asset Classes master state
+  const [instrumentSearch, setInstrumentSearch] = useState('');
+  const [instrumentTypeFilter, setInstrumentTypeFilter] = useState<'all' | InstrumentType>('all');
+  const [isAddInstrumentOpen, setIsAddInstrumentOpen] = useState(false);
+  const [newInstrumentSymbol, setNewInstrumentSymbol] = useState('');
+  const [newInstrumentName, setNewInstrumentName] = useState('');
+  const [newInstrumentType, setNewInstrumentType] = useState<InstrumentType>('stock');
+  const [newInstrumentTicker, setNewInstrumentTicker] = useState('');
+  const [newInstrumentIsin, setNewInstrumentIsin] = useState('');
+  const [newInstrumentExchange, setNewInstrumentExchange] = useState('');
+  const [createInstrumentError, setCreateInstrumentError] = useState<string | null>(null);
+
+  const [editingInstrument, setEditingInstrument] = useState<Instrument | null>(null);
+  const [editingInstrumentName, setEditingInstrumentName] = useState('');
+  const [editingInstrumentType, setEditingInstrumentType] = useState<InstrumentType>('stock');
+  const [editingInstrumentTicker, setEditingInstrumentTicker] = useState('');
+  const [editingInstrumentIsin, setEditingInstrumentIsin] = useState('');
+  const [editingInstrumentExchange, setEditingInstrumentExchange] = useState('');
+  const [editInstrumentError, setEditInstrumentError] = useState<string | null>(null);
+
+  const [constituentsInstrument, setConstituentsInstrument] = useState<Instrument | null>(null);
+  const [constituentsAsOf, setConstituentsAsOf] = useState(new Date().toISOString().slice(0, 10));
+  const [constituentsSource, setConstituentsSource] = useState('Quarterly Factsheet');
+  const [constituentRows, setConstituentRows] = useState<
+    Array<{ company_name: string; company_ticker: string; company_isin: string; weight: string }>
+  >([{ company_name: '', company_ticker: '', company_isin: '', weight: '' }]);
+  const [constituentPasteText, setConstituentPasteText] = useState('');
+  const [constituentsError, setConstituentsError] = useState<string | null>(null);
+  const [constituentsSuccess, setConstituentsSuccess] = useState(false);
+
   const { activeWorkspace: currentWorkspace } = useActiveWorkspace(true);
   const activeWorkspaceId = currentWorkspace?.public_id;
 
@@ -263,6 +309,12 @@ export const MasterConfigPage: React.FC = () => {
     setMergeTargetId('');
     setMergeSourceIds([]);
     setMergeError(null);
+    setIsAddInstrumentOpen(false);
+    setEditingInstrument(null);
+    setConstituentsInstrument(null);
+    setCreateInstrumentError(null);
+    setEditInstrumentError(null);
+    setConstituentsError(null);
   }, [activeWorkspaceId]);
 
   const { data: demoResetStatus, isLoading: isDemoResetStatusLoading } = useQuery({
@@ -339,6 +391,71 @@ export const MasterConfigPage: React.FC = () => {
     queryKey: queryKeys.masterConfig.categoryGroups(),
     queryFn: () => spendingService.getCategoryGroups(200, 0),
   });
+  const { data: instruments = [], isLoading: isInstrumentsLoading } = useQuery({
+    queryKey: queryKeys.investing.instruments(),
+    queryFn: () => investingService.getInstruments(),
+  });
+
+  const createInstrumentMutation = useMutation({
+    mutationFn: (data: InstrumentCreate) => investingService.createInstrument(data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.investing.instruments() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.investing.all });
+      setIsAddInstrumentOpen(false);
+      setNewInstrumentSymbol('');
+      setNewInstrumentName('');
+      setNewInstrumentType('stock');
+      setNewInstrumentTicker('');
+      setNewInstrumentIsin('');
+      setNewInstrumentExchange('');
+      setCreateInstrumentError(null);
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        (err as Error)?.message ??
+        'Failed to create instrument';
+      setCreateInstrumentError(msg);
+    },
+  });
+
+  const updateInstrumentMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: InstrumentUpdate }) =>
+      investingService.updateInstrument(id, data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.investing.instruments() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.investing.all });
+      setEditingInstrument(null);
+      setEditInstrumentError(null);
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        (err as Error)?.message ??
+        'Failed to update instrument';
+      setEditInstrumentError(msg);
+    },
+  });
+
+  const upsertConstituentsMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: InstrumentConstituentUpsert }) =>
+      investingService.upsertInstrumentConstituents(id, data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.investing.all });
+      setConstituentsSuccess(true);
+      setTimeout(() => {
+        setConstituentsInstrument(null);
+        setConstituentsSuccess(false);
+        setConstituentRows([{ company_name: '', company_ticker: '', company_isin: '', weight: '' }]);
+        setConstituentPasteText('');
+        setConstituentsError(null);
+      }, 800);
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        (err as Error)?.message ??
+        'Failed to save constituents';
+      setConstituentsError(msg);
+    },
+  });
 
   const accounts = accountsResponse?.items ?? [];
   const categories = categoriesResponse?.items ?? [];
@@ -355,6 +472,97 @@ export const MasterConfigPage: React.FC = () => {
     () => categories.map((c) => ({ value: c.public_id, label: c.name })),
     [categories],
   );
+
+  const filteredInstruments = useMemo(() => {
+    return instruments.filter((inst) => {
+      if (instrumentTypeFilter !== 'all' && inst.instrument_type !== instrumentTypeFilter) {
+        return false;
+      }
+      if (!instrumentSearch.trim()) return true;
+      const q = instrumentSearch.toLowerCase();
+      return (
+        inst.symbol.toLowerCase().includes(q) ||
+        inst.name.toLowerCase().includes(q) ||
+        (inst.ticker && inst.ticker.toLowerCase().includes(q)) ||
+        (inst.isin && inst.isin.toLowerCase().includes(q)) ||
+        (inst.exchange && inst.exchange.toLowerCase().includes(q))
+      );
+    });
+  }, [instruments, instrumentTypeFilter, instrumentSearch]);
+
+  const handleOpenEditInstrument = (inst: Instrument) => {
+    setEditingInstrument(inst);
+    setEditingInstrumentName(inst.name);
+    setEditingInstrumentType(inst.instrument_type);
+    setEditingInstrumentTicker(inst.ticker ?? '');
+    setEditingInstrumentIsin(inst.isin ?? '');
+    setEditingInstrumentExchange(inst.exchange ?? '');
+    setEditInstrumentError(null);
+  };
+
+  const handleOpenConstituents = (inst: Instrument) => {
+    setConstituentsInstrument(inst);
+    setConstituentsAsOf(new Date().toISOString().slice(0, 10));
+    setConstituentsSource('Quarterly Factsheet');
+    setConstituentRows([
+      { company_name: '', company_ticker: '', company_isin: '', weight: '' },
+    ]);
+    setConstituentPasteText('');
+    setConstituentsError(null);
+    setConstituentsSuccess(false);
+  };
+
+  const handleParseConstituentPaste = () => {
+    if (!constituentPasteText.trim()) return;
+    const lines = constituentPasteText.split('\n').map((l) => l.trim()).filter(Boolean);
+    const parsed = lines
+      .map((line) => {
+        const parts = line.includes('\t') ? line.split('\t') : line.split(',');
+        const trimmed = parts.map((p) => p.trim());
+        const name = trimmed[0] || '';
+        let ticker = '';
+        let isin = '';
+        let weightStr = '';
+        if (trimmed.length === 2) {
+          weightStr = trimmed[1];
+        } else if (trimmed.length === 3) {
+          ticker = trimmed[1];
+          weightStr = trimmed[2];
+        } else if (trimmed.length >= 4) {
+          ticker = trimmed[1];
+          isin = trimmed[2];
+          weightStr = trimmed[3];
+        }
+        return {
+          company_name: name,
+          company_ticker: ticker,
+          company_isin: isin,
+          weight: weightStr,
+        };
+      })
+      .filter((r) => r.company_name);
+
+    if (parsed.length > 0) {
+      setConstituentRows(parsed);
+      setConstituentPasteText('');
+    }
+  };
+
+  const totalConstituentWeightPct = useMemo(() => {
+    let sum = 0;
+    for (const row of constituentRows) {
+      const cleanWeight = row.weight.replace('%', '').trim();
+      const val = parseFloat(cleanWeight);
+      if (!isNaN(val)) {
+        if (val <= 1.0 && cleanWeight.includes('.')) {
+          sum += val * 100;
+        } else {
+          sum += val;
+        }
+      }
+    }
+    return sum;
+  }, [constituentRows]);
 
   React.useEffect(() => {
     setReportingCurrency(settings?.reporting_currency_code ?? '');
@@ -760,6 +968,9 @@ export const MasterConfigPage: React.FC = () => {
           <TabsTrigger value="categories" data-testid="settings-tab-categories">
             Categories & Groups
           </TabsTrigger>
+          <TabsTrigger value="instruments" data-testid="settings-tab-instruments">
+            Instruments & Asset Classes
+          </TabsTrigger>
           <TabsTrigger value="summaries" data-testid="settings-tab-summaries">
             Weekly Summaries
           </TabsTrigger>
@@ -832,9 +1043,9 @@ export const MasterConfigPage: React.FC = () => {
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {(['google', 'github'] as const).map((provider) => {
-                const linked = authIdentities?.providers.includes(provider);
+                const linked = Boolean(authIdentities?.providers?.includes(provider));
                 const canUnlink = Boolean(
-                  authIdentities?.has_password || (authIdentities?.providers.length ?? 0) > 1,
+                  authIdentities?.has_password || (authIdentities?.providers?.length ?? 0) > 1,
                 );
                 return (
                   <Button
@@ -1791,6 +2002,190 @@ export const MasterConfigPage: React.FC = () => {
           </section>
         </TabsContent>
 
+        <TabsContent value="instruments" className="space-y-6">
+          <section
+            data-testid="master-instruments-section"
+            className="rounded-2xl border border-slate-700/50 bg-slate-900/50 p-6"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Instruments & Asset Classes</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Master registry for securities, asset class mappings, exchange identifiers, and fund constituent lookthrough weights.
+                </p>
+              </div>
+              <Button
+                type="button"
+                data-testid="master-instrument-create-open"
+                onClick={() => setIsAddInstrumentOpen(true)}
+                className="shrink-0 flex items-center gap-1.5"
+              >
+                <Plus className="h-4 w-4" />
+                Add Instrument
+              </Button>
+            </div>
+
+            {/* Filter / Search Bar */}
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <Input
+                  data-testid="master-instrument-search"
+                  className="pl-9"
+                  placeholder="Search symbol, name, ISIN, ticker..."
+                  value={instrumentSearch}
+                  onChange={(e) => setInstrumentSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-medium">Asset Class:</span>
+                <div className="flex items-center gap-1 rounded-lg bg-slate-950/60 p-1 border border-slate-800">
+                  {(['all', 'stock', 'etf', 'mutual_fund'] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      data-testid={`master-instrument-filter-${type}`}
+                      onClick={() => setInstrumentTypeFilter(type)}
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                        instrumentTypeFilter === type
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {type === 'all'
+                        ? 'All'
+                        : type === 'stock'
+                          ? 'Stocks'
+                          : type === 'etf'
+                            ? 'ETFs'
+                            : 'Mutual Funds'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Instruments Table */}
+            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/40">
+              <table className="w-full text-left text-sm" data-testid="master-instruments-table">
+                <thead className="border-b border-slate-800 bg-slate-900/60 text-xs font-semibold text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3">Symbol & Name</th>
+                    <th className="px-4 py-3">Asset Class</th>
+                    <th className="px-4 py-3">Identifiers</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                  {filteredInstruments.map((inst) => (
+                    <tr
+                      key={inst.public_id}
+                      data-testid={`master-instrument-row-${inst.public_id}`}
+                      className="hover:bg-slate-900/30 transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-white">{inst.symbol}</div>
+                        <div className="text-xs text-slate-400">{inst.name}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {inst.instrument_type === 'stock' && (
+                          <span className="inline-flex items-center rounded-full bg-cyan-950/70 border border-cyan-800/60 px-2.5 py-0.5 text-xs font-semibold text-cyan-300">
+                            Stock
+                          </span>
+                        )}
+                        {inst.instrument_type === 'etf' && (
+                          <span className="inline-flex items-center rounded-full bg-violet-950/70 border border-violet-800/60 px-2.5 py-0.5 text-xs font-semibold text-violet-300">
+                            ETF
+                          </span>
+                        )}
+                        {inst.instrument_type === 'mutual_fund' && (
+                          <span className="inline-flex items-center rounded-full bg-emerald-950/70 border border-emerald-800/60 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
+                            Mutual Fund
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1.5 text-xs">
+                          {inst.ticker && (
+                            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-slate-300">
+                              Ticker: <strong className="text-white">{inst.ticker}</strong>
+                            </span>
+                          )}
+                          {inst.isin && (
+                            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-slate-300">
+                              ISIN: <strong className="text-white">{inst.isin}</strong>
+                            </span>
+                          )}
+                          {inst.exchange && (
+                            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-slate-300">
+                              Ex: <strong className="text-white">{inst.exchange}</strong>
+                            </span>
+                          )}
+                          {!inst.ticker && !inst.isin && !inst.exchange && (
+                            <span className="text-slate-500 italic">None</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            inst.is_active
+                              ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800/40'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          {inst.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          {(inst.instrument_type === 'etf' || inst.instrument_type === 'mutual_fund') && (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              data-testid={`master-instrument-constituents-${inst.public_id}`}
+                              onClick={() => handleOpenConstituents(inst)}
+                              className="text-xs h-7 px-2 flex items-center gap-1 text-slate-300 hover:text-white"
+                            >
+                              <Layers className="h-3.5 w-3.5" />
+                              Constituents
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            data-testid={`master-instrument-edit-${inst.public_id}`}
+                            onClick={() => handleOpenEditInstrument(inst)}
+                            className="text-xs h-7 px-2 flex items-center gap-1 text-slate-300 hover:text-white"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                            Edit
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredInstruments.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                        {isInstrumentsLoading
+                          ? 'Loading instruments...'
+                          : instrumentSearch.trim()
+                            ? 'No instruments match your search filter.'
+                            : 'No instruments found. Click "Add Instrument" to create your first security.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </TabsContent>
+
         <TabsContent value="summaries" className="space-y-6">
           <section
             data-testid="master-summary-cadence-settings"
@@ -2134,6 +2529,449 @@ export const MasterConfigPage: React.FC = () => {
               }
             >
               {isResetting ? 'Resetting...' : 'Reset & Seed'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Instrument Dialog */}
+      <Dialog
+        open={isAddInstrumentOpen}
+        onOpenChange={(open) => {
+          setIsAddInstrumentOpen(open);
+          if (!open) {
+            setCreateInstrumentError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Instrument</DialogTitle>
+            <DialogDescription>
+              Register a security, fund, or asset in the master reference table.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-xs text-slate-300">Symbol (Unique ticker / code)*</Label>
+              <Input
+                data-testid="master-instrument-new-symbol"
+                value={newInstrumentSymbol}
+                onChange={(e) => setNewInstrumentSymbol(e.target.value.toUpperCase())}
+                placeholder="e.g. SPY, AAPL, VOO"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-300">Name*</Label>
+              <Input
+                data-testid="master-instrument-new-name"
+                value={newInstrumentName}
+                onChange={(e) => setNewInstrumentName(e.target.value)}
+                placeholder="e.g. SPDR S&P 500 ETF Trust"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-300">Asset Class / Type*</Label>
+              <DropdownSelect
+                testId="master-instrument-new-type"
+                value={newInstrumentType}
+                onChange={(val) => setNewInstrumentType(val as InstrumentType)}
+                options={instrumentTypeOptions}
+                placeholder="Select asset class"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs text-slate-300">Ticker (Optional)</Label>
+                <Input
+                  data-testid="master-instrument-new-ticker"
+                  value={newInstrumentTicker}
+                  onChange={(e) => setNewInstrumentTicker(e.target.value)}
+                  placeholder="e.g. SPY"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-300">Exchange (Optional)</Label>
+                <Input
+                  data-testid="master-instrument-new-exchange"
+                  value={newInstrumentExchange}
+                  onChange={(e) => setNewInstrumentExchange(e.target.value)}
+                  placeholder="e.g. NYSE, NASDAQ"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-300">ISIN (Optional)</Label>
+              <Input
+                data-testid="master-instrument-new-isin"
+                value={newInstrumentIsin}
+                onChange={(e) => setNewInstrumentIsin(e.target.value.toUpperCase())}
+                placeholder="e.g. US78462F1030"
+              />
+            </div>
+            {createInstrumentError && (
+              <p className="text-xs text-rose-400" data-testid="master-instrument-create-error">
+                {createInstrumentError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsAddInstrumentOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              data-testid="master-instrument-create-submit"
+              disabled={
+                createInstrumentMutation.isPending ||
+                !newInstrumentSymbol.trim() ||
+                !newInstrumentName.trim()
+              }
+              onClick={() =>
+                createInstrumentMutation.mutate({
+                  symbol: newInstrumentSymbol.trim(),
+                  name: newInstrumentName.trim(),
+                  instrument_type: newInstrumentType,
+                  ticker: newInstrumentTicker.trim() || undefined,
+                  isin: newInstrumentIsin.trim() || undefined,
+                  exchange: newInstrumentExchange.trim() || undefined,
+                })
+              }
+            >
+              {createInstrumentMutation.isPending ? 'Creating...' : 'Create Instrument'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Instrument Dialog */}
+      <Dialog
+        open={Boolean(editingInstrument)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingInstrument(null);
+            setEditInstrumentError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Instrument ({editingInstrument?.symbol})</DialogTitle>
+            <DialogDescription>
+              Update security metadata, asset classification, and market identifiers.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <Label className="text-xs text-slate-300">Name*</Label>
+              <Input
+                data-testid="master-instrument-edit-name"
+                value={editingInstrumentName}
+                onChange={(e) => setEditingInstrumentName(e.target.value)}
+                placeholder="e.g. SPDR S&P 500 ETF Trust"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-300">Asset Class / Type*</Label>
+              <DropdownSelect
+                testId="master-instrument-edit-type"
+                value={editingInstrumentType}
+                onChange={(val) => setEditingInstrumentType(val as InstrumentType)}
+                options={instrumentTypeOptions}
+                placeholder="Select asset class"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs text-slate-300">Ticker</Label>
+                <Input
+                  data-testid="master-instrument-edit-ticker"
+                  value={editingInstrumentTicker}
+                  onChange={(e) => setEditingInstrumentTicker(e.target.value)}
+                  placeholder="e.g. SPY"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-300">Exchange</Label>
+                <Input
+                  data-testid="master-instrument-edit-exchange"
+                  value={editingInstrumentExchange}
+                  onChange={(e) => setEditingInstrumentExchange(e.target.value)}
+                  placeholder="e.g. NYSE, NASDAQ"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-300">ISIN</Label>
+              <Input
+                data-testid="master-instrument-edit-isin"
+                value={editingInstrumentIsin}
+                onChange={(e) => setEditingInstrumentIsin(e.target.value.toUpperCase())}
+                placeholder="e.g. US78462F1030"
+              />
+            </div>
+            {editInstrumentError && (
+              <p className="text-xs text-rose-400" data-testid="master-instrument-edit-error">
+                {editInstrumentError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setEditingInstrument(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              data-testid="master-instrument-edit-save"
+              disabled={updateInstrumentMutation.isPending || !editingInstrumentName.trim()}
+              onClick={() => {
+                if (!editingInstrument) return;
+                updateInstrumentMutation.mutate({
+                  id: editingInstrument.public_id,
+                  data: {
+                    name: editingInstrumentName.trim(),
+                    instrument_type: editingInstrumentType,
+                    ticker: editingInstrumentTicker.trim() || undefined,
+                    isin: editingInstrumentIsin.trim() || undefined,
+                    exchange: editingInstrumentExchange.trim() || undefined,
+                  },
+                });
+              }}
+            >
+              {updateInstrumentMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Constituents Dialog */}
+      <Dialog
+        open={Boolean(constituentsInstrument)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConstituentsInstrument(null);
+            setConstituentsError(null);
+            setConstituentsSuccess(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Constituent Breakdown — {constituentsInstrument?.symbol}</DialogTitle>
+            <DialogDescription>
+              Configure underlying holding constituents and weights for portfolio lookthrough and exposure analytics.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-300">As of Date (YYYY-MM-DD)*</Label>
+                <Input
+                  type="date"
+                  data-testid="master-constituents-as-of"
+                  value={constituentsAsOf}
+                  onChange={(e) => setConstituentsAsOf(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-300">Source (e.g. Quarterly Factsheet)*</Label>
+                <Input
+                  data-testid="master-constituents-source"
+                  value={constituentsSource}
+                  onChange={(e) => setConstituentsSource(e.target.value)}
+                  placeholder="e.g. Quarterly Factsheet, 13F"
+                />
+              </div>
+            </div>
+
+            {/* Quick Bulk Paste */}
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-300">Quick Bulk Paste</span>
+                <span className="text-[11px] text-slate-500">Format: Name, Ticker, ISIN, Weight%</span>
+              </div>
+              <textarea
+                data-testid="master-constituents-paste"
+                value={constituentPasteText}
+                onChange={(e) => setConstituentPasteText(e.target.value)}
+                placeholder="Apple Inc, AAPL, US0378331005, 0.075&#10;Microsoft Corp, MSFT, US5949181045, 0.065"
+                rows={2}
+                className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                data-testid="master-constituents-paste-apply"
+                onClick={handleParseConstituentPaste}
+                disabled={!constituentPasteText.trim()}
+                className="text-xs h-7"
+              >
+                Apply Paste
+              </Button>
+            </div>
+
+            {/* Rows Table */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-300">
+                    Constituent Holdings ({constituentRows.length})
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      Math.abs(totalConstituentWeightPct - 100) < 0.1 ||
+                      (totalConstituentWeightPct > 90 && totalConstituentWeightPct <= 100.5)
+                        ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-800/60'
+                        : 'bg-amber-950/70 text-amber-300 border border-amber-800/60'
+                    }`}
+                  >
+                    Weight Sum: {totalConstituentWeightPct.toFixed(1)}%
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() =>
+                    setConstituentRows((prev) => [
+                      ...prev,
+                      { company_name: '', company_ticker: '', company_isin: '', weight: '' },
+                    ])
+                  }
+                  className="text-xs h-7 flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" /> Add Row
+                </Button>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                {constituentRows.map((row, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Input
+                      className="flex-2 text-xs h-8"
+                      placeholder="Company Name*"
+                      value={row.company_name}
+                      onChange={(e) => {
+                        const updated = [...constituentRows];
+                        updated[idx].company_name = e.target.value;
+                        setConstituentRows(updated);
+                      }}
+                    />
+                    <Input
+                      className="w-24 text-xs h-8"
+                      placeholder="Ticker"
+                      value={row.company_ticker}
+                      onChange={(e) => {
+                        const updated = [...constituentRows];
+                        updated[idx].company_ticker = e.target.value.toUpperCase();
+                        setConstituentRows(updated);
+                      }}
+                    />
+                    <Input
+                      className="w-32 text-xs h-8"
+                      placeholder="ISIN"
+                      value={row.company_isin}
+                      onChange={(e) => {
+                        const updated = [...constituentRows];
+                        updated[idx].company_isin = e.target.value.toUpperCase();
+                        setConstituentRows(updated);
+                      }}
+                    />
+                    <Input
+                      className="w-24 text-xs h-8"
+                      placeholder="Weight (0.05)"
+                      value={row.weight}
+                      onChange={(e) => {
+                        const updated = [...constituentRows];
+                        updated[idx].weight = e.target.value;
+                        setConstituentRows(updated);
+                      }}
+                    />
+                    {constituentRows.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConstituentRows((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                        className="text-slate-500 hover:text-rose-400 p-1"
+                        aria-label="Remove row"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {constituentsError && (
+              <p className="text-xs text-rose-400" data-testid="master-constituents-error">
+                {constituentsError}
+              </p>
+            )}
+            {constituentsSuccess && (
+              <p className="text-xs text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Constituent breakdown saved successfully!
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setConstituentsInstrument(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              data-testid="master-constituents-save"
+              disabled={
+                upsertConstituentsMutation.isPending ||
+                !constituentsInstrument ||
+                !constituentsAsOf ||
+                constituentRows.filter((r) => r.company_name.trim()).length === 0
+              }
+              onClick={() => {
+                if (!constituentsInstrument) return;
+                const validRows = constituentRows
+                  .filter((r) => r.company_name.trim())
+                  .map((r) => {
+                    const cleanW = r.weight.replace('%', '').trim();
+                    let num = parseFloat(cleanW);
+                    if (isNaN(num)) num = 0;
+                    if (num > 1.0) num = num / 100;
+                    return {
+                      company_name: r.company_name.trim(),
+                      company_ticker: r.company_ticker.trim() || undefined,
+                      company_isin: r.company_isin.trim() || undefined,
+                      weight: num.toFixed(4),
+                    };
+                  });
+
+                upsertConstituentsMutation.mutate({
+                  id: constituentsInstrument.public_id,
+                  data: {
+                    as_of_date: constituentsAsOf,
+                    source: constituentsSource.trim() || 'Quarterly Factsheet',
+                    fetched_at: new Date().toISOString(),
+                    constituents: validRows,
+                  },
+                });
+              }}
+            >
+              {upsertConstituentsMutation.isPending ? 'Saving...' : 'Save Breakdown'}
             </Button>
           </DialogFooter>
         </DialogContent>
