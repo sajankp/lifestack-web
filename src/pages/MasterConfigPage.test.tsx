@@ -881,11 +881,11 @@ describe('MasterConfigPage', () => {
     const workspaceId = '77777777-7777-7777-7777-777777777777';
     useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
 
-    let createdPayload: any = null;
+    let createdPayload: Record<string, unknown> | null = null;
 
     server.use(
       http.post('*/v1/investing/instruments', async ({ request }) => {
-        createdPayload = await request.json();
+        createdPayload = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json({
           public_id: 'inst-new',
           ...createdPayload,
@@ -929,7 +929,7 @@ describe('MasterConfigPage', () => {
     const workspaceId = '77777777-7777-7777-7777-777777777777';
     useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
 
-    let upsertPayload: any = null;
+    let upsertPayload: { constituents?: Array<Record<string, unknown>> } | null = null;
 
     server.use(
       http.get('*/v1/investing/instruments', () =>
@@ -949,14 +949,17 @@ describe('MasterConfigPage', () => {
         ]),
       ),
       http.post('*/v1/investing/instruments/inst-etf-1/constituents', async ({ request }) => {
-        upsertPayload = await request.json();
+        upsertPayload = (await request.json()) as {
+          constituents?: Array<Record<string, unknown>>;
+        };
         return HttpResponse.json([
           {
             public_id: 'const-1',
             company_name: 'Apple Inc',
             company_ticker: 'AAPL',
             company_isin: 'US0378331005',
-            weight: 0.088,
+            weight: '0.0880',
+            as_of_date: '2026-06-11',
           },
         ]);
       }),
@@ -983,7 +986,7 @@ describe('MasterConfigPage', () => {
 
     await waitFor(() => {
       expect(upsertPayload).toBeDefined();
-      expect(upsertPayload.constituents[0]).toEqual({
+      expect(upsertPayload?.constituents?.[0]).toEqual({
         company_name: 'Apple Inc',
         company_ticker: 'AAPL',
         company_isin: 'US0378331005',
