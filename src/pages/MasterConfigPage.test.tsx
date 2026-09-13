@@ -10,7 +10,7 @@ import { server } from '../test/setup';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { useAuthStore } from '../store/authStore';
 
-const renderWithQuery = (ui: React.ReactNode) => {
+const renderWithQuery = (ui: React.ReactNode, initialEntries?: string[]) => {
   const client = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -20,7 +20,7 @@ const renderWithQuery = (ui: React.ReactNode) => {
   return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <MemoryRouter>{ui}</MemoryRouter>
+        <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
       </ToastProvider>
     </QueryClientProvider>,
   );
@@ -85,6 +85,9 @@ const commonHandlers = (workspaceId: string, workspaceName: string) => [
       updated_at: '2026-06-10T00:00:00Z',
     }),
   ),
+  http.get('*/v1/spending/categories', () =>
+    HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+  ),
   http.get('*/v1/spending/category-groups', () =>
     HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
   ),
@@ -93,6 +96,13 @@ const commonHandlers = (workspaceId: string, workspaceName: string) => [
       cadence_day_of_week: 0,
       cadence_hour_utc: 1,
       updated_at: '2026-06-10T00:00:00Z',
+    }),
+  ),
+  http.get('*/v1/investing/instruments', () => HttpResponse.json([])),
+  http.get('*/v1/auth/me/auth-identities', () =>
+    HttpResponse.json({
+      has_password: true,
+      providers: [],
     }),
   ),
 ];
@@ -588,30 +598,6 @@ describe('MasterConfigPage', () => {
     useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
 
     server.use(
-      http.get('*/v1/platform/workspaces/', () =>
-        HttpResponse.json({
-          items: [
-            {
-              public_id: workspaceId,
-              name: 'Delta Workspace',
-              description: null,
-              is_active: true,
-              role: 'owner',
-            },
-          ],
-        }),
-      ),
-      http.get(`*/v1/platform/workspaces/${workspaceId}/reset-demo/status`, () =>
-        HttpResponse.json({
-          enabled: true,
-          allowed: true,
-          workspace_public_id: workspaceId,
-          workspace_name: 'Delta Workspace',
-          role: 'owner',
-          reason: null,
-        }),
-      ),
-      http.get('*/v1/finance/currencies', () => HttpResponse.json([])),
       http.get('*/v1/finance/accounts', () =>
         HttpResponse.json({
           items: [
@@ -630,37 +616,7 @@ describe('MasterConfigPage', () => {
           offset: 0,
         }),
       ),
-      http.get('*/v1/finance/settings', () =>
-        HttpResponse.json({
-          reporting_currency_code: null,
-          currency_display_preference: 'symbol',
-          updated_at: '2026-06-10T00:00:00Z',
-        }),
-      ),
-      http.get('*/v1/finance/settings/user', () =>
-        HttpResponse.json({
-          reporting_currency_override_code: null,
-          currency_display_preference_override: null,
-          workspace_reporting_currency_code: null,
-          workspace_currency_display_preference: 'symbol',
-          effective_reporting_currency_code: null,
-          effective_currency_display_preference: 'symbol',
-          updated_at: '2026-06-10T00:00:00Z',
-        }),
-      ),
-      http.get('*/v1/spending/categories', () =>
-        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
-      ),
-      http.get('*/v1/spending/category-groups', () =>
-        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
-      ),
-      http.get('*/v1/summaries/weekly/settings', () =>
-        HttpResponse.json({
-          cadence_day_of_week: 0,
-          cadence_hour_utc: 1,
-          updated_at: '2026-06-10T00:00:00Z',
-        }),
-      ),
+      ...commonHandlers(workspaceId, 'Delta Workspace'),
     );
 
     renderWithQuery(<MasterConfigPage />);
@@ -695,7 +651,6 @@ describe('MasterConfigPage', () => {
     ];
 
     server.use(
-      ...commonHandlers(workspaceId, 'Delta Workspace'),
       http.get('*/v1/spending/categories', () =>
         HttpResponse.json({
           items: categoryItems,
@@ -709,6 +664,7 @@ describe('MasterConfigPage', () => {
         categoryItems = [];
         return new HttpResponse(null, { status: 204 });
       }),
+      ...commonHandlers(workspaceId, 'Delta Workspace'),
     );
 
     renderWithQuery(<MasterConfigPage />);
@@ -733,7 +689,6 @@ describe('MasterConfigPage', () => {
     useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
 
     server.use(
-      ...commonHandlers(workspaceId, 'Epsilon Workspace'),
       http.get('*/v1/spending/categories', () =>
         HttpResponse.json({
           items: [
@@ -761,6 +716,7 @@ describe('MasterConfigPage', () => {
           { status: 409 },
         ),
       ),
+      ...commonHandlers(workspaceId, 'Epsilon Workspace'),
     );
 
     renderWithQuery(<MasterConfigPage />);
@@ -788,7 +744,6 @@ describe('MasterConfigPage', () => {
     useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
 
     server.use(
-      ...commonHandlers(workspaceId, 'Zeta Workspace'),
       http.get('*/v1/spending/categories', () =>
         HttpResponse.json({
           items: [
@@ -807,6 +762,7 @@ describe('MasterConfigPage', () => {
           offset: 0,
         }),
       ),
+      ...commonHandlers(workspaceId, 'Zeta Workspace'),
     );
 
     renderWithQuery(<MasterConfigPage />);
@@ -870,5 +826,169 @@ describe('MasterConfigPage', () => {
     await waitFor(() =>
       expect(savedCadence).toEqual({ cadence_day_of_week: 2, cadence_hour_utc: 14 }),
     );
+  });
+
+  it('renders instruments tab and displays list of instruments with asset class badges', async () => {
+    const workspaceId = '77777777-7777-7777-7777-777777777777';
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+
+    server.use(
+      http.get('*/v1/investing/instruments', () =>
+        HttpResponse.json([
+          {
+            public_id: 'inst-1',
+            symbol: 'AAPL',
+            name: 'Apple Inc.',
+            instrument_type: 'stock',
+            ticker: 'AAPL',
+            isin: 'US0378331005',
+            exchange: 'NASDAQ',
+            is_active: true,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+          {
+            public_id: 'inst-2',
+            symbol: 'SPY',
+            name: 'SPDR S&P 500 ETF Trust',
+            instrument_type: 'etf',
+            ticker: 'SPY',
+            isin: 'US78462F1030',
+            exchange: 'NYSE',
+            is_active: true,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+        ]),
+      ),
+      ...commonHandlers(workspaceId, 'Alpha Workspace'),
+    );
+
+    renderWithQuery(<MasterConfigPage />, ['/settings/instruments']);
+
+    expect(await screen.findByTestId('master-instruments-section')).toBeInTheDocument();
+    expect(await screen.findByTestId('master-instrument-row-inst-1')).toBeInTheDocument();
+    expect(screen.getAllByText('AAPL')[0]).toBeInTheDocument();
+    expect(screen.getByText('Apple Inc.')).toBeInTheDocument();
+    expect(screen.getByText('Stock')).toBeInTheDocument();
+    expect(screen.getAllByText('SPY')[0]).toBeInTheDocument();
+    expect(screen.getByText('SPDR S&P 500 ETF Trust')).toBeInTheDocument();
+    expect(screen.getByText('ETF')).toBeInTheDocument();
+    expect(screen.getByTestId('master-instrument-constituents-inst-2')).toBeInTheDocument();
+  });
+
+  it('creates a new instrument with asset class and identifiers', async () => {
+    const workspaceId = '77777777-7777-7777-7777-777777777777';
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+
+    let createdPayload: any = null;
+
+    server.use(
+      http.post('*/v1/investing/instruments', async ({ request }) => {
+        createdPayload = await request.json();
+        return HttpResponse.json({
+          public_id: 'inst-new',
+          ...createdPayload,
+          is_active: true,
+          created_at: '2026-06-11T00:00:00Z',
+          updated_at: '2026-06-11T00:00:00Z',
+        });
+      }),
+      ...commonHandlers(workspaceId, 'Alpha Workspace'),
+    );
+
+    renderWithQuery(<MasterConfigPage />, ['/settings/instruments']);
+
+    expect(await screen.findByTestId('master-instruments-section')).toBeInTheDocument();
+
+    const addBtn = await screen.findByTestId('master-instrument-create-open');
+    fireEvent.click(addBtn);
+
+    const symbolInput = await screen.findByTestId('master-instrument-new-symbol');
+    const nameInput = screen.getByTestId('master-instrument-new-name');
+    const tickerInput = screen.getByTestId('master-instrument-new-ticker');
+
+    fireEvent.change(symbolInput, { target: { value: 'MSFT' } });
+    fireEvent.change(nameInput, { target: { value: 'Microsoft Corp' } });
+    fireEvent.change(tickerInput, { target: { value: 'MSFT' } });
+
+    const submitBtn = screen.getByTestId('master-instrument-create-submit');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(createdPayload).toEqual({
+        symbol: 'MSFT',
+        name: 'Microsoft Corp',
+        instrument_type: 'stock',
+        ticker: 'MSFT',
+      });
+    });
+  });
+
+  it('manages constituent breakdown for funds with weights', async () => {
+    const workspaceId = '77777777-7777-7777-7777-777777777777';
+    useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+
+    let upsertPayload: any = null;
+
+    server.use(
+      http.get('*/v1/investing/instruments', () =>
+        HttpResponse.json([
+          {
+            public_id: 'inst-etf-1',
+            symbol: 'QQQ',
+            name: 'Invesco QQQ Trust',
+            instrument_type: 'etf',
+            ticker: 'QQQ',
+            isin: 'US46090E1038',
+            exchange: 'NASDAQ',
+            is_active: true,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+        ]),
+      ),
+      http.post('*/v1/investing/instruments/inst-etf-1/constituents', async ({ request }) => {
+        upsertPayload = await request.json();
+        return HttpResponse.json([
+          {
+            public_id: 'const-1',
+            company_name: 'Apple Inc',
+            company_ticker: 'AAPL',
+            company_isin: 'US0378331005',
+            weight: 0.088,
+          },
+        ]);
+      }),
+      ...commonHandlers(workspaceId, 'Alpha Workspace'),
+    );
+
+    renderWithQuery(<MasterConfigPage />, ['/settings/instruments']);
+
+    const constituentsBtn = await screen.findByTestId('master-instrument-constituents-inst-etf-1');
+    fireEvent.click(constituentsBtn);
+
+    expect(await screen.findByText(/Constituent Breakdown — QQQ/)).toBeInTheDocument();
+
+    const pasteArea = await screen.findByTestId('master-constituents-paste');
+    fireEvent.change(pasteArea, {
+      target: { value: 'Apple Inc, AAPL, US0378331005, 8.8%' },
+    });
+
+    const applyPasteBtn = screen.getByTestId('master-constituents-paste-apply');
+    fireEvent.click(applyPasteBtn);
+
+    const saveBtn = screen.getByTestId('master-constituents-save');
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(upsertPayload).toBeDefined();
+      expect(upsertPayload.constituents[0]).toEqual({
+        company_name: 'Apple Inc',
+        company_ticker: 'AAPL',
+        company_isin: 'US0378331005',
+        weight: '0.0880',
+      });
+    });
   });
 });

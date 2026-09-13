@@ -477,6 +477,8 @@ export const PerformanceHistoryPointSchema = z.object({
   unrealized_gain_loss_pct: z.union([z.number(), z.string()]).nullable().optional(),
   unrealized_gain: z.union([z.number(), z.string()]).optional(),
   unrealized_gain_pct: z.union([z.number(), z.string()]).optional(),
+  benchmark_value: z.union([z.number(), z.string()]).nullable().optional(),
+  benchmark_return_pct: z.union([z.number(), z.string()]).nullable().optional(),
 });
 
 export type PerformanceHistoryPoint = z.infer<typeof PerformanceHistoryPointSchema>;
@@ -486,6 +488,9 @@ export const PerformanceHistoryResponseSchema = z.object({
   points: z.array(PerformanceHistoryPointSchema).default([]),
   net_change: z.union([z.number(), z.string()]).optional().default(0),
   net_change_pct: z.union([z.number(), z.string()]).optional().default(0),
+  benchmark_symbol: z.string().nullable().optional(),
+  alpha_pct: z.union([z.number(), z.string()]).nullable().optional(),
+  benchmark_return_pct: z.union([z.number(), z.string()]).nullable().optional(),
 });
 export type PerformanceHistoryResponse = z.infer<typeof PerformanceHistoryResponseSchema>;
 
