@@ -1310,7 +1310,7 @@ describe('SpendingPage', () => {
     // isolates one specific month's split, same as Budgets' "1 Month" mode.
     // The window change swaps in a fresh (uncached) query combo, so the tab
     // briefly re-renders its loading skeleton before the controls return.
-    fireEvent.click(screen.getByRole('button', { name: 'This Month' }));
+    fireEvent.click(screen.getByRole('button', { name: '1M' }));
     await screen.findByTestId('spending-analytics-month');
 
     const rangesBeforeChange = breakdownRanges.length;
@@ -1335,7 +1335,7 @@ describe('SpendingPage', () => {
 
     await waitFor(() => expect(breakdownRanges.length).toBeGreaterThan(rangesBeforeChange));
     const latest = breakdownRanges[breakdownRanges.length - 1];
-    // With Duration = "This Month", both ends of the range fall in the
+    // With Duration = "1M", both ends of the range fall in the
     // selected month — proving the breakdown is scoped to exactly that month.
     expect(latest.from?.startsWith(targetValue)).toBe(true);
     expect(latest.to?.startsWith(targetValue)).toBe(true);
