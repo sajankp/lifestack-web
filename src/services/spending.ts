@@ -12,6 +12,7 @@ import {
   LedgerResponseSchema,
   RecurringTransactionSchema,
   SavingsRateResponseSchema,
+  SpendPacingResponseSchema,
   SpendingTrendResponseSchema,
   TransactionSchema,
   TransactionSummarySchema,
@@ -39,6 +40,7 @@ import type {
   RecurringTransactionCreate,
   RecurringTransactionUpdate,
   SavingsRateResponse,
+  SpendPacingResponse,
   SpendingTrendResponse,
   Transaction,
   TransactionCreate,
@@ -51,6 +53,7 @@ import type {
   TagBreakdownResponse,
   UpcomingPreviewResponse,
 } from '../types/spending';
+
 
 // Schemas and types live in src/types/spending.ts (G4); re-exported here so
 // existing `from '../services/spending'` imports keep working.
@@ -349,6 +352,14 @@ export const spendingService = {
     });
     return TagBreakdownResponseSchema.parse(response.data);
   },
+
+  getSpendPacing: async (month?: string): Promise<SpendPacingResponse> => {
+    const response = await api.get('/spending/analytics/pacing', {
+      params: { month },
+    });
+    return SpendPacingResponseSchema.parse(response.data);
+  },
+
 
   // Recurring Transactions
   getRecurring: async (

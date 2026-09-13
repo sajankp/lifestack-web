@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CalendarDays, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Plus, RefreshCw } from 'lucide-react';
 import { summariesService } from '../services/summaries';
 import { queryKeys } from '../lib/queryKeys';
 import { PageHero } from '../components/layout/PageHero';
@@ -9,95 +9,183 @@ import { Pagination } from '../components/Pagination';
 import { Button } from '../components/ui/button';
 import { useToast } from '../components/ui/toast';
 import { SkeletonList, EmptyState, ErrorBanner } from '../components/ui/FeedbackStates';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { formatCurrency, toNumber } from '../utils/numberFormat';
-import { formatDate, formatDateTime } from '../utils/dateFormat';
+import { formatDate, formatDateTime, formatMonthYear } from '../utils/dateFormat';
 import { useDisplayProfile, type DisplayProfile } from '../hooks/useDisplayProfile';
-import type { WeeklySummary } from '../services/summaries';
+import type { MonthlySummary, WeeklySummary } from '../services/summaries';
+
+type SummaryItem = WeeklySummary | MonthlySummary;
+interface PaginatedSummaries {
+  items: SummaryItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
 
 export const WeeklySummariesPage: React.FC = () => {
+  const [cadence, setCadence] = useState<'weekly' | 'monthly'>('weekly');
   const [offset, setOffset] = useState(0);
   const limit = 12;
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const markedRef = useRef<string | null>(null);
   const [regenerateReasons, setRegenerateReasons] = useState<Record<string, string>>({});
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['summaries', 'weekly', offset],
-    queryFn: () => summariesService.listWeekly(limit, offset),
+
+  // Generate Month modal state
+  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+  const now = new Date();
+  const [genYear, setGenYear] = useState(now.getUTCFullYear());
+  const [genMonth, setGenMonth] = useState(now.getUTCMonth() + 1);
+
+  const { data, isLoading, isError, refetch } = useQuery<PaginatedSummaries>({
+    queryKey: ['summaries', cadence, offset],
+    queryFn: () =>
+      cadence === 'weekly'
+        ? summariesService.listWeekly(limit, offset)
+        : summariesService.listMonthly(limit, offset),
   });
 
-  // spec-076: manual regeneration. The list/latest endpoints only ever
-  // return the current (non-superseded) row for a week, so every item
-  // rendered here is always eligible to regenerate again.
-  const regenerateMutation = useMutation({
+  const regenerateMutation = useMutation<
+    SummaryItem,
+    Error,
+    { summaryId: string; reason: string }
+  >({
     mutationFn: (payload: { summaryId: string; reason: string }) =>
-      summariesService.regenerate(payload.summaryId, payload.reason || undefined),
+      cadence === 'weekly'
+        ? summariesService.regenerate(payload.summaryId, payload.reason || undefined)
+        : summariesService.regenerateMonthly(payload.summaryId, payload.reason || undefined),
     onSuccess: (_data, variables) => {
       setRegenerateReasons((prev) => {
         const next = { ...prev };
         delete next[variables.summaryId];
         return next;
       });
-      void queryClient.invalidateQueries({ queryKey: ['summaries', 'weekly'] });
+      void queryClient.invalidateQueries({ queryKey: ['summaries', cadence] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.briefing() });
+      showToast('Summary regenerated successfully.', 'success');
     },
     onError: () => showToast('Failed to regenerate summary. Please try again.', 'error'),
   });
 
-  // Opening this page counts as reading the latest summary (spec-080): mark it
-  // read so the dashboard's "summary is ready" briefing line clears. Only the
-  // newest (first page, top item) is the one the briefing surfaces; guard so we
-  // fire once per summary and never re-mark an already-read one. Depend on the
-  // primitive id/read_at, not the `latest` object, so a query-data refetch that
-  // returns an equal-but-new object reference doesn't re-run the effect.
+
+  const generateMonthlyMutation = useMutation({
+    mutationFn: () => summariesService.generateMonthly(genYear, genMonth),
+    onSuccess: () => {
+      setIsGenerateModalOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ['summaries', 'monthly'] });
+      showToast(`Monthly summary for ${genYear}-${String(genMonth).padStart(2, '0')} generated.`, 'success');
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showToast(msg || 'Failed to generate monthly summary.', 'error');
+    },
+  });
+
   const latest = offset === 0 ? data?.items?.[0] : undefined;
   const latestId = latest?.public_id;
   const latestReadAt = latest?.read_at;
   useEffect(() => {
     if (!latestId || latestReadAt || markedRef.current === latestId) return;
     markedRef.current = latestId;
-    void summariesService
-      .markRead(latestId)
+    const markReadFn =
+      cadence === 'weekly' ? summariesService.markRead : summariesService.markMonthlyRead;
+    void markReadFn(latestId)
       .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.briefing() }))
       .catch(() => {
-        // Non-critical: a failed mark-read just leaves the briefing line until
-        // the freshness window lapses. Allow a retry on the next render.
         markedRef.current = null;
       });
-  }, [latestId, latestReadAt, queryClient]);
+  }, [latestId, latestReadAt, cadence, queryClient]);
+
 
   return (
     <PageShell>
       <PageHero
-        title="Weekly Summaries"
-        subtitle="A readable weekly view of productivity, spending, and portfolio movement."
+        title={cadence === 'weekly' ? 'Weekly Summaries' : 'Monthly Summaries'}
+        subtitle={
+          cadence === 'weekly'
+            ? 'A readable weekly view of productivity, spending, and portfolio movement.'
+            : 'A comprehensive monthly close of productivity, spending, dividends, and portfolio performance.'
+        }
       />
+
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900/60 p-1">
+          <button
+            type="button"
+            data-testid="cadence-weekly-btn"
+            onClick={() => {
+              setCadence('weekly');
+              setOffset(0);
+            }}
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+              cadence === 'weekly'
+                ? 'bg-cyan-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Weekly Summaries
+          </button>
+          <button
+            type="button"
+            data-testid="cadence-monthly-btn"
+            onClick={() => {
+              setCadence('monthly');
+              setOffset(0);
+            }}
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
+              cadence === 'monthly'
+                ? 'bg-cyan-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Monthly Summaries
+          </button>
+        </div>
+
+        {cadence === 'monthly' && (
+          <Button
+            type="button"
+            size="sm"
+            data-testid="generate-month-close-btn"
+            onClick={() => setIsGenerateModalOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white"
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Generate Month Close
+          </Button>
+        )}
+      </div>
 
       {isLoading ? (
         <SkeletonList rows={4} />
       ) : isError ? (
         <ErrorBanner
-          message="Failed to load weekly summaries. Please try again."
+          message={`Failed to load ${cadence} summaries. Please try again.`}
           onRetry={() => void refetch()}
         />
       ) : data?.items?.length ? (
         <>
           <div className="space-y-4">
-            {data.items.map((item) => (
-              <article
-                key={item.public_id}
-                className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg shadow-black/10"
-              >
-                <div className="mb-4 flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="font-semibold text-white">
-                      Week of {formatDate(`${item.week_start}T00:00:00Z`, { fallback: 'N/A' })}
-                    </h2>
-                    {/* #200: on a regenerated summary generated_at and
-                        regenerated_at are the same event to the minute, so
-                        printing both read as a duplicate. Show only the most
-                        recent event — Regenerated if present, else Generated. */}
-                    <p className="mt-1 text-xs text-slate-500">
+            {data.items.map((item) => {
+              const headingText =
+                'week_start' in item && item.week_start
+                  ? `Week of ${formatDate(`${item.week_start}T00:00:00Z`, { fallback: 'N/A' })}`
+                  : 'month_start' in item && item.month_start
+                    ? `Month of ${formatMonthYear(`${item.month_start}T00:00:00Z`, { long: true, fallback: 'N/A' })}`
+                    : 'Summary';
+
+
+              return (
+                <article
+                  key={item.public_id}
+                  className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg shadow-black/10"
+                >
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="font-semibold text-white">{headingText}</h2>
+                      <p className="mt-1 text-xs text-slate-500">
+
                       {item.regenerated_at ? (
                         <>
                           Regenerated {formatDateTime(item.regenerated_at, { fallback: 'N/A' })}
@@ -204,8 +292,10 @@ export const WeeklySummariesPage: React.FC = () => {
                   </div>
                 )}
               </article>
-            ))}
-          </div>
+            );
+          })}
+        </div>
+
           <div className="mt-5">
             <Pagination
               total={data.total}
@@ -218,13 +308,111 @@ export const WeeklySummariesPage: React.FC = () => {
       ) : (
         <EmptyState
           icon={<CalendarDays className="h-6 w-6" />}
-          title="No weekly summaries yet"
-          description="Weekly summaries are automatically generated by backend jobs after activity is recorded for a full week."
+          title={cadence === 'weekly' ? 'No weekly summaries yet' : 'No monthly summaries yet'}
+          description={
+            cadence === 'weekly'
+              ? 'Weekly summaries are automatically generated by backend jobs after activity is recorded for a full week.'
+              : 'Monthly closes summarize your full calendar month of spending, saving, dividends, and portfolio performance. You can generate one on demand.'
+          }
+          action={
+            cadence === 'monthly' ? (
+              <Button
+                type="button"
+                onClick={() => setIsGenerateModalOpen(true)}
+                className="mt-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs"
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Generate Month Close
+              </Button>
+            ) : undefined
+          }
         />
       )}
+
+      {/* Generate Month Close Modal */}
+      <Dialog
+        open={isGenerateModalOpen}
+        onOpenChange={(open) => !open && setIsGenerateModalOpen(false)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader className="pb-3 mb-3 border-b border-slate-800">
+            <DialogTitle>Generate Monthly Summary</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              generateMonthlyMutation.mutate();
+            }}
+            className="space-y-4"
+          >
+            <p className="text-xs text-slate-400">
+              Calculate and freeze the monthly financial close for productivity, spending, dividends, and portfolio performance.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Year</label>
+                <input
+                  type="number"
+                  min={2000}
+                  max={2100}
+                  value={genYear}
+                  onChange={(e) => setGenYear(Number(e.target.value))}
+                  className="w-full h-9 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Month</label>
+                <select
+                  value={genMonth}
+                  onChange={(e) => setGenMonth(Number(e.target.value))}
+                  className="w-full h-9 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none"
+                >
+                  {[
+                    '01 - January',
+                    '02 - February',
+                    '03 - March',
+                    '04 - April',
+                    '05 - May',
+                    '06 - June',
+                    '07 - July',
+                    '08 - August',
+                    '09 - September',
+                    '10 - October',
+                    '11 - November',
+                    '12 - December',
+                  ].map((label, idx) => (
+                    <option key={idx + 1} value={idx + 1}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsGenerateModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                disabled={generateMonthlyMutation.isPending}
+              >
+                {generateMonthlyMutation.isPending ? 'Generating...' : 'Generate Close'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 };
+
 
 const SummaryCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">

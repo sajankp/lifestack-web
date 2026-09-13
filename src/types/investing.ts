@@ -464,3 +464,71 @@ export const PaginatedCorporateActionsSchema = z.object({
   limit: z.number().optional().default(50),
   offset: z.number().optional().default(0),
 });
+
+export const PerformanceHistoryPointSchema = z.object({
+  snapshot_date: z.string().default(''),
+  total_value: z.union([z.number(), z.string()]).default(0),
+  holdings_value: z.union([z.number(), z.string()]).optional(),
+  total_cost: z.union([z.number(), z.string()]).optional(),
+  cost_basis: z.union([z.number(), z.string()]).optional(),
+  cash_value: z.union([z.number(), z.string()]).optional(),
+  cash_balance: z.union([z.number(), z.string()]).optional(),
+  unrealized_gain_loss: z.union([z.number(), z.string()]).optional(),
+  unrealized_gain_loss_pct: z.union([z.number(), z.string()]).nullable().optional(),
+  unrealized_gain: z.union([z.number(), z.string()]).optional(),
+  unrealized_gain_pct: z.union([z.number(), z.string()]).optional(),
+});
+
+export type PerformanceHistoryPoint = z.infer<typeof PerformanceHistoryPointSchema>;
+
+export const PerformanceHistoryResponseSchema = z.object({
+  currency: z.string().nullable().default(null),
+  points: z.array(PerformanceHistoryPointSchema).default([]),
+  net_change: z.union([z.number(), z.string()]).optional().default(0),
+  net_change_pct: z.union([z.number(), z.string()]).optional().default(0),
+});
+export type PerformanceHistoryResponse = z.infer<typeof PerformanceHistoryResponseSchema>;
+
+export const AssetClassAllocationItemSchema = z.object({
+  asset_class: z.string().default('other'),
+  total_value: z.union([z.number(), z.string()]).default(0),
+  percentage: z.union([z.number(), z.string()]).default(0),
+  holdings_count: z.number().default(0),
+});
+export type AssetClassAllocationItem = z.infer<typeof AssetClassAllocationItemSchema>;
+
+export const SectorAllocationItemSchema = z.object({
+  sector: z.string().default('Unclassified'),
+  total_value: z.union([z.number(), z.string()]).default(0),
+  percentage: z.union([z.number(), z.string()]).default(0),
+  holdings_count: z.number().default(0),
+});
+export type SectorAllocationItem = z.infer<typeof SectorAllocationItemSchema>;
+
+export const PortfolioAllocationResponseSchema = z.object({
+  currency: z.string().default('USD'),
+  total_portfolio_value: z.union([z.number(), z.string()]).default(0),
+  as_of: z.string().default(''),
+  by_asset_class: z.array(AssetClassAllocationItemSchema).default([]),
+  by_sector: z.array(SectorAllocationItemSchema).default([]),
+});
+export type PortfolioAllocationResponse = z.infer<typeof PortfolioAllocationResponseSchema>;
+
+export const MonthlyDividendPointSchema = z.object({
+  month: z.string().default(''),
+  gross_amount: z.union([z.number(), z.string()]).default(0),
+  net_amount: z.union([z.number(), z.string()]).default(0),
+  count: z.number().default(0),
+});
+export type MonthlyDividendPoint = z.infer<typeof MonthlyDividendPointSchema>;
+
+export const DividendHistoryResponseSchema = z.object({
+  currency: z.string().default('USD'),
+  points: z.array(MonthlyDividendPointSchema).default([]),
+  trailing_12m_total: z.union([z.number(), z.string()]).default(0),
+  all_time_total: z.union([z.number(), z.string()]).default(0),
+});
+export type DividendHistoryResponse = z.infer<typeof DividendHistoryResponseSchema>;
+
+
+

@@ -6,6 +6,8 @@ import { spendingService } from '../../services/spending';
 import { useCurrencyFormatter, useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { formatCompactNumber } from '../../utils/numberFormat';
 import { formatMonthLabel, monthShortLabel } from './format';
+import { SpendPacingCard } from './SpendPacingCard';
+
 
 const DONUT_COLORS = ['#3987e5', '#199e70', '#c98500', '#008300', '#9085e9', '#e66767'];
 const DONUT_OTHER_COLOR = '#94a3b8';
@@ -237,8 +239,16 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
         </div>
       </div>
 
+      {/* Monthly Spend Pacing Card */}
+      <SpendPacingCard
+        selectedMonth={selectedMonth}
+        displayCurrency={displayCurrency}
+        currencyDisplayPreference={currencyDisplayPreference}
+      />
+
       {/* Period Stats Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
         {/* Card: Total Income */}
         <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/20 p-5">
           <div className="flex items-start justify-between">

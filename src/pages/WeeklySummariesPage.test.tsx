@@ -446,4 +446,73 @@ describe('WeeklySummariesPage', () => {
       screen.getByText(/Saved to this summary's history and shown in the header/),
     ).toBeInTheDocument();
   });
+
+  it('switches to monthly summaries tab and renders monthly items', async () => {
+    server.use(
+      http.get('*/v1/summaries/weekly', () =>
+        HttpResponse.json({
+          items: [],
+          total: 0,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/summaries/monthly', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '88888888-8888-8888-8888-888888888888',
+              month_start: '2026-06-01',
+              month_end: '2026-06-30',
+              generated_at: '2026-07-01T01:30:00Z',
+              todo_summary: { tasks_created: 15, tasks_completed: 12 },
+              spending_summary: {
+                status: 'complete',
+                total_income: '20000.00',
+                total_expense: '12000.00',
+                net: '8000.00',
+                currency: 'USD',
+                has_multiple_currencies: false,
+                top_categories: [],
+                budget_utilization_pct: null,
+                budgets_breached: 0,
+              },
+              investing_summary: {
+                status: 'complete',
+                portfolio_value_start: '50000.00',
+                portfolio_value_end: '53500.00',
+                cash_start: '2000.00',
+                cash_end: '2100.00',
+                week_change: '3500.00',
+                week_change_pct: '7.00',
+                currency: 'USD',
+                start_snapshot_date: '2026-06-01',
+                end_snapshot_date: '2026-06-30',
+              },
+              highlights: { flags: [] },
+              read_at: '2026-07-01T02:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+    );
+
+    renderPage();
+
+    // Default is weekly with empty state
+    expect(await screen.findByText('No weekly summaries yet')).toBeInTheDocument();
+
+    // Click Monthly Summaries
+    fireEvent.click(screen.getByTestId('cadence-monthly-btn'));
+
+    // Should find the monthly item rendered
+    expect(await screen.findByText(/Month of June 2026/)).toBeInTheDocument();
+    expect(screen.getByText('Tasks completed')).toBeInTheDocument();
+    expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByTestId('generate-month-close-btn')).toBeInTheDocument();
+  });
 });
+
