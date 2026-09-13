@@ -24,6 +24,7 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
 }) => {
   const formatCurrency = useCurrencyFormatter();
   const [range, setRange] = useState<RangeOption>('6M');
+  const [showBenchmark, setShowBenchmark] = useState(true);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   // Compute start_date based on range
@@ -60,6 +61,8 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
       cash: toNumber(p.cash_value || p.cash_balance),
       gain: toNumber(p.unrealized_gain_loss || p.unrealized_gain),
       gainPct: toNumber(p.unrealized_gain_loss_pct ?? p.unrealized_gain_pct ?? 0),
+      bmVal: p.benchmark_value != null ? toNumber(p.benchmark_value) : null,
+      bmReturnPct: p.benchmark_return_pct != null ? toNumber(p.benchmark_return_pct) : null,
     }));
   }, [data?.points]);
 
@@ -74,9 +77,12 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
   const netChangePct =
     data?.net_change_pct != null ? toNumber(data.net_change_pct) : computedChangePct;
 
+  const benchmarkSymbol = data?.benchmark_symbol || 'S&P 500 (SPY)';
+  const alphaPct = data?.alpha_pct != null ? toNumber(data.alpha_pct) : null;
+  const benchmarkReturnPct =
+    data?.benchmark_return_pct != null ? toNumber(data.benchmark_return_pct) : null;
 
   const activePoint = hoverIndex !== null && points[hoverIndex] ? points[hoverIndex] : latestPoint;
-
 
   // Chart SVG layout calculations
   const width = 800;
@@ -93,8 +99,10 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
     for (const p of points) {
       if (p.value < minVal) minVal = p.value;
       if (p.cost < minVal) minVal = p.cost;
+      if (showBenchmark && p.bmVal != null && p.bmVal < minVal) minVal = p.bmVal;
       if (p.value > maxVal) maxVal = p.value;
       if (p.cost > maxVal) maxVal = p.cost;
+      if (showBenchmark && p.bmVal != null && p.bmVal > maxVal) maxVal = p.bmVal;
     }
 
     // Add buffer
@@ -113,9 +121,13 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
 
     const valueCoords = points.map((p, i) => `${getX(i)},${getY(p.value)}`);
     const costCoords = points.map((p, i) => `${getX(i)},${getY(p.cost)}`);
+    const bmCoords = points
+      .filter((p) => p.bmVal != null)
+      .map((p, i) => `${getX(i)},${getY(p.bmVal!)}`);
 
     const valuePath = `M ${valueCoords.join(' L ')}`;
     const costPath = `M ${costCoords.join(' L ')}`;
+    const bmPath = bmCoords.length > 1 ? `M ${bmCoords.join(' L ')}` : null;
 
     // Closed area for Market Value gradient fill
     const firstX = getX(0);
@@ -130,9 +142,10 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
       getY,
       valuePath,
       costPath,
+      bmPath,
       valueArea,
     };
-  }, [points]);
+  }, [points, showBenchmark]);
 
   return (
     <div
@@ -174,7 +187,7 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
       </div>
 
       {/* KPI Cards Strip */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {/* Latest Market Value */}
         <div className="rounded-xl border border-slate-700/40 bg-slate-900/40 p-3.5">
           <div className="flex items-center justify-between text-xs text-slate-400">
@@ -254,6 +267,30 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
             {netChangePct.toFixed(2)}% in selected {range}
           </p>
         </div>
+
+        {/* Tier 3: Benchmark Alpha */}
+        <div className="rounded-xl border border-slate-700/40 bg-slate-900/40 p-3.5">
+          <div className="flex items-center justify-between text-xs text-slate-400">
+            <span>Alpha vs Index</span>
+            <span className="h-2 w-2 rounded-full bg-cyan-400" />
+          </div>
+          <div
+            className={`mt-1.5 text-lg font-bold ${
+              alphaPct != null && alphaPct >= 0
+                ? 'text-emerald-400'
+                : alphaPct != null
+                ? 'text-amber-400'
+                : 'text-slate-300'
+            }`}
+          >
+            {alphaPct != null ? `${alphaPct >= 0 ? '+' : ''}${alphaPct.toFixed(2)}%` : 'Active'}
+          </div>
+          <p className="mt-0.5 text-[11px] text-slate-500 truncate" title={`Benchmark: ${benchmarkSymbol}`}>
+            {benchmarkReturnPct != null
+              ? `vs ${benchmarkSymbol} (${benchmarkReturnPct >= 0 ? '+' : ''}${benchmarkReturnPct.toFixed(1)}%)`
+              : `vs ${benchmarkSymbol}`}
+          </p>
+        </div>
       </div>
 
       {/* Chart Canvas Area */}
@@ -276,8 +313,8 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
         </div>
       ) : (
         <div className="relative">
-          {/* Legend */}
-          <div className="mb-2 flex items-center justify-end gap-5 text-xs">
+          {/* Legend with Benchmark Toggle */}
+          <div className="mb-2 flex items-center justify-end gap-4 text-xs">
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-4 rounded-full bg-emerald-400" />
               <span className="text-slate-300 font-medium">Market Value</span>
@@ -286,6 +323,19 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
               <span className="h-0.5 w-4 border-t-2 border-dashed border-violet-400" />
               <span className="text-slate-400">Cost Basis</span>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowBenchmark(!showBenchmark)}
+              className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 transition-all ${
+                showBenchmark
+                  ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/30'
+                  : 'text-slate-500 hover:text-slate-300 border border-transparent'
+              }`}
+              title="Toggle benchmark reference curve"
+            >
+              <span className="h-0.5 w-4 border-t-2 border-dashed border-cyan-400" />
+              <span>Benchmark ({benchmarkSymbol})</span>
+            </button>
           </div>
 
           <div className="relative w-full overflow-x-auto">
@@ -348,6 +398,18 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
               {/* Area fill under Market Value */}
               <path d={chartMetrics.valueArea} fill="url(#valueGrad)" />
 
+              {/* Benchmark Reference Line (Dashed Cyan) */}
+              {showBenchmark && chartMetrics.bmPath && (
+                <path
+                  d={chartMetrics.bmPath}
+                  fill="none"
+                  stroke="#06b6d4"
+                  strokeWidth={1.75}
+                  strokeDasharray="4 4"
+                  strokeOpacity={0.8}
+                />
+              )}
+
               {/* Cost Basis Line (Dashed Violet) */}
               <path
                 d={chartMetrics.costPath}
@@ -371,7 +433,6 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
                   new Set([0, Math.floor((points.length - 1) / 2), points.length - 1]),
                 );
                 return tickIndices.map((idx) => {
-
                   const p = points[idx];
                   if (!p) return null;
                   return (
@@ -417,6 +478,16 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
                     r={4}
                     className="fill-violet-400 stroke-slate-900 stroke-2"
                   />
+
+                  {/* Benchmark Dot */}
+                  {showBenchmark && points[hoverIndex].bmVal != null && (
+                    <circle
+                      cx={chartMetrics.getX(hoverIndex)}
+                      cy={chartMetrics.getY(points[hoverIndex].bmVal!)}
+                      r={3.5}
+                      className="fill-cyan-400 stroke-slate-900 stroke-2"
+                    />
+                  )}
                 </g>
               )}
             </svg>

@@ -87,8 +87,28 @@ export const WeeklySummarySchema = z.object({
     })
     .nullable()
     .default(null),
+  behavioral_correlations: z
+    .array(
+      z.object({
+        type: z.string(),
+        title: z.string().optional(),
+        message: z.string(),
+      }),
+    )
+    .optional()
+    .default([]),
   highlights: z.object({
     flags: z.array(z.object({ type: z.string(), message: z.string() })).default([]),
+    behavioral_correlations: z
+      .array(
+        z.object({
+          type: z.string(),
+          title: z.string().optional(),
+          message: z.string(),
+        }),
+      )
+      .optional()
+      .default([]),
   }),
   read_at: z.string().nullable().default(null),
   regenerated_at: z.string().nullable().default(null),
