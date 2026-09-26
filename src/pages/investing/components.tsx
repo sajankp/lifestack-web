@@ -21,6 +21,7 @@ export const SortableHeader = ({
   const nextDir: SortDir = isActive && dir === 'asc' ? 'desc' : 'asc';
   return (
     <th
+      data-testid={`sort-header-${col}`}
       className={`px-4 py-3 cursor-pointer select-none hover:text-slate-200 transition-colors ${
         className ?? ''
       }`}

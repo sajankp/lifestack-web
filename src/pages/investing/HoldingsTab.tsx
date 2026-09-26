@@ -17,7 +17,7 @@ import { financeService } from '../../services/finance';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { investingService } from '../../services/investing';
 import type { InvestingOrder } from '../../services/investing';
-import { formatCurrency, formatQuantity, toNumber } from '../../utils/numberFormat';
+import { formatCurrency, formatQuantity, normalizeToReportingCurrency, toNumber } from '../../utils/numberFormat';
 import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { formatDate } from '../../utils/dateFormat';
 import { CompactFilterBar, CompactFilterField } from '../../components/filters/CompactFilterBar';
@@ -28,7 +28,7 @@ import { CurrencyBadge } from '../../components/finance/Badges';
 import { Button } from '../../components/ui/button';
 import { FormattedNumberInput } from '../../components/ui/formatted-number-input';
 import { ToggleSwitch } from '../../components/ui/toggle-switch';
-import { SkeletonList } from '../../components/ui/FeedbackStates';
+import { SkeletonLine, SkeletonList } from '../../components/ui/FeedbackStates';
 import { useToast } from '../../components/ui/toast';
 import {
   Dialog,
@@ -423,23 +423,40 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
         case 'quantity':
           return dir * (toNumber(a.quantity) - toNumber(b.quantity));
         case 'avg_cost':
-          return dir * (toNumber(a.avg_cost) - toNumber(b.avg_cost));
+          return (
+            dir *
+            (normalizeToReportingCurrency(a.avg_cost, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
+              normalizeToReportingCurrency(b.avg_cost, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
+          );
         case 'book_value':
-          return dir * (deriveBookValue(a) - deriveBookValue(b));
+          return (
+            dir *
+            (normalizeToReportingCurrency(deriveBookValue(a), a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
+              normalizeToReportingCurrency(deriveBookValue(b), b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
+          );
         case 'current_price':
           return (
             dir *
-            (toNumber(a.current_price ?? a.avg_cost) - toNumber(b.current_price ?? b.avg_cost))
+            (normalizeToReportingCurrency(a.current_price ?? a.avg_cost, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
+              normalizeToReportingCurrency(b.current_price ?? b.avg_cost, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
           );
         case 'current_value':
-          return dir * (toNumber(a.current_value ?? 0) - toNumber(b.current_value ?? 0));
+          return (
+            dir *
+            (normalizeToReportingCurrency(a.current_value ?? deriveBookValue(a), a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
+              normalizeToReportingCurrency(b.current_value ?? deriveBookValue(b), b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
+          );
         case 'gain_loss':
-          return dir * (toNumber(a.gain_loss ?? 0) - toNumber(b.gain_loss ?? 0));
+          return (
+            dir *
+            (normalizeToReportingCurrency(a.gain_loss ?? 0, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
+              normalizeToReportingCurrency(b.gain_loss ?? 0, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
+          );
         default:
           return 0;
       }
     });
-  }, [filteredHoldings, holdingsSortCol, holdingsSortDir]);
+  }, [filteredHoldings, holdingsSortCol, holdingsSortDir, summary.data]);
 
   // Keep the mobile card list bounded as well as the desktop table. The
   // account summary below intentionally still uses the full filtered set.
@@ -945,11 +962,21 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-700/50">
                 {holdingsRes.isLoading ? (
-                  <tr>
-                    <td className="px-4 py-6 text-slate-400" colSpan={11}>
-                      Loading holdings…
-                    </td>
-                  </tr>
+                  [...Array(5)].map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-4 py-3.5"><SkeletonLine className="h-4 w-20" /></td>
+                      <td className="px-4 py-3.5"><SkeletonLine className="h-4 w-16" /></td>
+                      <td className="px-4 py-3.5"><SkeletonLine className="h-4 w-24" /></td>
+                      <td className="px-4 py-3.5"><SkeletonLine className="h-4 w-12" /></td>
+                      <td className="px-4 py-3.5 text-right"><SkeletonLine className="h-4 w-14 ml-auto" /></td>
+                      <td className="px-4 py-3.5 text-right"><SkeletonLine className="h-4 w-16 ml-auto" /></td>
+                      <td className="px-4 py-3.5 text-right"><SkeletonLine className="h-4 w-20 ml-auto" /></td>
+                      <td className="px-4 py-3.5 text-right"><SkeletonLine className="h-4 w-16 ml-auto" /></td>
+                      <td className="px-4 py-3.5 text-right"><SkeletonLine className="h-4 w-20 ml-auto" /></td>
+                      <td className="px-4 py-3.5 text-right"><SkeletonLine className="h-4 w-16 ml-auto" /></td>
+                      <td className="px-4 py-3.5 text-right"><SkeletonLine className="h-4 w-8 ml-auto" /></td>
+                    </tr>
+                  ))
                 ) : sortedHoldings.length === 0 ? (
                   <tr>
                     <td className="px-4 py-6" colSpan={11}>
@@ -1293,11 +1320,17 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-700/30">
                     {tradeHistoryRes.isLoading ? (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                          Loading…
-                        </td>
-                      </tr>
+                      [...Array(3)].map((_, i) => (
+                        <tr key={i} className="animate-pulse">
+                          <td className="px-4 py-3"><SkeletonLine className="h-3.5 w-20" /></td>
+                          <td className="px-4 py-3"><SkeletonLine className="h-3.5 w-14" /></td>
+                          <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-12 ml-auto" /></td>
+                          <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-16 ml-auto" /></td>
+                          <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-14 ml-auto" /></td>
+                          <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-16 ml-auto" /></td>
+                          <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-8 ml-auto" /></td>
+                        </tr>
+                      ))
                     ) : sortedTradeHistory.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="px-4 py-8 text-center text-slate-400">

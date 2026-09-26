@@ -1,18 +1,22 @@
-import React from 'react';
+﻿import React from 'react';
+import { Loader2 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
-// Skeleton primitives for route-level loading states
+// Skeleton primitives & Rich Shimmer for route-level and section loading
 // ---------------------------------------------------------------------------
 
 export const SkeletonLine: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`animate-pulse rounded bg-slate-800 ${className}`} />
+  <div className={`animate-pulse rounded bg-slate-800/80 ${className}`} />
 );
 
 export const SkeletonCard: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`animate-pulse rounded-2xl bg-slate-800/70 p-5 ${className}`}>
-    <SkeletonLine className="h-3 w-24 mb-3" />
-    <SkeletonLine className="h-7 w-32 mb-2" />
-    <SkeletonLine className="h-3 w-40" />
+  <div className={`animate-pulse rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur ${className}`}>
+    <div className="flex items-center justify-between mb-3">
+      <SkeletonLine className="h-3.5 w-24" />
+      <SkeletonLine className="h-7 w-7 rounded-lg" />
+    </div>
+    <SkeletonLine className="h-8 w-36 mb-2" />
+    <SkeletonLine className="h-3 w-48" />
   </div>
 );
 
@@ -22,27 +26,75 @@ export const SkeletonList: React.FC<{ rows?: number; className?: string }> = ({
 }) => (
   <div className={`space-y-3 ${className}`}>
     {[...Array(rows)].map((_, i) => (
-      <div key={i} className="animate-pulse rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 space-y-2">
-            <SkeletonLine className="h-3 w-20" />
-            <SkeletonLine className="h-4 w-3/4" />
-            <SkeletonLine className="h-3 w-1/2" />
+      <div key={i} className="animate-pulse rounded-xl border border-slate-800/80 bg-slate-900/60 p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <SkeletonLine className="h-9 w-9 rounded-xl shrink-0" />
+            <div className="space-y-2 flex-1">
+              <SkeletonLine className="h-3.5 w-44" />
+              <SkeletonLine className="h-3 w-28" />
+            </div>
           </div>
-          <SkeletonLine className="h-6 w-16 rounded-full" />
+          <div className="text-right space-y-1.5 shrink-0">
+            <SkeletonLine className="h-4 w-20" />
+            <SkeletonLine className="h-3 w-12 ml-auto" />
+          </div>
         </div>
       </div>
     ))}
   </div>
 );
 
-export const SkeletonStatGrid: React.FC<{ cols?: number }> = ({ cols = 4 }) => (
-  <div className={`grid gap-4 md:grid-cols-2 xl:grid-cols-${cols}`}>
+export const SkeletonStatGrid: React.FC<{ cols?: number; className?: string }> = ({
+  cols = 3,
+  className = '',
+}) => (
+  <div className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-${cols} ${className}`}>
     {[...Array(cols)].map((_, i) => (
-      <SkeletonCard key={i} className="h-32" />
+      <SkeletonCard key={i} className="h-28" />
     ))}
   </div>
 );
+
+export const SkeletonTable: React.FC<{ rows?: number; cols?: number; className?: string }> = ({
+  rows = 5,
+  cols = 4,
+  className = '',
+}) => (
+  <div className={`rounded-2xl border border-slate-800/80 bg-slate-900/60 overflow-hidden backdrop-blur ${className}`}>
+    <div className="border-b border-slate-800/80 bg-slate-950/40 p-3.5 flex items-center justify-between gap-4">
+      {[...Array(cols)].map((_, i) => (
+        <SkeletonLine key={i} className={`h-3.5 ${i === 0 ? 'w-32' : 'w-20'}`} />
+      ))}
+    </div>
+    <div className="divide-y divide-slate-800/60 p-1">
+      {[...Array(rows)].map((_, i) => (
+        <div key={i} className="p-3.5 flex items-center justify-between gap-4 animate-pulse">
+          <div className="flex items-center gap-3 flex-1">
+            <SkeletonLine className="h-4 w-32" />
+            <SkeletonLine className="h-3 w-20" />
+          </div>
+          <SkeletonLine className="h-4 w-24 shrink-0" />
+          <SkeletonLine className="h-4 w-16 shrink-0" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+export const LoadingSpinner: React.FC<{
+  label?: string;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}> = ({ label = 'Loading...', size = 'md', className = '' }) => {
+  const iconSize = size === 'sm' ? 'h-4 w-4' : size === 'lg' ? 'h-8 w-8' : 'h-5 w-5';
+  return (
+    <div className={`flex flex-col items-center justify-center p-8 text-center gap-2.5 ${className}`}>
+      <Loader2 className={`${iconSize} animate-spin text-cyan-400`} />
+      {label && <span className="text-xs font-medium text-slate-400 animate-pulse">{label}</span>}
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Empty state — call-to-action style

@@ -1,3 +1,4 @@
+import { SkeletonList } from '../../components/ui/FeedbackStates';
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -496,7 +497,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
               <h3 className="font-semibold">Exposure (Look-through)</h3>
             </div>
             {exposureLoading ? (
-              <p className="text-sm text-slate-400">Loading exposure…</p>
+              <SkeletonList rows={3} />
             ) : (
               <div className="space-y-2 text-sm text-slate-300">
                 <p className="text-xs text-slate-500">
@@ -672,7 +673,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
               <h3 className="font-semibold">Overlap</h3>
             </div>
             {overlapLoading ? (
-              <p className="text-sm text-slate-400">Loading overlap…</p>
+              <SkeletonList rows={3} />
             ) : (
               <div className="space-y-2 text-sm text-slate-300">
                 <p>

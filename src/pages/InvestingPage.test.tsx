@@ -2472,4 +2472,121 @@ describe('InvestingPage', () => {
     expect(await screen.findByTestId('investing-orders-heading')).toBeInTheDocument();
     expect(await screen.findByTestId('order-symbol')).toBeInTheDocument();
   });
+
+  it('sorts multi-currency holdings by converted value rather than raw unnormalized numbers', async () => {
+    server.use(
+      http.get('*/v1/investing/holdings', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'h-usd',
+              symbol: 'AAPL',
+              instrument_type: 'stock',
+              account_id: '11111111-1111-1111-1111-111111111111',
+              account_name: 'US Brokerage',
+              quantity: '10.00000000',
+              avg_cost: '100.00',
+              currency: 'USD',
+              current_price: '100.00',
+              current_value: '1000.00',
+              book_value: '1000.00',
+              gain_loss: '0.00',
+              gain_loss_pct: '0.00',
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+            {
+              public_id: 'h-inr',
+              symbol: 'RELIANCE',
+              instrument_type: 'stock',
+              account_id: '22222222-2222-2222-2222-222222222222',
+              account_name: 'India Brokerage',
+              quantity: '20.00000000',
+              avg_cost: '1000.00',
+              currency: 'INR',
+              current_price: '1000.00',
+              current_value: '20000.00',
+              book_value: '20000.00',
+              gain_loss: '0.00',
+              gain_loss_pct: '0.00',
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+          ],
+          total: 2,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: '104000',
+          holdings_count: 2,
+          cash_total: '0',
+          currency_breakdown: { USD: '84000', INR: '20000' },
+          daily_change: '0',
+          reporting_currency: 'INR',
+          fx_rates_used: { USD: '84.0' },
+          valuation_status: 'converted',
+        }),
+      ),
+      http.get('*/v1/investing/cash-balances', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: '11111111-1111-1111-1111-111111111111',
+              name: 'US Brokerage',
+              account_type: 'brokerage',
+              default_currency_code: 'USD',
+              is_active: true,
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+            {
+              public_id: '22222222-2222-2222-2222-222222222222',
+              name: 'India Brokerage',
+              account_type: 'brokerage',
+              default_currency_code: 'INR',
+              is_active: true,
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
+            },
+          ],
+          total: 2,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/currencies', () =>
+        HttpResponse.json([
+          { code: 'USD', name: 'US Dollar', symbol: '$', minor_unit: 2, is_active: true },
+          { code: 'INR', name: 'Indian Rupee', symbol: '₲', minor_unit: 2, is_active: true },
+        ]),
+      ),
+    );
+
+    renderAtPath(<InvestingPage />, '/investing');
+
+    // Wait for holdings to load
+    expect(await screen.findByTestId('investing-holding-row-h-usd')).toBeInTheDocument();
+
+    // Click Current Value column header to sort by current value
+    const currentValueHeader = await screen.findByTestId('sort-header-current_value');
+    fireEvent.click(currentValueHeader); // Ascending
+
+    // In ascending order: RELIANCE (20,000 INR) comes before AAPL ($1,000 USD = ~84,000 INR)
+    let rows = screen.getAllByTestId(/^investing-holding-row-/);
+    expect(rows[0]).toHaveTextContent('RELIANCE');
+    expect(rows[1]).toHaveTextContent('AAPL');
+
+    // Click again for Descending
+    fireEvent.click(currentValueHeader);
+    rows = screen.getAllByTestId(/^investing-holding-row-/);
+    // In descending order: AAPL (converted ~~84,000 INR) comes BEFORE RELIANCE (20,000 INR)
+    expect(rows[0]).toHaveTextContent('AAPL');
+    expect(rows[1]).toHaveTextContent('RELIANCE');
+  });
 });

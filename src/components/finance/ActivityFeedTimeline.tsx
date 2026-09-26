@@ -16,6 +16,7 @@ import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { DropdownSelect } from '../DropdownSelect';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
+import { SkeletonList } from '../ui/FeedbackStates';
 import type { Account, ActivityFeedItem } from '../../types/finance';
 
 interface ActivityFeedTimelineProps {
@@ -191,7 +192,9 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
       {/* Activity Items List */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-sm backdrop-blur overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center text-sm text-slate-500">Loading activity feed...</div>
+          <div className="p-4">
+            <SkeletonList rows={5} />
+          </div>
         ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 text-center">
             <Wallet className="h-10 w-10 text-slate-600 mb-3" />
