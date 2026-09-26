@@ -58,7 +58,10 @@ export const InvestingPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
-  const pathTab = INVESTING_ROUTE_TABS[location.pathname.slice('/investing/'.length)];
+  const basePath = location.pathname.startsWith('/investing') ? '/investing' : '/portfolio';
+  const cleanPath = location.pathname.replace(/^\/(portfolio|investing)\/?/, '');
+  const tabSegment = cleanPath.split('/')[0];
+  const pathTab = INVESTING_ROUTE_TABS[tabSegment];
   const legacyTab = requestedTab && requestedTab in INVESTING_TAB_ROUTES
     ? (requestedTab as InvestingTab)
     : null;
@@ -79,7 +82,7 @@ export const InvestingPage: React.FC = () => {
         const params = new URLSearchParams(location.search);
         params.delete('tab');
         params.delete('order');
-        navigate(`/investing/${INVESTING_TAB_ROUTES[legacyTab ?? 'holdings']}${params.toString() ? `?${params}` : ''}`, {
+        navigate(`${basePath}/${INVESTING_TAB_ROUTES[legacyTab ?? 'holdings']}${params.toString() ? `?${params}` : ''}`, {
           replace: true,
         });
       } else {
@@ -92,18 +95,18 @@ export const InvestingPage: React.FC = () => {
         );
       }
     }
-  }, [location.search, navigate, requestedTab, shouldAutoOpenOrder, setSearchParams, legacyTab]);
+  }, [basePath, location.search, navigate, requestedTab, shouldAutoOpenOrder, setSearchParams, legacyTab]);
 
   React.useEffect(() => {
-    const isInvestingRoot = location.pathname === '/investing' || location.pathname === '/investing/';
-    const isUnknownInvestingBranch = location.pathname.startsWith('/investing/') && !pathTab;
-    if (!isInvestingRoot && !isUnknownInvestingBranch) return;
+    const isRoot = location.pathname === '/portfolio' || location.pathname === '/portfolio/' || location.pathname === '/investing' || location.pathname === '/investing/';
+    const isUnknownBranch = (location.pathname.startsWith('/portfolio/') || location.pathname.startsWith('/investing/')) && !pathTab;
+    if (!isRoot && !isUnknownBranch) return;
     const params = new URLSearchParams(location.search);
     params.delete('tab');
-    navigate(`/investing/${INVESTING_TAB_ROUTES[legacyTab ?? 'holdings']}${params.toString() ? `?${params}` : ''}`, {
+    navigate(`${basePath}/${INVESTING_TAB_ROUTES[legacyTab ?? 'holdings']}${params.toString() ? `?${params}` : ''}`, {
       replace: true,
     });
-  }, [legacyTab, location.pathname, location.search, navigate, pathTab]);
+  }, [basePath, legacyTab, location.pathname, location.search, navigate, pathTab]);
 
   const summary = useQuery({
     queryKey: queryKeys.investing.summary(),
@@ -605,7 +608,7 @@ export const InvestingPage: React.FC = () => {
 
       <Tabs
         value={tab}
-        onValueChange={(value) => navigate(`/investing/${INVESTING_TAB_ROUTES[value as InvestingTab]}`)}
+        onValueChange={(value) => navigate(`${basePath}/${INVESTING_TAB_ROUTES[value as InvestingTab]}`)}
       >
         <div className="-mx-1 mb-6 overflow-x-auto px-1 pb-1">
           <TabsList className="min-w-max">

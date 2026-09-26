@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router';
 import { useAuthStore } from './store/authStore';
 import { useWorkspaceStore } from './store/workspaceStore';
 import { authService } from './services/auth';
@@ -7,6 +7,12 @@ import { onUnauthorized } from './services/api';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout, PageSkeleton } from './components/layout/Layout';
 import { DashboardPage } from './pages/DashboardPage';
+
+const SubpathRedirect: React.FC<{ from: string; to: string }> = ({ from, to }) => {
+  const location = useLocation();
+  const subpath = location.pathname.slice(from.length);
+  return <Navigate to={`${to}${subpath}${location.search}`} replace />;
+};
 
 const LoginPage = lazy(() => import('./pages/LoginPage').then((module) => ({ default: module.LoginPage })));
 const RegisterPage = lazy(() => import('./pages/RegisterPage').then((module) => ({ default: module.RegisterPage })));
@@ -141,7 +147,7 @@ function App() {
           />
           <Route
             path="/spending/*"
-            element={<Navigate to="/money" replace />}
+            element={<SubpathRedirect from="/spending" to="/money" />}
           />
 
           <Route
@@ -154,7 +160,7 @@ function App() {
           />
           <Route
             path="/investing/*"
-            element={<Navigate to="/portfolio" replace />}
+            element={<SubpathRedirect from="/investing" to="/portfolio" />}
           />
 
           <Route
