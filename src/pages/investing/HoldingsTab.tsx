@@ -761,6 +761,28 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                               decimalPlaces,
                             )}
                           </p>
+                          {summary.data?.reporting_currency &&
+                            (h.currency ?? '').trim().toUpperCase() !==
+                              summary.data.reporting_currency.trim().toUpperCase() && (
+                              <p
+                                data-testid={`investing-holding-converted-value-mobile-${h.public_id}`}
+                                className="font-mono text-[11px] text-slate-400 font-normal"
+                              >
+                                ≈{' '}
+                                {formatCurrency(
+                                  normalizeToReportingCurrency(
+                                    h.current_value ?? deriveBookValue(h),
+                                    h.currency,
+                                    summary.data.reporting_currency,
+                                    summary.data.fx_rates_used,
+                                  ),
+                                  summary.data.reporting_currency,
+                                  currencyDisplayPreference,
+                                  displayLocale,
+                                  decimalPlaces,
+                                )}
+                              </p>
+                            )}
                           <p className={`text-xs font-medium ${colorClass}`}>
                             {sign}
                             {formatCurrency(
@@ -1049,13 +1071,39 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          {formatCurrency(
-                            deriveBookValue(h),
-                            h.currency,
-                            currencyDisplayPreference,
-                            displayLocale,
-                            decimalPlaces,
-                          )}
+                          <div>
+                            <span>
+                              {formatCurrency(
+                                deriveBookValue(h),
+                                h.currency,
+                                currencyDisplayPreference,
+                                displayLocale,
+                                decimalPlaces,
+                              )}
+                            </span>
+                            {summary.data?.reporting_currency &&
+                              (h.currency ?? '').trim().toUpperCase() !==
+                                summary.data.reporting_currency.trim().toUpperCase() && (
+                                <span
+                                  data-testid={`investing-holding-converted-book-value-${h.public_id}`}
+                                  className="block font-mono text-[11px] text-slate-400 font-normal"
+                                >
+                                  ≈{' '}
+                                  {formatCurrency(
+                                    normalizeToReportingCurrency(
+                                      deriveBookValue(h),
+                                      h.currency,
+                                      summary.data.reporting_currency,
+                                      summary.data.fx_rates_used,
+                                    ),
+                                    summary.data.reporting_currency,
+                                    currencyDisplayPreference,
+                                    displayLocale,
+                                    decimalPlaces,
+                                  )}
+                                </span>
+                              )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           {editingPriceHoldingId === h.public_id ? (
@@ -1108,13 +1156,39 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          {formatCurrency(
-                            h.current_value ?? deriveBookValue(h),
-                            h.currency,
-                            currencyDisplayPreference,
-                            displayLocale,
-                            decimalPlaces,
-                          )}
+                          <div>
+                            <span>
+                              {formatCurrency(
+                                h.current_value ?? deriveBookValue(h),
+                                h.currency,
+                                currencyDisplayPreference,
+                                displayLocale,
+                                decimalPlaces,
+                              )}
+                            </span>
+                            {summary.data?.reporting_currency &&
+                              (h.currency ?? '').trim().toUpperCase() !==
+                                summary.data.reporting_currency.trim().toUpperCase() && (
+                                <span
+                                  data-testid={`investing-holding-converted-value-${h.public_id}`}
+                                  className="block font-mono text-[11px] text-slate-400 font-normal"
+                                >
+                                  ≈{' '}
+                                  {formatCurrency(
+                                    normalizeToReportingCurrency(
+                                      h.current_value ?? deriveBookValue(h),
+                                      h.currency,
+                                      summary.data.reporting_currency,
+                                      summary.data.fx_rates_used,
+                                    ),
+                                    summary.data.reporting_currency,
+                                    currencyDisplayPreference,
+                                    displayLocale,
+                                    decimalPlaces,
+                                  )}
+                                </span>
+                              )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 font-medium">
                           <span className={colorClass}>

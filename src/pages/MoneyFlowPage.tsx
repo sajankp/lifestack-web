@@ -1,15 +1,13 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowRightLeft,
-  Building2,
-  Coins,
   PieChart,
   RefreshCw,
+  Wallet,
 } from 'lucide-react';
-import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
+import { PageHero } from '../components/layout/PageHero';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -25,7 +23,7 @@ import { financeService } from '../services/finance';
 import { investingService } from '../services/investing';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { queryKeys } from '../lib/queryKeys';
-import { formatCurrency } from '../utils/numberFormat';
+import { formatCurrency, normalizeToReportingCurrency } from '../utils/numberFormat';
 import { useDisplayProfile } from '../hooks/useDisplayProfile';
 import type { Account, AccountType } from '../types/finance';
 
@@ -63,17 +61,28 @@ export const MoneyFlowPage: React.FC = () => {
     queryFn: () => financeService.getNetWorth(),
   });
 
-  // Fetch Holdings to compute exact per-brokerage account holdings and valuation
+  // Fetch Holdings to compute exact per-brokerage account holdings and valuation (limit=200 max)
   const holdingsRes = useQuery({
     queryKey: queryKeys.investing.holdings(),
-    queryFn: () => investingService.getHoldings(1000, 0),
+    queryFn: () => investingService.getHoldings(200, 0),
   });
 
-  // Fetch Investing Summary as secondary source
+  // Fetch Investing Summary as secondary source and FX rates
   const investingSummaryRes = useQuery({
     queryKey: queryKeys.investing.summary(),
     queryFn: () => investingService.getSummary(),
   });
+
+  const reportingCurrency =
+    netWorthRes.data?.reporting_currency ||
+    investingSummaryRes.data?.reporting_currency ||
+    accounts[0]?.default_currency_code ||
+    'INR';
+
+  const fxRates =
+    investingSummaryRes.data?.fx_rates_used ||
+    (netWorthRes.data as unknown as { fx_rates_used?: Record<string, number | string> })?.fx_rates_used ||
+    {};
 
   // Fetch Unified Activity Feed
   const activityFeedRes = useQuery({
@@ -91,7 +100,7 @@ export const MoneyFlowPage: React.FC = () => {
       }),
   });
 
-  // Calculate balances per account
+  // Calculate balances per account in native currency
   const balancesByAccountId = useMemo(() => {
     const map: Record<string, number> = {};
     const nw = netWorthRes.data;
@@ -114,14 +123,43 @@ export const MoneyFlowPage: React.FC = () => {
     return map;
   }, [netWorthRes.data, accounts]);
 
-  // Accurate Portfolio allocation by brokerage account (NO division by account count!)
+  // Calculate balances per account converted to reporting currency
+  const balancesReportingByAccountId = useMemo(() => {
+    const map: Record<string, number> = {};
+    const nw = netWorthRes.data;
+    if (nw) {
+      if (nw.spending_accounts) {
+        nw.spending_accounts.forEach((acc) => {
+          const valInRc = acc.balance_in_reporting_currency != null
+            ? Number(acc.balance_in_reporting_currency)
+            : normalizeToReportingCurrency(acc.balance, acc.currency_code, reportingCurrency, fxRates);
+          map[acc.account_public_id] = valInRc;
+        });
+      }
+      if (nw.investing_accounts) {
+        nw.investing_accounts.forEach((acc) => {
+          const valInRc = acc.balance_in_reporting_currency != null
+            ? Number(acc.balance_in_reporting_currency)
+            : normalizeToReportingCurrency(acc.balance, acc.currency_code, reportingCurrency, fxRates);
+          map[acc.account_public_id] = valInRc;
+        });
+      }
+    } else {
+      accounts.forEach((acc) => {
+        map[acc.public_id] = 0;
+      });
+    }
+    return map;
+  }, [netWorthRes.data, accounts, reportingCurrency, fxRates]);
+
+  // Accurate Portfolio allocation by brokerage account with multi-currency conversion
   const portfolioByAccountId = useMemo(() => {
-    const map: Record<string, { totalInvested: number; holdingsCount: number }> = {};
+    const map: Record<string, { totalInvested: number; totalInvestedReporting: number; holdingsCount: number }> = {};
     const brokerageAccounts = accounts.filter((a) => a.account_type === 'brokerage');
 
     // Initialize all brokerage accounts to 0
     brokerageAccounts.forEach((a) => {
-      map[a.public_id] = { totalInvested: 0, holdingsCount: 0 };
+      map[a.public_id] = { totalInvested: 0, totalInvestedReporting: 0, holdingsCount: 0 };
     });
 
     const holdings = holdingsRes.data?.items ?? [];
@@ -135,35 +173,60 @@ export const MoneyFlowPage: React.FC = () => {
 
         if (targetId) {
           if (!map[targetId]) {
-            map[targetId] = { totalInvested: 0, holdingsCount: 0 };
+            map[targetId] = { totalInvested: 0, totalInvestedReporting: 0, holdingsCount: 0 };
           }
           const price = Number(h.current_price ?? h.avg_cost ?? 0);
           const val = Number(h.current_value ?? (Number(h.quantity || 0) * price));
+          const valReporting = normalizeToReportingCurrency(val, h.currency, reportingCurrency, fxRates);
           map[targetId].totalInvested += val;
+          map[targetId].totalInvestedReporting += valReporting;
           map[targetId].holdingsCount += 1;
         }
       });
     } else if (investingSummaryRes.data && brokerageAccounts.length === 1) {
-      // Only fallback for a single brokerage account if holdings list hasn't loaded
+      // Fallback for a single brokerage account if holdings list is empty
       const invTotal = Number(investingSummaryRes.data.portfolio_value || 0);
       const holdingsCount = investingSummaryRes.data.holdings_count || 0;
       map[brokerageAccounts[0].public_id] = {
         totalInvested: invTotal,
+        totalInvestedReporting: invTotal,
         holdingsCount,
       };
     }
     return map;
-  }, [holdingsRes.data, investingSummaryRes.data, accounts]);
+  }, [holdingsRes.data, investingSummaryRes.data, accounts, reportingCurrency, fxRates]);
 
-  // Compute Total Hero Metrics
+  // Compute Total Hero Metrics in reporting currency
   const { totalSpendingCash, totalInvestingCash, totalInvestedPortfolio, totalNetWorth } = useMemo(() => {
-    const spendingCash = Number(netWorthRes.data?.spending_total || 0);
-    const investingCash = Number(netWorthRes.data?.investing_cash_total || 0);
+    const sumSpendingReporting = accounts
+      .filter((a) => a.account_type === 'bank' || a.account_type === 'wallet' || a.account_type === 'card')
+      .reduce((sum, a) => sum + (balancesReportingByAccountId[a.public_id] ?? 0), 0);
+
+    const sumInvestingCashReporting = accounts
+      .filter((a) => a.account_type === 'brokerage')
+      .reduce((sum, a) => sum + (balancesReportingByAccountId[a.public_id] ?? 0), 0);
+
+    const sumPortfolioReporting = Object.values(portfolioByAccountId).reduce(
+      (sum, p) => sum + p.totalInvestedReporting,
+      0,
+    );
+
+    const spendingCash =
+      netWorthRes.data?.spending_total != null
+        ? Number(netWorthRes.data.spending_total)
+        : sumSpendingReporting;
+
+    const investingCash =
+      netWorthRes.data?.investing_cash_total != null
+        ? Number(netWorthRes.data.investing_cash_total)
+        : sumInvestingCashReporting;
 
     const portfolioVal =
       netWorthRes.data?.holdings_value != null
         ? Number(netWorthRes.data.holdings_value)
-        : Object.values(portfolioByAccountId).reduce((sum, p) => sum + p.totalInvested, 0);
+        : investingSummaryRes.data?.portfolio_value != null
+          ? Number(investingSummaryRes.data.portfolio_value)
+          : sumPortfolioReporting;
 
     const netWorth =
       netWorthRes.data?.total_net_worth != null
@@ -176,7 +239,7 @@ export const MoneyFlowPage: React.FC = () => {
       totalInvestedPortfolio: portfolioVal,
       totalNetWorth: netWorth,
     };
-  }, [netWorthRes.data, portfolioByAccountId]);
+  }, [netWorthRes.data, investingSummaryRes.data, portfolioByAccountId, accounts, balancesReportingByAccountId]);
 
   const selectedAccount = useMemo(() => {
     if (!selectedAccountId) return null;
@@ -235,11 +298,6 @@ export const MoneyFlowPage: React.FC = () => {
     },
   );
 
-  const primaryCurrency =
-    netWorthRes.data?.reporting_currency ||
-    accounts[0]?.default_currency_code ||
-    'INR';
-
   const isMetricsLoading = netWorthRes.isLoading || accountsRes.isLoading;
   const isArchitectureLoading = accountsRes.isLoading || netWorthRes.isLoading || holdingsRes.isLoading;
 
@@ -248,85 +306,53 @@ export const MoneyFlowPage: React.FC = () => {
       <PageHero
         title="Money Flow & Architecture"
         subtitle="Unified financial ecosystem mapping your capital across cash accounts, trading balances, and invested portfolio."
-        actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                accountsRes.refetch();
-                netWorthRes.refetch();
-                holdingsRes.refetch();
-                activityFeedRes.refetch();
-              }}
-              className="gap-1.5 text-xs border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${
-                  accountsRes.isFetching || netWorthRes.isFetching || holdingsRes.isFetching || activityFeedRes.isFetching
-                    ? 'animate-spin'
-                    : ''
-                }`}
-              />
-              Sync
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => handleOpenTransfer()}
-              className="gap-1.5 text-xs bg-cyan-600 hover:bg-cyan-500 text-white shadow-sm"
-            >
-              <ArrowRightLeft className="h-3.5 w-3.5" />
-              Transfer
-            </Button>
-          </div>
-        }
       />
 
-      {/* Top 3 KPI Summary Cards */}
+      {/* Top 3 High-Level Metric Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {isMetricsLoading ? (
           <>
-            <SkeletonCard className="h-28" />
-            <SkeletonCard className="h-28" />
-            <SkeletonCard className="h-28 sm:col-span-2 lg:col-span-1" />
+            <SkeletonCard className="h-24" />
+            <SkeletonCard className="h-24" />
+            <SkeletonCard className="h-24 sm:col-span-2 lg:col-span-1" />
           </>
         ) : (
           <>
-            {/* Spending & Bank Cash */}
+            {/* Total Liquid Cash */}
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-400">Spending & Bank Cash</span>
-                <div className="rounded-lg bg-blue-500/10 p-2 text-blue-400">
-                  <Building2 className="h-4 w-4" />
+                <span className="text-xs font-medium text-slate-400">Total Liquid Cash</span>
+                <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
+                  <Wallet className="h-4 w-4" />
                 </div>
               </div>
               <div className="mt-2">
-                <span className="font-mono text-2xl font-bold text-white">
+                <span className="font-mono text-2xl font-bold text-emerald-400">
                   {formatCurrency(
                     totalSpendingCash,
-                    primaryCurrency,
+                    reportingCurrency,
                     displayProfile.currencyDisplay,
                     displayProfile.locale,
                     displayProfile.decimalPlaces,
                   )}
                 </span>
-                <p className="mt-0.5 text-xs text-slate-500">Liquid balance across checking & wallets</p>
+                <p className="mt-0.5 text-xs text-slate-500">Cash across checking, savings & wallets</p>
               </div>
             </div>
 
-            {/* Brokerage Liquid Cash */}
+            {/* Brokerage Cash Balance */}
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-400">Brokerage Liquid Cash</span>
+                <span className="text-xs font-medium text-slate-400">Brokerage Cash Balance</span>
                 <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
-                  <Coins className="h-4 w-4" />
+                  <Wallet className="h-4 w-4" />
                 </div>
               </div>
               <div className="mt-2">
                 <span className="font-mono text-2xl font-bold text-emerald-400">
                   {formatCurrency(
                     totalInvestingCash,
-                    primaryCurrency,
+                    reportingCurrency,
                     displayProfile.currencyDisplay,
                     displayProfile.locale,
                     displayProfile.decimalPlaces,
@@ -348,14 +374,16 @@ export const MoneyFlowPage: React.FC = () => {
                 <span className="font-mono text-2xl font-bold text-cyan-300">
                   {formatCurrency(
                     totalNetWorth,
-                    primaryCurrency,
+                    reportingCurrency,
                     displayProfile.currencyDisplay,
                     displayProfile.locale,
                     displayProfile.decimalPlaces,
                   )}
                 </span>
                 <div className="mt-0.5 flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Invested: {formatCurrency(totalInvestedPortfolio, primaryCurrency, displayProfile.currencyDisplay, displayProfile.locale, displayProfile.decimalPlaces)}</span>
+                  <span className="text-xs text-slate-500">
+                    Invested: {formatCurrency(totalInvestedPortfolio, reportingCurrency, displayProfile.currencyDisplay, displayProfile.locale, displayProfile.decimalPlaces)}
+                  </span>
                   <a href="/net-worth" className="text-xs text-cyan-400 hover:underline">
                     Net worth view →
                   </a>
@@ -385,7 +413,13 @@ export const MoneyFlowPage: React.FC = () => {
           <AccountMap
             accounts={accounts}
             balancesByAccountId={balancesByAccountId}
+            balancesReportingByAccountId={balancesReportingByAccountId}
             portfolioByAccountId={portfolioByAccountId}
+            reportingCurrency={reportingCurrency}
+            fxRates={fxRates}
+            totalSpendingCash={totalSpendingCash}
+            totalInvestingCash={totalInvestingCash}
+            totalInvestedPortfolio={totalInvestedPortfolio}
             onSelectAccount={handleSelectAccount}
             onOpenTransfer={handleOpenTransfer}
             onOpenDividend={handleOpenDividend}

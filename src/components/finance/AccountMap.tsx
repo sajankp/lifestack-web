@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import {
   ArrowRight,
   ArrowRightLeft,
@@ -19,7 +19,11 @@ import type { Account } from '../../types/finance';
 interface AccountMapProps {
   accounts: Account[];
   balancesByAccountId: Record<string, number>;
-  portfolioByAccountId?: Record<string, { totalInvested: number; holdingsCount: number }>;
+  balancesReportingByAccountId?: Record<string, number>;
+  portfolioByAccountId?: Record<
+    string,
+    { totalInvested: number; totalInvestedReporting?: number; holdingsCount: number }
+  >;
   onSelectAccount: (accountId: string) => void;
   onOpenTransfer: (fromAccountId?: string) => void;
   onOpenDividend: (brokerageAccountId?: string) => void;
@@ -27,11 +31,17 @@ interface AccountMapProps {
   onOpenCreateAccount: () => void;
   selectedAccountId?: string | null;
   isLoading?: boolean;
+  reportingCurrency?: string;
+  fxRates?: Record<string, number | string>;
+  totalSpendingCash?: number;
+  totalInvestingCash?: number;
+  totalInvestedPortfolio?: number;
 }
 
 export const AccountMap: React.FC<AccountMapProps> = ({
   accounts,
   balancesByAccountId,
+  balancesReportingByAccountId,
   portfolioByAccountId = {},
   onSelectAccount,
   onOpenTransfer,
@@ -40,6 +50,10 @@ export const AccountMap: React.FC<AccountMapProps> = ({
   onOpenCreateAccount,
   selectedAccountId,
   isLoading = false,
+  reportingCurrency,
+  totalSpendingCash,
+  totalInvestingCash,
+  totalInvestedPortfolio,
 }) => {
   const displayProfile = useDisplayProfile();
 
@@ -48,18 +62,30 @@ export const AccountMap: React.FC<AccountMapProps> = ({
   );
   const brokerageAccounts = accounts.filter((a) => a.account_type === 'brokerage');
 
-  const totalCashBank = cashAccounts.reduce(
-    (acc, a) => acc + (balancesByAccountId[a.public_id] ?? 0),
-    0,
-  );
-  const totalBrokerageCash = brokerageAccounts.reduce(
-    (acc, a) => acc + (balancesByAccountId[a.public_id] ?? 0),
-    0,
-  );
-  const totalInvestedPortfolio = Object.values(portfolioByAccountId).reduce(
-    (acc, p) => acc + p.totalInvested,
-    0,
-  );
+  const repCurrency = reportingCurrency ?? accounts[0]?.default_currency_code ?? 'INR';
+
+  const totalCashBank =
+    totalSpendingCash ??
+    cashAccounts.reduce(
+      (acc, a) =>
+        acc + (balancesReportingByAccountId?.[a.public_id] ?? balancesByAccountId[a.public_id] ?? 0),
+      0,
+    );
+
+  const totalBrokerageCash =
+    totalInvestingCash ??
+    brokerageAccounts.reduce(
+      (acc, a) =>
+        acc + (balancesReportingByAccountId?.[a.public_id] ?? balancesByAccountId[a.public_id] ?? 0),
+      0,
+    );
+
+  const totalInvestedPortfolioVal =
+    totalInvestedPortfolio ??
+    Object.values(portfolioByAccountId).reduce(
+      (acc, p) => acc + (p.totalInvestedReporting ?? p.totalInvested),
+      0,
+    );
 
   const getAccountIcon = (type: string) => {
     switch (type) {
@@ -73,8 +99,6 @@ export const AccountMap: React.FC<AccountMapProps> = ({
         return Wallet;
     }
   };
-
-  const baseCurrency = accounts[0]?.default_currency_code ?? 'INR';
 
   return (
     <div className="space-y-4">
@@ -119,45 +143,41 @@ export const AccountMap: React.FC<AccountMapProps> = ({
               <SkeletonCard className="h-20" />
               <SkeletonCard className="h-20" />
             </div>
-
             <div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-sm backdrop-blur space-y-3">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <SkeletonLine className="h-4 w-32" />
                 <SkeletonLine className="h-4 w-16" />
               </div>
-              <SkeletonCard className="h-20" />
               <SkeletonCard className="h-20" />
             </div>
-
             <div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-sm backdrop-blur space-y-3">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <SkeletonLine className="h-4 w-32" />
                 <SkeletonLine className="h-4 w-16" />
               </div>
-              <SkeletonCard className="h-20" />
               <SkeletonCard className="h-20" />
             </div>
           </>
         ) : (
           <>
-            {/* Lane 1: Bank & Spending Accounts */}
+            {/* Lane 1: Liquid Cash */}
             <div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-sm backdrop-blur">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-blue-500/20 p-2 text-blue-400">
+                  <div className="rounded-lg bg-emerald-500/20 p-2 text-emerald-400">
                     <Building2 className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-white">Bank & Cash Accounts</h3>
-                    <p className="text-xs text-slate-400">Ledger-tracked spending cash</p>
+                    <h3 className="text-sm font-semibold text-white">Liquid Cash</h3>
+                    <p className="text-xs text-slate-400">Bank accounts, cards & wallets</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-slate-400">Total:</span>{' '}
-                  <span className="font-mono text-xs font-bold text-blue-300">
+                  <span className="text-xs text-slate-400">Total Liquid:</span>{' '}
+                  <span className="font-mono text-xs font-bold text-emerald-300">
                     {formatCurrency(
                       totalCashBank,
-                      baseCurrency,
+                      repCurrency,
                       displayProfile.currencyDisplay,
                       displayProfile.locale,
                       displayProfile.decimalPlaces,
@@ -170,20 +190,23 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                 {cashAccounts.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-6 text-center text-xs text-slate-500">
                     <Wallet className="h-8 w-8 mb-2 opacity-40" />
-                    <span>No bank or cash accounts yet</span>
+                    <span>No cash accounts added</span>
                     <button
-                      type="button"
                       onClick={onOpenCreateAccount}
                       className="text-cyan-400 hover:underline mt-1 text-xs"
                     >
-                      + Add account
+                      + Add Cash Account
                     </button>
                   </div>
                 ) : (
                   cashAccounts.map((acc) => {
-                    const Icon = getAccountIcon(acc.account_type);
                     const bal = balancesByAccountId[acc.public_id] ?? 0;
+                    const repBal = balancesReportingByAccountId?.[acc.public_id];
                     const isSelected = selectedAccountId === acc.public_id;
+                    const Icon = getAccountIcon(acc.account_type);
+                    const isDifferentCurrency =
+                      acc.default_currency_code.trim().toUpperCase() !== repCurrency.trim().toUpperCase();
+
                     return (
                       <div
                         key={acc.public_id}
@@ -208,13 +231,13 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                               </span>
                             </div>
                             <span className="text-[11px] text-slate-400 capitalize">
-                              {acc.account_type} account
+                              {acc.account_type} Account
                             </span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="text-right">
-                            <span className="block font-mono text-xs font-bold text-slate-100">
+                            <span className="block font-mono text-xs font-bold text-slate-200">
                               {formatCurrency(
                                 bal,
                                 acc.default_currency_code,
@@ -223,6 +246,18 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                                 displayProfile.decimalPlaces,
                               )}
                             </span>
+                            {isDifferentCurrency && repBal != null && (
+                              <span className="block font-mono text-[10px] text-slate-400 font-normal">
+                                ≈{' '}
+                                {formatCurrency(
+                                  repBal,
+                                  repCurrency,
+                                  displayProfile.currencyDisplay,
+                                  displayProfile.locale,
+                                  displayProfile.decimalPlaces,
+                                )}
+                              </span>
+                            )}
                           </div>
                           <ChevronRight className="h-4 w-4 text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:text-cyan-400" />
                         </div>
@@ -232,20 +267,19 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                 )}
               </div>
 
-              <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between">
-                <span className="text-xs text-slate-400">{cashAccounts.length} Connected</span>
+              <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-end">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={onOpenCreateAccount}
-                  className="text-xs h-7 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/30 px-2"
+                  onClick={() => onOpenTransfer()}
+                  className="text-xs h-7 text-cyan-400 hover:text-cyan-300 p-0 hover:bg-transparent"
                 >
-                  + New Account
+                  Transfer between accounts →
                 </Button>
               </div>
             </div>
 
-            {/* Lane 2: Brokerage Cash Balances */}
+            {/* Lane 2: Brokerage Cash Balance */}
             <div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-sm backdrop-blur">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                 <div className="flex items-center gap-2">
@@ -254,15 +288,15 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                   </div>
                   <div>
                     <h3 className="text-sm font-semibold text-white">Brokerage Cash</h3>
-                    <p className="text-xs text-slate-400">Trading balances & unallocated cash</p>
+                    <p className="text-xs text-slate-400">Available trading cash & margins</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-slate-400">Total:</span>{' '}
+                  <span className="text-xs text-slate-400">Total Available:</span>{' '}
                   <span className="font-mono text-xs font-bold text-emerald-300">
                     {formatCurrency(
                       totalBrokerageCash,
-                      baseCurrency,
+                      repCurrency,
                       displayProfile.currencyDisplay,
                       displayProfile.locale,
                       displayProfile.decimalPlaces,
@@ -275,9 +309,8 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                 {brokerageAccounts.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-6 text-center text-xs text-slate-500">
                     <LineChart className="h-8 w-8 mb-2 opacity-40" />
-                    <span>No brokerage accounts connected</span>
+                    <span>No brokerage accounts</span>
                     <button
-                      type="button"
                       onClick={onOpenCreateAccount}
                       className="text-cyan-400 hover:underline mt-1 text-xs"
                     >
@@ -287,7 +320,11 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                 ) : (
                   brokerageAccounts.map((acc) => {
                     const bal = balancesByAccountId[acc.public_id] ?? 0;
+                    const repBal = balancesReportingByAccountId?.[acc.public_id];
                     const isSelected = selectedAccountId === acc.public_id;
+                    const isDifferentCurrency =
+                      acc.default_currency_code.trim().toUpperCase() !== repCurrency.trim().toUpperCase();
+
                     return (
                       <div
                         key={acc.public_id}
@@ -327,6 +364,18 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                                 displayProfile.decimalPlaces,
                               )}
                             </span>
+                            {isDifferentCurrency && repBal != null && (
+                              <span className="block font-mono text-[10px] text-slate-400 font-normal">
+                                ≈{' '}
+                                {formatCurrency(
+                                  repBal,
+                                  repCurrency,
+                                  displayProfile.currencyDisplay,
+                                  displayProfile.locale,
+                                  displayProfile.decimalPlaces,
+                                )}
+                              </span>
+                            )}
                           </div>
                           <ChevronRight className="h-4 w-4 text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-400" />
                         </div>
@@ -374,8 +423,8 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                   <span className="text-xs text-slate-400">Total:</span>{' '}
                   <span className="font-mono text-xs font-bold text-violet-300">
                     {formatCurrency(
-                      totalInvestedPortfolio,
-                      baseCurrency,
+                      totalInvestedPortfolioVal,
+                      repCurrency,
                       displayProfile.currencyDisplay,
                       displayProfile.locale,
                       displayProfile.decimalPlaces,
@@ -394,8 +443,12 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                   brokerageAccounts.map((acc) => {
                     const port = portfolioByAccountId[acc.public_id] ?? {
                       totalInvested: 0,
+                      totalInvestedReporting: 0,
                       holdingsCount: 0,
                     };
+                    const isDifferentCurrency =
+                      acc.default_currency_code.trim().toUpperCase() !== repCurrency.trim().toUpperCase();
+
                     return (
                       <div
                         key={`port-${acc.public_id}`}
@@ -424,6 +477,18 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                               displayProfile.decimalPlaces,
                             )}
                           </span>
+                          {isDifferentCurrency && (
+                            <span className="block font-mono text-[10px] text-slate-400 font-normal">
+                              ≈{' '}
+                              {formatCurrency(
+                                port.totalInvestedReporting ?? port.totalInvested,
+                                repCurrency,
+                                displayProfile.currencyDisplay,
+                                displayProfile.locale,
+                                displayProfile.decimalPlaces,
+                              )}
+                            </span>
+                          )}
                         </div>
                       </div>
                     );
