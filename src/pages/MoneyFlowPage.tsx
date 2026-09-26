@@ -19,10 +19,12 @@ import { ActivityFeedTimeline } from '../components/finance/ActivityFeedTimeline
 import { AccountDetailView } from '../components/finance/AccountDetailView';
 import { TransferModal } from '../components/finance/TransferModal';
 import { DividendModal } from '../components/finance/DividendModal';
+import { HistoricalDataPanel } from '../components/finance/HistoricalDataPanel';
+import { NetWorthHistoryChart, StatusBanner } from '../components/finance/NetWorthHistoryChart';
 import { financeService } from '../services/finance';
 import { investingService } from '../services/investing';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
-import { queryKeys } from '../lib/queryKeys';
+import { mutationInvalidations, queryKeys } from '../lib/queryKeys';
 import { formatCurrency, normalizeToReportingCurrency } from '../utils/numberFormat';
 import { useDisplayProfile } from '../hooks/useDisplayProfile';
 import type { Account, AccountType } from '../types/finance';
@@ -59,6 +61,13 @@ export const MoneyFlowPage: React.FC = () => {
   const netWorthRes = useQuery({
     queryKey: queryKeys.netWorth.summary(),
     queryFn: () => financeService.getNetWorth(),
+  });
+
+  // Fetch Net Worth History
+  const historyRes = useQuery({
+    queryKey: queryKeys.netWorth.history(),
+    queryFn: () => financeService.getNetWorthHistory(),
+    staleTime: 60_000,
   });
 
   // Fetch Holdings to compute exact per-brokerage account holdings and valuation (limit=200 max)
@@ -165,7 +174,6 @@ export const MoneyFlowPage: React.FC = () => {
     const holdings = holdingsRes.data?.items ?? [];
     if (holdings.length > 0) {
       holdings.forEach((h) => {
-        // Match holding by account_id (public_id) or name
         const matchedAcc = brokerageAccounts.find(
           (a) => a.public_id === h.account_id || (h.account_name && a.name === h.account_name),
         );
@@ -178,55 +186,59 @@ export const MoneyFlowPage: React.FC = () => {
           const price = Number(h.current_price ?? h.avg_cost ?? 0);
           const val = Number(h.current_value ?? (Number(h.quantity || 0) * price));
           const valReporting = normalizeToReportingCurrency(val, h.currency, reportingCurrency, fxRates);
+
           map[targetId].totalInvested += val;
           map[targetId].totalInvestedReporting += valReporting;
           map[targetId].holdingsCount += 1;
         }
       });
-    } else if (investingSummaryRes.data && brokerageAccounts.length === 1) {
-      // Fallback for a single brokerage account if holdings list is empty
-      const invTotal = Number(investingSummaryRes.data.portfolio_value || 0);
-      const holdingsCount = investingSummaryRes.data.holdings_count || 0;
-      map[brokerageAccounts[0].public_id] = {
-        totalInvested: invTotal,
-        totalInvestedReporting: invTotal,
-        holdingsCount,
+    } else if (investingSummaryRes.data?.portfolio_value != null && brokerageAccounts.length === 1) {
+      const singleAcc = brokerageAccounts[0];
+      const val = Number(investingSummaryRes.data.portfolio_value);
+      map[singleAcc.public_id] = {
+        totalInvested: val,
+        totalInvestedReporting: val,
+        holdingsCount: investingSummaryRes.data.holdings_count || 0,
       };
     }
+
     return map;
-  }, [holdingsRes.data, investingSummaryRes.data, accounts, reportingCurrency, fxRates]);
+  }, [accounts, holdingsRes.data, investingSummaryRes.data, reportingCurrency, fxRates]);
 
-  // Compute Total Hero Metrics in reporting currency
+  // High-level sums in reporting currency
   const { totalSpendingCash, totalInvestingCash, totalInvestedPortfolio, totalNetWorth } = useMemo(() => {
-    const sumSpendingReporting = accounts
-      .filter((a) => a.account_type === 'bank' || a.account_type === 'wallet' || a.account_type === 'card')
-      .reduce((sum, a) => sum + (balancesReportingByAccountId[a.public_id] ?? 0), 0);
+    let spendingCash = 0;
+    if (netWorthRes.data?.spending_total != null) {
+      spendingCash = Number(netWorthRes.data.spending_total);
+    } else {
+      accounts
+        .filter((a) => a.account_type !== 'brokerage')
+        .forEach((a) => {
+          spendingCash += balancesReportingByAccountId[a.public_id] || 0;
+        });
+    }
 
-    const sumInvestingCashReporting = accounts
-      .filter((a) => a.account_type === 'brokerage')
-      .reduce((sum, a) => sum + (balancesReportingByAccountId[a.public_id] ?? 0), 0);
+    let investingCash = 0;
+    if (netWorthRes.data?.investing_cash_total != null) {
+      investingCash = Number(netWorthRes.data.investing_cash_total);
+    } else {
+      accounts
+        .filter((a) => a.account_type === 'brokerage')
+        .forEach((a) => {
+          investingCash += balancesReportingByAccountId[a.public_id] || 0;
+        });
+    }
 
-    const sumPortfolioReporting = Object.values(portfolioByAccountId).reduce(
-      (sum, p) => sum + p.totalInvestedReporting,
-      0,
-    );
-
-    const spendingCash =
-      netWorthRes.data?.spending_total != null
-        ? Number(netWorthRes.data.spending_total)
-        : sumSpendingReporting;
-
-    const investingCash =
-      netWorthRes.data?.investing_cash_total != null
-        ? Number(netWorthRes.data.investing_cash_total)
-        : sumInvestingCashReporting;
-
-    const portfolioVal =
-      netWorthRes.data?.holdings_value != null
-        ? Number(netWorthRes.data.holdings_value)
-        : investingSummaryRes.data?.portfolio_value != null
-          ? Number(investingSummaryRes.data.portfolio_value)
-          : sumPortfolioReporting;
+    let portfolioVal = 0;
+    if (netWorthRes.data?.holdings_value != null) {
+      portfolioVal = Number(netWorthRes.data.holdings_value);
+    } else if (investingSummaryRes.data?.portfolio_value != null) {
+      portfolioVal = Number(investingSummaryRes.data.portfolio_value);
+    } else {
+      Object.values(portfolioByAccountId).forEach((p) => {
+        portfolioVal += p.totalInvestedReporting;
+      });
+    }
 
     const netWorth =
       netWorthRes.data?.total_net_worth != null
@@ -279,7 +291,7 @@ export const MoneyFlowPage: React.FC = () => {
     setIsDividendModalOpen(true);
   };
 
-  // Create Account Mutation
+  // Create Account Mutation with cascading invalidations
   const createAccountMutation = useInvalidatingMutation(
     async () => {
       if (!newAccName.trim()) throw new Error('Account name is required');
@@ -289,7 +301,7 @@ export const MoneyFlowPage: React.FC = () => {
         default_currency_code: newAccCurrency.trim().toUpperCase() || 'INR',
       });
     },
-    [queryKeys.finance.accounts()],
+    mutationInvalidations.account,
     {
       onSuccess: () => {
         setIsCreateAccountModalOpen(false);
@@ -306,6 +318,13 @@ export const MoneyFlowPage: React.FC = () => {
       <PageHero
         title="Money Flow & Architecture"
         subtitle="Unified financial ecosystem mapping your capital across cash accounts, trading balances, and invested portfolio."
+        actions={<HistoricalDataPanel />}
+      />
+
+      <StatusBanner
+        status={netWorthRes.data?.valuation_status ?? ''}
+        reportingCurrency={reportingCurrency}
+        excludedCurrencies={netWorthRes.data?.excluded_currencies ?? []}
       />
 
       {/* Top 3 High-Level Metric Cards */}
@@ -384,9 +403,9 @@ export const MoneyFlowPage: React.FC = () => {
                   <span className="text-xs text-slate-500">
                     Invested: {formatCurrency(totalInvestedPortfolio, reportingCurrency, displayProfile.currencyDisplay, displayProfile.locale, displayProfile.decimalPlaces)}
                   </span>
-                  <a href="/net-worth" className="text-xs text-cyan-400 hover:underline">
-                    Net worth view →
-                  </a>
+                  <span className="text-xs text-slate-400">
+                    Unified Net Worth
+                  </span>
                 </div>
               </div>
             </div>
@@ -407,7 +426,7 @@ export const MoneyFlowPage: React.FC = () => {
           onOpenOrder={() => navigate('/portfolio')}
         />
       ) : (
-        /* Account Map + Unified Activity Feed */
+        /* Account Map + Historical Net Worth Chart + Unified Activity Feed */
         <div className="space-y-6">
           {/* Visual 3-Lane Account Map */}
           <AccountMap
@@ -428,6 +447,17 @@ export const MoneyFlowPage: React.FC = () => {
             selectedAccountId={selectedAccountId}
             isLoading={isArchitectureLoading}
           />
+
+          {/* Historical Net Worth Trend Chart */}
+          {reportingCurrency && (
+            <div className="pt-2">
+              <NetWorthHistoryChart
+                history={historyRes.data}
+                currency={reportingCurrency}
+                displayProfile={displayProfile}
+              />
+            </div>
+          )}
 
           {/* Unified Activity Feed Section */}
           <div className="space-y-3 pt-2">

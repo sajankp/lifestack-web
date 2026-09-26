@@ -32,6 +32,8 @@ import { formatDateInput, instrumentTypeLabel, instrumentTypeOptions } from './f
 import { PortfolioPerformanceChart } from '../../components/investing/PortfolioPerformanceChart';
 import { PortfolioAllocationCard } from '../../components/investing/PortfolioAllocationCard';
 import { DividendTrajectoryCard } from '../../components/investing/DividendTrajectoryCard';
+import { DividendsSection } from '../../components/investing/DividendsSection';
+import { financeService } from '../../services/finance';
 
 
 const EMPTY_IDENTITY: IdentifierFieldsValue = { ticker: '', isin: '', exchange: '' };
@@ -69,6 +71,11 @@ interface AnalyticsTabProps {
 
 export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPreference }) => {
   const formatCurrency = useCurrencyFormatter();
+  const accountsQuery = useQuery({
+    queryKey: queryKeys.finance.accounts(),
+    queryFn: () => financeService.getAccounts(),
+  });
+  const accounts = useMemo(() => accountsQuery.data?.items ?? [], [accountsQuery.data]);
   const [analyticsAsOf, setAnalyticsAsOf] = useState(formatDateInput(new Date()));
   const [isCreateInstrumentModalOpen, setIsCreateInstrumentModalOpen] = useState(false);
   const [isSeedConstituentsModalOpen, setIsSeedConstituentsModalOpen] = useState(false);
@@ -368,6 +375,13 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
             currencyDisplayPreference={currencyDisplayPreference}
           />
         </div>
+
+        {/* Dividends History & Management */}
+        <DividendsSection
+          accounts={accounts}
+          accountFilter=""
+          currencyDisplayPreference={currencyDisplayPreference}
+        />
 
         {/* Instrument/constituent authoring is workspace setup, not a daily
 

@@ -8,7 +8,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
-import { queryKeys } from '../../lib/queryKeys';
+import { mutationInvalidations } from '../../lib/queryKeys';
 import { investingService } from '../../services/investing';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatDateInputValue } from '../../utils/dateFormat';
@@ -115,12 +115,7 @@ export const DividendModal: React.FC<DividendModalProps> = ({
         notes: notes.trim() || null,
       });
     },
-    [
-      queryKeys.investing.all,
-      queryKeys.finance.all,
-      queryKeys.spending.all,
-      queryKeys.dashboard.all,
-    ],
+    mutationInvalidations.dividend,
     {
       successMessage: 'Dividend recorded successfully',
       onSuccess: () => {

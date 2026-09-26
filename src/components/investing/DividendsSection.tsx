@@ -9,7 +9,7 @@ import type { Account } from '../../types/finance';
 import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { formatDate, formatDateInputValue } from '../../utils/dateFormat';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
-import { queryKeys } from '../../lib/queryKeys';
+import { mutationInvalidations, queryKeys } from '../../lib/queryKeys';
 import { DropdownSelect } from '../DropdownSelect';
 import { Pagination } from '../Pagination';
 import { Button } from '../ui/button';
@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 
-const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
+const refreshKeys = mutationInvalidations.dividend;
 
 const INCOME_TYPE_OPTIONS = DIVIDEND_INCOME_TYPES.map((t) => ({ value: t, label: t }));
 

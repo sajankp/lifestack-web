@@ -144,3 +144,73 @@ export const queryKeys = {
     categoryGroups: () => ['category-groups', 'master-config'] as const,
   },
 } as const;
+
+
+/**
+ * Uniform cascading invalidation presets.
+ * Ensures that whenever a mutation occurs in any module, all downstream
+ * dependencies across Money Flow, Net Worth, Spending, Investing, and Dashboard
+ * are proactively and automatically invalidated.
+ */
+export const mutationInvalidations = {
+  // Any spending transaction or batch import mutation
+  transaction: [
+    queryKeys.spending.all,
+    queryKeys.finance.all,
+    queryKeys.netWorth.all,
+    queryKeys.dashboard.all,
+    queryKeys.summaries.all,
+  ],
+  // Any capital movement/transfer between accounts
+  transfer: [
+    queryKeys.finance.all,
+    queryKeys.netWorth.all,
+    queryKeys.spending.all,
+    queryKeys.investing.all,
+    queryKeys.dashboard.all,
+  ],
+  // Any investment trade/order
+  order: [
+    queryKeys.investing.all,
+    queryKeys.finance.all,
+    queryKeys.netWorth.all,
+    queryKeys.dashboard.all,
+  ],
+  // Any dividend payment recorded or updated
+  dividend: [
+    queryKeys.investing.all,
+    queryKeys.finance.all,
+    queryKeys.netWorth.all,
+    queryKeys.dashboard.all,
+  ],
+  // Any account creation, update, or deactivation
+  account: [
+    queryKeys.finance.all,
+    queryKeys.netWorth.all,
+    queryKeys.spending.all,
+    queryKeys.investing.all,
+    queryKeys.dashboard.all,
+  ],
+  // Any holding price edit or corporate action
+  holding: [
+    queryKeys.investing.all,
+    queryKeys.finance.all,
+    queryKeys.netWorth.all,
+    queryKeys.dashboard.all,
+  ],
+  // Any budget or spending category change
+  budget: [
+    queryKeys.spending.all,
+    queryKeys.dashboard.all,
+  ],
+  // Any bulk import commit or revert
+  importBatch: [
+    queryKeys.imports.all,
+    queryKeys.spending.all,
+    queryKeys.finance.all,
+    queryKeys.investing.all,
+    queryKeys.netWorth.all,
+    queryKeys.dashboard.all,
+    queryKeys.summaries.all,
+  ],
+} as const;

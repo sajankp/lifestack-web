@@ -10,7 +10,7 @@ import type {
 import type { Account } from '../../types/finance';
 import { formatDate, formatDateInputValue } from '../../utils/dateFormat';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
-import { queryKeys } from '../../lib/queryKeys';
+import { mutationInvalidations, queryKeys } from '../../lib/queryKeys';
 import { DropdownSelect } from '../DropdownSelect';
 import { Button } from '../ui/button';
 import { FormattedNumberInput } from '../ui/formatted-number-input';
@@ -24,7 +24,7 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 
-const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
+const refreshKeys = mutationInvalidations.holding;
 
 const ACTION_TYPE_OPTIONS = [
   { value: 'split', label: 'Split / reverse split' },

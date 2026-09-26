@@ -16,7 +16,6 @@ const TodoPage = lazy(() => import('./pages/TodoPage').then((module) => ({ defau
 const HealthPage = lazy(() => import('./pages/HealthPage').then((module) => ({ default: module.HealthPage })));
 const MoneyFlowPage = lazy(() => import('./pages/MoneyFlowPage').then((module) => ({ default: module.MoneyFlowPage })));
 const PortfolioPage = lazy(() => import('./pages/PortfolioPage').then((module) => ({ default: module.PortfolioPage })));
-const NetWorthPage = lazy(() => import('./pages/NetWorthPage').then((module) => ({ default: module.NetWorthPage })));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((module) => ({ default: module.NotificationsPage })));
 const WeeklySummariesPage = lazy(() => import('./pages/WeeklySummariesPage').then((module) => ({ default: module.WeeklySummariesPage })));
 const ImportsPage = lazy(() => import('./pages/ImportsPage').then((module) => ({ default: module.ImportsPage })));
@@ -160,11 +159,7 @@ function App() {
 
           <Route
             path="/net-worth"
-            element={
-              <Layout>
-                <NetWorthPage />
-              </Layout>
-            }
+            element={<Navigate to="/money" replace />}
           />
 
           <Route
