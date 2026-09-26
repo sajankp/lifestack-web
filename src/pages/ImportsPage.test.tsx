@@ -4,8 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 import { ToastProvider } from '../components/ui/toast';
 import { http, HttpResponse } from 'msw';
-import { userEvent } from '@testing-library/user-event';
-
 import { ImportsPage } from './ImportsPage';
 import { server } from '../test/setup';
 
@@ -154,12 +152,12 @@ describe('ImportsPage', () => {
     // Mock file
     const file = new File(['hello,world'], 'test.csv', { type: 'text/csv' });
     const fileInput = await screen.findByTestId('imports-file-input');
-    await userEvent.upload(fileInput, file);
+    fireEvent.change(fileInput, { target: { files: [file] } });
 
     // Wait for upload button to be enabled and click
     const uploadBtn = await screen.findByTestId('imports-upload-validate');
     expect(uploadBtn).not.toBeDisabled();
-    await userEvent.click(uploadBtn);
+    fireEvent.click(uploadBtn);
 
     await waitFor(() => {
       expect(uploadedFile).not.toBeNull();
@@ -362,7 +360,7 @@ describe('ImportsPage', () => {
 
     const file = new File(['col1,col2\nval1,val2'], 'test.csv', { type: 'text/csv' });
     const fileInput = await screen.findByTestId('imports-file-input');
-    await userEvent.upload(fileInput, file);
+    fireEvent.change(fileInput, { target: { files: [file] } });
     fireEvent.click(await screen.findByTestId('imports-upload-validate'));
 
     await waitFor(() => {
@@ -495,7 +493,7 @@ describe('ImportsPage', () => {
 
     const file = new File(['%PDF-1.4'], 'cas.pdf', { type: 'application/pdf' });
     const fileInput = await screen.findByTestId('imports-file-input');
-    await userEvent.upload(fileInput, file);
+    fireEvent.change(fileInput, { target: { files: [file] } });
     fireEvent.click(await screen.findByTestId('imports-upload-validate'));
 
     await waitFor(() => {

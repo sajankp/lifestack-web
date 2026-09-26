@@ -147,6 +147,8 @@ export const DividendSchema = z.object({
   public_id: z.string().default(''),
   account_id: z.string().default(''),
   account_name: z.string().default(''),
+  credit_account_id: z.string().nullable().default(null),
+  credit_account_name: z.string().nullable().default(null),
   holding_id: z.string().nullable().default(null),
   symbol: z.string().nullable().default(null),
   income_type: z.string().default('dividend'),
@@ -165,6 +167,7 @@ export type Dividend = z.infer<typeof DividendSchema>;
 
 export interface DividendCreate {
   account_id: string;
+  credit_account_id?: string | null;
   symbol?: string | null;
   income_type: DividendIncomeType;
   gross_amount: number;
@@ -176,6 +179,7 @@ export interface DividendCreate {
 }
 
 export interface DividendUpdate {
+  credit_account_id?: string | null;
   symbol?: string | null;
   income_type?: DividendIncomeType;
   gross_amount?: number;

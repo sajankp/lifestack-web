@@ -14,8 +14,8 @@ const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage').then(
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then((module) => ({ default: module.ResetPasswordPage })));
 const TodoPage = lazy(() => import('./pages/TodoPage').then((module) => ({ default: module.TodoPage })));
 const HealthPage = lazy(() => import('./pages/HealthPage').then((module) => ({ default: module.HealthPage })));
-const SpendingPage = lazy(() => import('./pages/SpendingPage').then((module) => ({ default: module.SpendingPage })));
-const InvestingPage = lazy(() => import('./pages/InvestingPage').then((module) => ({ default: module.InvestingPage })));
+const MoneyFlowPage = lazy(() => import('./pages/MoneyFlowPage').then((module) => ({ default: module.MoneyFlowPage })));
+const PortfolioPage = lazy(() => import('./pages/PortfolioPage').then((module) => ({ default: module.PortfolioPage })));
 const NetWorthPage = lazy(() => import('./pages/NetWorthPage').then((module) => ({ default: module.NetWorthPage })));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((module) => ({ default: module.NotificationsPage })));
 const WeeklySummariesPage = lazy(() => import('./pages/WeeklySummariesPage').then((module) => ({ default: module.WeeklySummariesPage })));
@@ -133,21 +133,31 @@ function App() {
           />
 
           <Route
-            path="/spending/*"
+            path="/money/*"
             element={
               <Layout>
-                <SpendingPage />
+                <MoneyFlowPage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/spending/*"
+            element={<Navigate to="/money" replace />}
+          />
+
+          <Route
+            path="/portfolio/*"
+            element={
+              <Layout>
+                <PortfolioPage />
               </Layout>
             }
           />
           <Route
             path="/investing/*"
-            element={
-              <Layout>
-                <InvestingPage />
-              </Layout>
-            }
+            element={<Navigate to="/portfolio" replace />}
           />
+
           <Route
             path="/net-worth"
             element={
