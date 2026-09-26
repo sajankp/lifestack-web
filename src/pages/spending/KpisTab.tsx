@@ -7,6 +7,7 @@ import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
 import { queryKeys } from '../../lib/queryKeys';
 import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { FormattedNumberInput } from '../../components/ui/formatted-number-input';
+import { SkeletonStatGrid } from '../../components/ui/FeedbackStates';
 import { spendingService } from '../../services/spending';
 import type { Kpi, KpiCreate, KpiMetricType, KpiWindow } from '../../types/spending';
 
@@ -314,9 +315,7 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
       ) : null}
 
       {isLoading ? (
-        <div className="flex min-h-[200px] items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-600 border-t-cyan-500" />
-        </div>
+        <SkeletonStatGrid cols={3} />
       ) : kpis.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-800/30 p-12 text-center">
           <div className="mb-4 rounded-full bg-slate-800 p-4">

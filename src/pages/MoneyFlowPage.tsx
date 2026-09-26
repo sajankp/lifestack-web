@@ -1,13 +1,11 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowRightLeft,
-  Banknote,
   Building2,
   Coins,
   PieChart,
-  Plus,
   RefreshCw,
 } from 'lucide-react';
 import { PageHero } from '../components/layout/PageHero';
@@ -17,6 +15,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { DropdownSelect } from '../components/DropdownSelect';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { SkeletonCard } from '../components/ui/FeedbackStates';
 import { AccountMap } from '../components/finance/AccountMap';
 import { ActivityFeedTimeline } from '../components/finance/ActivityFeedTimeline';
 import { AccountDetailView } from '../components/finance/AccountDetailView';
@@ -64,7 +63,13 @@ export const MoneyFlowPage: React.FC = () => {
     queryFn: () => financeService.getNetWorth(),
   });
 
-  // Fetch Investing Summary
+  // Fetch Holdings to compute exact per-brokerage account holdings and valuation
+  const holdingsRes = useQuery({
+    queryKey: queryKeys.investing.holdings(),
+    queryFn: () => investingService.getHoldings(1000, 0),
+  });
+
+  // Fetch Investing Summary as secondary source
   const investingSummaryRes = useQuery({
     queryKey: queryKeys.investing.summary(),
     queryFn: () => investingService.getSummary(),
@@ -109,36 +114,69 @@ export const MoneyFlowPage: React.FC = () => {
     return map;
   }, [netWorthRes.data, accounts]);
 
-  // Portfolio allocation by brokerage account
+  // Accurate Portfolio allocation by brokerage account (NO division by account count!)
   const portfolioByAccountId = useMemo(() => {
     const map: Record<string, { totalInvested: number; holdingsCount: number }> = {};
-    const summary = investingSummaryRes.data;
     const brokerageAccounts = accounts.filter((a) => a.account_type === 'brokerage');
-    if (summary) {
-      const invTotal = Number(summary.portfolio_value || 0);
-      const holdingsCount = summary.holdings_count || 0;
-      brokerageAccounts.forEach((a) => {
-        map[a.public_id] = {
-          totalInvested: invTotal / (brokerageAccounts.length || 1),
-          holdingsCount,
-        };
+
+    // Initialize all brokerage accounts to 0
+    brokerageAccounts.forEach((a) => {
+      map[a.public_id] = { totalInvested: 0, holdingsCount: 0 };
+    });
+
+    const holdings = holdingsRes.data?.items ?? [];
+    if (holdings.length > 0) {
+      holdings.forEach((h) => {
+        // Match holding by account_id (public_id) or name
+        const matchedAcc = brokerageAccounts.find(
+          (a) => a.public_id === h.account_id || (h.account_name && a.name === h.account_name),
+        );
+        const targetId = matchedAcc ? matchedAcc.public_id : h.account_id;
+
+        if (targetId) {
+          if (!map[targetId]) {
+            map[targetId] = { totalInvested: 0, holdingsCount: 0 };
+          }
+          const price = Number(h.current_price ?? h.avg_cost ?? 0);
+          const val = Number(h.current_value ?? (Number(h.quantity || 0) * price));
+          map[targetId].totalInvested += val;
+          map[targetId].holdingsCount += 1;
+        }
       });
+    } else if (investingSummaryRes.data && brokerageAccounts.length === 1) {
+      // Only fallback for a single brokerage account if holdings list hasn't loaded
+      const invTotal = Number(investingSummaryRes.data.portfolio_value || 0);
+      const holdingsCount = investingSummaryRes.data.holdings_count || 0;
+      map[brokerageAccounts[0].public_id] = {
+        totalInvested: invTotal,
+        holdingsCount,
+      };
     }
     return map;
-  }, [investingSummaryRes.data, accounts]);
+  }, [holdingsRes.data, investingSummaryRes.data, accounts]);
 
   // Compute Total Hero Metrics
-  const { totalSpendingCash, totalInvestingCash, totalNetWorth } = useMemo(() => {
+  const { totalSpendingCash, totalInvestingCash, totalInvestedPortfolio, totalNetWorth } = useMemo(() => {
     const spendingCash = Number(netWorthRes.data?.spending_total || 0);
     const investingCash = Number(netWorthRes.data?.investing_cash_total || 0);
-    const netWorth = Number(netWorthRes.data?.total_net_worth || 0);
+
+    const portfolioVal =
+      netWorthRes.data?.holdings_value != null
+        ? Number(netWorthRes.data.holdings_value)
+        : Object.values(portfolioByAccountId).reduce((sum, p) => sum + p.totalInvested, 0);
+
+    const netWorth =
+      netWorthRes.data?.total_net_worth != null
+        ? Number(netWorthRes.data.total_net_worth)
+        : spendingCash + investingCash + portfolioVal;
 
     return {
       totalSpendingCash: spendingCash,
       totalInvestingCash: investingCash,
-      totalNetWorth: netWorth || spendingCash + investingCash,
+      totalInvestedPortfolio: portfolioVal,
+      totalNetWorth: netWorth,
     };
-  }, [netWorthRes.data]);
+  }, [netWorthRes.data, portfolioByAccountId]);
 
   const selectedAccount = useMemo(() => {
     if (!selectedAccountId) return null;
@@ -157,7 +195,6 @@ export const MoneyFlowPage: React.FC = () => {
   };
 
   const handleSelectEventType = (eventType: string | null) => {
-    setFeedOffset(0);
     setSearchParams((prev) => {
       if (eventType) {
         prev.set('type', eventType);
@@ -166,30 +203,31 @@ export const MoneyFlowPage: React.FC = () => {
       }
       return prev;
     });
+    setFeedOffset(0);
   };
 
-  const handleOpenTransfer = (fromId?: string) => {
-    setTransferDefaultFromId(fromId);
+  const handleOpenTransfer = (fromAccountId?: string) => {
+    setTransferDefaultFromId(fromAccountId);
     setIsTransferModalOpen(true);
   };
 
-  const handleOpenDividend = (brokerageId?: string) => {
-    setDividendDefaultBrokerageId(brokerageId);
+  const handleOpenDividend = (brokerageAccountId?: string) => {
+    setDividendDefaultBrokerageId(brokerageAccountId);
     setIsDividendModalOpen(true);
   };
 
+  // Create Account Mutation
   const createAccountMutation = useInvalidatingMutation(
     async () => {
       if (!newAccName.trim()) throw new Error('Account name is required');
       await financeService.createAccount({
         name: newAccName.trim(),
         account_type: newAccType,
-        default_currency_code: newAccCurrency.trim().toUpperCase(),
+        default_currency_code: newAccCurrency.trim().toUpperCase() || 'INR',
       });
     },
-    [queryKeys.finance.all, queryKeys.dashboard.all],
+    [queryKeys.finance.accounts()],
     {
-      successMessage: 'Account created successfully',
       onSuccess: () => {
         setIsCreateAccountModalOpen(false);
         setNewAccName('');
@@ -197,114 +235,135 @@ export const MoneyFlowPage: React.FC = () => {
     },
   );
 
-  const primaryCurrency = accounts[0]?.default_currency_code ?? 'INR';
+  const primaryCurrency =
+    netWorthRes.data?.reporting_currency ||
+    accounts[0]?.default_currency_code ||
+    'INR';
+
+  const isMetricsLoading = netWorthRes.isLoading || accountsRes.isLoading;
+  const isArchitectureLoading = accountsRes.isLoading || netWorthRes.isLoading || holdingsRes.isLoading;
 
   return (
     <PageShell>
       <PageHero
-        title="Money & Accounts"
-        subtitle="Unified ledger across banks, brokerage cash, capital transfers, trades, and dividends."
+        title="Money Flow & Architecture"
+        subtitle="Unified financial ecosystem mapping your capital across cash accounts, trading balances, and invested portfolio."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
             <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                accountsRes.refetch();
+                netWorthRes.refetch();
+                holdingsRes.refetch();
+                activityFeedRes.refetch();
+              }}
+              className="gap-1.5 text-xs border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${
+                  accountsRes.isFetching || netWorthRes.isFetching || holdingsRes.isFetching || activityFeedRes.isFetching
+                    ? 'animate-spin'
+                    : ''
+                }`}
+              />
+              Sync
+            </Button>
+            <Button
+              size="sm"
               onClick={() => handleOpenTransfer()}
-              className="gap-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold shadow-lg shadow-cyan-900/20"
+              className="gap-1.5 text-xs bg-cyan-600 hover:bg-cyan-500 text-white shadow-sm"
             >
-              <ArrowRightLeft className="h-4 w-4" />
-              Transfer Money
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => handleOpenDividend()}
-              className="gap-1.5 border border-slate-700 bg-slate-800/80 text-emerald-300 hover:bg-slate-700"
-            >
-              <Coins className="h-4 w-4" />
-              + Dividend
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setIsCreateAccountModalOpen(true)}
-              className="gap-1.5 border border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700"
-            >
-              <Plus className="h-4 w-4" />
-              Add Account
+              <ArrowRightLeft className="h-3.5 w-3.5" />
+              Transfer
             </Button>
           </div>
         }
       />
 
-      {/* Hero Stat Cards */}
+      {/* Top 3 KPI Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Spending Cash */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Spending & Bank Cash</span>
-            <div className="rounded-lg bg-blue-500/10 p-2 text-blue-400">
-              <Building2 className="h-4 w-4" />
+        {isMetricsLoading ? (
+          <>
+            <SkeletonCard className="h-28" />
+            <SkeletonCard className="h-28" />
+            <SkeletonCard className="h-28 sm:col-span-2 lg:col-span-1" />
+          </>
+        ) : (
+          <>
+            {/* Spending & Bank Cash */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-400">Spending & Bank Cash</span>
+                <div className="rounded-lg bg-blue-500/10 p-2 text-blue-400">
+                  <Building2 className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-2">
+                <span className="font-mono text-2xl font-bold text-white">
+                  {formatCurrency(
+                    totalSpendingCash,
+                    primaryCurrency,
+                    displayProfile.currencyDisplay,
+                    displayProfile.locale,
+                    displayProfile.decimalPlaces,
+                  )}
+                </span>
+                <p className="mt-0.5 text-xs text-slate-500">Liquid balance across checking & wallets</p>
+              </div>
             </div>
-          </div>
-          <div className="mt-2">
-            <span className="font-mono text-2xl font-bold text-white">
-              {formatCurrency(
-                totalSpendingCash,
-                primaryCurrency,
-                displayProfile.currencyDisplay,
-                displayProfile.locale,
-                displayProfile.decimalPlaces,
-              )}
-            </span>
-            <p className="mt-0.5 text-xs text-slate-500">Available across liquid & bank accounts</p>
-          </div>
-        </div>
 
-        {/* Investing Cash */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Brokerage Uninvested Cash</span>
-            <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
-              <Banknote className="h-4 w-4" />
+            {/* Brokerage Liquid Cash */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-400">Brokerage Liquid Cash</span>
+                <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
+                  <Coins className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-2">
+                <span className="font-mono text-2xl font-bold text-emerald-400">
+                  {formatCurrency(
+                    totalInvestingCash,
+                    primaryCurrency,
+                    displayProfile.currencyDisplay,
+                    displayProfile.locale,
+                    displayProfile.decimalPlaces,
+                  )}
+                </span>
+                <p className="mt-0.5 text-xs text-slate-500">Unallocated cash in trading accounts</p>
+              </div>
             </div>
-          </div>
-          <div className="mt-2">
-            <span className="font-mono text-2xl font-bold text-emerald-400">
-              {formatCurrency(
-                totalInvestingCash,
-                primaryCurrency,
-                displayProfile.currencyDisplay,
-                displayProfile.locale,
-                displayProfile.decimalPlaces,
-              )}
-            </span>
-            <p className="mt-0.5 text-xs text-slate-500">Unallocated cash in trading accounts</p>
-          </div>
-        </div>
 
-        {/* Total Estimated Net Worth */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur shadow-sm sm:col-span-2 lg:col-span-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Total Liquid & Invested</span>
-            <div className="rounded-lg bg-cyan-500/10 p-2 text-cyan-400">
-              <PieChart className="h-4 w-4" />
+            {/* Total Estimated Net Worth */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 backdrop-blur shadow-sm sm:col-span-2 lg:col-span-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-400">Total Liquid & Invested</span>
+                <div className="rounded-lg bg-cyan-500/10 p-2 text-cyan-400">
+                  <PieChart className="h-4 w-4" />
+                </div>
+              </div>
+              <div className="mt-2">
+                <span className="font-mono text-2xl font-bold text-cyan-300">
+                  {formatCurrency(
+                    totalNetWorth,
+                    primaryCurrency,
+                    displayProfile.currencyDisplay,
+                    displayProfile.locale,
+                    displayProfile.decimalPlaces,
+                  )}
+                </span>
+                <div className="mt-0.5 flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Invested: {formatCurrency(totalInvestedPortfolio, primaryCurrency, displayProfile.currencyDisplay, displayProfile.locale, displayProfile.decimalPlaces)}</span>
+                  <a href="/net-worth" className="text-xs text-cyan-400 hover:underline">
+                    Net worth view →
+                  </a>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="mt-2">
-            <span className="font-mono text-2xl font-bold text-cyan-300">
-              {formatCurrency(
-                totalNetWorth,
-                primaryCurrency,
-                displayProfile.currencyDisplay,
-                displayProfile.locale,
-                displayProfile.decimalPlaces,
-              )}
-            </span>
-            <div className="mt-0.5 flex items-center justify-between">
-              <span className="text-xs text-slate-500">Cash + Portfolio value</span>
-              <a href="/net-worth" className="text-xs text-cyan-400 hover:underline">
-                Net worth view →
-              </a>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Main Content Area */}
@@ -333,6 +392,7 @@ export const MoneyFlowPage: React.FC = () => {
             onOpenOrder={() => navigate('/portfolio')}
             onOpenCreateAccount={() => setIsCreateAccountModalOpen(true)}
             selectedAccountId={selectedAccountId}
+            isLoading={isArchitectureLoading}
           />
 
           {/* Unified Activity Feed Section */}

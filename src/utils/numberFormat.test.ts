@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCompactNumber, formatCurrency, formatNumber, formatQuantity } from './numberFormat';
+import { formatCompactNumber, formatCurrency, formatNumber, formatQuantity, normalizeToReportingCurrency } from './numberFormat';
 
 describe('formatCurrency', () => {
   it('defaults to a deterministic en-US locale, not the browser implicit locale', () => {
@@ -48,5 +48,34 @@ describe('formatCompactNumber', () => {
   it('keeps chart labels compact while respecting locale-specific units', () => {
     expect(formatCompactNumber(1_200_000, 'en-US')).toBe('1.2M');
     expect(formatCompactNumber(1_200_000, 'en-IN')).toBe('12L');
+  });
+});
+
+describe('normalizeToReportingCurrency', () => {
+  it('returns raw value when currency matches reporting currency', () => {
+    expect(normalizeToReportingCurrency(1000, 'USD', 'USD', { INR: 0.0119 })).toBe(1000);
+    expect(normalizeToReportingCurrency(20000, 'INR', 'INR', { USD: 84.0 })).toBe(20000);
+  });
+
+  it('normalizes USD to INR reporting currency correctly ($1,000 USD > 20,000 INR)', () => {
+    const usdInInr = normalizeToReportingCurrency(1000, 'USD', 'INR', { USD: 84.0 });
+    const inrInInr = normalizeToReportingCurrency(20000, 'INR', 'INR', { USD: 84.0 });
+    expect(usdInInr).toBe(84000);
+    expect(inrInInr).toBe(20000);
+    expect(usdInInr).toBeGreaterThan(inrInInr);
+  });
+
+  it('normalizes INR to USD reporting currency correctly ($1,000 USD > 20,000 INR)', () => {
+    const usdInUsd = normalizeToReportingCurrency(1000, 'USD', 'USD', { INR: 0.0119 });
+    const inrInUsd = normalizeToReportingCurrency(20000, 'INR', 'USD', { INR: 0.0119 });
+    expect(usdInUsd).toBe(1000);
+    expect(inrInUsd).toBeCloseTo(238);
+    expect(usdInUsd).toBeGreaterThan(inrInUsd);
+  });
+
+  it('handles null/undefined amounts and missing fx_rates gracefully', () => {
+    expect(normalizeToReportingCurrency(null, 'USD', 'INR', { USD: 84.0 })).toBe(0);
+    expect(normalizeToReportingCurrency(100, 'EUR', 'USD', {})).toBe(100);
+    expect(normalizeToReportingCurrency(100, 'USD', 'USD', null)).toBe(100);
   });
 });

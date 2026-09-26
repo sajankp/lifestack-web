@@ -116,3 +116,31 @@ export const formatCompactNumber = (
     return formatNumber(numericValue, DEFAULT_DISPLAY_LOCALE, 0);
   }
 };
+
+/**
+ * Normalizes a monetary amount to reporting currency using the provided fx_rates mapping.
+ * fxRates is expected to be a map of { [currencyCode]: rateToReportingCurrency }.
+ */
+
+/**
+ * Normalizes a monetary amount to reporting currency using the provided fx_rates mapping.
+ * fxRates is expected to be a map of { [currencyCode]: rateToReportingCurrency }.
+ */
+export const normalizeToReportingCurrency = (
+  amount: NumericValue,
+  currency: string | null | undefined,
+  reportingCurrency: string | null | undefined,
+  fxRates: Record<string, number | string> | null | undefined,
+): number => {
+  const num = toNumber(amount);
+  if (!num) return 0;
+  const curr = (currency || 'USD').trim().toUpperCase();
+  const rep = (reportingCurrency || 'USD').trim().toUpperCase();
+  if (curr === rep || !fxRates) return num;
+  const rateVal = fxRates[curr] ?? fxRates[curr + '/' + rep];
+  if (rateVal != null) {
+    const rate = toNumber(rateVal);
+    if (rate > 0) return num * rate;
+  }
+  return num;
+};

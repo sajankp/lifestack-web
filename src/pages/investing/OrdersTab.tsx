@@ -4,13 +4,15 @@ import { Edit2, Trash2 } from 'lucide-react';
 import { financeService } from '../../services/finance';
 import { investingService } from '../../services/investing';
 import type { InvestingOrder } from '../../services/investing';
-import { formatCurrency, formatQuantity, toNumber } from '../../utils/numberFormat';
+import { formatCurrency, formatQuantity, normalizeToReportingCurrency, toNumber } from '../../utils/numberFormat';
 import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { formatDate } from '../../utils/dateFormat';
 import { CompactFilterBar, CompactFilterField } from '../../components/filters/CompactFilterBar';
 import { queryKeys } from '../../lib/queryKeys';
 import { DropdownSelect } from '../../components/DropdownSelect';
 import { Pagination } from '../../components/Pagination';
+import { SkeletonLine, SkeletonList } from '../../components/ui/FeedbackStates';
+
 import { SortableHeader } from './components';
 import type { SortDir } from './format';
 import { CorporateActionsSection } from '../../components/investing/CorporateActionsSection';
@@ -60,6 +62,11 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
 
   const orders = useMemo(() => ordersRes.data?.items ?? [], [ordersRes.data]);
 
+  const summary = useQuery({
+    queryKey: queryKeys.investing.summary(),
+    queryFn: () => investingService.getSummary(),
+  });
+
   const sortedOrders = useMemo(() => {
     const dir = ordersSortDir === 'asc' ? 1 : -1;
     return [...orders].sort((a, b) => {
@@ -80,26 +87,42 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
         case 'quantity':
           return dir * (toNumber(a.quantity) - toNumber(b.quantity));
         case 'price_per_unit':
-          return dir * (toNumber(a.price_per_unit) - toNumber(b.price_per_unit));
-        case 'gross_amount':
-          return dir * (toNumber(a.gross_amount) - toNumber(b.gross_amount));
-        case 'fees':
           return (
             dir *
-            (toNumber(a.brokerage_fee) +
-              toNumber(a.tax_amount) +
-              toNumber(a.other_fees) -
-              (toNumber(b.brokerage_fee) + toNumber(b.tax_amount) + toNumber(b.other_fees)))
+            (normalizeToReportingCurrency(a.price_per_unit, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
+              normalizeToReportingCurrency(b.price_per_unit, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
           );
-        case 'net_amount':
-          return dir * (toNumber(a.net_amount) - toNumber(b.net_amount));
+        case 'gross_amount':
+          return (
+            dir *
+            (normalizeToReportingCurrency(a.gross_amount, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
+              normalizeToReportingCurrency(b.gross_amount, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
+          );
+        case 'fees': {
+          const feesA = toNumber(a.brokerage_fee) + toNumber(a.tax_amount) + toNumber(a.other_fees);
+          const feesB = toNumber(b.brokerage_fee) + toNumber(b.tax_amount) + toNumber(b.other_fees);
+          return (
+            dir *
+            (normalizeToReportingCurrency(feesA, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
+              normalizeToReportingCurrency(feesB, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
+          );
+        }
+        case 'net_amount': {
+          const valA = normalizeToReportingCurrency(a.net_amount, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used);
+          const valB = normalizeToReportingCurrency(b.net_amount, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used);
+          return dir * (valA - valB);
+        }
         case 'realized_gain_loss':
-          return dir * (toNumber(a.realized_gain_loss ?? 0) - toNumber(b.realized_gain_loss ?? 0));
+          return (
+            dir *
+            (normalizeToReportingCurrency(a.realized_gain_loss ?? 0, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
+              normalizeToReportingCurrency(b.realized_gain_loss ?? 0, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
+          );
         default:
           return 0;
       }
     });
-  }, [orders, ordersSortCol, ordersSortDir]);
+  }, [orders, ordersSortCol, ordersSortDir, summary.data]);
 
   const visibleOrders = useMemo(
     () => sortedOrders.filter((o) => !ordersAccountFilter || o.account_id === ordersAccountFilter),
@@ -169,9 +192,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           desktop table so tests resolve to exactly one element). */}
       <div className="space-y-3 lg:hidden">
         {ordersRes.isLoading ? (
-          <div className="rounded-xl border border-slate-700/50 p-6 text-center text-sm text-slate-400">
-            Loading…
-          </div>
+          <SkeletonList rows={4} />
         ) : visibleOrders.length === 0 ? (
           <div className="rounded-xl border border-slate-700/50 p-6 text-center text-sm text-slate-400">
             No orders for this account yet.
@@ -416,11 +437,21 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           </thead>
           <tbody className="divide-y divide-slate-700/30">
             {ordersRes.isLoading ? (
-              <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
-                  Loading…
-                </td>
-              </tr>
+              [...Array(5)].map((_, i) => (
+                <tr key={i} className="animate-pulse">
+                  <td className="px-4 py-3"><SkeletonLine className="h-3.5 w-20" /></td>
+                  <td className="px-4 py-3"><SkeletonLine className="h-3.5 w-14" /></td>
+                  <td className="px-4 py-3"><SkeletonLine className="h-3.5 w-16" /></td>
+                  <td className="px-4 py-3"><SkeletonLine className="h-3.5 w-24" /></td>
+                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-12 ml-auto" /></td>
+                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-16" /></td>
+                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-16" /></td>
+                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-12" /></td>
+                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-16" /></td>
+                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-14" /></td>
+                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-8" /></td>
+                </tr>
+              ))
             ) : visibleOrders.length === 0 ? (
               <tr>
                 <td colSpan={11} className="px-4 py-8 text-center text-slate-400">
