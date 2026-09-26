@@ -4,7 +4,6 @@ import {
   Mic,
   ArrowRightLeft,
   TrendingUp,
-  PieChart,
   FileText,
   Upload,
   Download,
@@ -62,13 +61,6 @@ export const NAV_LINKS = [
     label: 'Portfolio',
     testId: 'nav-portfolio',
     icon: TrendingUp,
-    section: 'Money' as NavSection,
-  },
-  {
-    to: '/net-worth',
-    label: 'Net Worth',
-    testId: 'nav-net-worth',
-    icon: PieChart,
     section: 'Money' as NavSection,
   },
   {

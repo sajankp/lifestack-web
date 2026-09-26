@@ -21,7 +21,7 @@ import { formatCurrency, formatQuantity, normalizeToReportingCurrency, toNumber 
 import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { formatDate } from '../../utils/dateFormat';
 import { CompactFilterBar, CompactFilterField } from '../../components/filters/CompactFilterBar';
-import { queryKeys } from '../../lib/queryKeys';
+import { mutationInvalidations, queryKeys } from '../../lib/queryKeys';
 import { DropdownSelect } from '../../components/DropdownSelect';
 import { Pagination } from '../../components/Pagination';
 import { CurrencyBadge } from '../../components/finance/Badges';
@@ -61,7 +61,7 @@ const extractApiErrorDetail = (error: unknown, fallback: string): string =>
   (error as Error)?.message ??
   fallback;
 
-const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
+const refreshKeys = mutationInvalidations.holding;
 const HOLDINGS_PAGE_SIZE = 25;
 
 // Mobile sort options. Values mirror the desktop SortableHeader `col` props

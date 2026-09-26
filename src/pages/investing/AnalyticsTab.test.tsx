@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { ToastProvider } from '../../components/ui/toast';
@@ -20,9 +21,11 @@ const renderWithQuery = (ui: React.ReactNode) => {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={client}>
-      <ToastProvider>{ui}</ToastProvider>
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <ToastProvider>{ui}</ToastProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 };
 
@@ -88,6 +91,13 @@ const mockAnalyticsEndpoints = (instruments: unknown[] = []) => {
         base_currency: 'USD',
         currency_display_preference: 'symbol',
       }),
+    ),
+    http.get('*/v1/finance/accounts', () =>
+      HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+    ),
+    http.get('*/v1/finance/currencies', () => HttpResponse.json([])),
+    http.get('*/v1/investing/dividends', () =>
+      HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
     ),
   );
 };

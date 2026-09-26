@@ -8,7 +8,7 @@ import { FormattedNumberInput } from '../ui/formatted-number-input';
 import { Label } from '../ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { useInvalidatingMutation } from '../../hooks/useInvalidatingMutation';
-import { queryKeys } from '../../lib/queryKeys';
+import { mutationInvalidations } from '../../lib/queryKeys';
 import { financeService } from '../../services/finance';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatDateInputValue } from '../../utils/dateFormat';
@@ -178,12 +178,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
         notes: notes || null,
       });
     },
-    [
-      queryKeys.finance.all,
-      queryKeys.spending.all,
-      queryKeys.investing.all,
-      queryKeys.dashboard.all,
-    ],
+    mutationInvalidations.transfer,
     {
       successMessage: 'Transfer created',
       onSuccess: () => {

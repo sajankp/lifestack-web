@@ -8,7 +8,7 @@ import { SkeletonList } from '../components/ui/FeedbackStates';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { useToast } from '../components/ui/toast';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
-import { queryKeys } from '../lib/queryKeys';
+import { mutationInvalidations, queryKeys } from '../lib/queryKeys';
 import { spendingService } from '../services/spending';
 import { financeService } from '../services/finance';
 import type {
@@ -799,7 +799,7 @@ export const SpendingPage: React.FC = () => {
 
   const createMutation = useInvalidatingMutation(
     (newTx: TransactionCreate) => spendingService.createTransaction(newTx),
-    [queryKeys.spending.transactions(), queryKeys.spending.summary(), queryKeys.dashboard.all],
+    mutationInvalidations.transaction,
     { successMessage: 'Transaction created', onSuccess: () => closeTransactionModal() },
   );
 
@@ -812,13 +812,13 @@ export const SpendingPage: React.FC = () => {
   const updateMutation = useInvalidatingMutation(
     ({ id, data }: { id: string; data: TransactionUpdate }) =>
       spendingService.updateTransaction(id, data),
-    [queryKeys.spending.transactions(), queryKeys.spending.summary(), queryKeys.dashboard.all],
+    mutationInvalidations.transaction,
     { successMessage: 'Transaction updated', onSuccess: () => closeTransactionModal() },
   );
 
   const deleteMutation = useInvalidatingMutation(
     (id: string) => spendingService.deleteTransaction(id),
-    [queryKeys.spending.transactions(), queryKeys.spending.summary(), queryKeys.dashboard.all],
+    mutationInvalidations.transaction,
     {
       successMessage: 'Transaction deleted',
       errorMessage: 'Could not delete that transaction. Please try again.',
@@ -847,20 +847,20 @@ export const SpendingPage: React.FC = () => {
 
   const createBudgetMutation = useInvalidatingMutation(
     (newBudget: BudgetCreate) => spendingService.createBudget(newBudget),
-    [queryKeys.spending.budgets(), queryKeys.dashboard.all],
+    mutationInvalidations.budget,
     { successMessage: 'Budget created', errorMessage: false, onSuccess: () => closeBudgetModal() },
   );
 
   const updateBudgetMutation = useInvalidatingMutation(
     ({ id, data }: { id: string; data: BudgetUpdate }) => spendingService.updateBudget(id, data),
-    [queryKeys.spending.budgets(), queryKeys.dashboard.all],
+    mutationInvalidations.budget,
     { successMessage: 'Budget updated', errorMessage: false, onSuccess: () => closeBudgetModal() },
   );
 
   const changeBudgetAmountMutation = useInvalidatingMutation(
     ({ id, data }: { id: string; data: BudgetChangeAmountRequest }) =>
       spendingService.changeBudgetAmount(id, data),
-    [queryKeys.spending.budgets(), queryKeys.dashboard.all],
+    mutationInvalidations.budget,
     {
       successMessage: 'Budget amount updated',
       errorMessage: false,

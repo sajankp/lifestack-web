@@ -133,10 +133,10 @@ describe('InvestingPage', () => {
     const holdingsHeading = screen.getByTestId('investing-holdings-heading');
     expect(holdingsHeading).toHaveClass('flex-col', 'sm:flex-row');
 
-    const cashTab = screen.getByTestId('investing-tab-cash');
-    cashTab.focus();
-    fireEvent.keyDown(cashTab, { key: 'Enter', code: 'Enter' });
-    expect(await screen.findByTestId('investing-cash-heading')).toHaveClass(
+    const ordersTab = screen.getByTestId('investing-tab-orders');
+    ordersTab.focus();
+    fireEvent.keyDown(ordersTab, { key: 'Enter', code: 'Enter' });
+    expect(await screen.findByTestId('investing-orders-heading')).toHaveClass(
       'flex-col',
       'sm:flex-row',
     );
@@ -2192,12 +2192,9 @@ describe('InvestingPage', () => {
     expect(zerodhaRow).toHaveTextContent('Zerodha');
   });
 
-  it('surfaces transfers on the unified Cash tab with a link to manage them in Spending', async () => {
+  it('surfaces dividend recording and history on the Analytics tab', async () => {
     server.use(
       http.get('*/v1/investing/holdings', () =>
-        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
-      ),
-      http.get('*/v1/investing/cash-balances', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
       ),
       http.get('*/v1/finance/accounts', () =>
@@ -2218,74 +2215,64 @@ describe('InvestingPage', () => {
           offset: 0,
         }),
       ),
-      http.get('*/v1/finance/currencies', () =>
-        HttpResponse.json([
-          { code: 'INR', name: 'Indian Rupee', symbol: 'Rs', minor_unit: 2, is_active: true },
-        ]),
-      ),
       http.get('*/v1/finance/settings/user', () =>
         HttpResponse.json({
-          reporting_currency_override_code: null,
-          currency_display_preference_override: null,
-          workspace_reporting_currency_code: 'USD',
-          workspace_currency_display_preference: 'symbol',
-          effective_reporting_currency_code: 'USD',
+          effective_locale: 'en-US',
+          effective_decimal_places: 2,
           effective_currency_display_preference: 'symbol',
-          updated_at: '2026-05-24T00:00:00Z',
         }),
       ),
       http.get('*/v1/investing/summary', () =>
         HttpResponse.json({
-          portfolio_value: null,
-          holdings_count: 0,
-          cash_total: null,
-          currency_breakdown: {},
-          daily_change: null,
-          reporting_currency: null,
-          valuation_status: 'single_currency_native',
+          portfolio_value: '100000.00',
+          holdings_count: 1,
+          cash_total: '0',
+          currency_breakdown: { INR: '100000.00' },
+          daily_change: '0',
+          reporting_currency: 'INR',
+          valuation_status: 'ok',
         }),
       ),
       http.get('*/v1/investing/performance/summary', () =>
         HttpResponse.json({
-          total_value: '0',
-          total_cost: '0',
-          total_gain_loss: '0',
-          total_gain_loss_pct: '0',
+          total_value: '100000.00',
+          total_cost: '90000.00',
+          total_gain_loss: '10000.00',
+          total_gain_loss_pct: '11.11',
           snapshot_date: '2026-05-24',
-          currency: 'USD',
+          currency: 'INR',
+        }),
+      ),
+      http.get('*/v1/investing/performance/returns', () =>
+        HttpResponse.json({
+          twrr_pct: '10.5',
+          mwrr_pct: '11.2',
+          cagr_pct: '12.0',
+          as_of: '2026-05-24',
+          insufficient_history: false,
         }),
       ),
       http.get('*/v1/investing/instruments', () => HttpResponse.json([])),
-      http.get('*/v1/investing/orders', () =>
-        HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 }),
-      ),
-      http.get('*/v1/finance/transfers', () =>
+      http.get('*/v1/investing/dividends', () =>
         HttpResponse.json({
           items: [
             {
-              public_id: 'transfer-1',
-              from_module: 'spending',
-              to_module: 'investing',
-              from_account_id: 1,
-              to_account_id: 2,
-              from_account_public_id: '99999999-9999-9999-9999-999999999999',
-              to_account_public_id: '11111111-1111-1111-1111-111111111111',
-              from_account_name: 'HDFC Bank',
-              to_account_name: 'Groww',
-              from_account_type: 'bank',
-              to_account_type: 'brokerage',
-              from_currency_code: 'INR',
-              to_currency_code: 'INR',
-              gross_amount: '50000.00',
-              fx_rate_used: null,
-              fx_fee_amount: '0.00',
-              platform_fee_amount: '0.00',
-              tax_amount: '0.00',
-              net_amount_received: '50000.00',
-              occurred_at: '2026-06-01T00:00:00Z',
-              notes: null,
-              created_at: '2026-06-01T00:00:00Z',
-              updated_at: '2026-06-01T00:00:00Z',
+              public_id: 'div-1',
+              account_id: '11111111-1111-1111-1111-111111111111',
+              account_name: 'Groww',
+              credit_account_id: null,
+              credit_account_name: null,
+              holding_id: null,
+              symbol: 'TCS',
+              income_type: 'dividend',
+              gross_amount: '500.00',
+              tax_withheld: '50.00',
+              net_amount: '450.00',
+              currency: 'INR',
+              pay_date: '2026-05-24',
+              notes: 'Quarterly dividend',
+              created_at: '2026-05-24T00:00:00Z',
+              updated_at: '2026-05-24T00:00:00Z',
             },
           ],
           total: 1,
@@ -2295,21 +2282,14 @@ describe('InvestingPage', () => {
       ),
     );
 
-    renderWithQuery(<InvestingPage />);
+    renderAtPath(<InvestingPage />, '/investing/analytics');
 
-    await screen.findByText('Investing');
-    const cashTab = screen.getByTestId('investing-tab-cash');
-    cashTab.focus();
-    fireEvent.keyDown(cashTab, { key: 'Enter', code: 'Enter' });
-
-    const transferRow = await screen.findByTestId('investing-transfer-row-transfer-1');
-    expect(transferRow).toHaveTextContent('HDFC Bank');
-    expect(transferRow).toHaveTextContent('Groww');
-    expect(screen.getByTestId('investing-transfers-manage-link')).toHaveAttribute(
-      'href',
-      '/spending/account-activity',
-    );
+    expect(await screen.findByTestId('investing-analytics-heading')).toBeInTheDocument();
+    expect(await screen.findByText(/Dividends/)).toBeInTheDocument();
+    expect(screen.getByText('TCS')).toBeInTheDocument();
   });
+
+
 
   it('opens the Orders tab and the Place Order modal directly from a ?tab=orders&order=1 deep link', async () => {
     server.use(

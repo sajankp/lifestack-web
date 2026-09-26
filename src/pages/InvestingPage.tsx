@@ -35,20 +35,18 @@ import {
 } from '../components/ui/dialog';
 import { HoldingsTab } from './investing/HoldingsTab';
 import { OrdersTab } from './investing/OrdersTab';
-import { CashTab } from './investing/CashTab';
 import { AnalyticsTab } from './investing/AnalyticsTab';
 import { SummaryCard } from './investing/components';
 import { ReturnMetricsPanel } from '../components/investing/ReturnMetricsPanel';
 import { formatDateTimeLocalInput, formatPerformanceMetric, statusLabel } from './investing/format';
-import { queryKeys } from '../lib/queryKeys';
+import { mutationInvalidations, queryKeys } from '../lib/queryKeys';
 
-const refreshKeys = [queryKeys.investing.all, queryKeys.finance.all, queryKeys.dashboard.all];
+const refreshKeys = mutationInvalidations.order;
 
-type InvestingTab = 'holdings' | 'orders' | 'cash' | 'analytics';
+type InvestingTab = 'holdings' | 'orders' | 'analytics';
 const INVESTING_TAB_ROUTES: Record<InvestingTab, string> = {
   holdings: 'holdings',
   orders: 'orders',
-  cash: 'cash',
   analytics: 'analytics',
 };
 const INVESTING_ROUTE_TABS: Record<string, InvestingTab> = Object.fromEntries(
@@ -625,13 +623,7 @@ export const InvestingPage: React.FC = () => {
             >
               Orders
             </TabsTrigger>
-            <TabsTrigger
-              className="min-w-fit sm:min-w-[8rem]"
-              data-testid="investing-tab-cash"
-              value="cash"
-            >
-              Cash
-            </TabsTrigger>
+
             <TabsTrigger
               className="min-w-fit sm:min-w-[8rem]"
               data-testid="investing-tab-analytics"
@@ -662,9 +654,7 @@ export const InvestingPage: React.FC = () => {
           />
         </TabsContent>
 
-        <TabsContent value="cash" className="space-y-6">
-          <CashTab currencyDisplayPreference={currencyDisplayPreference} />
-        </TabsContent>
+
 
         <TabsContent value="analytics">
           <AnalyticsTab currencyDisplayPreference={currencyDisplayPreference} />

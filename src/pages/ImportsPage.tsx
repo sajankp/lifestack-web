@@ -15,6 +15,7 @@ import { trackEvent } from '../lib/analytics';
 import type { ImportErrorItem, ImportModule, ImportValidateResponse } from '../types/imports';
 import { formatDate } from '../utils/dateFormat';
 import { formatNumber } from '../utils/numberFormat';
+import { mutationInvalidations } from '../lib/queryKeys';
 import { useDisplayProfile } from '../hooks/useDisplayProfile';
 
 const MODULE_OPTIONS: Array<{ value: ImportModule; label: string; testId?: string }> = [
@@ -463,6 +464,7 @@ export const ImportsPage: React.FC = () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['imports', 'list'] }),
         queryClient.invalidateQueries({ queryKey: ['imports', 'detail', importPublicId] }),
+        ...mutationInvalidations.importBatch.map((key) => queryClient.invalidateQueries({ queryKey: [...key] })),
       ]);
       trackEvent('import_completed');
       showToast('Import applied', 'success');
@@ -481,6 +483,7 @@ export const ImportsPage: React.FC = () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['imports', 'list'] }),
         queryClient.invalidateQueries({ queryKey: ['imports', 'detail', importPublicId] }),
+        ...mutationInvalidations.importBatch.map((key) => queryClient.invalidateQueries({ queryKey: [...key] })),
       ]);
       showToast('Import removed', 'success');
     },
