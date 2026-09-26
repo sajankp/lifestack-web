@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import {
   Select,
@@ -67,6 +67,8 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
     return opts;
   }, [options, sortByLabel]);
 
+  const emptyOption = displayOptions.find((opt) => opt.value === '');
+  const effectiveClearLabel = clearLabel || (emptyOption ? emptyOption.label : undefined);
   const selectedOption = displayOptions.find((opt) => opt.value === value);
   const recentValueSet = React.useMemo(() => new Set(recentValues), [recentValues]);
   const recentOptions = React.useMemo(
@@ -80,7 +82,7 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
 
   if (!showSearch) {
     const clearValue = '__clear__';
-    const canClear = Boolean(clearLabel);
+    const canClear = Boolean(effectiveClearLabel);
 
     return (
       <Select
@@ -94,15 +96,17 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
         <SelectContent>
           {canClear ? (
             <>
-              <SelectItem value={clearValue}>{clearLabel}</SelectItem>
+              <SelectItem value={clearValue}>{effectiveClearLabel}</SelectItem>
               <SelectSeparator />
             </>
           ) : null}
-          {displayOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
+          {displayOptions
+            .filter((option) => option.value !== '')
+            .map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
         </SelectContent>
       </Select>
     );
@@ -174,9 +178,9 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
               </CommandGroup>
             ) : null}
             <CommandGroup heading={recentOptions.length > 0 ? 'All options' : undefined}>
-              {clearLabel && (
+              {effectiveClearLabel && (
                 <CommandItem
-                  value={clearLabel}
+                  value={effectiveClearLabel}
                   onSelect={() => {
                     onChange('');
                     setOpen(false);
@@ -186,28 +190,30 @@ export const DropdownSelect: React.FC<DropdownSelectProps> = ({
                   <Check
                     className={cn('h-4 w-4 text-cyan-300', !value ? 'opacity-100' : 'opacity-0')}
                   />
-                  <span>{clearLabel}</span>
+                  <span>{effectiveClearLabel}</span>
                 </CommandItem>
               )}
-              {otherOptions.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.label + ' ' + option.value}
-                  onSelect={() => {
-                    onChange(option.value);
-                    setOpen(false);
-                  }}
-                  className="flex items-center gap-2"
-                >
-                  <Check
-                    className={cn(
-                      'h-4 w-4 text-cyan-300',
-                      value === option.value ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
-                  <span className="truncate">{option.label}</span>
-                </CommandItem>
-              ))}
+              {otherOptions
+                .filter((option) => option.value !== '')
+                .map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={option.label + ' ' + option.value}
+                    onSelect={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Check
+                      className={cn(
+                        'h-4 w-4 text-cyan-300',
+                        value === option.value ? 'opacity-100' : 'opacity-0',
+                      )}
+                    />
+                    <span className="truncate">{option.label}</span>
+                  </CommandItem>
+                ))}
             </CommandGroup>
           </CommandList>
         </Command>

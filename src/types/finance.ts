@@ -355,3 +355,37 @@ export const UserNetWorthPointSchema = z.object({
   created_at: z.string().default(''),
 });
 export type UserNetWorthPoint = z.infer<typeof UserNetWorthPointSchema>;
+
+export const ActivityFeedItemSchema = z.object({
+  id: z.string(),
+  event_type: z.enum(['spend', 'transfer', 'order', 'dividend']),
+  date: z.string(),
+  description: z.string().default(''),
+  amount: z.string().default('0.00'),
+  currency: z.string().default(''),
+  account_id: z.string(),
+  account_name: z.string().default(''),
+  account_type: z.string().default(''),
+  counterpart_account_id: z.string().nullable().optional(),
+  counterpart_account_name: z.string().nullable().optional(),
+  category_name: z.string().nullable().optional(),
+  category_color: z.string().nullable().optional(),
+  category_icon: z.string().nullable().optional(),
+  symbol: z.string().nullable().optional(),
+  order_type: z.string().nullable().optional(),
+  quantity: z.string().nullable().optional(),
+  price_per_unit: z.string().nullable().optional(),
+  fx_rate: z.string().nullable().optional(),
+  fx_display: z.string().nullable().optional(),
+  income_type: z.string().nullable().optional(),
+  source_ref: z.string().default(''),
+});
+export type ActivityFeedItem = z.infer<typeof ActivityFeedItemSchema>;
+
+export const ActivityFeedResponseSchema = z.object({
+  items: z.array(ActivityFeedItemSchema),
+  total: z.number().default(0),
+  limit: z.number().default(50),
+  offset: z.number().default(0),
+});
+export type ActivityFeedResponse = z.infer<typeof ActivityFeedResponseSchema>;

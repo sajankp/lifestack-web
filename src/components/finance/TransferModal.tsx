@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronDown, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeftRight, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { DropdownSelect } from '../DropdownSelect';
 import { DatePicker } from '../DatePicker';
 import { Button } from '../ui/button';
@@ -46,6 +46,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [toAccountId, setToAccountId] = useState('');
   const [amount, setAmount] = useState('');
   const [fxRate, setFxRate] = useState('');
+  const [fxDirection, setFxDirection] = useState<'from_per_to' | 'to_per_from'>('from_per_to');
   const [fxFee, setFxFee] = useState('0');
   const [platformFee, setPlatformFee] = useState('0');
   const [tax, setTax] = useState('0');
@@ -53,12 +54,19 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [date, setDate] = useState(formatDateInputValue(new Date()));
   const [showFeesDisclosure, setShowFeesDisclosure] = useState(false);
 
+  const accountById = new Map(accounts.map((account) => [account.public_id, account]));
+  const fromAccount = accountById.get(fromAccountId);
+  const toAccount = accountById.get(toAccountId);
+  const isCrossCurrency =
+    Boolean(fromAccount && toAccount && fromAccount.default_currency_code !== toAccount.default_currency_code);
+
   useEffect(() => {
     if (open) {
       setFromAccountId(defaultFromAccountId ?? '');
       setToAccountId('');
       setAmount('');
       setFxRate('');
+      setFxDirection('from_per_to');
       setFxFee('0');
       setPlatformFee('0');
       setTax('0');
@@ -68,21 +76,37 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     }
   }, [defaultFromAccountId, open]);
 
+  // Auto-open fees disclosure when cross-currency is detected
+  useEffect(() => {
+    if (isCrossCurrency) {
+      setShowFeesDisclosure(true);
+    }
+  }, [isCrossCurrency]);
+
   const grossNum = Number(amount) || 0;
+  const userRateNum = Number(fxRate) || 0;
+  let effectiveMultiplier = 1;
+  if (isCrossCurrency) {
+    if (userRateNum > 0) {
+      effectiveMultiplier = fxDirection === 'from_per_to' ? 1 / userRateNum : userRateNum;
+    }
+  } else if (fxRate) {
+    effectiveMultiplier = Number(fxRate) || 1;
+  }
+
   const netPreview = computeTransferNet({
     gross: grossNum,
-    fxRate: Number(fxRate) || null,
+    fxRate: isCrossCurrency ? (userRateNum > 0 ? effectiveMultiplier : null) : (Number(fxRate) || null),
     fxFee: Number(fxFee) || 0,
     platformFee: Number(platformFee) || 0,
     tax: Number(tax) || 0,
   });
-  const toAccountForPreview = accounts.find((account) => account.public_id === toAccountId);
+  const toAccountForPreview = toAccount;
 
   const accountOptions = accounts.map((account) => ({
     value: account.public_id,
     label: `${account.name} (${account.account_type.replace('_', ' ')})`,
   }));
-  const accountById = new Map(accounts.map((account) => [account.public_id, account]));
 
   const createTransferMutation = useInvalidatingMutation(
     () => {
@@ -116,7 +140,13 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
       let parsedFxRate: string | null = null;
       let rateNum = 1;
-      if (fxRate) {
+      if (isCrossCurrency) {
+        if (!userRateNum || userRateNum <= 0) {
+          throw new Error('Exchange rate is required for cross-currency transfers');
+        }
+        parsedFxRate = effectiveMultiplier.toFixed(10);
+        rateNum = effectiveMultiplier;
+      } else if (fxRate) {
         const rate = Number(fxRate);
         if (Number.isNaN(rate) || !Number.isFinite(rate) || rate <= 0) {
           throw new Error('FX rate must be a valid positive number');
@@ -240,17 +270,67 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
             </summary>
             <div className="mt-3 space-y-3">
-              <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
-                <div>
-                  <Label className="mb-2 block">FX Rate (optional)</Label>
-                  <FormattedNumberInput
-                    maximumFractionDigits={10}
-                    min="0"
-                    step="0.0000000001"
-                    value={fxRate}
-                    onChange={(e) => setFxRate(e.target.value)}
-                  />
+              {isCrossCurrency && (
+                <div className="rounded-lg bg-slate-900/60 p-3 border border-cyan-900/40">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-xs font-semibold text-cyan-300">
+                      Exchange Rate (
+                      {fxDirection === 'from_per_to'
+                        ? `${fromAccount?.default_currency_code} per 1 ${toAccount?.default_currency_code}`
+                        : `${toAccount?.default_currency_code} per 1 ${fromAccount?.default_currency_code}`}
+                      )
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFxDirection((prev) => (prev === 'from_per_to' ? 'to_per_from' : 'from_per_to'))
+                      }
+                      className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                      title="Flip exchange rate direction"
+                    >
+                      <ArrowLeftRight className="h-3 w-3" />
+                      Flip direction
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400 whitespace-nowrap">
+                      1{' '}
+                      {fxDirection === 'from_per_to'
+                        ? toAccount?.default_currency_code
+                        : fromAccount?.default_currency_code}{' '}
+                      =
+                    </span>
+                    <FormattedNumberInput
+                      maximumFractionDigits={6}
+                      min="0.000001"
+                      step="0.0001"
+                      value={fxRate}
+                      onChange={(e) => setFxRate(e.target.value)}
+                      placeholder={fxDirection === 'from_per_to' ? 'e.g. 95.00' : 'e.g. 0.0105'}
+                      className="flex-1"
+                      required
+                    />
+                    <span className="text-xs font-semibold text-slate-300 whitespace-nowrap">
+                      {fxDirection === 'from_per_to'
+                        ? fromAccount?.default_currency_code
+                        : toAccount?.default_currency_code}
+                    </span>
+                  </div>
                 </div>
+              )}
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+                {!isCrossCurrency && (
+                  <div>
+                    <Label className="mb-2 block">FX Rate (optional)</Label>
+                    <FormattedNumberInput
+                      maximumFractionDigits={10}
+                      min="0"
+                      step="0.0000000001"
+                      value={fxRate}
+                      onChange={(e) => setFxRate(e.target.value)}
+                    />
+                  </div>
+                )}
                 <div>
                   <Label className="mb-2 block">FX Fee</Label>
                   <FormattedNumberInput
@@ -280,16 +360,29 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 </div>
               </div>
               <p className="text-xs text-slate-400">
-                Same-currency transfer: FX rate can be empty. Cross-currency transfer: provide FX
-                rate and optional fee/tax charges.
+                {isCrossCurrency
+                  ? `Converting from ${fromAccount?.default_currency_code} to ${toAccount?.default_currency_code}. Provide fees and taxes if charged.`
+                  : 'Same-currency transfer: FX rate can be empty. Cross-currency transfer: provide FX rate and optional fee/tax charges.'}
               </p>
             </div>
           </details>
           {grossNum > 0 && (
-            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 text-sm">
+            <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4 text-sm space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-400">You send</span>
+                <span className="font-medium text-slate-200">
+                  {formatCurrency(
+                    grossNum,
+                    fromAccount?.default_currency_code,
+                    displayProfile.currencyDisplay,
+                    displayProfile.locale,
+                    displayProfile.decimalPlaces,
+                  )}
+                </span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Net received</span>
-                <span data-testid="transfer-net-preview" className="font-semibold text-white">
+                <span data-testid="transfer-net-preview" className="font-semibold text-emerald-400">
                   {formatCurrency(
                     netPreview,
                     toAccountForPreview?.default_currency_code,
@@ -299,6 +392,18 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                   )}
                 </span>
               </div>
+              {isCrossCurrency && userRateNum > 0 && (
+                <div className="flex justify-between text-xs text-slate-400 pt-1 border-t border-slate-700/40">
+                  <span>Effective rate</span>
+                  <span>
+                    1 {toAccount?.default_currency_code} ={' '}
+                    {fxDirection === 'from_per_to'
+                      ? userRateNum.toFixed(2)
+                      : (1 / userRateNum).toFixed(2)}{' '}
+                    {fromAccount?.default_currency_code}
+                  </span>
+                </div>
+              )}
             </div>
           )}
           <div>

@@ -5,6 +5,7 @@ import {
   AccountBalanceResponseSchema,
   AccountSchema,
   AccountStatementSchema,
+  ActivityFeedResponseSchema,
   CapitalTransferSchema,
   CurrencySchema,
   NetWorthDataSchema,
@@ -23,6 +24,7 @@ import type {
   AccountCreate,
   AccountStatement,
   AccountUpdate,
+  ActivityFeedResponse,
   CapitalTransfer,
   CapitalTransferCreate,
   CapitalTransferUpdate,
@@ -198,5 +200,17 @@ export const financeService = {
 
   deleteNetWorthUserPoint: async (id: number): Promise<void> => {
     await api.delete(`/finance/net-worth/history/user-points/${id}`);
+  },
+
+  getActivityFeed: async (params?: {
+    account_id?: string;
+    event_types?: string;
+    from_date?: string;
+    to_date?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ActivityFeedResponse> => {
+    const response = await api.get('/finance/activity-feed', { params });
+    return ActivityFeedResponseSchema.parse(response.data);
   },
 };
