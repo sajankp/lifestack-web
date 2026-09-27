@@ -154,7 +154,7 @@ describe('InvestingPage', () => {
     holdingsTabTrigger.focus();
     fireEvent.keyDown(holdingsTabTrigger, { key: 'Enter', code: 'Enter' });
     const placeOrderLinks = await screen.findAllByRole('link', { name: /place your first order/i });
-    expect(placeOrderLinks[0]).toHaveAttribute('href', '/investing/orders?order=1');
+    expect(placeOrderLinks[0]).toHaveAttribute('href', '/portfolio/orders?order=1');
   });
 
   it.skip('creates an account and submits a holding using selected account/currency', async () => {

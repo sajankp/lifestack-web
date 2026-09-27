@@ -27,6 +27,13 @@ interface AccountDetailViewProps {
   onOpenOrder?: (brokerageAccountId?: string) => void;
 }
 
+const ACCOUNT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  bank: Building2,
+  brokerage: LineChart,
+  card: CreditCard,
+  cash: Wallet,
+};
+
 export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
   account,
   currentBalance,
@@ -54,7 +61,9 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
     // Calculate total net delta of all events in the list
     // and compute running balances from currentBalance backwards
     let running = currentBalance;
-    const withBalances = accountEvents.map((item) => {
+    const withBalances: Array<ActivityFeedItem & { numAmount: number; isPositive: boolean; runningBalance: number }> = [];
+
+    for (const item of accountEvents) {
       const isPositive = item.amount.startsWith('+');
       const numAmt = Math.abs(parseFloat(item.amount.replace('+', '')));
 
@@ -72,13 +81,13 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
         running += numAmt;
       }
 
-      return {
+      withBalances.push({
         ...item,
         numAmount: numAmt,
         isPositive,
         runningBalance: rowBalance,
-      };
-    });
+      });
+    }
 
     return {
       itemsWithRunningBalance: withBalances,
@@ -87,20 +96,7 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
     };
   }, [activityItems, account.public_id, currentBalance]);
 
-  const getAccountIcon = () => {
-    switch (account.account_type) {
-      case 'bank':
-        return Building2;
-      case 'brokerage':
-        return LineChart;
-      case 'card':
-        return CreditCard;
-      default:
-        return Wallet;
-    }
-  };
-
-  const Icon = getAccountIcon();
+  const Icon = ACCOUNT_ICONS[account.account_type] ?? Wallet;
 
   return (
     <div className="space-y-6">
