@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router';
 import { http, HttpResponse } from 'msw';
@@ -7,7 +7,7 @@ import { server } from '../test/setup';
 import { ToastProvider } from '../components/ui/toast';
 import { MoneyFlowPage } from './MoneyFlowPage';
 
-const renderMoneyFlow = () => {
+const renderMoneyFlow = (initialUrl = '/money') => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -19,7 +19,7 @@ const renderMoneyFlow = () => {
   return render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <MemoryRouter initialEntries={['/money']}>
+        <MemoryRouter initialEntries={[initialUrl]}>
           <Routes>
             <Route path="/money" element={<MoneyFlowPage />} />
           </Routes>
@@ -492,6 +492,156 @@ describe('MoneyFlowPage', () => {
 
     await waitFor(() => {
       expect(deletedId).toBe('tx-123');
+    });
+  });
+
+  it('renders pagination and calculates offset-aware running balances in AccountDetailView', async () => {
+    server.use(
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          effective_locale: 'en-US',
+          effective_decimal_places: 2,
+          effective_currency_display_preference: 'symbol',
+        }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-bank-inr',
+              name: 'HDFC Savings',
+              account_type: 'bank',
+              default_currency_code: 'INR',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/net-worth', () =>
+        HttpResponse.json({
+          reporting_currency: 'INR',
+          spending_accounts: [
+            {
+              account_public_id: 'acc-bank-inr',
+              account_name: 'HDFC Savings',
+              account_type: 'bank',
+              currency_code: 'INR',
+              balance: '10000.00',
+              balance_in_reporting_currency: '10000.00',
+            },
+          ],
+          spending_total: '10000.00',
+          investing_accounts: [],
+          investing_cash_total: '0.00',
+          holdings_value: '0.00',
+          total_net_worth: '10000.00',
+        }),
+      ),
+      http.get('*/v1/investing/holdings', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          reporting_currency: 'INR',
+          portfolio_value: '0.00',
+          holdings_count: 0,
+        }),
+      ),
+      http.get('*/v1/finance/activity-feed', ({ request }) => {
+        const url = new URL(request.url);
+        const offset = Number(url.searchParams.get('offset') || '0');
+        const limit = Number(url.searchParams.get('limit') || '50');
+
+        if (offset === 0 && limit < 50) {
+          return HttpResponse.json({
+            items: [
+              {
+                id: 'tx-p1-1',
+                event_type: 'spend',
+                date: '2026-03-01T00:00:00Z',
+                description: 'Recent Expense Page 1',
+                amount: '-1000.00',
+                currency: 'INR',
+                account_id: 'acc-bank-inr',
+                account_name: 'HDFC Savings',
+                account_type: 'bank',
+              },
+            ],
+            total: 2,
+            limit,
+            offset: 0,
+          });
+        }
+
+        if (offset === 0) {
+          return HttpResponse.json({
+            items: [
+              {
+                id: 'tx-p1-1',
+                event_type: 'spend',
+                date: '2026-03-01T00:00:00Z',
+                description: 'Recent Expense Page 1',
+                amount: '-1000.00',
+                currency: 'INR',
+                account_id: 'acc-bank-inr',
+                account_name: 'HDFC Savings',
+                account_type: 'bank',
+              },
+            ],
+            total: 75,
+            limit: 50,
+            offset: 0,
+          });
+        } else {
+          return HttpResponse.json({
+            items: [
+              {
+                id: 'tx-p2-1',
+                event_type: 'spend',
+                date: '2026-01-01T00:00:00Z',
+                description: 'Older Expense Page 2',
+                amount: '-500.00',
+                currency: 'INR',
+                account_id: 'acc-bank-inr',
+                account_name: 'HDFC Savings',
+                account_type: 'bank',
+              },
+            ],
+            total: 75,
+            limit: 50,
+            offset: 50,
+          });
+        }
+      }),
+    );
+
+    renderMoneyFlow('/money?account=acc-bank-inr');
+
+    expect(await screen.findByText('Account Ledger & History')).toBeInTheDocument();
+    expect(await screen.findByText('Recent Expense Page 1')).toBeInTheDocument();
+
+    // Verify pagination footer on page 1
+    const summary = await screen.findByTestId('account-detail-pagination-summary');
+    expect(summary).toHaveTextContent('Showing 1 - 50 of 75');
+
+    const prevBtn = screen.getByTestId('account-detail-prev-btn');
+    const nextBtn = screen.getByTestId('account-detail-next-btn');
+
+    expect(prevBtn).toBeDisabled();
+    expect(nextBtn).toBeEnabled();
+
+    // Click Next
+    fireEvent.click(nextBtn);
+
+    // Page 2 should load with older expense and previous button enabled
+    expect(await screen.findByText('Older Expense Page 2')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('account-detail-prev-btn')).toBeEnabled();
     });
   });
 });
