@@ -204,4 +204,294 @@ describe('MoneyFlowPage', () => {
     // Zerodha Demat card displays native INR ₹20,000.00
     expect(screen.getByText('₹20,000.00')).toBeInTheDocument();
   });
+
+  it('supports adding a new transaction from the top-level PageHero action', async () => {
+    let createdPayload: unknown = null;
+
+    server.use(
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          effective_locale: 'en-US',
+          effective_decimal_places: 2,
+          effective_currency_display_preference: 'symbol',
+        }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-bank-inr',
+              name: 'HDFC Savings',
+              account_type: 'bank',
+              default_currency_code: 'INR',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/net-worth', () =>
+        HttpResponse.json({
+          reporting_currency: 'INR',
+          spending_accounts: [],
+          spending_total: '0.00',
+          investing_accounts: [],
+          investing_cash_total: '0.00',
+          holdings_value: '0.00',
+          total_net_worth: '0.00',
+          valuation_status: 'ok',
+        }),
+      ),
+      http.get('*/v1/finance/net-worth/history', () => HttpResponse.json([])),
+      http.get('*/v1/investing/holdings', () => HttpResponse.json({ items: [], total: 0 })),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: '0.00',
+          reporting_currency: 'INR',
+          valuation_status: 'ok',
+        }),
+      ),
+      http.get('*/v1/finance/activity-feed', () =>
+        HttpResponse.json({
+          items: [],
+          total: 0,
+          limit: 50,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({
+          items: [{ public_id: 'cat-food', name: 'Food & Dining' }],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/spending/tags', () =>
+        HttpResponse.json({
+          items: [],
+          total: 0,
+          limit: 100,
+          offset: 0,
+        }),
+      ),
+      http.post('*/v1/spending/transactions', async ({ request }) => {
+        createdPayload = await request.json();
+        return HttpResponse.json({
+          public_id: 'tx-new-1',
+          amount: 250,
+          type: 'expense',
+          category_id: 'cat-food',
+          account_id: 'acc-bank-inr',
+          occurred_at: '2026-09-26T00:00:00.000Z',
+          description: 'Lunch with team',
+          tags: [],
+        });
+      }),
+    );
+
+    const { fireEvent, waitFor } = await import('@testing-library/react');
+    renderMoneyFlow();
+
+    // Click "+ Transaction" in header
+    const addBtn = await screen.findByText('+ Transaction');
+    fireEvent.click(addBtn);
+
+    // Modal opens
+    expect(await screen.findByText('New Transaction')).toBeInTheDocument();
+
+    // Fill amount and description
+    const amountInput = screen.getByTestId('transaction-amount-input');
+    fireEvent.change(amountInput, { target: { value: '250.00' } });
+
+    const descInput = screen.getByTestId('transaction-description-input');
+    fireEvent.change(descInput, { target: { value: 'Lunch with team' } });
+
+    // Submit form once ready
+    const submitBtn = screen.getByTestId('transaction-submit-btn');
+    await waitFor(() => expect(submitBtn).not.toBeDisabled());
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(createdPayload).toEqual(
+        expect.objectContaining({
+          amount: 250,
+          type: 'expense',
+          category_id: 'cat-food',
+          account_id: 'acc-bank-inr',
+          description: 'Lunch with team',
+        }),
+      );
+    });
+  });
+
+  it('supports editing and deleting transactions from the unified activity stream', async () => {
+    let patchedPayload: unknown = null;
+    let deletedId: string | null = null;
+
+    server.use(
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          effective_locale: 'en-US',
+          effective_decimal_places: 2,
+          effective_currency_display_preference: 'symbol',
+        }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-bank-inr',
+              name: 'HDFC Savings',
+              account_type: 'bank',
+              default_currency_code: 'INR',
+              is_active: true,
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/net-worth', () =>
+        HttpResponse.json({
+          reporting_currency: 'INR',
+          spending_accounts: [],
+          total_net_worth: '1000.00',
+          valuation_status: 'ok',
+        }),
+      ),
+      http.get('*/v1/finance/net-worth/history', () => HttpResponse.json([])),
+      http.get('*/v1/investing/holdings', () => HttpResponse.json({ items: [], total: 0 })),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: '0.00',
+          reporting_currency: 'INR',
+          valuation_status: 'ok',
+        }),
+      ),
+      http.get('*/v1/finance/activity-feed', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'tx-123',
+              event_type: 'spend',
+              date: '2026-09-26T10:00:00Z',
+              description: 'Supermarket Groceries',
+              amount: '-150.00',
+              currency: 'INR',
+              account_id: 'acc-bank-inr',
+              account_name: 'HDFC Savings',
+              account_type: 'bank',
+              category_name: 'Groceries',
+              source_ref: 'tx-123',
+            },
+          ],
+          total: 1,
+          limit: 50,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({
+          items: [{ public_id: 'cat-groc', name: 'Groceries' }],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/spending/tags', () =>
+        HttpResponse.json({
+          items: [],
+          total: 0,
+          limit: 100,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/spending/transactions/tx-123', () =>
+        HttpResponse.json({
+          public_id: 'tx-123',
+          amount: 150,
+          type: 'expense',
+          category_id: 'cat-groc',
+          account_id: 'acc-bank-inr',
+          occurred_at: '2026-09-26T10:00:00Z',
+          description: 'Supermarket Groceries',
+          tags: [],
+        }),
+      ),
+      http.patch('*/v1/spending/transactions/:id', async ({ request, params }) => {
+        patchedPayload = { id: params.id, body: await request.json() };
+        return HttpResponse.json({
+          public_id: 'tx-123',
+          amount: 180,
+          type: 'expense',
+          category_id: 'cat-groc',
+          account_id: 'acc-bank-inr',
+          occurred_at: '2026-09-26T10:00:00Z',
+          description: 'Supermarket Groceries & Snacks',
+          tags: [],
+        });
+      }),
+      http.delete('*/v1/spending/transactions/:id', ({ params }) => {
+        deletedId = String(params.id);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const { fireEvent, waitFor } = await import('@testing-library/react');
+    renderMoneyFlow();
+
+    // Verify row rendered in stream
+    expect(await screen.findByText('Supermarket Groceries')).toBeInTheDocument();
+
+    // Test Edit
+    const editBtn = screen.getByTitle('Edit transaction');
+    fireEvent.click(editBtn);
+
+    expect(await screen.findByText('Edit Transaction')).toBeInTheDocument();
+
+    const descInput = await screen.findByDisplayValue('Supermarket Groceries');
+    fireEvent.change(descInput, { target: { value: 'Supermarket Groceries & Snacks' } });
+
+    // Wait until submit button is active
+    const submitBtn = screen.getByTestId('transaction-submit-btn');
+    await waitFor(() => {
+      expect(submitBtn).not.toBeDisabled();
+    });
+
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(patchedPayload).toEqual(
+        expect.objectContaining({
+          id: 'tx-123',
+          body: expect.objectContaining({
+            description: 'Supermarket Groceries & Snacks',
+          }),
+        }),
+      );
+    });
+
+    // Test Delete
+    const deleteBtn = screen.getByTitle('Delete transaction');
+    fireEvent.click(deleteBtn);
+
+    expect(await screen.findByText('Delete Transaction')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Are you sure you want to delete this/i),
+    ).toBeInTheDocument();
+
+    // Confirm deletion
+    const confirmBtn = screen.getByRole('button', { name: 'Delete' });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(deletedId).toBe('tx-123');
+    });
+  });
 });

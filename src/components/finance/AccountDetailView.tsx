@@ -4,8 +4,10 @@ import {
   ArrowRightLeft,
   Building2,
   CreditCard,
+  Edit2,
   LineChart,
   Plus,
+  Trash2,
   TrendingDown,
   TrendingUp,
   Wallet,
@@ -25,6 +27,9 @@ interface AccountDetailViewProps {
   onOpenAddTransaction?: () => void;
   onOpenDividend?: (brokerageAccountId?: string) => void;
   onOpenOrder?: (brokerageAccountId?: string) => void;
+  onEditItem?: (item: ActivityFeedItem) => void;
+  onDeleteItem?: (item: ActivityFeedItem) => void;
+  isDeletePending?: boolean;
 }
 
 const ACCOUNT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -43,6 +48,9 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
   onOpenAddTransaction,
   onOpenDividend,
   onOpenOrder,
+  onEditItem,
+  onDeleteItem,
+  isDeletePending = false,
 }) => {
   const displayProfile = useDisplayProfile();
 
@@ -254,6 +262,9 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
                   <th className="px-4 py-3 font-medium">Description</th>
                   <th className="px-4 py-3 font-medium text-right">Amount</th>
                   <th className="px-4 py-3 font-medium text-right">Running Balance</th>
+                  {(onEditItem || onDeleteItem) && (
+                    <th className="px-4 py-3 font-medium text-right">Actions</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
@@ -298,6 +309,45 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
                         displayProfile.decimalPlaces,
                       )}
                     </td>
+                    {(onEditItem || onDeleteItem) && (
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
+                          {item.event_type === 'spend' && onEditItem && (
+                            <button
+                              type="button"
+                              onClick={() => onEditItem(item)}
+                              disabled={isDeletePending}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-cyan-500/10 hover:text-cyan-300 transition-colors disabled:opacity-50"
+                              title="Edit transaction"
+                              aria-label="Edit transaction"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {(item.event_type === 'spend' || item.event_type === 'transfer') &&
+                            onDeleteItem && (
+                              <button
+                                type="button"
+                                onClick={() => onDeleteItem(item)}
+                                disabled={isDeletePending}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
+                                title={
+                                  item.event_type === 'transfer'
+                                    ? 'Delete transfer'
+                                    : 'Delete transaction'
+                                }
+                                aria-label={
+                                  item.event_type === 'transfer'
+                                    ? 'Delete transfer'
+                                    : 'Delete transaction'
+                                }
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

@@ -238,6 +238,11 @@ export const spendingService = {
     return TransactionSummarySchema.parse(response.data);
   },
 
+  getTransaction: async (publicId: string): Promise<Transaction> => {
+    const response = await api.get(`/spending/transactions/${publicId}`);
+    return TransactionSchema.parse(response.data);
+  },
+
   createTransaction: async (data: TransactionCreate): Promise<Transaction> => {
     const response = await api.post('/spending/transactions', data);
     return TransactionSchema.parse(response.data);

@@ -1,13 +1,15 @@
-﻿import React from 'react';
+import React from 'react';
 import {
   ArrowDownRight,
   ArrowRightLeft,
   ArrowUpRight,
   Building2,
   Coins,
+  Edit2,
   LineChart,
   Search,
   Tag,
+  Trash2,
   Wallet,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/numberFormat';
@@ -33,6 +35,9 @@ interface ActivityFeedTimelineProps {
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   isLoading?: boolean;
+  onEditItem?: (item: ActivityFeedItem) => void;
+  onDeleteItem?: (item: ActivityFeedItem) => void;
+  isDeletePending?: boolean;
 }
 
 export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
@@ -49,6 +54,9 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
   searchQuery = '',
   onSearchChange,
   isLoading = false,
+  onEditItem,
+  onDeleteItem,
+  isDeletePending = false,
 }) => {
   const displayProfile = useDisplayProfile();
 
@@ -215,7 +223,7 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
               return (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between p-3.5 hover:bg-slate-800/40 transition-colors"
+                  className="group flex items-center justify-between p-3.5 hover:bg-slate-800/40 transition-colors"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
                     <div className={`rounded-xl p-2.5 shrink-0 ${visuals.iconBg}`}>
@@ -271,20 +279,51 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0 pl-3">
-                    <span className={`block font-mono text-xs sm:text-sm ${visuals.amountColor}`}>
-                      {isPositive ? '+' : ''}
-                      {formatCurrency(
-                        numAmt,
-                        item.currency,
-                        displayProfile.currencyDisplay,
-                        displayProfile.locale,
-                        displayProfile.decimalPlaces,
-                      )}
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-500 uppercase">
-                      {item.currency}
-                    </span>
+                  <div className="flex items-center gap-3 shrink-0 pl-3">
+                    <div className="text-right">
+                      <span className={`block font-mono text-xs sm:text-sm ${visuals.amountColor}`}>
+                        {isPositive ? '+' : ''}
+                        {formatCurrency(
+                          numAmt,
+                          item.currency,
+                          displayProfile.currencyDisplay,
+                          displayProfile.locale,
+                          displayProfile.decimalPlaces,
+                        )}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500 uppercase">
+                        {item.currency}
+                      </span>
+                    </div>
+
+                    {(onEditItem || onDeleteItem) && (item.event_type === 'spend' || item.event_type === 'transfer') && (
+                      <div className="flex items-center gap-1 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        {item.event_type === 'spend' && onEditItem && (
+                          <button
+                            type="button"
+                            onClick={() => onEditItem(item)}
+                            disabled={isDeletePending}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-cyan-500/10 hover:text-cyan-300 transition-colors disabled:opacity-50"
+                            title="Edit transaction"
+                            aria-label="Edit transaction"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {onDeleteItem && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteItem(item)}
+                            disabled={isDeletePending}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
+                            title={item.event_type === 'transfer' ? 'Delete transfer' : 'Delete transaction'}
+                            aria-label={item.event_type === 'transfer' ? 'Delete transfer' : 'Delete transaction'}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
