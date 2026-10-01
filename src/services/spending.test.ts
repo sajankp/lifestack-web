@@ -30,7 +30,8 @@ describe('spendingService', () => {
   it('calls transactions endpoints', async () => {
     vi.spyOn(api, 'get')
       .mockResolvedValueOnce({ data: { items: [], total: 0 } } as never)
-      .mockResolvedValueOnce({ data: { total_expenses: '0' } } as never);
+      .mockResolvedValueOnce({ data: { total_expenses: '0' } } as never)
+      .mockResolvedValueOnce({ data: { public_id: 'tx1', amount: 100 } } as never);
     vi.spyOn(api, 'post').mockResolvedValueOnce({ data: { public_id: 'tx1' } } as never);
     vi.spyOn(api, 'patch').mockResolvedValueOnce({ data: { public_id: 'tx1' } } as never);
     vi.spyOn(api, 'delete').mockResolvedValueOnce({} as never);
@@ -48,6 +49,7 @@ describe('spendingService', () => {
       categoryId: 'cat1',
       accountId: 'acct1',
     });
+    await spendingService.getTransaction('tx1');
     await spendingService.createTransaction({
       amount: 100,
       type: 'expense',
@@ -76,6 +78,7 @@ describe('spendingService', () => {
         account_id: 'acct1',
       },
     });
+    expect(api.get).toHaveBeenNthCalledWith(3, '/spending/transactions/tx1');
     expect(api.post).toHaveBeenCalledWith('/spending/transactions', {
       amount: 100,
       type: 'expense',

@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
+  ArrowRightLeft,
   PieChart,
+  Plus,
   RefreshCw,
   Wallet,
 } from 'lucide-react';
@@ -13,21 +15,24 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { DropdownSelect } from '../components/DropdownSelect';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { SkeletonCard } from '../components/ui/FeedbackStates';
 import { AccountMap } from '../components/finance/AccountMap';
 import { ActivityFeedTimeline } from '../components/finance/ActivityFeedTimeline';
 import { AccountDetailView } from '../components/finance/AccountDetailView';
+import { TransactionModal } from '../components/finance/TransactionModal';
 import { TransferModal } from '../components/finance/TransferModal';
 import { DividendModal } from '../components/finance/DividendModal';
 import { HistoricalDataPanel } from '../components/finance/HistoricalDataPanel';
 import { NetWorthHistoryChart, StatusBanner } from '../components/finance/NetWorthHistoryChart';
 import { financeService } from '../services/finance';
+import { spendingService } from '../services/spending';
 import { investingService } from '../services/investing';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { mutationInvalidations, queryKeys } from '../lib/queryKeys';
 import { formatCurrency, normalizeToReportingCurrency } from '../utils/numberFormat';
 import { useDisplayProfile } from '../hooks/useDisplayProfile';
-import type { Account, AccountType } from '../types/finance';
+import type { Account, AccountType, ActivityFeedItem } from '../types/finance';
 
 export const MoneyFlowPage: React.FC = () => {
   const displayProfile = useDisplayProfile();
@@ -42,6 +47,11 @@ export const MoneyFlowPage: React.FC = () => {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isDividendModalOpen, setIsDividendModalOpen] = useState(false);
   const [isCreateAccountModalOpen, setIsCreateAccountModalOpen] = useState(false);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [transactionDefaultAccountId, setTransactionDefaultAccountId] = useState<string | undefined>();
+  const [editingFeedItem, setEditingFeedItem] = useState<ActivityFeedItem | null>(null);
+  const [deletingItem, setDeletingItem] = useState<ActivityFeedItem | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [transferDefaultFromId, setTransferDefaultFromId] = useState<string | undefined>();
   const [dividendDefaultBrokerageId, setDividendDefaultBrokerageId] = useState<string | undefined>();
 
@@ -291,6 +301,60 @@ export const MoneyFlowPage: React.FC = () => {
     setIsDividendModalOpen(true);
   };
 
+  const handleOpenAddTransaction = (accountId?: string) => {
+    setEditingFeedItem(null);
+    setTransactionDefaultAccountId(accountId || selectedAccountId || undefined);
+    setIsTransactionModalOpen(true);
+  };
+
+  const handleEditItem = (item: ActivityFeedItem) => {
+    if (item.event_type === 'spend') {
+      setEditingFeedItem(item);
+      setTransactionDefaultAccountId(item.account_id);
+      setIsTransactionModalOpen(true);
+    }
+  };
+
+  const handleDeleteItem = (item: ActivityFeedItem) => {
+    setDeletingItem(item);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  // Delete Transaction Mutation with cascading invalidations
+  const deleteTransactionMutation = useInvalidatingMutation(
+    (id: string) => spendingService.deleteTransaction(id),
+    mutationInvalidations.transaction,
+    {
+      successMessage: 'Transaction deleted',
+      onSuccess: () => {
+        setIsDeleteConfirmOpen(false);
+        setDeletingItem(null);
+      },
+    },
+  );
+
+  // Delete Transfer Mutation with cascading invalidations
+  const deleteTransferMutation = useInvalidatingMutation(
+    (id: string) => financeService.deleteTransfer(id),
+    mutationInvalidations.transfer,
+    {
+      successMessage: 'Transfer deleted',
+      onSuccess: () => {
+        setIsDeleteConfirmOpen(false);
+        setDeletingItem(null);
+      },
+    },
+  );
+
+  const handleConfirmDelete = () => {
+    if (!deletingItem) return;
+    if (deletingItem.event_type === 'transfer') {
+      deleteTransferMutation.mutate(deletingItem.id);
+    } else {
+      deleteTransactionMutation.mutate(deletingItem.id);
+    }
+  };
+
   // Create Account Mutation with cascading invalidations
   const createAccountMutation = useInvalidatingMutation(
     async () => {
@@ -312,13 +376,36 @@ export const MoneyFlowPage: React.FC = () => {
 
   const isMetricsLoading = netWorthRes.isLoading || accountsRes.isLoading;
   const isArchitectureLoading = accountsRes.isLoading || netWorthRes.isLoading || holdingsRes.isLoading;
+  const isDeletePending = deleteTransactionMutation.isPending || deleteTransferMutation.isPending;
 
   return (
     <PageShell>
       <PageHero
         title="Money Flow & Architecture"
         subtitle="Unified financial ecosystem mapping your capital across cash accounts, trading balances, and invested portfolio."
-        actions={<HistoricalDataPanel />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleOpenAddTransaction()}
+              className="h-9 gap-1.5 border border-slate-700 bg-slate-800/80 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            >
+              <Plus className="h-3.5 w-3.5 text-emerald-400" />
+              + Transaction
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => handleOpenTransfer()}
+              className="h-9 gap-1.5 border border-slate-700 bg-slate-800/80 text-xs font-medium text-slate-200 hover:bg-slate-700"
+            >
+              <ArrowRightLeft className="h-3.5 w-3.5 text-cyan-400" />
+              Transfer
+            </Button>
+            <HistoricalDataPanel />
+          </div>
+        }
       />
 
       <StatusBanner
@@ -422,8 +509,12 @@ export const MoneyFlowPage: React.FC = () => {
           activityItems={activityFeedRes.data?.items ?? []}
           onBack={() => handleSelectAccount(null)}
           onOpenTransfer={handleOpenTransfer}
+          onOpenAddTransaction={() => handleOpenAddTransaction(selectedAccount.public_id)}
           onOpenDividend={handleOpenDividend}
           onOpenOrder={() => navigate('/portfolio')}
+          onEditItem={handleEditItem}
+          onDeleteItem={handleDeleteItem}
+          isDeletePending={isDeletePending}
         />
       ) : (
         /* Account Map + Historical Net Worth Chart + Unified Activity Feed */
@@ -493,12 +584,30 @@ export const MoneyFlowPage: React.FC = () => {
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               isLoading={activityFeedRes.isLoading}
+              onEditItem={handleEditItem}
+              onDeleteItem={handleDeleteItem}
+              isDeletePending={isDeletePending}
             />
           </div>
         </div>
       )}
 
       {/* Modals */}
+      <TransactionModal
+        open={isTransactionModalOpen}
+        onClose={() => {
+          setIsTransactionModalOpen(false);
+          setEditingFeedItem(null);
+        }}
+        accounts={accounts}
+        defaultAccountId={transactionDefaultAccountId}
+        initialFeedItem={editingFeedItem}
+        onCreateAccount={() => {
+          setIsTransactionModalOpen(false);
+          setIsCreateAccountModalOpen(true);
+        }}
+      />
+
       <TransferModal
         open={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
@@ -515,6 +624,24 @@ export const MoneyFlowPage: React.FC = () => {
         onClose={() => setIsDividendModalOpen(false)}
         accounts={accounts}
         defaultAccountId={dividendDefaultBrokerageId}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={isDeleteConfirmOpen}
+        onOpenChange={setIsDeleteConfirmOpen}
+        title={deletingItem?.event_type === 'transfer' ? 'Delete Transfer' : 'Delete Transaction'}
+        description={
+          <span>
+            Are you sure you want to delete this{' '}
+            <strong className="text-white">
+              {deletingItem?.event_type === 'transfer' ? 'transfer' : 'transaction'}
+            </strong>
+            {deletingItem?.description ? ` (${deletingItem.description})` : ''}? This action cannot be undone.
+          </span>
+        }
+        isPending={isDeletePending}
+        onConfirm={handleConfirmDelete}
       />
 
       {/* Create Account Modal */}

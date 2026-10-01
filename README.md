@@ -88,9 +88,10 @@ Today the web app focuses on the personal OS foundation:
 
 - Dashboard
 - Todo management
-- Spending tracking
-- Investing tracking
-- Net worth page with a stacked-area history chart (spending cash, investing cash, holdings value over time)
+- Unified Money Flow (`/money`) with 3-lane AccountMap (Cash, Brokerage Cash, Holdings), embedded Net Worth history chart, and ActivityFeedTimeline
+- Account Detail View with running balances, natural FX rate inputs, and full transaction/transfer CRUD (creation, editing, deletion with dialog confirmations and cascading cache invalidations)
+- Portfolio management (`/portfolio`) with Holdings, Trade History, Performance Returns, Overlap & Exposure Analytics, and flexible bank/brokerage dividend income tracking
+- Periodic summaries (`/analytics`, `/summaries`) with monthly close summaries, spend pacing trajectory vs monthly budgets, and historical return analytics
 - Category groups and recurring date-ranged budgets with a dashboard budget-spotlight section
 - Notifications inbox and unread indicators
 - Weekly summaries view
@@ -108,7 +109,8 @@ Today the web app focuses on the personal OS foundation:
 - Health Memory V1: medication schedules/adherence, late-dose catch-up, interval-from-last-dose mode, weight logging/trends, and briefing integration
 - OAuth sign-in/account-link management, persisted user timezone, display preferences, and revocable MCP connection management in Settings
 - PWA/installable shell with push notifications: service worker (`public/sw.js`), web app manifest (`public/manifest.webmanifest`), and push subscription management (`PushSubscriptionSettings`, wired into the Notifications page)
-- Page decomposition: large feature pages (Spending, Investing) are split into focused `*Tab` components under `src/pages/spending/` and `src/pages/investing/`
+- Page decomposition: focused modular components with centralized cascading cache invalidations (`mutationInvalidations`)
+
 
 The current implementation is intentionally centered on a single-user personal workflow before expanding into later-stage domains.
 
