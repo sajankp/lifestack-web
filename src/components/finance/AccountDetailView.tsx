@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -16,12 +17,18 @@ import { Button } from '../ui/button';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
 import { useDisplayProfile } from '../../hooks/useDisplayProfile';
+import { financeService } from '../../services/finance';
+import { queryKeys } from '../../lib/queryKeys';
 import type { Account, ActivityFeedItem } from '../../types/finance';
 
 interface AccountDetailViewProps {
   account: Account;
   currentBalance: number;
   activityItems: ActivityFeedItem[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+  onPageChange?: (offset: number) => void;
   onBack: () => void;
   onOpenTransfer: (fromAccountId?: string) => void;
   onOpenAddTransaction?: () => void;
@@ -43,6 +50,10 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
   account,
   currentBalance,
   activityItems,
+  total = 0,
+  limit = 50,
+  offset = 0,
+  onPageChange,
   onBack,
   onOpenTransfer,
   onOpenAddTransaction,
@@ -56,6 +67,18 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
 
   const isBrokerage = account.account_type === 'brokerage';
 
+  // Fetch preceding events for running balance continuity across pages
+  const precedingEventsRes = useQuery({
+    queryKey: queryKeys.finance.activityFeed(account.public_id, 'preceding', offset),
+    queryFn: () =>
+      financeService.getActivityFeed({
+        account_id: account.public_id,
+        limit: offset,
+        offset: 0,
+      }),
+    enabled: !!account.public_id && offset > 0,
+  });
+
   // Compute period metrics & running balances
   const { itemsWithRunningBalance, totalInflow, totalOutflow } = useMemo(() => {
     let inflowSum = 0;
@@ -66,14 +89,29 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
       (item) => item.account_id === account.public_id,
     );
 
-    // Calculate total net delta of all events in the list
-    // and compute running balances from currentBalance backwards
-    let running = currentBalance;
+    // Compute net preceding delta from transactions before current page offset
+    let precedingDelta = 0;
+    if (offset > 0 && precedingEventsRes.data?.items) {
+      for (const item of precedingEventsRes.data.items) {
+        if (item.account_id === account.public_id) {
+          const isPositive = item.amount.startsWith('+');
+          const numAmt = Math.abs(parseFloat(item.amount.replace('+', '')) || 0);
+          if (isPositive) {
+            precedingDelta += numAmt;
+          } else {
+            precedingDelta -= numAmt;
+          }
+        }
+      }
+    }
+
+    // Step backwards from current balance adjusted by preceding delta
+    let running = currentBalance - precedingDelta;
     const withBalances: Array<ActivityFeedItem & { numAmount: number; isPositive: boolean; runningBalance: number }> = [];
 
     for (const item of accountEvents) {
       const isPositive = item.amount.startsWith('+');
-      const numAmt = Math.abs(parseFloat(item.amount.replace('+', '')));
+      const numAmt = Math.abs(parseFloat(item.amount.replace('+', '')) || 0);
 
       if (isPositive) {
         inflowSum += numAmt;
@@ -102,7 +140,7 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
       totalInflow: inflowSum,
       totalOutflow: outflowSum,
     };
-  }, [activityItems, account.public_id, currentBalance]);
+  }, [activityItems, account.public_id, currentBalance, offset, precedingEventsRes.data]);
 
   const Icon = ACCOUNT_ICONS[account.account_type] ?? Wallet;
 
@@ -244,7 +282,9 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
             <p className="text-xs text-slate-400">Chronological activity with running balance verification</p>
           </div>
           <span className="text-xs text-slate-500 font-mono">
-            {itemsWithRunningBalance.length} {itemsWithRunningBalance.length === 1 ? 'entry' : 'entries'}
+            {total > limit
+              ? `Showing ${offset + 1}-${Math.min(offset + limit, total)} of ${total} entries`
+              : `${itemsWithRunningBalance.length} ${itemsWithRunningBalance.length === 1 ? 'entry' : 'entries'}`}
           </span>
         </div>
 
@@ -352,6 +392,40 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination Footer */}
+        {total > limit && onPageChange && (
+          <div className="flex items-center justify-between border-t border-slate-800 bg-slate-900/80 px-4 py-2.5 text-xs text-slate-400">
+            <span data-testid="account-detail-pagination-summary">
+              Showing {Math.min(offset + 1, total)} - {Math.min(offset + limit, total)} of {total}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={offset === 0}
+                onClick={() => onPageChange(Math.max(0, offset - limit))}
+                className="h-7 text-xs border border-slate-700 bg-slate-800 text-slate-300 hover:text-white"
+                data-testid="account-detail-prev-btn"
+              >
+                Previous
+              </Button>
+              <span>
+                Page {Math.floor(offset / limit) + 1} of {Math.max(1, Math.ceil(total / limit))}
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={offset + limit >= total}
+                onClick={() => onPageChange(offset + limit)}
+                className="h-7 text-xs border border-slate-700 bg-slate-800 text-slate-300 hover:text-white"
+                data-testid="account-detail-next-btn"
+              >
+                Next
+              </Button>
+            </div>
           </div>
         )}
       </div>

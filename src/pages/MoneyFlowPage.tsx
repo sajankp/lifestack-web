@@ -277,6 +277,7 @@ export const MoneyFlowPage: React.FC = () => {
       }
       return prev;
     });
+    setFeedOffset(0);
   };
 
   const handleSelectEventType = (eventType: string | null) => {
@@ -507,6 +508,10 @@ export const MoneyFlowPage: React.FC = () => {
           account={selectedAccount}
           currentBalance={balancesByAccountId[selectedAccount.public_id] || 0}
           activityItems={activityFeedRes.data?.items ?? []}
+          total={activityFeedRes.data?.total ?? 0}
+          limit={activityFeedRes.data?.limit ?? 50}
+          offset={activityFeedRes.data?.offset ?? feedOffset}
+          onPageChange={setFeedOffset}
           onBack={() => handleSelectAccount(null)}
           onOpenTransfer={handleOpenTransfer}
           onOpenAddTransaction={() => handleOpenAddTransaction(selectedAccount.public_id)}
