@@ -349,10 +349,14 @@ export const MoneyFlowPage: React.FC = () => {
 
   const handleConfirmDelete = () => {
     if (!deletingItem) return;
+    // For transfers, item.id is a synthetic UUID5 (outflow/inflow derived),
+    // not the actual transfer public_id. Use source_ref which carries the
+    // real public_id that the DELETE endpoint expects.
+    const deleteId = deletingItem.source_ref || deletingItem.id;
     if (deletingItem.event_type === 'transfer') {
-      deleteTransferMutation.mutate(deletingItem.id);
+      deleteTransferMutation.mutate(deleteId);
     } else {
-      deleteTransactionMutation.mutate(deletingItem.id);
+      deleteTransactionMutation.mutate(deleteId);
     }
   };
 

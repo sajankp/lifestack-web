@@ -644,4 +644,97 @@ describe('MoneyFlowPage', () => {
       expect(screen.getByTestId('account-detail-prev-btn')).toBeEnabled();
     });
   });
+
+  it('deletes transfer using source_ref instead of synthetic feed id', async () => {
+    let deletedTransferId: string | null = null;
+
+    server.use(
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          effective_locale: 'en-US',
+          effective_decimal_places: 2,
+          effective_currency_display_preference: 'symbol',
+        }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-bank-inr',
+              name: 'HDFC Savings',
+              account_type: 'bank',
+              default_currency_code: 'INR',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/net-worth', () =>
+        HttpResponse.json({
+          reporting_currency: 'INR',
+          spending_accounts: [],
+          spending_total: '0.00',
+          investing_accounts: [],
+          investing_total: '0.00',
+          net_worth: '0.00',
+        }),
+      ),
+      http.get('*/v1/finance/activity-feed', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'synthetic-uuid-outflow-12345',
+              event_type: 'transfer',
+              date: '2026-09-26T10:00:00Z',
+              description: 'Transfer to Brokerage',
+              amount: '-5000.00',
+              currency: 'INR',
+              account_id: 'acc-bank-inr',
+              account_name: 'HDFC Savings',
+              account_type: 'bank',
+              counterpart_account_id: 'acc-brokerage-usd',
+              counterpart_account_name: 'Charles Schwab',
+              source_ref: 'tf-real-public-id-999',
+            },
+          ],
+          total: 1,
+          limit: 50,
+          offset: 0,
+        }),
+      ),
+      http.delete('*/v1/finance/transfers/:id', ({ params }) => {
+        deletedTransferId = String(params.id);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderMoneyFlow();
+
+    // Verify transfer row rendered in stream
+    expect(await screen.findByText('Transfer to Brokerage')).toBeInTheDocument();
+
+    // Click Delete transfer button
+    const deleteBtn = screen.getByTitle('Delete transfer');
+    fireEvent.click(deleteBtn);
+
+    expect(await screen.findByText('Delete Transfer')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Are you sure you want to delete this/i),
+    ).toBeInTheDocument();
+
+    // Confirm deletion
+    const confirmBtn = screen.getByRole('button', { name: 'Delete' });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      // Must delete with the actual transfer public_id from source_ref, not the synthetic feed item id
+      expect(deletedTransferId).toBe('tf-real-public-id-999');
+    });
+  });
 });
+

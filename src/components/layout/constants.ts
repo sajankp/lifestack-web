@@ -3,6 +3,7 @@ import {
   CheckSquare,
   Mic,
   ArrowRightLeft,
+  Wallet,
   TrendingUp,
   FileText,
   Upload,
@@ -54,6 +55,13 @@ export const NAV_LINKS = [
     label: 'Money Flow',
     testId: 'nav-money',
     icon: ArrowRightLeft,
+    section: 'Money' as NavSection,
+  },
+  {
+    to: '/spending',
+    label: 'Spending',
+    testId: 'nav-spending',
+    icon: Wallet,
     section: 'Money' as NavSection,
   },
   {
