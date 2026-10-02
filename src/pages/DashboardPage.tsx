@@ -124,7 +124,7 @@ export const DashboardPage: React.FC = () => {
       label: 'Add your first transaction or todo',
       done: (transactionsData?.total ?? 0) > 0 || (todosData?.total ?? 0) > 0,
       actions: [
-        { label: 'Add transaction', to: '/spending?new=1' },
+        { label: 'Add transaction', to: '/money?new=1' },
         { label: 'Add todo', to: '/todo?new=1' },
       ],
     },

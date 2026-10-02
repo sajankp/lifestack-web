@@ -24,7 +24,7 @@ const baseSteps: OnboardingChecklistStep[] = [
     label: 'Add your first transaction or todo',
     done: false,
     actions: [
-      { label: 'Add transaction', to: '/spending?new=1' },
+      { label: 'Add transaction', to: '/money?new=1' },
       { label: 'Add todo', to: '/todo?new=1' },
     ],
   },
@@ -48,7 +48,7 @@ describe('OnboardingChecklist', () => {
       'href',
       '/settings/accounts',
     );
-    expect(screen.getByText('Add transaction')).toHaveAttribute('href', '/spending?new=1');
+    expect(screen.getByText('Add transaction')).toHaveAttribute('href', '/money?new=1');
     expect(screen.getByText('Add todo')).toHaveAttribute('href', '/todo?new=1');
     expect(screen.getByText('Optional')).toBeInTheDocument();
   });

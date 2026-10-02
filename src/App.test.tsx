@@ -173,7 +173,7 @@ describe('App shell', () => {
     expect(screen.getByRole('link', { name: 'Add todo' })).toHaveAttribute('href', '/todo?new=1');
     expect(screen.getByRole('link', { name: 'Add expense' })).toHaveAttribute(
       'href',
-      '/spending?new=1',
+      '/money?new=1',
     );
   });
 

@@ -1,88 +1,55 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
-import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { SkeletonList } from '../components/ui/FeedbackStates';
-import { ConfirmDialog } from '../components/ui/confirm-dialog';
-import { useToast } from '../components/ui/toast';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { mutationInvalidations, queryKeys } from '../lib/queryKeys';
 import { spendingService } from '../services/spending';
 import { financeService } from '../services/finance';
 import type {
   Budget,
-  BudgetChangeAmountRequest,
   BudgetCreate,
   BudgetUpdate,
   RecurringTransaction,
   RecurringTransactionCreate,
   RecurringTransactionUpdate,
   RecurringFrequency,
-  Transaction,
-  TransactionCreate,
-  TransactionSort,
-  TransactionType,
-  TransactionUpdate,
-  SpendingTag,
 } from '../types/spending';
 
 import {
-  Wallet,
-  ArrowUpCircle,
   ArrowDownCircle,
   Plus,
   Trash2,
   Tag,
   Target,
   Clock3,
-  ArrowRightLeft,
-  Landmark,
-  AlertCircle,
-  ChevronDown,
   ChevronRight,
-  SlidersHorizontal,
-  RotateCcw,
   Settings2,
 } from 'lucide-react';
 import { DropdownSelect } from '../components/DropdownSelect';
 import { DatePicker } from '../components/DatePicker';
-import { DateRangePicker } from '../components/DateRangePicker';
-import { CompactFilterBar, CompactFilterField } from '../components/filters/CompactFilterBar';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
-import { TransferModal } from '../components/finance/TransferModal';
-import { QuickCreateAccountForm } from '../components/finance/QuickCreateAccountForm';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { FormattedNumberInput } from '../components/ui/formatted-number-input';
 import { Label } from '../components/ui/label';
-import type { AccountType } from '../types/finance';
-import type { PaginatedResponse } from '../types/common';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import {
   DEFAULT_DECIMAL_PLACES,
   DEFAULT_DISPLAY_LOCALE,
   formatCurrency,
 } from '../utils/numberFormat';
-import { computeTransferNet } from '../utils/transferMath';
-import { describeRecurrence } from '../utils/recurrenceLabel';
-import { describeRecurrenceHelp } from '../utils/recurrenceHelp';
-import { formatDate } from '../utils/dateFormat';
-import { TransactionsTab } from './spending/TransactionsTab';
 import { BudgetsTab } from './spending/BudgetsTab';
 import { KpisTab } from './spending/KpisTab';
 import { RecurringTab } from './spending/RecurringTab';
 import { AnalyticsTab } from './spending/AnalyticsTab';
-import { TagPicker } from './spending/TagPicker';
-import { LedgerTab } from './spending/LedgerTab';
 import {
   buildMonthOptions,
   getCurrentMonthValue,
-  localDateInputValue,
-  monthShortLabel,
-  monthStartToMonthValue,
   monthValueToDateRange,
 } from './spending/format';
 
@@ -118,15 +85,13 @@ const budgetFormSchema = z
     path: ['endMonth'],
   });
 
-type SpendingTab = 'transactions' | 'budgets' | 'kpis' | 'recurring' | 'analytics' | 'ledger';
+type SpendingTab = 'recurring' | 'budgets' | 'kpis' | 'analytics';
 
 const SPENDING_TAB_ROUTES: Record<SpendingTab, string> = {
-  transactions: 'transactions',
+  recurring: 'recurring',
   budgets: 'budgets',
   kpis: 'kpis',
-  recurring: 'recurring',
   analytics: 'analytics',
-  ledger: 'account-activity',
 };
 
 const SPENDING_ROUTE_TABS = Object.fromEntries(
@@ -176,169 +141,50 @@ const recurringFormSchema = z
 
 type RecurringFormValues = z.infer<typeof recurringFormSchema>;
 
-// Every new transaction must resolve to an account (spec-054). The
-// workspace default takes priority; this is only the pre-fill fallback
-// for workspaces that haven't set one yet.
-const LAST_USED_ACCOUNT_KEY = 'spending:lastUsedAccountId';
-const getLastUsedAccountId = (): string => {
-  try {
-    return window.localStorage.getItem(LAST_USED_ACCOUNT_KEY) ?? '';
-  } catch {
-    return '';
-  }
-};
-const setLastUsedAccountId = (accountId: string) => {
-  try {
-    window.localStorage.setItem(LAST_USED_ACCOUNT_KEY, accountId);
-  } catch {
-    // Storage unavailable (private browsing, quota) — pre-fill just won't persist.
-  }
-};
-
-// Sentinel for the account filter's "No account" option — historical
-// NULL-account rows (forward-only per spec-054/spec-050) are filtered via
-// the backend's `unassigned=true` param, not a real account id.
-const UNASSIGNED_ACCOUNT_FILTER_VALUE = '__unassigned__';
-
-// Page size for the Account activity tab's transfer public_id lookup — matches the
-// API's PaginationParams MAX_LIMIT (app/core/pagination.py), which 422s above 200.
-const TRANSFERS_LOOKUP_PAGE_SIZE = 200;
 const DEFAULT_PAGE_SIZE = 50;
-const SOURCE_CURRENCY_HINT_DISMISSED_KEY = 'spending:sourceCurrencyHintDismissed';
-const RECENT_SPENDING_CATEGORIES_KEY = 'spending:recentCategories';
-const EMPTY_SPENDING_TAGS: SpendingTag[] = [];
-
-const readRecentSpendingCategories = (): string[] => {
-  try {
-    const stored = window.localStorage.getItem(RECENT_SPENDING_CATEGORIES_KEY);
-    const parsed: unknown = stored ? JSON.parse(stored) : [];
-    return Array.isArray(parsed)
-      ? parsed.filter((value): value is string => typeof value === 'string')
-      : [];
-  } catch {
-    return [];
-  }
-};
-
-// Sort options for the transactions list. Values mirror the API's
-// TransactionSort enum; sorting is applied server-side so it holds across pages.
-const TRANSACTION_SORT_OPTIONS: { value: TransactionSort; label: string }[] = [
-  { value: 'date_desc', label: 'Date (newest first)' },
-  { value: 'date_asc', label: 'Date (oldest first)' },
-  { value: 'amount_desc', label: 'Amount (high to low)' },
-  { value: 'amount_asc', label: 'Amount (low to high)' },
-];
 
 export const SpendingPage: React.FC = () => {
-  const { showToast } = useToast();
-  const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [pendingDeleteTransactionId, setPendingDeleteTransactionId] = useState<string | null>(null);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [type, setType] = useState<TransactionType>('expense');
-  const [categoryId, setCategoryId] = useState('');
-  const [recentCategoryIds, setRecentCategoryIds] = useState<string[]>(readRecentSpendingCategories);
-  const [accountId, setAccountId] = useState('');
-  const [date, setDate] = useState(localDateInputValue());
-  const [fromDate, setFromDate] = useState<string>(() => {
-    const now = new Date();
-    const start = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
-    return start.toISOString().split('T')[0];
-  });
-  const [toDate, setToDate] = useState<string>(() => {
-    const now = new Date();
-    const end = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0));
-    return end.toISOString().split('T')[0];
-  });
-  const selectedMonth = useMemo(() => fromDate.slice(0, 7), [fromDate]);
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('');
-  const [selectedAccountFilter, setSelectedAccountFilter] = useState('');
-  const [selectedTagFilter, setSelectedTagFilter] = useState('');
-  const [transactionSearch, setTransactionSearch] = useState('');
-  const [txSort, setTxSort] = useState<TransactionSort>('date_desc');
+  const [searchParams] = useSearchParams();
 
-  const rememberCategory = useCallback((nextCategoryId: string) => {
-    if (!nextCategoryId) return;
-    setRecentCategoryIds((current) => {
-      const next = [nextCategoryId, ...current.filter((value) => value !== nextCategoryId)].slice(0, 5);
-      try {
-        window.localStorage.setItem(RECENT_SPENDING_CATEGORIES_KEY, JSON.stringify(next));
-      } catch {
-        // Local storage can be unavailable in privacy-restricted contexts.
-      }
-      return next;
-    });
-  }, []);
-
-  // Budgets has its own month picker — it must NOT derive from (or be
-  // filtered by) the Transactions date-range/category/account filter bar,
-  // which used to leak into "spent this month" (UX-REVIEW P2 item 4).
+  // Budgets state
   const [budgetsMonth, setBudgetsMonth] = useState(() => getCurrentMonthValue());
-  const budgetsMonthRange = useMemo(() => monthValueToDateRange(budgetsMonth), [budgetsMonth]);
-  const [budgetsDuration, setBudgetsDuration] = useState(1);
-  const budgetsRange = useMemo(() => {
-    if (!/^\d{4}-\d{2}$/.test(budgetsMonth)) {
-      return { fromMonth: budgetsMonth, toMonth: budgetsMonth, label: budgetsMonthRange.label };
-    }
-    const [yearStr, monthStr] = budgetsMonth.split('-');
-    const year = Number(yearStr);
-    const month = Number(monthStr);
+  const [budgetsDuration, setBudgetsDuration] = useState<number>(1);
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [budgetOffset, setBudgetOffset] = useState(0);
 
-    const startMonthDate = new Date(Date.UTC(year, month - 1 - (budgetsDuration - 1), 1));
-    const fromMonthVal = `${startMonthDate.getUTCFullYear()}-${String(
-      startMonthDate.getUTCMonth() + 1,
-    ).padStart(2, '0')}`;
+  // Recurring state
+  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringTransaction | null>(null);
+  const [recurringOffset, setRecurringOffset] = useState(0);
+  const [recurringPendingDeactivate, setRecurringPendingDeactivate] = useState<{
+    publicId: string;
+    description: string;
+  } | null>(null);
 
-    const endMonthDate = new Date(Date.UTC(year, month - 1, 1));
-    const toMonthVal = `${endMonthDate.getUTCFullYear()}-${String(
-      endMonthDate.getUTCMonth() + 1,
-    ).padStart(2, '0')}`;
+  // Category management modal
+  const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#22c55e');
+  const [newCatIcon, setNewCatIcon] = useState('');
+  const [newCatGroupId, setNewCatGroupId] = useState('');
 
-    const label =
-      budgetsDuration === 1
-        ? budgetsMonthRange.label
-        : `${monthShortLabel(fromMonthVal)} ${startMonthDate.getUTCFullYear()} - ${monthShortLabel(
-            toMonthVal,
-          )} ${endMonthDate.getUTCFullYear()}`;
+  // Tag management modal
+  const [isTagsModalOpen, setIsTagsModalOpen] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState('#3b82f6');
 
-    return {
-      fromMonth: fromMonthVal,
-      toMonth: toMonthVal,
-      label,
-    };
-  }, [budgetsMonth, budgetsDuration, budgetsMonthRange]);
-
-  // Analytics has its own month picker for the same reason Budgets does — it
-  // must NOT derive from the Transactions date-range filter bar, so a single
-  // specific month's breakdown can be selected independently of that filter.
+  // Analytics month
   const [analyticsMonth, setAnalyticsMonth] = useState(() => getCurrentMonthValue());
 
-  // Tabs are real child routes so browser refreshes preserve the active
-  // spending branch and remount its data queries. Legacy ?tab= links are
-  // redirected to their canonical child route below.
-  // "Transfers" was merged into "Account activity" (formerly Ledger) — the
-  // ledger already rendered transfer_in/out rows; it now also carries their
-  // edit/delete affordances (UX-REVIEW Theme 3 / spec: money-movement restructure).
-  const tabTitles: Record<SpendingTab, string> = {
-    transactions: 'Transactions',
-    budgets: 'Budgets',
-    kpis: 'KPIs',
-    recurring: 'Recurring rules',
-    analytics: 'Analytics',
-    ledger: 'Account activity',
-  };
   const requestedLegacyTab = searchParams.get('tab');
   const pathTab = SPENDING_ROUTE_TABS[location.pathname.slice('/spending/'.length)];
   const legacyTab = requestedLegacyTab && requestedLegacyTab in SPENDING_TAB_ROUTES
     ? (requestedLegacyTab as SpendingTab)
     : null;
-  const activeTab = pathTab ?? legacyTab ?? 'transactions';
+  const activeTab: SpendingTab = pathTab ?? legacyTab ?? 'recurring';
 
   const setActiveTab = useCallback(
     (nextTab: SpendingTab) => {
@@ -351,11 +197,18 @@ export const SpendingPage: React.FC = () => {
   );
 
   useEffect(() => {
+    // Redirect legacy routes to /money
+    const subpath = location.pathname.slice('/spending/'.length);
+    if (subpath === 'transactions' || subpath === 'account-activity') {
+      navigate('/money', { replace: true });
+      return;
+    }
+
     const isSpendingRoot = location.pathname === '/spending' || location.pathname === '/spending/';
     const isUnknownSpendingBranch = location.pathname.startsWith('/spending/') && !pathTab;
     if (!isSpendingRoot && !isUnknownSpendingBranch) return;
 
-    const targetTab = legacyTab ?? 'transactions';
+    const targetTab = legacyTab ?? 'recurring';
     const params = new URLSearchParams(location.search);
     params.delete('tab');
     const query = params.toString();
@@ -364,173 +217,216 @@ export const SpendingPage: React.FC = () => {
     });
   }, [legacyTab, location.pathname, location.search, navigate, pathTab]);
 
-  // The Account activity selection is URL state so refresh/reload preserves the
-  // account whose latest ledger data the user is viewing.
-  const ledgerAccountId = searchParams.get('account') ?? '';
-  const setLedgerAccountId = useCallback(
-    (nextAccountId: string) => {
-      setSearchParams(
-        (params) => {
-          if (nextAccountId) params.set('account', nextAccountId);
-          else params.delete('account');
-          return params;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-  const [showSourceCurrencyHint, setShowSourceCurrencyHint] = useState(() => {
-    try {
-      return window.localStorage.getItem(SOURCE_CURRENCY_HINT_DISMISSED_KEY) !== 'true';
-    } catch {
-      return true;
-    }
-  });
-  const [ledgerOffset, setLedgerOffset] = useState(0);
-  const [ledgerLimit, setLedgerLimit] = useState(50);
-
-  // Budget Modal
-  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
-  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
-  const [changeAmountValue, setChangeAmountValue] = useState('');
-  const [changeAmountFromMonth, setChangeAmountFromMonth] = useState('');
-  const [isChangeAmountOpen, setIsChangeAmountOpen] = useState(false);
-  const [changeAmountError, setChangeAmountError] = useState<string | null>(null);
-  const [txOffset, setTxOffset] = useState(0);
-  const [txLimit, setTxLimit] = useState(50);
-  const [budgetOffset, setBudgetOffset] = useState(0);
-  const [recurringOffset, setRecurringOffset] = useState(0);
-  const monthRange = useMemo(() => monthValueToDateRange(selectedMonth), [selectedMonth]);
   const monthFilterOptions = useMemo(() => buildMonthOptions(), []);
+  const budgetsRange = useMemo(
+    () => monthValueToDateRange(budgetsMonth),
+    [budgetsMonth],
+  );
 
-  // Recurring modal state
-  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
-  const [editingRecurring, setEditingRecurring] = useState<RecurringTransaction | null>(null);
-  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-  const [isQuickAccountModalOpen, setIsQuickAccountModalOpen] = useState(false);
-  const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryColor, setNewCategoryColor] = useState('#3b82f6');
-  const [newCategoryIcon, setNewCategoryIcon] = useState('');
-  const [newAccountName, setNewAccountName] = useState('');
-  const [newAccountType, setNewAccountType] = useState<AccountType>('wallet');
-  const [newAccountCurrency, setNewAccountCurrency] = useState('USD');
-  const [recurringPendingDeactivate, setRecurringPendingDeactivate] = useState<{
-    publicId: string;
-    description: string;
-  } | null>(null);
+  // Settings & currency display profile
+  const userSettingsQuery = useQuery({
+    queryKey: queryKeys.finance.settings('user'),
+    queryFn: () => financeService.getUserSettings(),
+  });
+  const workspaceSettingsQuery = useQuery({
+    queryKey: queryKeys.finance.settings(),
+    queryFn: () => financeService.getSettings(),
+  });
 
-  // Edit / delete transfer state — create now lives in the shared
-  // <TransferModal>; edit/delete stay page-local since only the merged
-  // Account activity tab here lists historical transfers to act on.
-  const [editingTransfer, setEditingTransfer] = useState<
-    import('../types/finance').CapitalTransfer | null
-  >(null);
-  const [editTransferFromId, setEditTransferFromId] = useState('');
-  const [editTransferToId, setEditTransferToId] = useState('');
-  const [editTransferGross, setEditTransferGross] = useState('');
-  const [editTransferFxRate, setEditTransferFxRate] = useState('');
-  const [editTransferFxFee, setEditTransferFxFee] = useState('0');
-  const [editTransferPlatformFee, setEditTransferPlatformFee] = useState('0');
-  const [editTransferTax, setEditTransferTax] = useState('0');
-  const [editTransferNet, setEditTransferNet] = useState('');
-  const [editTransferNetOverridden, setEditTransferNetOverridden] = useState(false);
-  const [editTransferShowFees, setEditTransferShowFees] = useState(false);
-  const [editTransferNotes, setEditTransferNotes] = useState('');
-  const [editTransferDate, setEditTransferDate] = useState('');
-  const [editTransferError, setEditTransferError] = useState<string | null>(null);
-  const [deletingTransfer, setDeletingTransfer] = useState<
-    import('../types/finance').CapitalTransfer | null
-  >(null);
-  const [deleteTransferError, setDeleteTransferError] = useState<string | null>(null);
+  const displayCurrency =
+    userSettingsQuery.data?.effective_reporting_currency_code ??
+    workspaceSettingsQuery.data?.reporting_currency_code ??
+    'USD';
 
-  const { data: categoriesResponse, isLoading: isCatsLoading } = useQuery({
+  const currencyDisplayPreference =
+    userSettingsQuery.data?.effective_currency_display_preference ??
+    workspaceSettingsQuery.data?.currency_display_preference ??
+    'symbol';
+
+  const displayLocale = userSettingsQuery.data?.effective_locale ?? DEFAULT_DISPLAY_LOCALE;
+  const decimalPlaces = userSettingsQuery.data?.effective_decimal_places ?? DEFAULT_DECIMAL_PLACES;
+
+  // Query categories
+  const categoriesQuery = useQuery({
     queryKey: queryKeys.spending.categories(),
     queryFn: () => spendingService.getCategories(200, 0),
   });
-  const categories = categoriesResponse?.items;
-  const categoryOptions = useMemo(
-    () =>
-      categories?.map((category) => ({
-        value: category.public_id,
-        label: category.name,
-      })) ?? [],
-    [categories],
-  );
-  const categoryFilterOptions = categoryOptions;
-  const { data: tagsResponse } = useQuery({
-    queryKey: queryKeys.spending.tags(),
-    queryFn: () => spendingService.getTags(200, 0),
-  });
-  const spendingTags = tagsResponse?.items ?? EMPTY_SPENDING_TAGS;
-  const tagFilterOptions = useMemo(
-    () => spendingTags.map((tag) => ({ value: tag.public_id, label: tag.name })),
-    [spendingTags],
-  );
-  // O(1) category lookup — every transaction row / donut slice / budget card
-  // resolves its theme through this instead of a per-row linear `.find`.
-  const categoryById = useMemo(
-    () => new Map((categories ?? []).map((category) => [category.public_id, category])),
-    [categories],
-  );
-  const { data: categoryGroupsResponse } = useQuery({
+  const categories = useMemo(() => categoriesQuery.data?.items ?? [], [categoriesQuery.data]);
+
+  // Query category groups
+  const categoryGroupsQuery = useQuery({
     queryKey: queryKeys.spending.categoryGroups(),
     queryFn: () => spendingService.getCategoryGroups(200, 0),
   });
-  const categoryGroups = categoryGroupsResponse?.items ?? [];
-  const categoryGroupOptions = useMemo(
-    () => categoryGroups.map((group) => ({ value: group.public_id, label: group.name })),
-    [categoryGroups],
+  const categoryGroups = useMemo(
+    () => categoryGroupsQuery.data?.items ?? [],
+    [categoryGroupsQuery.data],
   );
-  const categoryGroupById = useMemo(
-    () => new Map(categoryGroups.map((group) => [group.public_id, group])),
-    [categoryGroups],
-  );
-  const { data: accountsResponse } = useQuery({
-    queryKey: queryKeys.finance.accounts('spending'),
-    queryFn: () => financeService.getAccounts(200, 0),
+
+  // Query accounts
+  const accountsQuery = useQuery({
+    queryKey: queryKeys.finance.accounts(),
+    queryFn: () => financeService.getAccounts(),
   });
-  const allAccounts = useMemo(() => accountsResponse?.items ?? [], [accountsResponse?.items]);
+  const accounts = useMemo(() => accountsQuery.data?.items ?? [], [accountsQuery.data]);
   const spendingAccounts = useMemo(
     () =>
-      allAccounts.filter((account) =>
-        ['bank', 'wallet', 'card', 'gift_card'].includes(account.account_type),
+      accounts.filter((a) =>
+        ['wallet', 'bank', 'card', 'gift_card'].includes(a.account_type.toLowerCase()),
       ),
-    [allAccounts],
+    [accounts],
   );
+
   const accountOptions = useMemo(
     () =>
-      spendingAccounts.map((account) => ({
-        value: account.public_id,
-        label: `${account.name} (${account.account_type.replace('_', ' ')})`,
+      spendingAccounts.map((a) => ({
+        value: a.public_id,
+        label: `${a.name} (${a.default_currency_code})`,
       })),
     [spendingAccounts],
   );
-  const accountById = useMemo(
-    () => new Map(spendingAccounts.map((account) => [account.public_id, account])),
-    [spendingAccounts],
+
+  // Query tags
+  const tagsQuery = useQuery({
+    queryKey: queryKeys.spending.tags(),
+    queryFn: () => spendingService.getTags(),
+  });
+  const tags = useMemo(() => tagsQuery.data?.items ?? [], [tagsQuery.data]);
+
+  // Query recurring rules
+  const recurringQuery = useQuery({
+    queryKey: queryKeys.spending.recurring({ offset: recurringOffset, limit: DEFAULT_PAGE_SIZE }),
+    queryFn: () => spendingService.getRecurring(DEFAULT_PAGE_SIZE, recurringOffset),
+  });
+  const recurringResponse = recurringQuery.data;
+  const recurringItems = useMemo(() => recurringResponse?.items ?? [], [recurringResponse]);
+
+  // Query budgets
+  const budgetsQuery = useQuery({
+    queryKey: queryKeys.spending.budgets({
+      month: budgetsMonth,
+      offset: budgetOffset,
+      limit: DEFAULT_PAGE_SIZE,
+    }),
+    queryFn: () =>
+      spendingService.getBudgets(
+        DEFAULT_PAGE_SIZE,
+        budgetOffset,
+        `${budgetsMonth}-01`,
+      ),
+    enabled: budgetsDuration === 1,
+  });
+  const budgetsResponse = budgetsQuery.data;
+  const budgets = useMemo(() => budgetsResponse?.items ?? [], [budgetsResponse]);
+
+  // Query multi-month budget performance
+  const budgetPerformanceQuery = useQuery({
+    queryKey: ['spending', 'budget-performance', budgetsMonth, budgetsDuration],
+    queryFn: () => {
+      const fromMonth = budgetsMonth;
+      const [year, month] = budgetsMonth.split('-').map(Number);
+      const endDate = new Date(Date.UTC(year, month - 1 + budgetsDuration - 1, 1));
+      const toMonth = `${endDate.getUTCFullYear()}-${String(endDate.getUTCMonth() + 1).padStart(2, '0')}`;
+      return spendingService.getBudgetPerformance(fromMonth, toMonth);
+    },
+    enabled: budgetsDuration > 1,
+  });
+
+  const periodBudgets = useMemo(() => {
+    if (budgetsDuration <= 1 || !budgetPerformanceQuery.data) return [];
+    return (budgetPerformanceQuery.data.categories ?? []).map((cat) => ({
+      id: cat.category_id ?? cat.category_group_id ?? 'unknown',
+      name: cat.category_name ?? cat.category_group_name ?? 'Unnamed',
+      isGroup: !cat.category_id && !!cat.category_group_id,
+      amount: Number(cat.budget_amount ?? 0),
+      spent: Number(cat.actual_amount ?? 0),
+      status: cat.status ?? (Number(cat.utilization_pct ?? 0) > 100 ? 'exceeded' : 'on_track'),
+      utilization: Number(cat.utilization_pct ?? 0),
+      remaining: Number(cat.remaining ?? 0),
+      monthly: [],
+    }));
+  }, [budgetsDuration, budgetPerformanceQuery.data]);
+
+  // Monthly summary for top stats
+  const currentMonthValue = useMemo(() => getCurrentMonthValue(), []);
+  const currentMonthRange = useMemo(
+    () => monthValueToDateRange(currentMonthValue),
+    [currentMonthValue],
   );
-  const transferAccountOptions = useMemo(
+  const summaryQuery = useQuery({
+    queryKey: queryKeys.spending.summary(currentMonthRange.fromDate, currentMonthRange.toDate),
+    queryFn: () =>
+      spendingService.getTransactionSummary({
+        fromDate: currentMonthRange.fromDate,
+        toDate: currentMonthRange.toDate,
+      }),
+  });
+
+  const spentByCategory = useMemo(() => {
+    const map = new Map<string, number>();
+    (summaryQuery.data?.category_totals ?? []).forEach((c) => {
+      map.set(c.category_id, Number(c.total));
+    });
+    return map;
+  }, [summaryQuery.data]);
+
+  const spentByGroup = useMemo(() => {
+    const map = new Map<string, number>();
+    categories.forEach((cat) => {
+      if (cat.category_group_id) {
+        const catSpent = spentByCategory.get(cat.public_id) ?? 0;
+        map.set(cat.category_group_id, (map.get(cat.category_group_id) ?? 0) + catSpent);
+      }
+    });
+    return map;
+  }, [categories, spentByCategory]);
+
+  const getCategoryTheme = useCallback(
+    (catId: string | null) => {
+      if (!catId) return { name: 'Uncategorized', color: '#64748b', icon: null };
+      const cat = categories.find((c) => c.public_id === catId);
+      return {
+        name: cat?.name ?? 'Unknown',
+        color: cat?.color ?? '#22c55e',
+        icon: cat?.icon ?? null,
+      };
+    },
+    [categories],
+  );
+
+  const getGroupTheme = useCallback(
+    (groupId: string | null) => {
+      if (!groupId) return { name: 'No Group', color: '#64748b', icon: null };
+      const group = categoryGroups.find((g) => g.public_id === groupId);
+      return {
+        name: group?.name ?? 'Unknown Group',
+        color: group?.color ?? '#06b6d4',
+        icon: group?.icon ?? null,
+      };
+    },
+    [categoryGroups],
+  );
+
+  const categoryFilterOptions = useMemo(
     () =>
-      allAccounts.map((account) => ({
-        value: account.public_id,
-        label: `${account.name} (${account.account_type.replace('_', ' ')})`,
+      categories.map((c) => ({
+        value: c.public_id,
+        label: c.name,
       })),
-    [allAccounts],
+    [categories],
   );
-  const transferAccountById = useMemo(
-    () => new Map(allAccounts.map((account) => [account.public_id, account])),
-    [allAccounts],
+
+  const categoryGroupOptions = useMemo(
+    () =>
+      categoryGroups.map((g) => ({
+        value: g.public_id,
+        label: g.name,
+      })),
+    [categoryGroups],
   );
-  const {
-    control: budgetControl,
-    register: registerBudgetField,
-    handleSubmit: handleBudgetSubmit,
-    reset: resetBudgetForm,
-    watch: watchBudgetForm,
-    formState: { errors: budgetErrors },
-  } = useForm<BudgetFormValues>({
+
+  // Forms
+  const budgetForm = useForm<BudgetFormValues>({
     resolver: zodResolver(budgetFormSchema),
     defaultValues: {
       scope: 'category',
@@ -541,454 +437,8 @@ export const SpendingPage: React.FC = () => {
       amount: '',
     },
   });
-  const budgetScope = watchBudgetForm('scope');
 
-  const isUnassignedFilterActive = selectedAccountFilter === UNASSIGNED_ACCOUNT_FILTER_VALUE;
-
-  const { data: transactionsResponse, isLoading: isTxLoading } = useQuery({
-    queryKey: queryKeys.spending.transactions(
-      txOffset,
-      txLimit,
-      fromDate,
-      toDate,
-      selectedCategoryFilter,
-      selectedAccountFilter,
-      selectedTagFilter,
-      transactionSearch,
-      txSort,
-    ),
-    queryFn: () =>
-      spendingService.getTransactions(txLimit, txOffset, {
-        categoryId: selectedCategoryFilter || undefined,
-        accountId: isUnassignedFilterActive ? undefined : selectedAccountFilter || undefined,
-        unassigned: isUnassignedFilterActive,
-        fromDate: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
-        toDate: toDate ? `${toDate}T23:59:59.999Z` : undefined,
-        search: transactionSearch || undefined,
-        tagId: selectedTagFilter || undefined,
-        sort: txSort,
-      }),
-  });
-  const transactions = transactionsResponse?.items;
-
-  // Backing the filter's count badge — the `unassigned` list endpoint's
-  // `total` is already exactly this count (spec-054), no separate endpoint.
-  // Mirror the active date/category filters so the badge matches the list
-  // shown when the option is selected (the list query above also passes
-  // fromDate/toDate through while the unassigned filter is active).
-  const { data: unassignedCountResponse } = useQuery({
-    queryKey: queryKeys.spending.transactions(
-      'unassigned-count',
-      fromDate,
-      toDate,
-      selectedCategoryFilter,
-      selectedTagFilter,
-      transactionSearch,
-    ),
-    queryFn: () =>
-      spendingService.getTransactions(1, 0, {
-        unassigned: true,
-        categoryId: selectedCategoryFilter || undefined,
-        fromDate: fromDate ? `${fromDate}T00:00:00.000Z` : undefined,
-        toDate: toDate ? `${toDate}T23:59:59.999Z` : undefined,
-        search: transactionSearch || undefined,
-        tagId: selectedTagFilter || undefined,
-      }),
-  });
-  const unassignedTransactionCount = unassignedCountResponse?.total ?? 0;
-
-  const { data: summaryResponse, isLoading: isSummaryLoading } = useQuery({
-    queryKey: queryKeys.spending.summary(
-      fromDate,
-      toDate,
-      selectedCategoryFilter,
-      selectedAccountFilter,
-    ),
-    queryFn: () =>
-      spendingService.getTransactionSummary({
-        fromDate: fromDate
-          ? `${fromDate}T00:00:00.000Z`
-          : `${new Date().getFullYear()}-01-01T00:00:00.000Z`,
-        toDate: toDate
-          ? `${toDate}T23:59:59.999Z`
-          : `${new Date().getFullYear()}-12-31T23:59:59.999Z`,
-        categoryId: selectedCategoryFilter || undefined,
-        // The summary endpoint has no unassigned filter — falls back to the
-        // unfiltered (all-accounts) summary while the unassigned filter is active.
-        accountId: isUnassignedFilterActive ? undefined : selectedAccountFilter || undefined,
-      }),
-  });
-
-  // "No account" is always last (spec-054) — real accounts sort
-  // alphabetically ahead of it, so sortByLabel is not used on this dropdown.
-  const accountFilterOptions = useMemo(
-    () => [
-      ...[...accountOptions].sort((a, b) =>
-        a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
-      ),
-      {
-        value: UNASSIGNED_ACCOUNT_FILTER_VALUE,
-        label: `No account (${unassignedTransactionCount})`,
-      },
-    ],
-    [accountOptions, unassignedTransactionCount],
-  );
-
-  const { data: budgetsResponse, isLoading: isBudgetsLoading } = useQuery({
-    queryKey: queryKeys.spending.budgets(budgetOffset, budgetsMonth),
-    queryFn: () => spendingService.getBudgets(DEFAULT_PAGE_SIZE, budgetOffset, budgetsMonthRange.monthStart),
-    enabled: budgetsMonthRange.isValid,
-  });
-  // The API's month_start query param already filters by range containment
-  // (spec-064), so budgetsResponse.items are exactly this month's budgets.
-  const budgets = useMemo(() => budgetsResponse?.items ?? [], [budgetsResponse]);
-
-  // Budgets' "spent this month" must reflect the budget's own month, not the
-  // Transactions tab's free date-range/category/account filters — those used
-  // to leak in via the shared summaryResponse below (UX-REVIEW P2 item 4).
-  const { data: budgetsSummaryResponse, isLoading: isBudgetsSummaryLoading } = useQuery({
-    queryKey: queryKeys.spending.summary('budgets-scope', budgetsMonth),
-    queryFn: () =>
-      spendingService.getTransactionSummary({
-        fromDate: budgetsMonthRange.fromDate,
-        toDate: budgetsMonthRange.toDate,
-      }),
-    enabled: budgetsMonthRange.isValid,
-  });
-
-  // Multi-month budget performance must show each month's own utilization
-  // (spent-that-month / that-month's-budget), not one number aggregated
-  // across the whole window — a 6-month total made every card look either
-  // way over or way under, hiding which specific months blew the budget.
-  // The performance endpoint already supports a single-month call
-  // (from===to), so fan out one query per month in the window instead of
-  // one aggregate call.
-  const budgetsWindowMonths = useMemo(() => {
-    if (
-      !/^\d{4}-\d{2}$/.test(budgetsRange.fromMonth) ||
-      !/^\d{4}-\d{2}$/.test(budgetsRange.toMonth)
-    ) {
-      return [];
-    }
-    const [fy, fm] = budgetsRange.fromMonth.split('-').map(Number);
-    const [ty, tm] = budgetsRange.toMonth.split('-').map(Number);
-    const months: string[] = [];
-    let y = fy;
-    let m = fm;
-    while (y < ty || (y === ty && m <= tm)) {
-      months.push(`${y}-${String(m).padStart(2, '0')}`);
-      m += 1;
-      if (m > 12) {
-        m = 1;
-        y += 1;
-      }
-    }
-    return months;
-  }, [budgetsRange.fromMonth, budgetsRange.toMonth]);
-
-  const budgetsPerfMonthlyQueries = useQueries({
-    queries: budgetsWindowMonths.map((month) => ({
-      queryKey: ['spending-budget-perf-month', month],
-      queryFn: () => spendingService.getBudgetPerformance(month, month),
-      enabled: budgetsDuration > 1,
-    })),
-  });
-  const isBudgetsPerfLoading =
-    budgetsDuration > 1 && budgetsPerfMonthlyQueries.some((q) => q.isLoading);
-
-  const periodBudgets = useMemo(() => {
-    if (budgetsDuration <= 1) return [];
-
-    type MonthlyPoint = {
-      month: string;
-      label: string;
-      amount: number;
-      spent: number;
-      utilization: number;
-      status: string;
-    };
-    type Row = {
-      id: string;
-      name: string;
-      isGroup: boolean;
-      amount: number;
-      spent: number;
-      status: string;
-      utilization: number;
-      remaining: number;
-      monthly: MonthlyPoint[];
-    };
-    const rows = new Map<string, Row>();
-
-    budgetsWindowMonths.forEach((month, idx) => {
-      const data = budgetsPerfMonthlyQueries[idx]?.data;
-      if (!data) return;
-
-      const addItem = (
-        id: string,
-        name: string,
-        isGroup: boolean,
-        amount: number | null,
-        spent: number,
-        status: string,
-        utilization: number | null,
-      ) => {
-        if (amount === null) return;
-        const key = `${isGroup ? 'g' : 'c'}-${id}`;
-        const row = rows.get(key) ?? {
-          id,
-          name,
-          isGroup,
-          amount: 0,
-          spent: 0,
-          status: 'on_track',
-          utilization: 0,
-          remaining: 0,
-          monthly: [],
-        };
-        row.amount += amount;
-        row.spent += spent;
-        row.monthly.push({
-          month,
-          label: monthShortLabel(month),
-          amount,
-          spent,
-          utilization: utilization ?? 0,
-          status,
-        });
-        rows.set(key, row);
-      };
-
-      (data.categories ?? []).forEach((item) =>
-        addItem(
-          item.category_id ?? '',
-          item.category_name ?? '',
-          false,
-          item.budget_amount !== null ? Number(item.budget_amount) : null,
-          Number(item.actual_amount),
-          item.status,
-          item.utilization_pct,
-        ),
-      );
-      (data.groups ?? []).forEach((item) =>
-        addItem(
-          item.category_group_id ?? '',
-          item.category_group_name ?? '',
-          true,
-          item.budget_amount !== null ? Number(item.budget_amount) : null,
-          Number(item.actual_amount),
-          item.status,
-          item.utilization_pct,
-        ),
-      );
-    });
-
-    return Array.from(rows.values())
-      .map((row) => {
-        row.utilization = row.amount > 0 ? (row.spent / row.amount) * 100 : 0;
-        row.remaining = row.amount - row.spent;
-        const worstMonth = row.monthly.reduce(
-          (worst, m) => (m.utilization > worst ? m.utilization : worst),
-          0,
-        );
-        row.status = worstMonth > 100 ? 'exceeded' : worstMonth >= 90 ? 'warning' : 'on_track';
-        return row;
-      })
-      .sort((a, b) => b.utilization - a.utilization);
-  }, [budgetsDuration, budgetsWindowMonths, budgetsPerfMonthlyQueries]);
-
-  const createMutation = useInvalidatingMutation(
-    (newTx: TransactionCreate) => spendingService.createTransaction(newTx),
-    mutationInvalidations.transaction,
-    { successMessage: 'Transaction created', onSuccess: () => closeTransactionModal() },
-  );
-
-  const createTagMutation = useInvalidatingMutation(
-    (data: { name: string }) => spendingService.createTag(data),
-    [queryKeys.spending.tags()],
-    { successMessage: false },
-  );
-
-  const updateMutation = useInvalidatingMutation(
-    ({ id, data }: { id: string; data: TransactionUpdate }) =>
-      spendingService.updateTransaction(id, data),
-    mutationInvalidations.transaction,
-    { successMessage: 'Transaction updated', onSuccess: () => closeTransactionModal() },
-  );
-
-  const deleteMutation = useInvalidatingMutation(
-    (id: string) => spendingService.deleteTransaction(id),
-    mutationInvalidations.transaction,
-    {
-      successMessage: 'Transaction deleted',
-      errorMessage: 'Could not delete that transaction. Please try again.',
-      onSuccess: (_result, deletedId) => {
-        // Strip the row from every cached transactions page right away —
-        // the background invalidation refetch still runs, but the list
-        // shouldn't keep showing a row that's already gone while it's in
-        // flight (that lag is what reads as "delete is slow").
-        queryClient.setQueriesData<PaginatedResponse<Transaction>>(
-          { queryKey: queryKeys.spending.transactions() },
-          (old) => {
-            if (!old) return old;
-            const hasItem = old.items.some((tx) => tx.public_id === deletedId);
-            if (!hasItem) return old;
-            return {
-              ...old,
-              items: old.items.filter((tx) => tx.public_id !== deletedId),
-              total: Math.max(0, old.total - 1),
-            };
-          },
-        );
-        setPendingDeleteTransactionId(null);
-      },
-    },
-  );
-
-  const createBudgetMutation = useInvalidatingMutation(
-    (newBudget: BudgetCreate) => spendingService.createBudget(newBudget),
-    mutationInvalidations.budget,
-    { successMessage: 'Budget created', errorMessage: false, onSuccess: () => closeBudgetModal() },
-  );
-
-  const updateBudgetMutation = useInvalidatingMutation(
-    ({ id, data }: { id: string; data: BudgetUpdate }) => spendingService.updateBudget(id, data),
-    mutationInvalidations.budget,
-    { successMessage: 'Budget updated', errorMessage: false, onSuccess: () => closeBudgetModal() },
-  );
-
-  const changeBudgetAmountMutation = useInvalidatingMutation(
-    ({ id, data }: { id: string; data: BudgetChangeAmountRequest }) =>
-      spendingService.changeBudgetAmount(id, data),
-    mutationInvalidations.budget,
-    {
-      successMessage: 'Budget amount updated',
-      errorMessage: false,
-      onSuccess: () => closeBudgetModal(),
-    },
-  );
-
-  // ----- Recurring Queries & Mutations -----
-  const { data: recurringResponse, isLoading: isRecurringLoading } = useQuery({
-    queryKey: queryKeys.spending.recurring(recurringOffset),
-    queryFn: () => spendingService.getRecurring(DEFAULT_PAGE_SIZE, recurringOffset, true),
-  });
-  // Fetched purely to build a public_id lookup so the merged Account activity
-  // tab can offer edit/delete on the transfer_in/transfer_out rows it already
-  // renders from the ledger. Only the Account activity (ledger) tab renders
-  // transfer rows with edit/delete affordances, so this lookup fetch is
-  // gated to that tab instead of firing on every Spending page load.
-  // Paginated in MAX_LIMIT-sized pages (app/core/pagination.py caps `limit`
-  // at 200 and 422s above it) and walked to the end — a single capped
-  // request silently broke this lookup for every workspace once transfer
-  // count passed 200 (2026-07-17 incident: no edit/delete ever rendered).
-  const {
-    data: transfersPages,
-    fetchNextPage: fetchNextTransfersPage,
-    hasNextPage: hasNextTransfersPage,
-    isFetchingNextPage: isFetchingNextTransfersPage,
-    isError: isTransfersLookupError,
-  } = useInfiniteQuery({
-    queryKey: queryKeys.finance.transfers('lookup'),
-    queryFn: ({ pageParam }) => financeService.getTransfers(TRANSFERS_LOOKUP_PAGE_SIZE, pageParam),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      const fetchedSoFar = allPages.reduce((sum, page) => sum + page.items.length, 0);
-      return fetchedSoFar < lastPage.total ? fetchedSoFar : undefined;
-    },
-    enabled: activeTab === 'ledger',
-  });
-  // Guard against re-triggering while a page is already in flight, and stop
-  // walking once a page has errored out (all its retries exhausted) instead
-  // of hammering the endpoint on every re-render (Gemini review, web#129).
-  React.useEffect(() => {
-    if (hasNextTransfersPage && !isFetchingNextTransfersPage && !isTransfersLookupError) {
-      fetchNextTransfersPage();
-    }
-  }, [
-    hasNextTransfersPage,
-    isFetchingNextTransfersPage,
-    isTransfersLookupError,
-    fetchNextTransfersPage,
-  ]);
-  const { data: userFinanceSettings } = useQuery({
-    queryKey: queryKeys.finance.settings('user'),
-    queryFn: () => financeService.getUserSettings(),
-  });
-  const { data: workspaceFinanceSettings } = useQuery({
-    queryKey: queryKeys.finance.settings('workspace'),
-    queryFn: () => financeService.getSettings(),
-  });
-  const defaultSpendingAccountId = workspaceFinanceSettings?.default_spending_account_id ?? null;
-
-  const openTransactionModalForNew = useCallback(() => {
-    setEditingTransaction(null);
-    setAmount('');
-    setDescription('');
-    setSelectedTagIds([]);
-    setType('expense');
-    setCategoryId('');
-    // Pre-fill: workspace default spending account, else the last account
-    // this user picked (spec-054) — falls back to empty only when neither
-    // is available, which blocks submit until one is chosen.
-    const fallbackAccountId = defaultSpendingAccountId || getLastUsedAccountId();
-    setAccountId(fallbackAccountId && accountById.has(fallbackAccountId) ? fallbackAccountId : '');
-    setDate(localDateInputValue());
-    setIsModalOpen(true);
-  }, [defaultSpendingAccountId, accountById]);
-
-  // Header "+ Spending" quick-add navigates here with ?new=1; open the
-  // create modal once, then strip the param so back/refresh doesn't reopen it.
-  React.useEffect(() => {
-    if (searchParams.get('new') === '1') {
-      openTransactionModalForNew();
-      setSearchParams(
-        (params) => {
-          params.delete('new');
-          return params;
-        },
-        { replace: true },
-      );
-    }
-  }, [openTransactionModalForNew, searchParams, setSearchParams]);
-
-  // If the workspace default (or accounts list) is still loading when the
-  // "new transaction" modal opens, pre-fill it reactively once it arrives
-  // instead of leaving the field stuck empty (spec-054).
-  React.useEffect(() => {
-    if (!isModalOpen || editingTransaction || accountId) return;
-    const fallbackAccountId = defaultSpendingAccountId || getLastUsedAccountId();
-    if (fallbackAccountId && accountById.has(fallbackAccountId)) {
-      setAccountId(fallbackAccountId);
-    }
-  }, [isModalOpen, editingTransaction, accountId, defaultSpendingAccountId, accountById]);
-
-  const displayCurrency = userFinanceSettings?.effective_reporting_currency_code ?? 'USD';
-  // Amounts are stored in the selected account's currency, not the reporting
-  // currency — prefix the input with whichever the user has actually chosen.
-  const transactionAmountCurrency =
-    accountById.get(accountId)?.default_currency_code || displayCurrency;
-  const currencyDisplayPreference =
-    userFinanceSettings?.effective_currency_display_preference ?? 'symbol';
-  const displayLocale = userFinanceSettings?.effective_locale ?? DEFAULT_DISPLAY_LOCALE;
-  const decimalPlaces = userFinanceSettings?.effective_decimal_places ?? DEFAULT_DECIMAL_PLACES;
-  const recurringItems = recurringResponse?.items ?? [];
-  const transferByPublicId = useMemo(
-    () =>
-      new Map(
-        (transfersPages?.pages ?? []).flatMap((page) => page.items).map((t) => [t.public_id, t]),
-      ),
-    [transfersPages],
-  );
-
-  const {
-    control: recurringControl,
-    register: registerRecurringField,
-    handleSubmit: handleRecurringSubmit,
-    reset: resetRecurringForm,
-    watch: watchRecurringForm,
-    formState: { errors: recurringErrors },
-  } = useForm<RecurringFormValues>({
+  const recurringForm = useForm<RecurringFormValues>({
     resolver: zodResolver(recurringFormSchema),
     defaultValues: {
       categoryId: '',
@@ -998,929 +448,392 @@ export const SpendingPage: React.FC = () => {
       description: '',
       frequency: 'monthly',
       interval: '1',
-      anchor_date: localDateInputValue(),
+      anchor_date: new Date().toISOString().slice(0, 10),
       end_date: '',
       monthly_mode: 'day_of_month',
-      by_weekday: '0',
-      by_ordinal: '1',
+      by_weekday: '',
+      by_ordinal: '',
     },
   });
-  const recurringAccountIdWatch = watchRecurringForm('accountId');
-  const recurringFrequencyWatch = watchRecurringForm('frequency');
-  const recurringMonthlyModeWatch = watchRecurringForm('monthly_mode');
-  const recurringIntervalWatch = watchRecurringForm('interval');
-  const recurringAnchorDateWatch = watchRecurringForm('anchor_date');
-  const recurringByOrdinalWatch = watchRecurringForm('by_ordinal');
-  const recurringByWeekdayWatch = watchRecurringForm('by_weekday');
-  const isRecurringNthWeekdayMode =
-    recurringFrequencyWatch === 'monthly' && recurringMonthlyModeWatch === 'nth_weekday';
-  const recurringScheduleSummary = describeRecurrence({
-    frequency: recurringFrequencyWatch,
-    interval: parseInt(recurringIntervalWatch, 10) || 1,
-    anchor_date: recurringAnchorDateWatch,
-    monthly_mode: recurringMonthlyModeWatch,
-    by_ordinal: recurringByOrdinalWatch != null ? parseInt(recurringByOrdinalWatch, 10) : null,
-    by_weekday: recurringByWeekdayWatch != null ? parseInt(recurringByWeekdayWatch, 10) : null,
-  });
-  const recurringScheduleHelp = describeRecurrenceHelp({
-    frequency: recurringFrequencyWatch,
-    interval: parseInt(recurringIntervalWatch, 10) || 1,
-    anchorDate: recurringAnchorDateWatch,
-    monthlyMode: recurringMonthlyModeWatch,
-    byOrdinal: recurringByOrdinalWatch != null ? parseInt(recurringByOrdinalWatch, 10) : null,
-    byWeekday: recurringByWeekdayWatch != null ? parseInt(recurringByWeekdayWatch, 10) : null,
-  });
-  const [showAdvancedSchedule, setShowAdvancedSchedule] = useState(false);
+
+  // Mutations
+  const createBudgetMutation = useInvalidatingMutation(
+    async (values: BudgetFormValues) => {
+      const payload: BudgetCreate = {
+        category_id: values.scope === 'category' ? values.categoryId : undefined,
+        category_group_id: values.scope === 'group' ? values.groupId : undefined,
+        start_month: values.startMonth,
+        end_month: values.endMonth || undefined,
+        amount: Number(values.amount),
+      };
+      await spendingService.createBudget(payload);
+    },
+    mutationInvalidations.budget,
+    {
+      successMessage: 'Budget created successfully',
+      onSuccess: () => {
+        setIsBudgetModalOpen(false);
+        budgetForm.reset();
+      },
+    },
+  );
+
+  const updateBudgetMutation = useInvalidatingMutation(
+    async (values: BudgetFormValues) => {
+      if (!editingBudget) return;
+      const payload: BudgetUpdate = {
+        amount: Number(values.amount),
+        end_month: values.endMonth || undefined,
+      };
+      await spendingService.updateBudget(editingBudget.public_id, payload);
+    },
+    mutationInvalidations.budget,
+    {
+      successMessage: 'Budget updated successfully',
+      onSuccess: () => {
+        setIsBudgetModalOpen(false);
+        setEditingBudget(null);
+        budgetForm.reset();
+      },
+    },
+  );
+
+  const deleteBudgetMutation = useInvalidatingMutation(
+    async (budgetId: string) => {
+      await spendingService.updateBudget(budgetId, {
+        end_month: budgetsMonth,
+      });
+    },
+    mutationInvalidations.budget,
+    {
+      successMessage: 'Budget ended',
+      onSuccess: () => {
+        setIsBudgetModalOpen(false);
+        setEditingBudget(null);
+      },
+    },
+  );
 
   const createRecurringMutation = useInvalidatingMutation(
-    (data: RecurringTransactionCreate) => spendingService.createRecurring(data),
-    [queryKeys.spending.recurring()],
+    async (values: RecurringFormValues) => {
+      const payload: RecurringTransactionCreate = {
+        category_id: values.categoryId,
+        account_id: values.accountId || undefined,
+        amount: Number(values.amount),
+        type: values.type,
+        description: values.description || undefined,
+        frequency: values.frequency as RecurringFrequency,
+        interval: Number(values.interval),
+        anchor_date: values.anchor_date,
+        end_date: values.end_date || undefined,
+        monthly_mode: values.frequency === 'monthly' ? values.monthly_mode : undefined,
+        by_weekday: values.by_weekday ? Number(values.by_weekday) : undefined,
+        by_ordinal: values.by_ordinal ? Number(values.by_ordinal) : undefined,
+      };
+      await spendingService.createRecurring(payload);
+    },
+    mutationInvalidations.transaction,
     {
-      successMessage: 'Recurring transaction created',
-      errorMessage: false,
-      onSuccess: () => closeRecurringModal(),
+      successMessage: 'Recurring rule created',
+      onSuccess: () => {
+        setIsRecurringModalOpen(false);
+        recurringForm.reset();
+      },
     },
   );
 
   const updateRecurringMutation = useInvalidatingMutation(
-    ({ id, data }: { id: string; data: RecurringTransactionUpdate }) =>
-      spendingService.updateRecurring(id, data),
-    [queryKeys.spending.recurring()],
+    async (values: RecurringFormValues) => {
+      if (!editingRecurring) return;
+      const payload: RecurringTransactionUpdate = {
+        account_id: values.accountId || null,
+        amount: Number(values.amount),
+        description: values.description || null,
+        frequency: values.frequency as RecurringFrequency,
+        interval: Number(values.interval),
+        end_date: values.end_date || null,
+        monthly_mode: values.frequency === 'monthly' ? values.monthly_mode : null,
+        by_weekday: values.by_weekday ? Number(values.by_weekday) : null,
+        by_ordinal: values.by_ordinal ? Number(values.by_ordinal) : null,
+      };
+      await spendingService.updateRecurring(editingRecurring.public_id, payload);
+    },
+    mutationInvalidations.transaction,
     {
-      successMessage: 'Recurring transaction updated',
-      errorMessage: false,
-      onSuccess: () => closeRecurringModal(),
+      successMessage: 'Recurring rule updated',
+      onSuccess: () => {
+        setIsRecurringModalOpen(false);
+        setEditingRecurring(null);
+        recurringForm.reset();
+      },
     },
   );
 
   const deactivateRecurringMutation = useInvalidatingMutation(
-    (id: string) => spendingService.deleteRecurring(id),
-    [queryKeys.spending.recurring()],
+    async (ruleId: string) => {
+      await spendingService.deleteRecurring(ruleId);
+    },
+    mutationInvalidations.transaction,
     {
       successMessage: 'Recurring rule deactivated',
-      errorMessage: 'Failed to deactivate recurring rule. Please try again.',
-    },
-  );
-
-  const updateTransferMutation = useInvalidatingMutation(
-    () => {
-      if (!editingTransfer) throw new Error('No transfer selected');
-      if (!editTransferFromId || !editTransferToId) {
-        throw new Error('Both From and To accounts must be selected');
-      }
-      if (editTransferFromId === editTransferToId) {
-        throw new Error('Source and destination accounts cannot be the same');
-      }
-      const gross = Number(editTransferGross);
-      if (Number.isNaN(gross) || !Number.isFinite(gross) || gross <= 0) {
-        throw new Error('Gross amount must be a valid positive number');
-      }
-      const net = Number(editTransferNet);
-      if (Number.isNaN(net) || !Number.isFinite(net) || net < 0) {
-        throw new Error('Net received must be a valid non-negative number');
-      }
-      const fxFee = editTransferFxFee ? Number(editTransferFxFee) : 0;
-      const platformFee = editTransferPlatformFee ? Number(editTransferPlatformFee) : 0;
-      const tax = editTransferTax ? Number(editTransferTax) : 0;
-      if (Number.isNaN(fxFee) || !Number.isFinite(fxFee) || fxFee < 0) {
-        throw new Error('FX fee must be a valid non-negative number');
-      }
-      if (Number.isNaN(platformFee) || !Number.isFinite(platformFee) || platformFee < 0) {
-        throw new Error('Platform fee must be a valid non-negative number');
-      }
-      if (Number.isNaN(tax) || !Number.isFinite(tax) || tax < 0) {
-        throw new Error('Tax must be a valid non-negative number');
-      }
-      let parsedFxRate: string | null = null;
-      if (editTransferFxRate) {
-        const rate = Number(editTransferFxRate);
-        if (Number.isNaN(rate) || !Number.isFinite(rate) || rate <= 0) {
-          throw new Error('FX rate must be a valid positive number');
-        }
-        parsedFxRate = rate.toFixed(10);
-      }
-      const parsedDate = new Date(editTransferDate);
-      if (Number.isNaN(parsedDate.getTime())) throw new Error('Invalid date');
-      const fromAccount = transferAccountById.get(editTransferFromId);
-      const toAccount = transferAccountById.get(editTransferToId);
-      return financeService.updateTransfer(editingTransfer.public_id, {
-        from_account_id:
-          fromAccount?.public_id ?? editingTransfer.from_account_public_id ?? undefined,
-        to_account_id: toAccount?.public_id ?? editingTransfer.to_account_public_id ?? undefined,
-        from_currency_code: fromAccount?.default_currency_code,
-        to_currency_code: toAccount?.default_currency_code,
-        gross_amount: gross.toFixed(2),
-        fx_rate_used: parsedFxRate,
-        fx_fee_amount: fxFee.toFixed(2),
-        platform_fee_amount: platformFee.toFixed(2),
-        tax_amount: tax.toFixed(2),
-        net_amount_received: net.toFixed(2),
-        occurred_at: parsedDate.toISOString(),
-        notes: editTransferNotes || null,
-      });
-    },
-    [
-      queryKeys.finance.all,
-      queryKeys.spending.all,
-      queryKeys.investing.all,
-      queryKeys.dashboard.all,
-    ],
-    {
-      successMessage: 'Transfer updated',
-      errorMessage: false,
       onSuccess: () => {
-        setEditingTransfer(null);
-        setEditTransferError(null);
-      },
-      onError: (err: unknown) => {
-        const msg =
-          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-          (err instanceof Error ? err.message : 'Failed to update transfer');
-        setEditTransferError(msg);
+        setRecurringPendingDeactivate(null);
       },
     },
   );
 
-  const deleteTransferMutation = useInvalidatingMutation(
-    () => {
-      if (!deletingTransfer) throw new Error('No transfer selected');
-      return financeService.deleteTransfer(deletingTransfer.public_id);
-    },
-    [
-      queryKeys.finance.all,
-      queryKeys.spending.all,
-      queryKeys.investing.all,
-      queryKeys.dashboard.all,
-    ],
-    {
-      successMessage: 'Transfer deleted',
-      errorMessage: false,
-      onSuccess: () => {
-        setDeletingTransfer(null);
-        setDeleteTransferError(null);
-      },
-      onError: (err: unknown) => {
-        const msg =
-          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-          (err instanceof Error ? err.message : 'Failed to delete transfer');
-        setDeleteTransferError(msg);
-      },
-    },
-  );
-
-  const openEditTransfer = (t: import('../types/finance').CapitalTransfer) => {
-    setEditingTransfer(t);
-    setEditTransferFromId(t.from_account_public_id ?? '');
-    setEditTransferToId(t.to_account_public_id ?? '');
-    setEditTransferGross(t.gross_amount);
-    setEditTransferFxRate(t.fx_rate_used ?? '');
-    setEditTransferFxFee(t.fx_fee_amount);
-    setEditTransferPlatformFee(t.platform_fee_amount);
-    setEditTransferTax(t.tax_amount);
-    setEditTransferNet(t.net_amount_received);
-    const computedNet = computeTransferNet({
-      gross: Number(t.gross_amount),
-      fxRate: t.fx_rate_used ? Number(t.fx_rate_used) : null,
-      fxFee: Number(t.fx_fee_amount) || 0,
-      platformFee: Number(t.platform_fee_amount) || 0,
-      tax: Number(t.tax_amount) || 0,
-    });
-    // A stored net that doesn't match the computed one means someone already
-    // hand-adjusted it (e.g. a partial refund) — preserve that override
-    // instead of silently recomputing over it when the modal opens.
-    setEditTransferNetOverridden(Math.abs(computedNet - Number(t.net_amount_received)) > 0.01);
-    setEditTransferShowFees(
-      Boolean(t.fx_rate_used) ||
-        Number(t.fx_fee_amount) > 0 ||
-        Number(t.platform_fee_amount) > 0 ||
-        Number(t.tax_amount) > 0,
-    );
-    setEditTransferNotes(t.notes ?? '');
-    setEditTransferDate(
-      t.occurred_at && !Number.isNaN(Date.parse(t.occurred_at))
-        ? new Date(t.occurred_at).toISOString().split('T')[0]
-        : localDateInputValue(),
-    );
-    setEditTransferError(null);
-  };
-
-  const editTransferComputedNet = React.useMemo(
-    () =>
-      computeTransferNet({
-        gross: editTransferGross ? Number(editTransferGross) : 0,
-        fxRate: editTransferFxRate ? Number(editTransferFxRate) : null,
-        fxFee: editTransferFxFee ? Number(editTransferFxFee) : 0,
-        platformFee: editTransferPlatformFee ? Number(editTransferPlatformFee) : 0,
-        tax: editTransferTax ? Number(editTransferTax) : 0,
-      }),
-    [
-      editTransferGross,
-      editTransferFxRate,
-      editTransferFxFee,
-      editTransferPlatformFee,
-      editTransferTax,
-    ],
-  );
-
-  React.useEffect(() => {
-    if (!editingTransfer || editTransferNetOverridden) return;
-    setEditTransferNet(editTransferComputedNet.toFixed(2));
-  }, [editingTransfer, editTransferNetOverridden, editTransferComputedNet]);
-
-  const createAccountMutation = useInvalidatingMutation(
-    () =>
-      financeService.createAccount({
-        name: newAccountName.trim(),
-        account_type: newAccountType,
-        default_currency_code: newAccountCurrency.trim().toUpperCase(),
-      }),
-    [queryKeys.finance.accounts(), queryKeys.finance.accounts('spending')],
-    {
-      successMessage: 'Account created',
-      errorMessage: false,
-      onSuccess: (created) => {
-        setAccountId(created.public_id);
-        setNewAccountName('');
-        setNewAccountType('wallet');
-        setNewAccountCurrency(created.default_currency_code);
-        setIsQuickAccountModalOpen(false);
-      },
-    },
-  );
-
+  // Category mutations
   const createCategoryMutation = useInvalidatingMutation(
-    (data: { name: string; color?: string; icon?: string }) =>
-      spendingService.createCategory({
-        name: data.name,
-        color: data.color || null,
-        icon: data.icon || null,
-      }),
-    [queryKeys.spending.categories()],
+    async () => {
+      if (!newCatName.trim()) throw new Error('Name is required');
+      const cat = await spendingService.createCategory({
+        name: newCatName.trim(),
+        color: newCatColor || '#22c55e',
+        icon: newCatIcon || undefined,
+      });
+      if (newCatGroupId) {
+        await spendingService.updateCategory(cat.public_id, {
+          category_group_id: newCatGroupId,
+        });
+      }
+    },
+    mutationInvalidations.transaction,
     {
       successMessage: 'Category created',
-      errorMessage: false,
       onSuccess: () => {
-        setNewCategoryName('');
-        setNewCategoryColor('#3b82f6');
-        setNewCategoryIcon('');
-        setIsManageCategoriesOpen(false);
+        setNewCatName('');
+        setNewCatIcon('');
+        setNewCatGroupId('');
       },
     },
   );
 
-  const handleSaveTransaction = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Every new transaction must resolve to an account (spec-054); editing a
-    // historical NULL-account row is still allowed to leave it unassigned —
-    // that's the forward-only house rule, not a form bug.
-    if (!amount || !categoryId || !type || !date || (!editingTransaction && !accountId)) return;
-    const parsedAmount = parseFloat(amount);
-    if (Number.isNaN(parsedAmount) || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      showToast('Please enter a valid positive amount.', 'error');
-      return;
-    }
-    const parsedTransactionDate = new Date(date);
-    if (Number.isNaN(parsedTransactionDate.getTime())) {
-      showToast('Please enter a valid transaction date.', 'error');
-      return;
-    }
-    const payload: TransactionCreate = {
-      amount: parsedAmount,
-      category_id: categoryId,
-      account_id: accountId || null,
-      type,
-      occurred_at: parsedTransactionDate.toISOString(),
-      description: description || null,
-      tag_ids: selectedTagIds,
-    };
-
-    if (editingTransaction) {
-      updateMutation.mutate({
-        id: editingTransaction.public_id,
-        data: payload,
+  // Tag mutations
+  const createTagMutation = useInvalidatingMutation(
+    async () => {
+      if (!newTagName.trim()) throw new Error('Tag name is required');
+      await spendingService.createTag({
+        name: newTagName.trim(),
+        color: newTagColor,
       });
-      return;
-    }
+    },
+    mutationInvalidations.transaction,
+    {
+      successMessage: 'Tag created',
+      onSuccess: () => {
+        setNewTagName('');
+      },
+    },
+  );
 
-    if (accountId) {
-      setLastUsedAccountId(accountId);
-    }
-    createMutation.mutate(payload);
-  };
+  const deleteTagMutation = useInvalidatingMutation(
+    async (tagId: string) => {
+      await spendingService.deleteTag(tagId);
+    },
+    mutationInvalidations.transaction,
+    {
+      successMessage: 'Tag deleted',
+    },
+  );
 
-  const closeBudgetModal = () => {
-    setIsBudgetModalOpen(false);
-    setEditingBudgetId(null);
-    setIsChangeAmountOpen(false);
-    setChangeAmountValue('');
-    setChangeAmountFromMonth('');
-    setChangeAmountError(null);
-    resetBudgetForm({
-      scope: 'category',
-      categoryId: '',
-      groupId: '',
-      startMonth: selectedMonth,
-      endMonth: '',
-      amount: '',
-    });
-  };
-
-  const openTransactionModalForEdit = useCallback((tx: Transaction) => {
-    setEditingTransaction(tx);
-    setAmount(tx.amount.toString());
-    setDescription(tx.description ?? '');
-    setSelectedTagIds(tx.tags?.map((tag) => tag.public_id) ?? []);
-    setType(tx.type);
-    setCategoryId(tx.category_id);
-    setAccountId(tx.account_id ?? '');
-    setDate(new Date(tx.occurred_at).toISOString().split('T')[0]);
-    setIsModalOpen(true);
-  }, []);
-
-  const closeTransactionModal = () => {
-    setIsModalOpen(false);
-    setEditingTransaction(null);
-    setAmount('');
-    setDescription('');
-    setSelectedTagIds([]);
-    setType('expense');
-    setCategoryId('');
-    setAccountId('');
-    setDate(localDateInputValue());
-  };
-
-  const openRecurringModalForNew = useCallback(() => {
+  const openRecurringModalForNew = () => {
     setEditingRecurring(null);
-    const fallbackAccountId = defaultSpendingAccountId || getLastUsedAccountId();
-    resetRecurringForm({
-      categoryId: '',
-      accountId: fallbackAccountId && accountById.has(fallbackAccountId) ? fallbackAccountId : '',
+    recurringForm.reset({
+      categoryId: categories[0]?.public_id ?? '',
+      accountId: spendingAccounts[0]?.public_id ?? '',
       amount: '',
       type: 'expense',
       description: '',
       frequency: 'monthly',
       interval: '1',
-      anchor_date: localDateInputValue(),
+      anchor_date: new Date().toISOString().slice(0, 10),
       end_date: '',
       monthly_mode: 'day_of_month',
-      by_weekday: '0',
-      by_ordinal: '1',
+      by_weekday: '',
+      by_ordinal: '',
     });
-    setShowAdvancedSchedule(false);
     setIsRecurringModalOpen(true);
-  }, [resetRecurringForm, defaultSpendingAccountId, accountById]);
-
-  const openRecurringModalForEdit = useCallback(
-    (r: RecurringTransaction) => {
-      setEditingRecurring(r);
-      resetRecurringForm({
-        categoryId: r.category_id,
-        accountId: r.account_id ?? '',
-        amount: r.amount.toString(),
-        type: r.type,
-        description: r.description ?? '',
-        frequency: r.frequency as RecurringFrequency,
-        interval: r.interval.toString(),
-        anchor_date: r.anchor_date,
-        end_date: r.end_date ?? '',
-        monthly_mode: r.monthly_mode ?? 'day_of_month',
-        by_weekday: r.by_weekday != null ? String(r.by_weekday) : '0',
-        by_ordinal: r.by_ordinal != null ? String(r.by_ordinal) : '1',
-      });
-      setShowAdvancedSchedule(true);
-      setIsRecurringModalOpen(true);
-    },
-    [resetRecurringForm],
-  );
-
-  const closeRecurringModal = () => {
-    setIsRecurringModalOpen(false);
-    setEditingRecurring(null);
-    resetRecurringForm();
   };
 
-  const confirmDeactivateRecurring = useCallback(() => {
-    if (!recurringPendingDeactivate) return;
-    deactivateRecurringMutation.mutate(recurringPendingDeactivate.publicId, {
-      onSuccess: () => setRecurringPendingDeactivate(null),
+  const openRecurringModalForEdit = (r: RecurringTransaction) => {
+    setEditingRecurring(r);
+    recurringForm.reset({
+      categoryId: r.category_id,
+      accountId: r.account_id ?? '',
+      amount: String(r.amount),
+      type: r.type,
+      description: r.description ?? '',
+      frequency: (r.frequency as RecurringFrequency) || 'monthly',
+      interval: String(r.interval),
+      anchor_date: r.anchor_date,
+      end_date: r.end_date ?? '',
+      monthly_mode: r.monthly_mode ?? 'day_of_month',
+      by_weekday: r.by_weekday !== null ? String(r.by_weekday) : '',
+      by_ordinal: r.by_ordinal !== null ? String(r.by_ordinal) : '',
     });
-  }, [recurringPendingDeactivate, deactivateRecurringMutation]);
-
-  const cancelDeactivateRecurring = useCallback(() => setRecurringPendingDeactivate(null), []);
-
-  const handleSaveRecurring = (values: RecurringFormValues) => {
-    // Every new recurring rule must resolve to an account (spec-084, same
-    // invariant as spec-054 for manual transactions); editing a legacy
-    // NULL-account rule is still allowed to leave it unassigned.
-    if (!editingRecurring && !values.accountId) return;
-    const isNthWeekday = values.frequency === 'monthly' && values.monthly_mode === 'nth_weekday';
-    const monthlyMode = values.frequency === 'monthly' ? values.monthly_mode : 'day_of_month';
-    const byWeekday = isNthWeekday && values.by_weekday ? parseInt(values.by_weekday, 10) : null;
-    const byOrdinal = isNthWeekday && values.by_ordinal ? parseInt(values.by_ordinal, 10) : null;
-    if (editingRecurring) {
-      const update: RecurringTransactionUpdate = {
-        amount: parseFloat(values.amount),
-        description: values.description || null,
-        frequency: values.frequency as RecurringFrequency,
-        interval: parseInt(values.interval, 10),
-        end_date: values.end_date || null,
-        monthly_mode: monthlyMode,
-        by_weekday: byWeekday,
-        by_ordinal: byOrdinal,
-        ...(values.accountId ? { account_id: values.accountId } : {}),
-      };
-      updateRecurringMutation.mutate({ id: editingRecurring.public_id, data: update });
-    } else {
-      const create: RecurringTransactionCreate = {
-        category_id: values.categoryId,
-        account_id: values.accountId,
-        amount: parseFloat(values.amount),
-        type: values.type as TransactionType,
-        description: values.description || null,
-        frequency: values.frequency as RecurringFrequency,
-        interval: parseInt(values.interval, 10),
-        anchor_date: values.anchor_date,
-        end_date: values.end_date || null,
-        monthly_mode: monthlyMode,
-        by_weekday: byWeekday,
-        by_ordinal: byOrdinal,
-      };
-      createRecurringMutation.mutate(create);
-    }
+    setIsRecurringModalOpen(true);
   };
 
-  const handleSaveBudget = (values: BudgetFormValues) => {
-    // Normalize to the first of the month as required by the backend
-    const startMonth = `${values.startMonth}-01`;
-    const endMonth = values.endMonth ? `${values.endMonth}-01` : null;
-
-    if (editingBudgetId) {
-      updateBudgetMutation.mutate({
-        id: editingBudgetId,
-        data: { amount: parseFloat(values.amount), end_month: endMonth },
-      });
-    } else {
-      createBudgetMutation.mutate({
-        category_id: values.scope === 'category' ? values.categoryId : null,
-        category_group_id: values.scope === 'group' ? values.groupId : null,
-        amount: parseFloat(values.amount),
-        start_month: startMonth,
-        end_month: endMonth,
-      });
-    }
-  };
-
-  const handleChangeBudgetAmount = () => {
-    if (!editingBudgetId || !changeAmountValue || !changeAmountFromMonth) return;
-    const parsedAmount = parseFloat(changeAmountValue);
-    if (Number.isNaN(parsedAmount) || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setChangeAmountError('Enter a valid positive amount');
-      return;
-    }
-    setChangeAmountError(null);
-    changeBudgetAmountMutation.mutate({
-      id: editingBudgetId,
-      data: {
-        amount: parsedAmount,
-        from_month: `${changeAmountFromMonth}-01`,
-      },
-    });
-  };
-
-  const openBudgetModalForNew = useCallback(() => {
-    setEditingBudgetId(null);
-    resetBudgetForm({
+  const openBudgetModalForNew = () => {
+    setEditingBudget(null);
+    budgetForm.reset({
       scope: 'category',
-      categoryId: '',
-      groupId: '',
-      startMonth: selectedMonth,
+      categoryId: categories[0]?.public_id ?? '',
+      groupId: categoryGroups[0]?.public_id ?? '',
+      startMonth: budgetsMonth,
       endMonth: '',
       amount: '',
     });
     setIsBudgetModalOpen(true);
-  }, [selectedMonth, resetBudgetForm]);
+  };
 
-  const openBudgetModalForEdit = useCallback(
-    (b: Budget) => {
-      setEditingBudgetId(b.public_id);
-      setIsChangeAmountOpen(false);
-      setChangeAmountValue('');
-      setChangeAmountFromMonth(selectedMonth);
-      setChangeAmountError(null);
-      resetBudgetForm({
-        scope: b.category_group_id ? 'group' : 'category',
-        categoryId: b.category_id ?? '',
-        groupId: b.category_group_id ?? '',
-        startMonth: monthStartToMonthValue(b.start_month),
-        endMonth: b.end_month ? monthStartToMonthValue(b.end_month) : '',
-        amount: b.amount.toString(),
-      });
-      setIsBudgetModalOpen(true);
-    },
-    [selectedMonth, resetBudgetForm],
-  );
+  const openBudgetModalForEdit = (b: Budget) => {
+    setEditingBudget(b);
+    budgetForm.reset({
+      scope: b.category_group_id ? 'group' : 'category',
+      categoryId: b.category_id ?? '',
+      groupId: b.category_group_id ?? '',
+      startMonth: b.start_month,
+      endMonth: b.end_month ?? '',
+      amount: String(b.amount),
+    });
+    setIsBudgetModalOpen(true);
+  };
 
-  const getCategoryTheme = useCallback(
-    (catId: string | null) => {
-      const cat = categoryById.get(catId ?? '');
-      return cat
-        ? { name: cat.name, color: cat.color || '#3b82f6', icon: cat.icon }
-        : { name: 'Unknown', color: '#64748b', icon: '' };
-    },
-    [categoryById],
-  );
-
-  const getGroupTheme = useCallback(
-    (groupId: string | null) => {
-      const group = categoryGroupById.get(groupId ?? '');
-      return group
-        ? { name: group.name, color: group.color || '#3b82f6', icon: group.icon }
-        : { name: 'Unknown group', color: '#64748b', icon: '' };
-    },
-    [categoryGroupById],
-  );
-
-  // Summaries
-  const summary = useMemo(() => {
-    const income = Number(summaryResponse?.income_total ?? 0);
-    const expense = Number(summaryResponse?.expense_total ?? 0);
-    return {
-      income,
-      expense,
-      net: Number(summaryResponse?.net_total ?? income - expense),
-    };
-  }, [summaryResponse]);
-
-  const spentByCategory = useMemo(() => {
-    return new Map(
-      (budgetsSummaryResponse?.category_totals ?? []).map((entry) => [
-        entry.category_id,
-        Number(entry.total),
-      ]),
-    );
-  }, [budgetsSummaryResponse]);
-
-  // Group spend summed client-side from category totals, which carry
-  // category_group_id (spec-064 — group budgets have no dedicated summary endpoint).
-  const spentByGroup = useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const entry of budgetsSummaryResponse?.category_totals ?? []) {
-      const category = categoryById.get(entry.category_id);
-      if (!category?.category_group_id) continue;
-      totals.set(
-        category.category_group_id,
-        (totals.get(category.category_group_id) ?? 0) + Number(entry.total),
-      );
-    }
-    return totals;
-  }, [budgetsSummaryResponse, categoryById]);
-
-  const isLoading = isCatsLoading || isTxLoading || isBudgetsLoading || isSummaryLoading;
-  const isTransactionsTab = activeTab === 'transactions';
-
-  // #203: the tab strip scrolls horizontally on mobile with the scrollbar
-  // hidden, so overflow ("Recu…") was only discoverable by accident. Track
-  // whether it can scroll further in each direction to render an edge fade +
-  // chevron hint, and clear it once the user reaches the end.
   const tabStripRef = useRef<HTMLDivElement>(null);
   const [tabOverflow, setTabOverflow] = useState({ start: false, end: false });
+
   useEffect(() => {
     const el = tabStripRef.current;
     if (!el) return;
     const update = () => {
+      const maxScroll = el.scrollWidth - el.clientWidth;
       setTabOverflow({
         start: el.scrollLeft > 4,
-        end: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+        end: maxScroll - el.scrollLeft > 4,
       });
     };
     update();
     el.addEventListener('scroll', update, { passive: true });
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
+    window.addEventListener('resize', update);
     return () => {
       el.removeEventListener('scroll', update);
-      observer.disconnect();
+      window.removeEventListener('resize', update);
     };
   }, [activeTab]);
 
+  const monthSpent = summaryQuery.data?.expense_total ?? 0;
+  const monthIncome = summaryQuery.data?.income_total ?? 0;
+  const activeRecurringCount = useMemo(
+    () => recurringItems.filter((r) => r.is_active).length,
+    [recurringItems],
+  );
+
   return (
-    <PageShell animated>
-      {isTransactionsTab ? (
-        <PageHero
-          title="Spending Overview"
-          subtitle={`Track your finances across the workspace for ${monthRange.label}.`}
-          actions={
-            // #203: five flex-wrapped buttons wrapped 2-2-1 on a 390px screen,
-            // orphaning "Categories" on its own line. On mobile use a 2-col grid
-            // with the primary action spanning the full top row (1 / 2 / 2, no
-            // orphan); restore the flex row from sm up.
-            <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center lg:w-auto">
-              <button
-                onClick={openTransactionModalForNew}
-                data-testid="spending-open-new-transaction"
-                className="group relative col-span-2 flex h-12 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-tr from-cyan-600 to-cyan-500 px-5 font-semibold text-white shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.01] hover:shadow-cyan-500/40 active:scale-95 sm:col-span-1 sm:min-w-[170px]"
-              >
-                <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
-                <Plus className="h-5 w-5" />
-                <span className="whitespace-nowrap">New Transaction</span>
-              </button>
-
-              <button
-                onClick={openBudgetModalForNew}
-                data-testid="spending-open-set-budget"
-                className="group relative flex h-12 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 sm:min-w-[150px]"
-              >
-                <Target className="h-5 w-5" />
-                <span className="whitespace-nowrap">Set Budget</span>
-              </button>
-              <button
-                onClick={openRecurringModalForNew}
-                data-testid="spending-open-add-recurring"
-                className="group relative flex h-12 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 sm:min-w-[160px]"
-              >
-                <Clock3 className="h-5 w-5" aria-hidden="true" />
-                <span className="whitespace-nowrap">Add Recurring</span>
-              </button>
-              <button
-                onClick={() => setIsTransferModalOpen(true)}
-                className="group relative flex h-12 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 sm:min-w-[130px]"
-              >
-                <ArrowRightLeft className="h-5 w-5" />
-                <span className="whitespace-nowrap">Transfer</span>
-              </button>
-              <button
-                onClick={() => setIsManageCategoriesOpen(true)}
-                data-testid="spending-open-manage-categories"
-                className="group relative flex h-12 min-w-0 flex-1 items-center justify-center gap-2 overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800 px-5 font-semibold text-white shadow-lg transition-all hover:bg-slate-700 active:scale-95 sm:min-w-[160px]"
-              >
-                <Tag className="h-5 w-5" />
-                <span className="whitespace-nowrap">Categories</span>
-              </button>
-            </div>
-          }
-        />
-      ) : (
-        <div className="mb-4 flex items-start justify-between gap-3 rounded-2xl border border-slate-700/50 bg-slate-900/40 px-4 py-3">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-white">Spending Overview</h1>
-            <p className="mt-1 text-xs text-slate-400">Viewing {tabTitles[activeTab]}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Tab-contextual action: the header collapse removed the full
-                action row from secondary tabs, which left a non-empty
-                Recurring tab with no way to add a rule (UX-review follow-up,
-                issue #215). */}
-            {activeTab === 'recurring' && (
-              <button
-                onClick={openRecurringModalForNew}
-                data-testid="spending-open-add-recurring"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20"
-              >
-                <Clock3 className="h-4 w-4" aria-hidden="true" />
-                Add recurring
-              </button>
-            )}
-            <button
-              onClick={() => setIsManageCategoriesOpen(true)}
-              data-testid="spending-open-manage-categories-compact"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-700 px-3 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white"
+    <PageShell>
+      <PageHero
+        title="Spending Command Center"
+        subtitle="Manage recurring rules, budget planning, spend pacing, and custom KPIs"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsCategoriesModalOpen(true)}
+              className="border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white"
             >
-              <Tag className="h-4 w-4" aria-hidden="true" />
+              <Settings2 className="mr-1.5 h-3.5 w-3.5" />
               Categories
-            </button>
-            <button
-              onClick={openTransactionModalForNew}
-              data-testid="spending-open-new-transaction"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setIsTagsModalOpen(true)}
+              className="border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white"
             >
-              <Plus className="h-4 w-4" />
-              Add transaction
-            </button>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'transactions' || activeTab === 'ledger' ? (
-        <CompactFilterBar
-          testId="spending-filter-bar"
-          className="mb-6"
-          onReset={() => {
-            const now = new Date();
-            const start = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
-            const end = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0));
-            setFromDate(start.toISOString().split('T')[0]);
-            setToDate(end.toISOString().split('T')[0]);
-            setSelectedCategoryFilter('');
-            setSelectedAccountFilter('');
-            setSelectedTagFilter('');
-            setTransactionSearch('');
-            setTxSort('date_desc');
-            setTxOffset(0);
-            setBudgetOffset(0);
-            setLedgerOffset(0);
-          }}
-        >
-          <CompactFilterField label="Date range">
-            <DateRangePicker
-              from={fromDate}
-              to={toDate}
-              onChange={({ from, to }) => {
-                setFromDate(from);
-                setToDate(to);
-                setTxOffset(0);
-                setBudgetOffset(0);
-                setLedgerOffset(0);
-              }}
-              placeholder="Select date range"
-            />
-          </CompactFilterField>
-          <CompactFilterField label="Search">
-            <Input
-              value={transactionSearch}
-              onChange={(event) => {
-                setTransactionSearch(event.target.value);
-                setTxOffset(0);
-              }}
-              placeholder="Description or tag"
-              aria-label="Search spending"
-            />
-          </CompactFilterField>
-          <CompactFilterField label="Category">
-            <DropdownSelect
-              value={selectedCategoryFilter}
-              onChange={(value) => {
-                setSelectedCategoryFilter(value);
-                setTxOffset(0);
-              }}
-              options={categoryFilterOptions}
-              placeholder="All categories"
-              clearLabel="All categories"
-              showSearch
-              sortByLabel
-            />
-          </CompactFilterField>
-          <CompactFilterField label="Account">
-            <DropdownSelect
-              testId="spending-account-filter"
-              value={selectedAccountFilter}
-              onChange={(value) => {
-                setSelectedAccountFilter(value);
-                setTxOffset(0);
-              }}
-              options={accountFilterOptions}
-              placeholder="All accounts"
-              clearLabel="All accounts"
-              showSearch
-            />
-          </CompactFilterField>
-          <CompactFilterField label="Tag">
-            <DropdownSelect
-              value={selectedTagFilter}
-              onChange={(value) => {
-                setSelectedTagFilter(value);
-                setTxOffset(0);
-              }}
-              options={tagFilterOptions}
-              placeholder="All tags"
-              clearLabel="All tags"
-              showSearch
-              sortByLabel
-            />
-          </CompactFilterField>
-          {activeTab === 'transactions' ? (
-            <CompactFilterField label="Sort by">
-              <DropdownSelect
-                testId="spending-sort"
-                value={txSort}
-                onChange={(value) => {
-                  setTxSort(value as TransactionSort);
-                  setTxOffset(0);
-                }}
-                options={TRANSACTION_SORT_OPTIONS}
-                placeholder="Sort by"
-              />
-            </CompactFilterField>
-          ) : null}
-        </CompactFilterBar>
-      ) : (
-        <div className="mb-6 rounded-xl border border-slate-700/50 bg-slate-900/35 px-4 py-3 text-xs text-slate-300">
-          Date range, category, and account filters are available on Transactions and Account
-          activity tabs.
-        </div>
-      )}
-
-      {isTransactionsTab ? (
-        <>
-          {/* Summary Cards */}
-          <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-3">
-            <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/80 p-6 backdrop-blur-xl transition-all hover:border-slate-600">
-              <div className="absolute -right-4 -top-4 rounded-full bg-emerald-500/10 p-8 blur-2xl" />
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-emerald-500/20 p-3 text-emerald-400">
-                  <ArrowUpCircle className="h-8 w-8" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-400">Total Income</p>
-                  <h2 className="text-2xl font-bold text-white">
-                    {formatCurrency(
-                      summary.income,
-                      displayCurrency,
-                      currencyDisplayPreference,
-                      displayLocale,
-                      decimalPlaces,
-                    )}
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/80 p-6 backdrop-blur-xl transition-all hover:border-slate-600">
-              <div className="absolute -right-4 -top-4 rounded-full bg-rose-500/10 p-8 blur-2xl" />
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-rose-500/20 p-3 text-rose-400">
-                  <ArrowDownCircle className="h-8 w-8" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-400">Total Expenses</p>
-                  <h2 className="text-2xl font-bold text-white">
-                    {formatCurrency(
-                      summary.expense,
-                      displayCurrency,
-                      currencyDisplayPreference,
-                      displayLocale,
-                      decimalPlaces,
-                    )}
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800 to-slate-800/80 p-6 backdrop-blur-xl transition-all hover:border-slate-600">
-              <div
-                className={`absolute -right-4 -top-4 rounded-full p-8 blur-2xl ${
-                  summary.net >= 0 ? 'bg-cyan-500/10' : 'bg-red-500/10'
-                }`}
-              />
-              <div className="flex items-start justify-between gap-4">
-                <div
-                  className={`rounded-xl p-3 ${
-                    summary.net >= 0
-                      ? 'bg-cyan-500/20 text-cyan-400'
-                      : 'bg-red-500/20 text-red-400'
-                  }`}
-                >
-                  <Wallet className="h-8 w-8" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-400">
-                    Net cash flow (selected period)
-                  </p>
-                  <h2 className="text-2xl font-bold text-white">
-                    {formatCurrency(
-                      summary.net,
-                      displayCurrency,
-                      currencyDisplayPreference,
-                      displayLocale,
-                      decimalPlaces,
-                    )}
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500">Reporting: {displayCurrency}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          {showSourceCurrencyHint ? (
-            <div className="mb-6 flex items-start justify-between gap-3 rounded-xl border border-slate-700/50 bg-slate-900/35 px-4 py-3 text-xs text-slate-300">
-              <p>
-                Transaction rows show their original source currency. Summary cards above are
-                reported in {displayCurrency}.
-              </p>
-              <button
-                type="button"
-                className="shrink-0 rounded border border-slate-600 px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800"
-                onClick={() => {
-                  setShowSourceCurrencyHint(false);
-                  try {
-                    window.localStorage.setItem(SOURCE_CURRENCY_HINT_DISMISSED_KEY, 'true');
-                  } catch {
-                    // ignore storage errors
-                  }
-                }}
+              <Tag className="mr-1.5 h-3.5 w-3.5" />
+              Tags
+            </Button>
+            {activeTab === 'recurring' && (
+              <Button
+                size="sm"
+                onClick={openRecurringModalForNew}
+                className="bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/20"
               >
-                Dismiss
-              </button>
-            </div>
-          ) : null}
-        </>
-      ) : null}
+                <Plus className="mr-1.5 h-4 w-4" />
+                New Rule
+              </Button>
+            )}
+            {activeTab === 'budgets' && (
+              <Button
+                size="sm"
+                onClick={openBudgetModalForNew}
+                className="bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/20"
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                New Budget
+              </Button>
+            )}
+          </div>
+        }
+      />
 
-      <div
-        className={`relative mb-6 ${
-          isTransactionsTab ? '' : 'sticky top-0 z-20 bg-slate-950/95 backdrop-blur'
-        }`}
-      >
+      {/* Summary KPI Cards */}
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Month Spent ({currentMonthValue})
+            </span>
+            <div className="rounded-xl bg-red-500/10 p-2 text-red-400">
+              <ArrowDownCircle className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 text-2xl font-bold tracking-tight text-white">
+            {formatCurrency(monthSpent, displayCurrency, currencyDisplayPreference, displayLocale, decimalPlaces)}
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
+            <span>Income: {formatCurrency(monthIncome, displayCurrency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span>
+          </div>
+        </div>
+
+        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Active Recurring Rules
+            </span>
+            <div className="rounded-xl bg-cyan-500/10 p-2 text-cyan-400">
+              <Clock3 className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 text-2xl font-bold tracking-tight text-white">
+            {activeRecurringCount} <span className="text-sm font-normal text-slate-400">rules</span>
+          </div>
+          <p className="mt-1 text-xs text-slate-400">
+            {recurringItems.length} total registered rules
+          </p>
+        </div>
+
+        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Active Budgets
+            </span>
+            <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-400">
+              <Target className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 text-2xl font-bold tracking-tight text-white">
+            {budgets.length} <span className="text-sm font-normal text-slate-400">targets</span>
+          </div>
+          <p className="mt-1 text-xs text-slate-400">
+            {categories.length} categories available
+          </p>
+        </div>
+      </div>
+
+      {/* 4-Tab Navigation Bar */}
+      <div className="relative mb-6 sticky top-0 z-20 bg-slate-950/95 backdrop-blur">
         {tabOverflow.start && (
           <div
             aria-hidden
@@ -1937,109 +850,83 @@ export const SpendingPage: React.FC = () => {
         )}
         <div
           ref={tabStripRef}
-          className={`flex gap-2 overflow-x-auto border-b border-slate-700/50 pb-px [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
-            isTransactionsTab ? '' : 'py-1'
-          }`}
+          className="flex gap-2 overflow-x-auto border-b border-slate-700/50 pb-px py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-        <button
-          data-testid="spending-tab-transactions"
-          onClick={() => setActiveTab('transactions')}
-          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === 'transactions'
-              ? 'border-cyan-500 text-cyan-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Transactions
-        </button>
-        <button
-          data-testid="spending-tab-budgets"
-          onClick={() => setActiveTab('budgets')}
-          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === 'budgets'
-              ? 'border-cyan-500 text-cyan-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Budgets
-        </button>
-        <button
-          data-testid="spending-tab-kpis"
-          onClick={() => setActiveTab('kpis')}
-          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === 'kpis'
-              ? 'border-cyan-500 text-cyan-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          KPIs
-        </button>
-        <button
-          data-testid="spending-tab-recurring"
-          onClick={() => setActiveTab('recurring')}
-          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === 'recurring'
-              ? 'border-cyan-500 text-cyan-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Recurring rules
-        </button>
-        <button
-          data-testid="spending-tab-analytics"
-          onClick={() => setActiveTab('analytics')}
-          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === 'analytics'
-              ? 'border-cyan-500 text-cyan-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Analytics
-        </button>
-        <button
-          data-testid="spending-tab-ledger"
-          onClick={() => setActiveTab('ledger')}
-          className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === 'ledger'
-              ? 'border-cyan-500 text-cyan-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Account activity
-        </button>
+          <button
+            data-testid="spending-tab-recurring"
+            onClick={() => setActiveTab('recurring')}
+            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === 'recurring'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Recurring rules
+          </button>
+          <button
+            data-testid="spending-tab-budgets"
+            onClick={() => setActiveTab('budgets')}
+            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === 'budgets'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Budgets
+          </button>
+          <button
+            data-testid="spending-tab-kpis"
+            onClick={() => setActiveTab('kpis')}
+            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === 'kpis'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            KPIs
+          </button>
+          <button
+            data-testid="spending-tab-analytics"
+            onClick={() => setActiveTab('analytics')}
+            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+              activeTab === 'analytics'
+                ? 'border-cyan-500 text-cyan-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Analytics
+          </button>
         </div>
       </div>
 
-      {isRecurringLoading && activeTab === 'recurring' ? (
+      {/* Tab Contents */}
+      {recurringQuery.isLoading && activeTab === 'recurring' ? (
         <div className="flex min-h-[300px] items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-600 border-t-cyan-500" />
         </div>
       ) : activeTab === 'budgets' &&
-        ((budgetsDuration === 1 && (isBudgetsLoading || isBudgetsSummaryLoading)) ||
-          (budgetsDuration > 1 && isBudgetsPerfLoading)) ? (
+        ((budgetsDuration === 1 && budgetsQuery.isLoading) ||
+          (budgetsDuration > 1 && budgetPerformanceQuery.isLoading)) ? (
         <SkeletonList rows={4} />
-      ) : isLoading &&
-        activeTab !== 'recurring' &&
-        activeTab !== 'budgets' &&
-        activeTab !== 'kpis' &&
-        activeTab !== 'analytics' &&
-        activeTab !== 'ledger' ? (
-        <SkeletonList rows={5} />
-      ) : activeTab === 'transactions' ? (
-        <TransactionsTab
-          transactions={transactions}
-          transactionsResponse={transactionsResponse}
-          monthLabel={monthRange.label}
-          accountById={accountById}
+      ) : activeTab === 'recurring' ? (
+        <RecurringTab
+          recurringItems={recurringItems}
+          recurringResponse={recurringResponse}
           displayCurrency={displayCurrency}
           currencyDisplayPreference={currencyDisplayPreference}
           getCategoryTheme={getCategoryTheme}
-          onEdit={openTransactionModalForEdit}
-          onDelete={setPendingDeleteTransactionId}
-          onPageChange={setTxOffset}
-          onLimitChange={setTxLimit}
-          isDeletePending={deleteMutation.isPending}
-          onAddFirst={openTransactionModalForNew}
+          onOpenNew={openRecurringModalForNew}
+          onEdit={openRecurringModalForEdit}
+          onRequestDeactivate={(rule) => setRecurringPendingDeactivate(rule)}
+          deactivateMutationPending={deactivateRecurringMutation.isPending}
+          pendingDeactivate={recurringPendingDeactivate}
+          onCancelDeactivate={() => setRecurringPendingDeactivate(null)}
+          onConfirmDeactivate={() => {
+            if (recurringPendingDeactivate) {
+              deactivateRecurringMutation.mutate(recurringPendingDeactivate.publicId);
+            }
+          }}
+          onPageChange={setRecurringOffset}
         />
       ) : activeTab === 'budgets' ? (
         <div className="space-y-4">
@@ -2106,22 +993,6 @@ export const SpendingPage: React.FC = () => {
           accountOptions={accountOptions}
           currencyDisplayPreference={currencyDisplayPreference}
         />
-      ) : activeTab === 'recurring' ? (
-        <RecurringTab
-          recurringItems={recurringItems}
-          recurringResponse={recurringResponse}
-          displayCurrency={displayCurrency}
-          currencyDisplayPreference={currencyDisplayPreference}
-          getCategoryTheme={getCategoryTheme}
-          onOpenNew={openRecurringModalForNew}
-          onEdit={openRecurringModalForEdit}
-          onRequestDeactivate={setRecurringPendingDeactivate}
-          deactivateMutationPending={deactivateRecurringMutation.isPending}
-          pendingDeactivate={recurringPendingDeactivate}
-          onCancelDeactivate={cancelDeactivateRecurring}
-          onConfirmDeactivate={confirmDeactivateRecurring}
-          onPageChange={setRecurringOffset}
-        />
       ) : activeTab === 'analytics' ? (
         <AnalyticsTab
           selectedMonth={analyticsMonth}
@@ -2130,1273 +1001,540 @@ export const SpendingPage: React.FC = () => {
           displayCurrency={displayCurrency}
           currencyDisplayPreference={currencyDisplayPreference}
         />
-      ) : activeTab === 'ledger' ? (
-        <LedgerTab
-          accounts={spendingAccounts}
-          selectedAccountId={ledgerAccountId}
-          onAccountChange={(id: string) => {
-            setLedgerAccountId(id);
-            setLedgerOffset(0);
-          }}
-          offset={ledgerOffset}
-          limit={ledgerLimit}
-          onOffsetChange={setLedgerOffset}
-          onLimitChange={setLedgerLimit}
-          currencyDisplayPreference={currencyDisplayPreference}
-          fromDate={fromDate}
-          toDate={toDate}
-          transferByPublicId={transferByPublicId}
-          onEditTransfer={openEditTransfer}
-          onRequestDeleteTransfer={(t) => {
-            setDeletingTransfer(t);
-            setDeleteTransferError(null);
-          }}
-          onAddTransfer={() => setIsTransferModalOpen(true)}
-          getCategoryTheme={getCategoryTheme}
-        />
       ) : null}
 
       {/* Recurring Modal */}
-      <Dialog open={isRecurringModalOpen} onOpenChange={(open) => !open && closeRecurringModal()}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
+      <Dialog
+        open={isRecurringModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsRecurringModalOpen(false);
+            setEditingRecurring(null);
+            recurringForm.reset();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
             <DialogTitle>
               {editingRecurring ? 'Edit Recurring Rule' : 'New Recurring Rule'}
             </DialogTitle>
           </DialogHeader>
-          {isRecurringModalOpen && (
-            <form onSubmit={handleRecurringSubmit(handleSaveRecurring)} className="space-y-5 p-6">
-              {(createRecurringMutation.isError || updateRecurringMutation.isError) && (
-                <div className="rounded-xl border bg-red-500/10 border-red-500/50 p-3 text-sm text-red-400">
-                  Failed to save recurring rule. Please check your inputs and try again.
-                </div>
-              )}
-
-              {/* Category */}
-              {!editingRecurring && (
-                <div>
-                  <Label className="mb-2 block">Category</Label>
-                  <Controller
-                    control={recurringControl}
-                    name="categoryId"
-                    render={({ field }) => (
-                      <DropdownSelect
-                        testId="spending-recurring-category"
-                        value={field.value}
-                        onChange={(value) => {
-                          field.onChange(value);
-                          rememberCategory(value);
-                        }}
-                        options={categoryOptions}
-                        placeholder="Select category"
-                        showSearch
-                        sortByLabel
-                        recentValues={recentCategoryIds}
-                        onCreateOption={() => setIsManageCategoriesOpen(true)}
-                        createOptionLabel="Create category"
-                      />
-                    )}
+          <form
+            className="space-y-4 pt-2"
+            onSubmit={recurringForm.handleSubmit((data) => {
+              if (editingRecurring) {
+                updateRecurringMutation.mutate(data);
+              } else {
+                createRecurringMutation.mutate(data);
+              }
+            })}
+          >
+            <div>
+              <Label className="text-slate-300 text-xs mb-1 block">Category *</Label>
+              <Controller
+                control={recurringForm.control}
+                name="categoryId"
+                render={({ field }) => (
+                  <DropdownSelect
+                    options={categoryFilterOptions}
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Select category"
                   />
-                  {recurringErrors.categoryId && (
-                    <p className="mt-2 text-sm text-rose-400">
-                      {recurringErrors.categoryId.message}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Account */}
-              <div>
-                <Label className="mb-2 block">Account</Label>
-                <Controller
-                  control={recurringControl}
-                  name="accountId"
-                  render={({ field }) => (
-                    <DropdownSelect
-                      testId="spending-recurring-account"
-                      value={field.value ?? ''}
-                      onChange={field.onChange}
-                      options={accountOptions}
-                      placeholder="Select account"
-                      showSearch
-                      sortByLabel
-                    />
-                  )}
-                />
-                {!editingRecurring && !recurringAccountIdWatch && (
-                  <p
-                    data-testid="spending-recurring-account-error"
-                    className="mt-2 text-sm text-rose-400"
-                  >
-                    Every recurring rule needs an account. Pick one above, or set a{' '}
-                    <Link to="/settings" className="underline hover:text-rose-300">
-                      default spending account
-                    </Link>{' '}
-                    in Finance Settings.
-                  </p>
                 )}
-              </div>
-
-              {/* Type toggle (create only) */}
-              {!editingRecurring && (
-                <div>
-                  <Label className="mb-2 block">Type</Label>
-                  <Controller
-                    control={recurringControl}
-                    name="type"
-                    render={({ field }) => (
-                      <div className="flex gap-2 rounded-xl bg-slate-800/50 p-1 border border-slate-700/50">
-                        <button
-                          type="button"
-                          onClick={() => field.onChange('expense')}
-                          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
-                            field.value === 'expense'
-                              ? 'bg-slate-700 text-white shadow-sm'
-                              : 'text-slate-400 hover:text-slate-200'
-                          }`}
-                        >
-                          Expense
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => field.onChange('income')}
-                          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
-                            field.value === 'income'
-                              ? 'bg-slate-700 text-white shadow-sm'
-                              : 'text-slate-400 hover:text-slate-200'
-                          }`}
-                        >
-                          Income
-                        </button>
-                      </div>
-                    )}
-                  />
-                </div>
+              />
+              {recurringForm.formState.errors.categoryId && (
+                <p className="mt-1 text-xs text-red-400">
+                  {recurringForm.formState.errors.categoryId.message}
+                </p>
               )}
+            </div>
 
-              {/* Amount */}
-              <div>
-                <Label htmlFor="rec-amount" className="mb-2 block">
-                  Amount
-                </Label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                    {displayCurrency}
-                  </span>
-                  <FormattedNumberInput
-                    id="rec-amount"
-                    data-testid="spending-recurring-amount"
-                    step="0.01"
-                    min="0.01"
-                    className="pl-16"
-                    placeholder="0.00"
-                    {...registerRecurringField('amount')}
+            <div>
+              <Label className="text-slate-300 text-xs mb-1 block">Account (Optional)</Label>
+              <Controller
+                control={recurringForm.control}
+                name="accountId"
+                render={({ field }) => (
+                  <DropdownSelect
+                    options={accountOptions}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    placeholder="Select account"
+                    clearLabel="No specific account"
                   />
-                </div>
-                {recurringErrors.amount && (
-                  <p className="mt-2 text-sm text-rose-400">{recurringErrors.amount.message}</p>
                 )}
-              </div>
+              />
+            </div>
 
-              {/* Natural-language schedule summary, reusing the same describeRecurrence
-                  that labels existing rules in the list, so the raw frequency/interval/
-                  monthly-mode fields can move behind an Advanced disclosure. */}
-              <p
-                data-testid="spending-recurring-schedule-summary"
-                className="text-sm text-slate-300"
-              >
-                {recurringScheduleSummary}
-              </p>
-
-              <details
-                className="group rounded-xl border border-slate-700/50 bg-slate-800/30 p-3"
-                open={showAdvancedSchedule}
-                onToggle={(e) => setShowAdvancedSchedule(e.currentTarget.open)}
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
-                    <Settings2 className="h-3.5 w-3.5" />
-                    Advanced schedule
-                  </span>
-                  <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="mt-3 space-y-3">
-                  {/* Frequency + Interval row */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="rec-frequency" className="mb-2 block">
-                        Frequency
-                      </Label>
-                      <Controller
-                        control={recurringControl}
-                        name="frequency"
-                        render={({ field }) => (
-                          <DropdownSelect
-                            testId="spending-recurring-frequency"
-                            value={field.value}
-                            onChange={field.onChange}
-                            options={[
-                              { value: 'daily', label: 'Daily' },
-                              { value: 'weekly', label: 'Weekly' },
-                              { value: 'monthly', label: 'Monthly' },
-                              { value: 'yearly', label: 'Yearly' },
-                            ]}
-                            placeholder="Select frequency"
-                          />
-                        )}
-                      />
-                      {recurringErrors.frequency && (
-                        <p className="mt-2 text-sm text-rose-400">
-                          {recurringErrors.frequency.message}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="rec-interval" className="mb-2 block">
-                        Every N {recurringFrequencyWatch === 'monthly' ? 'months' : recurringFrequencyWatch === 'weekly' ? 'weeks' : recurringFrequencyWatch === 'yearly' ? 'years' : 'days'}
-                      </Label>
-                      <Input
-                        id="rec-interval"
-                        data-testid="spending-recurring-interval"
-                        type="number"
-                        min="1"
-                        step="1"
-                        placeholder="1"
-                        {...registerRecurringField('interval')}
-                      />
-                      {recurringErrors.interval && (
-                        <p className="mt-2 text-sm text-rose-400">
-                          {recurringErrors.interval.message}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div
-                    data-testid="spending-recurring-schedule-help"
-                    className="flex gap-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 text-xs leading-relaxed text-slate-300"
-                  >
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
-                    <p>{recurringScheduleHelp}</p>
-                  </div>
-
-                  {/* Monthly recurrence mode (spec-053) */}
-                  {recurringFrequencyWatch === 'monthly' && (
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="mb-2 block">Monthly mode</Label>
-                        <Controller
-                          control={recurringControl}
-                          name="monthly_mode"
-                          render={({ field }) => (
-                            <DropdownSelect
-                              testId="spending-recurring-monthly-mode"
-                              value={field.value ?? 'day_of_month'}
-                              onChange={field.onChange}
-                              options={[
-                                { value: 'day_of_month', label: 'On day N (from Start Date)' },
-                                { value: 'last_day', label: 'On the last day of month' },
-                                { value: 'nth_weekday', label: 'On the Nth weekday' },
-                              ]}
-                              placeholder="Select monthly mode"
-                            />
-                          )}
-                        />
-                      </div>
-                      {isRecurringNthWeekdayMode && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="mb-2 block">Occurrence</Label>
-                            <Controller
-                              control={recurringControl}
-                              name="by_ordinal"
-                              render={({ field }) => (
-                                <DropdownSelect
-                                  testId="spending-recurring-ordinal"
-                                  value={field.value ?? '1'}
-                                  onChange={field.onChange}
-                                  options={[
-                                    { value: '1', label: 'First' },
-                                    { value: '2', label: 'Second' },
-                                    { value: '3', label: 'Third' },
-                                    { value: '4', label: 'Fourth' },
-                                    { value: '-1', label: 'Last' },
-                                  ]}
-                                  placeholder="Occurrence"
-                                />
-                              )}
-                            />
-                          </div>
-                          <div>
-                            <Label className="mb-2 block">Weekday</Label>
-                            <Controller
-                              control={recurringControl}
-                              name="by_weekday"
-                              render={({ field }) => (
-                                <DropdownSelect
-                                  testId="spending-recurring-weekday"
-                                  value={field.value ?? '0'}
-                                  onChange={field.onChange}
-                                  options={[
-                                    { value: '0', label: 'Monday' },
-                                    { value: '1', label: 'Tuesday' },
-                                    { value: '2', label: 'Wednesday' },
-                                    { value: '3', label: 'Thursday' },
-                                    { value: '4', label: 'Friday' },
-                                    { value: '5', label: 'Saturday' },
-                                    { value: '6', label: 'Sunday' },
-                                  ]}
-                                  placeholder="Weekday"
-                                />
-                              )}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </details>
-
-              {/* The anchor date determines the day-of-month for day_of_month rules. */}
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="rec-anchor" className="mb-2 block">
-                  {editingRecurring ? 'Start Date (fixed)' : 'Start Date'}
-                </Label>
+                <Label className="text-slate-300 text-xs mb-1 block">Amount *</Label>
                 <Controller
-                  control={recurringControl}
-                  name="anchor_date"
+                  control={recurringForm.control}
+                  name="amount"
                   render={({ field }) => (
-                    <DatePicker
-                      testId="spending-recurring-anchor-date"
+                    <FormattedNumberInput
+                      min="0.01"
+                      step="0.01"
                       value={field.value}
                       onChange={field.onChange}
-                      placeholder="Select start date"
-                      required
-                      disabled={!!editingRecurring}
+                      placeholder="0.00"
+                      className="bg-slate-800 border-slate-700 text-white"
                     />
                   )}
                 />
-                <p className="mt-2 text-xs text-slate-500">
-                  {recurringFrequencyWatch === 'monthly' && recurringMonthlyModeWatch === 'last_day'
-                    ? 'This date sets when the rule can begin; the due date is always the month’s final calendar day.'
-                    : recurringFrequencyWatch === 'monthly' && recurringMonthlyModeWatch === 'nth_weekday'
-                      ? 'This date sets the earliest allowed occurrence; Occurrence and Weekday choose the monthly pattern.'
-                      : 'This date sets the day of month for “On day N” schedules.'}
-                </p>
-                {recurringErrors.anchor_date && (
-                  <p className="mt-2 text-sm text-rose-400">
-                    {recurringErrors.anchor_date.message}
+                {recurringForm.formState.errors.amount && (
+                  <p className="mt-1 text-xs text-red-400">
+                    {recurringForm.formState.errors.amount.message}
                   </p>
                 )}
               </div>
 
-              {/* End date (optional) */}
               <div>
-                <Label htmlFor="rec-end" className="mb-2 block">
-                  End Date <span className="text-slate-500">(optional)</span>
-                </Label>
+                <Label className="text-slate-300 text-xs mb-1 block">Type</Label>
                 <Controller
-                  control={recurringControl}
+                  control={recurringForm.control}
+                  name="type"
+                  render={({ field }) => (
+                    <DropdownSelect
+                      options={[
+                        { value: 'expense', label: 'Expense' },
+                        { value: 'income', label: 'Income' },
+                      ]}
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Select type"
+                    />
+                  )}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-slate-300 text-xs mb-1 block">Description</Label>
+              <Input
+                {...recurringForm.register('description')}
+                placeholder="e.g. Netflix Subscription, Gym Membership"
+                className="bg-slate-800 border-slate-700 text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-slate-300 text-xs mb-1 block">Frequency</Label>
+                <Controller
+                  control={recurringForm.control}
+                  name="frequency"
+                  render={({ field }) => (
+                    <DropdownSelect
+                      options={[
+                        { value: 'daily', label: 'Daily' },
+                        { value: 'weekly', label: 'Weekly' },
+                        { value: 'monthly', label: 'Monthly' },
+                        { value: 'yearly', label: 'Yearly' },
+                      ]}
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Select frequency"
+                    />
+                  )}
+                />
+              </div>
+
+              <div>
+                <Label className="text-slate-300 text-xs mb-1 block">Interval</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  {...recurringForm.register('interval')}
+                  className="bg-slate-800 border-slate-700 text-white"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-slate-300 text-xs mb-1 block">Start Date *</Label>
+                <Controller
+                  control={recurringForm.control}
+                  name="anchor_date"
+                  render={({ field }) => (
+                    <DatePicker value={field.value} onChange={field.onChange} required />
+                  )}
+                />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1 block">End Date (Optional)</Label>
+                <Controller
+                  control={recurringForm.control}
                   name="end_date"
                   render={({ field }) => (
-                    <DatePicker
-                      testId="spending-recurring-end-date"
-                      value={field.value ?? ''}
-                      onChange={field.onChange}
-                      placeholder="Select end date"
-                    />
+                    <DatePicker value={field.value || ''} onChange={field.onChange} />
                   )}
                 />
-                {recurringErrors.end_date && (
-                  <p className="mt-2 text-sm text-rose-400">{recurringErrors.end_date.message}</p>
-                )}
               </div>
+            </div>
 
-              {/* Description */}
-              <div>
-                <Label htmlFor="rec-desc" className="mb-2 block">
-                  Description <span className="text-slate-500">(optional)</span>
-                </Label>
-                <Input
-                  id="rec-desc"
-                  data-testid="spending-recurring-description"
-                  placeholder="e.g. Netflix subscription"
-                  {...registerRecurringField('description')}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeRecurringModal}
-                  className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  data-testid={
-                    editingRecurring ? 'spending-recurring-update' : 'spending-recurring-create'
-                  }
-                  disabled={
-                    createRecurringMutation.isPending ||
-                    updateRecurringMutation.isPending ||
-                    (!editingRecurring && !recurringAccountIdWatch)
-                  }
-                  className="flex-1 rounded-xl bg-gradient-to-tr from-cyan-600 to-cyan-500 py-2.5 text-sm font-semibold text-white shadow-md hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {createRecurringMutation.isPending || updateRecurringMutation.isPending
-                    ? 'Saving...'
-                    : editingRecurring
-                      ? 'Update Rule'
-                      : 'Create Rule'}
-                </button>
-              </div>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isModalOpen} onOpenChange={(open) => !open && closeTransactionModal()}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
-            <DialogTitle>{editingTransaction ? 'Edit Transaction' : 'New Transaction'}</DialogTitle>
-          </DialogHeader>
-          {isModalOpen && (
-            <form onSubmit={handleSaveTransaction} className="p-6">
-              <div className="space-y-5">
-                {/* Type Selection */}
-                <div className="flex gap-2 rounded-xl bg-slate-800/50 p-1 border border-slate-700/50">
-                  <button
-                    type="button"
-                    onClick={() => setType('expense')}
-                    className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
-                      type === 'expense'
-                        ? 'bg-slate-700 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    Expense
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setType('income')}
-                    className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
-                      type === 'income'
-                        ? 'bg-slate-700 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    Income
-                  </button>
-                </div>
-
-                {/* Amount */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Amount</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                      {transactionAmountCurrency}
-                    </span>
-                    <FormattedNumberInput
-                      data-testid="spending-transaction-amount"
-                      step="0.01"
-                      min="0.01"
-                      required
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="pl-16"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-
-                {/* Category */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Category</label>
-                  <DropdownSelect
-                    testId="spending-transaction-category"
-                    value={categoryId}
-                    onChange={(value) => {
-                      setCategoryId(value);
-                      rememberCategory(value);
-                    }}
-                    options={categoryOptions}
-                    placeholder="Select category"
-                    showSearch
-                    sortByLabel
-                    recentValues={recentCategoryIds}
-                    onCreateOption={() => setIsManageCategoriesOpen(true)}
-                    createOptionLabel="Create category"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Wallet / Account{editingTransaction ? ' (Optional)' : ''}
-                  </label>
-                  <DropdownSelect
-                    testId="spending-transaction-account"
-                    value={accountId}
-                    onChange={setAccountId}
-                    options={accountOptions}
-                    placeholder={editingTransaction ? 'Unassigned' : 'Select account'}
-                    clearLabel={editingTransaction ? 'Unassigned' : undefined}
-                    showSearch
-                    sortByLabel
-                  />
-                  {/* Only nudge once the user has started filling the form — a
-                      red error on a pristine modal reads as premature
-                      validation (2026-07-16 UX review Part 2 #5). */}
-                  {!editingTransaction &&
-                    !accountId &&
-                    (amount !== '' || categoryId !== '' || description !== '') && (
-                      <p
-                        data-testid="spending-transaction-account-error"
-                        className="mt-2 text-sm text-rose-400"
-                      >
-                        Every transaction needs an account. Pick one above, or set a{' '}
-                        <Link to="/settings" className="underline hover:text-rose-300">
-                          default spending account
-                        </Link>{' '}
-                        in Finance Settings.
-                      </p>
-                    )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewAccountCurrency(displayCurrency || 'USD');
-                      setIsQuickAccountModalOpen((open) => !open);
-                    }}
-                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-cyan-400 hover:text-cyan-300"
-                  >
-                    <Landmark className="h-3.5 w-3.5" />
-                    {isQuickAccountModalOpen ? 'Cancel new account' : 'Create account'}
-                  </button>
-                  {isQuickAccountModalOpen && (
-                    <QuickCreateAccountForm
-                      name={newAccountName}
-                      onNameChange={setNewAccountName}
-                      type={newAccountType}
-                      onTypeChange={setNewAccountType}
-                      currency={newAccountCurrency}
-                      onCurrencyChange={setNewAccountCurrency}
-                      onSubmit={() => createAccountMutation.mutate()}
-                      isPending={createAccountMutation.isPending}
-                      isError={createAccountMutation.isError}
-                      testIdPrefix="spending-account"
-                      allowedTypes={['bank', 'wallet', 'card', 'gift_card']}
-                    />
-                  )}
-                </div>
-
-                {/* Date */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Date</label>
-                  <DatePicker
-                    testId="spending-transaction-date"
-                    value={date}
-                    onChange={setDate}
-                    placeholder="Select date"
-                    required
-                  />
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Description (Optional)
-                  </label>
-                  <Input
-                    data-testid="spending-transaction-description"
-                    type="text"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="What did you spend on?"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">Tags</label>
-                  <TagPicker
-                    tags={spendingTags}
-                    selectedIds={selectedTagIds}
-                    onChange={setSelectedTagIds}
-                    onCreateTag={(name) => createTagMutation.mutateAsync({ name })}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-8 flex gap-3">
-                <button
-                  type="button"
-                  onClick={closeTransactionModal}
-                  className="flex-1 whitespace-nowrap rounded-xl bg-slate-800 px-4 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  data-testid="spending-transaction-save"
-                  disabled={
-                    createMutation.isPending ||
-                    updateMutation.isPending ||
-                    !amount ||
-                    !categoryId ||
-                    !type ||
-                    !date ||
-                    (!editingTransaction && !accountId)
-                  }
-                  className="flex-1 whitespace-nowrap rounded-xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 transition-all hover:bg-cyan-500 hover:shadow-cyan-500/40 disabled:opacity-50"
-                >
-                  {createMutation.isPending || updateMutation.isPending
-                    ? 'Saving...'
-                    : 'Save Transaction'}
-                </button>
-              </div>
-            </form>
-          )}
+            <div className="flex gap-3 pt-3">
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => {
+                  setIsRecurringModalOpen(false);
+                  setEditingRecurring(null);
+                  recurringForm.reset();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white"
+                disabled={
+                  createRecurringMutation.isPending || updateRecurringMutation.isPending
+                }
+              >
+                {createRecurringMutation.isPending || updateRecurringMutation.isPending
+                  ? 'Saving...'
+                  : editingRecurring
+                  ? 'Update Rule'
+                  : 'Create Rule'}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 
       {/* Budget Modal */}
-      <Dialog open={isBudgetModalOpen} onOpenChange={(open) => !open && closeBudgetModal()}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="border-b border-slate-800 px-6 py-4 sticky top-0 bg-slate-900 z-10 rounded-t-2xl">
-            <DialogTitle>{editingBudgetId ? 'Edit Budget' : 'Set Budget'}</DialogTitle>
-          </DialogHeader>
-          {isBudgetModalOpen && (
-            <form onSubmit={handleBudgetSubmit(handleSaveBudget)} className="p-6">
-              {(createBudgetMutation.isError || updateBudgetMutation.isError) && (
-                <div className="mb-4 rounded-xl relative border bg-red-500/10 border-red-500/50 p-3 text-sm text-red-500 font-medium">
-                  <p>
-                    {createBudgetMutation.isError
-                      ? 'Failed to create budget. You may already have a budget for this category and month.'
-                      : 'Failed to update budget. Please try again.'}
-                  </p>
-                </div>
-              )}
-              <div className="space-y-5">
-                {/* Scope */}
-                <div>
-                  <Label className="mb-2 block">Budget for</Label>
-                  <Controller
-                    control={budgetControl}
-                    name="scope"
-                    render={({ field }) => (
-                      <DropdownSelect
-                        testId="spending-budget-scope"
-                        value={field.value}
-                        onChange={field.onChange}
-                        options={[
-                          { value: 'category', label: 'A category' },
-                          { value: 'group', label: 'A category group' },
-                        ]}
-                        placeholder="Select scope"
-                        disabled={!!editingBudgetId}
-                      />
-                    )}
-                  />
-                </div>
-
-                {/* Category or Group */}
-                {budgetScope === 'group' ? (
-                  <div>
-                    <Label className="mb-2 block">Category group</Label>
-                    <Controller
-                      control={budgetControl}
-                      name="groupId"
-                      render={({ field }) => (
-                        <DropdownSelect
-                          testId="spending-budget-group"
-                          value={field.value ?? ''}
-                          onChange={field.onChange}
-                          options={categoryGroupOptions}
-                          placeholder="Select group"
-                          disabled={!!editingBudgetId}
-                          showSearch
-                          sortByLabel
-                        />
-                      )}
-                    />
-                    {budgetErrors.groupId ? (
-                      <p className="mt-2 text-sm text-rose-400">{budgetErrors.groupId.message}</p>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div>
-                    <Label className="mb-2 block">Category</Label>
-                    <Controller
-                      control={budgetControl}
-                      name="categoryId"
-                      render={({ field }) => (
-                        <DropdownSelect
-                          testId="spending-budget-category"
-                          value={field.value ?? ''}
-                          onChange={(value) => {
-                            field.onChange(value);
-                            rememberCategory(value);
-                          }}
-                          options={categoryOptions}
-                          placeholder="Select category"
-                          disabled={!!editingBudgetId}
-                          showSearch
-                          sortByLabel
-                          recentValues={recentCategoryIds}
-                          onCreateOption={() => setIsManageCategoriesOpen(true)}
-                          createOptionLabel="Create category"
-                        />
-                      )}
-                    />
-                    {budgetErrors.categoryId ? (
-                      <p className="mt-2 text-sm text-rose-400">
-                        {budgetErrors.categoryId.message}
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-
-                {/* Start / End Month */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="budget-start-month" className="mb-2 block">
-                      Start month
-                    </Label>
-                    <Controller
-                      control={budgetControl}
-                      name="startMonth"
-                      render={({ field }) => (
-                        <DropdownSelect
-                          id="budget-start-month"
-                          testId="spending-budget-start-month"
-                          value={field.value}
-                          onChange={field.onChange}
-                          options={monthFilterOptions}
-                          placeholder="Select month"
-                          disabled={!!editingBudgetId}
-                        />
-                      )}
-                    />
-                    {budgetErrors.startMonth ? (
-                      <p className="mt-2 text-sm text-rose-400">
-                        {budgetErrors.startMonth.message}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div>
-                    <Label htmlFor="budget-end-month" className="mb-2 block">
-                      End month
-                    </Label>
-                    <Controller
-                      control={budgetControl}
-                      name="endMonth"
-                      render={({ field }) => (
-                        <DropdownSelect
-                          id="budget-end-month"
-                          testId="spending-budget-end-month"
-                          value={field.value ?? ''}
-                          onChange={field.onChange}
-                          options={monthFilterOptions}
-                          placeholder="Ongoing"
-                          clearLabel="Ongoing"
-                        />
-                      )}
-                    />
-                    {budgetErrors.endMonth ? (
-                      <p className="mt-2 text-sm text-rose-400">{budgetErrors.endMonth.message}</p>
-                    ) : null}
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500">
-                  The amount applies to every month in this range. Leave end month blank for an
-                  ongoing budget.
-                </p>
-
-                {/* Amount */}
-                <div>
-                  <Label htmlFor="budget-amount" className="mb-2 block">
-                    {editingBudgetId ? 'Budget Limit (applies to the whole range)' : 'Budget Limit'}
-                  </Label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                      {displayCurrency}
-                    </span>
-                    <FormattedNumberInput
-                      id="budget-amount"
-                      data-testid="spending-budget-amount"
-                      step="0.01"
-                      min="0.01"
-                      required
-                      className="pl-16"
-                      placeholder="0.00"
-                      {...registerBudgetField('amount')}
-                    />
-                  </div>
-                  {budgetErrors.amount ? (
-                    <p className="mt-2 text-sm text-rose-400">{budgetErrors.amount.message}</p>
-                  ) : null}
-                </div>
-
-                {editingBudgetId ? (
-                  <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-                    <button
-                      type="button"
-                      data-testid="spending-budget-change-amount-toggle"
-                      className="text-sm font-medium text-cyan-400 hover:text-cyan-300"
-                      onClick={() => setIsChangeAmountOpen((open) => !open)}
-                    >
-                      {isChangeAmountOpen
-                        ? 'Cancel change amount'
-                        : 'Change amount from this month…'}
-                    </button>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Ends this budget at the prior month and creates a new one starting the given
-                      month at the new amount — preserving history.
-                    </p>
-                    {isChangeAmountOpen ? (
-                      <div className="mt-3 space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <Label className="mb-2 block text-xs">New amount</Label>
-                            <FormattedNumberInput
-                              data-testid="spending-budget-change-amount-value"
-                              step="0.01"
-                              min="0.01"
-                              placeholder="0.00"
-                              value={changeAmountValue}
-                              onChange={(e) => setChangeAmountValue(e.target.value)}
-                            />
-                          </div>
-                          <div>
-                            <Label className="mb-2 block text-xs">From month</Label>
-                            <DropdownSelect
-                              testId="spending-budget-change-amount-from-month"
-                              value={changeAmountFromMonth}
-                              onChange={setChangeAmountFromMonth}
-                              options={monthFilterOptions}
-                              placeholder="Select month"
-                            />
-                          </div>
-                        </div>
-                        {changeAmountError ? (
-                          <p className="text-sm text-rose-400">{changeAmountError}</p>
-                        ) : changeBudgetAmountMutation.isError ? (
-                          <p className="text-sm text-rose-400">
-                            Failed to change amount. The new month must be after this budget's start
-                            month.
-                          </p>
-                        ) : null}
-                        <Button
-                          type="button"
-                          data-testid="spending-budget-change-amount-save"
-                          onClick={handleChangeBudgetAmount}
-                          disabled={
-                            changeBudgetAmountMutation.isPending ||
-                            !changeAmountValue ||
-                            !changeAmountFromMonth
-                          }
-                        >
-                          {changeBudgetAmountMutation.isPending ? 'Applying...' : 'Apply change'}
-                        </Button>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="mt-8 flex gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={closeBudgetModal}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  data-testid="spending-budget-save"
-                  className="flex-1"
-                  disabled={createBudgetMutation.isPending || updateBudgetMutation.isPending}
-                >
-                  {createBudgetMutation.isPending || updateBudgetMutation.isPending
-                    ? 'Saving...'
-                    : 'Save Budget'}
-                </Button>
-              </div>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <TransferModal
-        open={isTransferModalOpen}
-        onClose={() => setIsTransferModalOpen(false)}
-        accounts={allAccounts}
-        onCreateAccount={() => {
-          setNewAccountCurrency(displayCurrency || 'USD');
-          setIsQuickAccountModalOpen(true);
+      <Dialog
+        open={isBudgetModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsBudgetModalOpen(false);
+            setEditingBudget(null);
+            budgetForm.reset();
+          }
         }}
-      />
-
-      {/* Edit Transfer Modal */}
-      <Dialog open={!!editingTransfer} onOpenChange={(open) => !open && setEditingTransfer(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="border-b border-slate-800 px-6 py-4">
-            <DialogTitle>Edit Transfer</DialogTitle>
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingBudget ? 'Edit Budget' : 'New Budget'}</DialogTitle>
           </DialogHeader>
-          {editingTransfer && (
-            <form
-              className="space-y-4 p-6"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!editTransferFromId || !editTransferToId) {
-                  setEditTransferError('Both From and To accounts must be selected.');
-                  return;
-                }
-                if (editTransferFromId === editTransferToId) {
-                  setEditTransferError('Source and destination accounts cannot be the same.');
-                  return;
-                }
-                if (updateTransferMutation.isPending) return;
-                setEditTransferError(null);
-                updateTransferMutation.mutate();
-              }}
-            >
-              {editTransferError && (
-                <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>{editTransferError}</span>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">From Account</Label>
+          <form
+            className="space-y-4 pt-2"
+            onSubmit={budgetForm.handleSubmit((data) => {
+              if (editingBudget) {
+                updateBudgetMutation.mutate(data);
+              } else {
+                createBudgetMutation.mutate(data);
+              }
+            })}
+          >
+            <div>
+              <Label className="text-slate-300 text-xs mb-1 block">Budget Scope</Label>
+              <Controller
+                control={budgetForm.control}
+                name="scope"
+                render={({ field }) => (
                   <DropdownSelect
-                    options={transferAccountOptions}
-                    value={editTransferFromId}
-                    onChange={setEditTransferFromId}
-                    placeholder="From account"
+                    options={[
+                      { value: 'category', label: 'Single Category' },
+                      { value: 'group', label: 'Category Group' },
+                    ]}
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={!!editingBudget}
+                    placeholder="Select scope"
                   />
-                </div>
-                <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">To Account</Label>
-                  <DropdownSelect
-                    options={transferAccountOptions}
-                    value={editTransferToId}
-                    onChange={setEditTransferToId}
-                    placeholder="To account"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-slate-300 text-xs mb-1 block">Gross Amount</Label>
-                  <FormattedNumberInput
-                    min="0"
-                    step="0.01"
-                    value={editTransferGross}
-                    onChange={(e) => setEditTransferGross(e.target.value)}
-                    placeholder="1000.00"
-                    className="bg-slate-800 border-slate-700 text-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-slate-300 text-xs mb-1 flex items-center justify-between">
-                    <span>Net Received</span>
-                    {editTransferNetOverridden && (
-                      <button
-                        type="button"
-                        onClick={() => setEditTransferNetOverridden(false)}
-                        className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 normal-case"
-                      >
-                        <RotateCcw className="h-3 w-3" />
-                        Reset to computed
-                      </button>
-                    )}
-                  </Label>
-                  <FormattedNumberInput
-                    min="0"
-                    step="0.01"
-                    value={editTransferNet}
-                    onChange={(e) => {
-                      setEditTransferNetOverridden(true);
-                      setEditTransferNet(e.target.value);
-                    }}
-                    placeholder="950.00"
-                    className="bg-slate-800 border-slate-700 text-white"
-                  />
-                  {!editTransferNetOverridden && (
-                    <p className="mt-1 text-xs text-slate-500">
-                      Computed from gross, FX rate, and fees below.
-                    </p>
+                )}
+              />
+            </div>
+
+            {budgetForm.watch('scope') === 'category' ? (
+              <div>
+                <Label className="text-slate-300 text-xs mb-1 block">Category *</Label>
+                <Controller
+                  control={budgetForm.control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <DropdownSelect
+                      options={categoryFilterOptions}
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      placeholder="Select category"
+                      disabled={!!editingBudget}
+                    />
                   )}
-                </div>
+                />
+                {budgetForm.formState.errors.categoryId && (
+                  <p className="mt-1 text-xs text-red-400">
+                    {budgetForm.formState.errors.categoryId.message}
+                  </p>
+                )}
               </div>
-              <details
-                className="group rounded-xl border border-slate-700/50 bg-slate-800/30 p-3"
-                open={editTransferShowFees}
-                onToggle={(e) => setEditTransferShowFees(e.currentTarget.open)}
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                    Fees / cross-currency
-                  </span>
-                  <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="mt-3 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-slate-300 text-xs mb-1 block">FX Rate</Label>
-                      <FormattedNumberInput
-                        maximumFractionDigits={10}
-                        min="0"
-                        step="any"
-                        value={editTransferFxRate}
-                        onChange={(e) => setEditTransferFxRate(e.target.value)}
-                        placeholder="optional"
-                        className="bg-slate-800 border-slate-700 text-white"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-300 text-xs mb-1 block">FX Fee</Label>
-                      <FormattedNumberInput
-                        min="0"
-                        step="0.01"
-                        value={editTransferFxFee}
-                        onChange={(e) => setEditTransferFxFee(e.target.value)}
-                        placeholder="0"
-                        className="bg-slate-800 border-slate-700 text-white"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-slate-300 text-xs mb-1 block">Platform Fee</Label>
-                      <FormattedNumberInput
-                        min="0"
-                        step="0.01"
-                        value={editTransferPlatformFee}
-                        onChange={(e) => setEditTransferPlatformFee(e.target.value)}
-                        placeholder="0"
-                        className="bg-slate-800 border-slate-700 text-white"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-300 text-xs mb-1 block">Tax</Label>
-                      <FormattedNumberInput
-                        min="0"
-                        step="0.01"
-                        value={editTransferTax}
-                        onChange={(e) => setEditTransferTax(e.target.value)}
-                        placeholder="0"
-                        className="bg-slate-800 border-slate-700 text-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </details>
+            ) : (
               <div>
-                <Label className="text-slate-300 text-xs mb-1 block">Date</Label>
-                <DatePicker value={editTransferDate} onChange={setEditTransferDate} required />
+                <Label className="text-slate-300 text-xs mb-1 block">Category Group *</Label>
+                <Controller
+                  control={budgetForm.control}
+                  name="groupId"
+                  render={({ field }) => (
+                    <DropdownSelect
+                      options={categoryGroupOptions}
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      placeholder="Select category group"
+                      disabled={!!editingBudget}
+                    />
+                  )}
+                />
+                {budgetForm.formState.errors.groupId && (
+                  <p className="mt-1 text-xs text-red-400">
+                    {budgetForm.formState.errors.groupId.message}
+                  </p>
+                )}
               </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-slate-300 text-xs mb-1 block">Notes</Label>
-                <Input
-                  value={editTransferNotes}
-                  onChange={(e) => setEditTransferNotes(e.target.value)}
-                  placeholder="optional"
-                  className="bg-slate-800 border-slate-700 text-white"
+                <Label className="text-slate-300 text-xs mb-1 block">Start Month *</Label>
+                <Controller
+                  control={budgetForm.control}
+                  name="startMonth"
+                  render={({ field }) => (
+                    <DropdownSelect
+                      options={monthFilterOptions}
+                      value={field.value}
+                      onChange={field.onChange}
+                      disabled={!!editingBudget}
+                      placeholder="Select start month"
+                    />
+                  )}
                 />
               </div>
-              <div className="flex gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => setEditingTransfer(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  disabled={
-                    updateTransferMutation.isPending ||
-                    !editTransferFromId ||
-                    !editTransferToId ||
-                    editTransferFromId === editTransferToId
-                  }
-                >
-                  {updateTransferMutation.isPending ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </div>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
 
-      {/* Delete Transfer Confirmation */}
-      <Dialog open={!!deletingTransfer} onOpenChange={(open) => !open && setDeletingTransfer(null)}>
-        <DialogContent className="max-w-md">
-          {deletingTransfer && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="rounded-full bg-red-500/10 p-2.5">
-                  <Trash2 className="h-5 w-5 text-red-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Delete Transfer</h3>
-                  <p className="text-sm text-slate-400">This action cannot be undone.</p>
-                </div>
-              </div>
-              <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 px-4 py-3 text-sm text-slate-300 space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Flow</span>
-                  <span>
-                    {deletingTransfer.from_account_name ?? '?'} →{' '}
-                    {deletingTransfer.to_account_name ?? '?'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Date</span>
-                  <span>{formatDate(deletingTransfer.occurred_at, { fallback: 'N/A' })}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Net received</span>
-                  <span>
-                    {formatCurrency(
-                      Number(deletingTransfer.net_amount_received),
-                      deletingTransfer.to_currency_code,
-                      currencyDisplayPreference,
-                      displayLocale,
-                      decimalPlaces,
-                    )}
-                  </span>
-                </div>
-              </div>
-              {deleteTransferError && (
-                <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>{deleteTransferError}</span>
-                </div>
-              )}
-              <div className="flex gap-3 pt-1">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={() => setDeletingTransfer(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                  disabled={deleteTransferMutation.isPending}
-                  onClick={() => deleteTransferMutation.mutate()}
-                >
-                  {deleteTransferMutation.isPending ? 'Deleting...' : 'Delete'}
-                </Button>
+              <div>
+                <Label className="text-slate-300 text-xs mb-1 block">End Month</Label>
+                <Controller
+                  control={budgetForm.control}
+                  name="endMonth"
+                  render={({ field }) => (
+                    <DropdownSelect
+                      options={[{ value: '', label: 'Ongoing (no end)' }, ...monthFilterOptions]}
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      placeholder="Ongoing"
+                    />
+                  )}
+                />
               </div>
             </div>
-          )}
+
+            <div>
+              <Label className="text-slate-300 text-xs mb-1 block">Budget Amount ({displayCurrency}) *</Label>
+              <Controller
+                control={budgetForm.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormattedNumberInput
+                    min="0.01"
+                    step="0.01"
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="0.00"
+                    className="bg-slate-800 border-slate-700 text-white"
+                  />
+                )}
+              />
+              {budgetForm.formState.errors.amount && (
+                <p className="mt-1 text-xs text-red-400">
+                  {budgetForm.formState.errors.amount.message}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-3">
+              {editingBudget && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => deleteBudgetMutation.mutate(editingBudget.public_id)}
+                  disabled={deleteBudgetMutation.isPending}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => {
+                  setIsBudgetModalOpen(false);
+                  setEditingBudget(null);
+                  budgetForm.reset();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white"
+                disabled={createBudgetMutation.isPending || updateBudgetMutation.isPending}
+              >
+                {createBudgetMutation.isPending || updateBudgetMutation.isPending
+                  ? 'Saving...'
+                  : editingBudget
+                  ? 'Update Budget'
+                  : 'Create Budget'}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={isManageCategoriesOpen}
-        onOpenChange={(open) => !open && setIsManageCategoriesOpen(false)}
-      >
-        <DialogContent className="max-w-sm p-0">
-          <DialogHeader className="border-b border-slate-800 px-6 py-4">
+      {/* Category Management Dialog */}
+      <Dialog open={isCategoriesModalOpen} onOpenChange={setIsCategoriesModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
             <DialogTitle>Manage Categories</DialogTitle>
           </DialogHeader>
-          {isManageCategoriesOpen && (
-            <form
-              className="space-y-4 p-6"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (createCategoryMutation.isPending || !newCategoryName.trim()) return;
-                createCategoryMutation.mutate({
-                  name: newCategoryName.trim(),
-                  color: newCategoryColor,
-                  icon: newCategoryIcon.trim() || undefined,
-                });
-              }}
-            >
-              <div>
-                <Label className="mb-2 block">Category Name</Label>
-                <Input
-                  data-testid="spending-category-name"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="e.g. Dining Out"
-                />
-              </div>
-              <div>
-                <Label htmlFor="spending-category-color" className="mb-2 block">
-                  Color
-                </Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="spending-category-color"
-                    data-testid="spending-category-color"
+          <div className="space-y-4 pt-2">
+            <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-800/40 p-3">
+              <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                Create Category
+              </h4>
+              <Input
+                placeholder="Category name"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                className="bg-slate-800 border-slate-700 text-white text-sm"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-slate-400 text-xs mb-1 block">Color</Label>
+                  <input
                     type="color"
-                    value={newCategoryColor}
-                    onChange={(e) => setNewCategoryColor(e.target.value)}
-                    className="h-10 w-14 cursor-pointer p-1"
+                    value={newCatColor}
+                    onChange={(e) => setNewCatColor(e.target.value)}
+                    className="h-9 w-full rounded border border-slate-700 bg-slate-800 cursor-pointer"
                   />
-                  <span className="text-xs text-slate-400">
-                    Used for category badges and charts.
-                  </span>
+                </div>
+                <div>
+                  <Label className="text-slate-400 text-xs mb-1 block">Group (optional)</Label>
+                  <DropdownSelect
+                    options={categoryGroupOptions}
+                    value={newCatGroupId}
+                    onChange={setNewCatGroupId}
+                    placeholder="No group"
+                    clearLabel="No group"
+                  />
                 </div>
               </div>
-              <div>
-                <Label className="mb-2 block">Icon (emoji)</Label>
-                <Input
-                  data-testid="spending-category-icon"
-                  value={newCategoryIcon}
-                  onChange={(e) => setNewCategoryIcon(e.target.value)}
-                  placeholder="🍔"
-                />
-              </div>
-              {createCategoryMutation.isError ? (
-                <p className="text-sm text-rose-400">
-                  Failed to create category. Please try again.
-                </p>
-              ) : null}
-              <button
-                data-testid="spending-category-create"
-                type="submit"
-                disabled={createCategoryMutation.isPending || !newCategoryName.trim()}
-                className="w-full rounded-xl bg-cyan-600 py-2.5 text-sm font-semibold text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+              <Button
+                size="sm"
+                onClick={() => createCategoryMutation.mutate()}
+                disabled={!newCatName.trim() || createCategoryMutation.isPending}
+                className="w-full bg-cyan-600 hover:bg-cyan-500 text-white"
               >
-                {createCategoryMutation.isPending ? 'Creating...' : 'Create Category'}
-              </button>
-            </form>
-          )}
+                Add Category
+              </Button>
+            </div>
+
+            <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Existing Categories ({categories.length})
+              </h4>
+              {categories.map((cat) => (
+                <div
+                  key={cat.public_id}
+                  className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-200"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-3 w-3 rounded-full shrink-0"
+                      style={{ backgroundColor: cat.color ?? '#22c55e' }}
+                    />
+                    <span>{cat.name}</span>
+                  </div>
+                  {cat.category_group_id && (
+                    <span className="text-xs text-slate-500">
+                      {getGroupTheme(cat.category_group_id).name}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
-        open={!!pendingDeleteTransactionId}
-        onOpenChange={(open) => !open && setPendingDeleteTransactionId(null)}
-        title="Delete transaction?"
-        description={(() => {
-          const tx = (transactions ?? []).find((t) => t.public_id === pendingDeleteTransactionId);
-          return tx
-            ? `Delete "${tx.description || 'this transaction'}"? This cannot be undone.`
-            : 'This cannot be undone.';
-        })()}
-        isPending={deleteMutation.isPending}
-        isError={deleteMutation.isError}
-        errorMessage="Could not delete that transaction. Please try again."
-        onConfirm={() =>
-          pendingDeleteTransactionId && deleteMutation.mutate(pendingDeleteTransactionId)
-        }
-      />
+      {/* Tags Management Dialog */}
+      <Dialog open={isTagsModalOpen} onOpenChange={setIsTagsModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage Tags</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-800/40 p-3">
+              <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                Create Tag
+              </h4>
+              <Input
+                placeholder="Tag name"
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                className="bg-slate-800 border-slate-700 text-white text-sm"
+              />
+              <div>
+                <Label className="text-slate-400 text-xs mb-1 block">Color</Label>
+                <input
+                  type="color"
+                  value={newTagColor}
+                  onChange={(e) => setNewTagColor(e.target.value)}
+                  className="h-9 w-full rounded border border-slate-700 bg-slate-800 cursor-pointer"
+                />
+              </div>
+              <Button
+                size="sm"
+                onClick={() => createTagMutation.mutate()}
+                disabled={!newTagName.trim() || createTagMutation.isPending}
+                className="w-full bg-cyan-600 hover:bg-cyan-500 text-white"
+              >
+                Add Tag
+              </Button>
+            </div>
+
+            <div className="max-h-60 overflow-y-auto space-y-1.5 pr-1">
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Existing Tags ({tags.length})
+              </h4>
+              {tags.map((tag) => (
+                <div
+                  key={tag.public_id}
+                  className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-200"
+                >
+                  <div className="flex items-center gap-2">
+                    <Tag className="h-3.5 w-3.5 text-cyan-400" />
+                    <span>{tag.name}</span>
+                  </div>
+                  <button
+                    onClick={() => deleteTagMutation.mutate(tag.public_id)}
+                    className="text-slate-500 hover:text-red-400 transition-colors p-1"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 };
+
+export default SpendingPage;

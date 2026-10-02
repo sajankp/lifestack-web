@@ -220,7 +220,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   Add todo
                 </Link>
                 <Link
-                  to="/spending?new=1"
+                  to="/money?new=1"
                   aria-label="Add expense"
                   data-testid="header-quick-spending"
                   className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 text-xs font-semibold text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
