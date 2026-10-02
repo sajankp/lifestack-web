@@ -21,6 +21,7 @@ const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then((m
 const TodoPage = lazy(() => import('./pages/TodoPage').then((module) => ({ default: module.TodoPage })));
 const HealthPage = lazy(() => import('./pages/HealthPage').then((module) => ({ default: module.HealthPage })));
 const MoneyFlowPage = lazy(() => import('./pages/MoneyFlowPage').then((module) => ({ default: module.MoneyFlowPage })));
+const SpendingPage = lazy(() => import('./pages/SpendingPage').then((module) => ({ default: module.SpendingPage })));
 const PortfolioPage = lazy(() => import('./pages/PortfolioPage').then((module) => ({ default: module.PortfolioPage })));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then((module) => ({ default: module.NotificationsPage })));
 const WeeklySummariesPage = lazy(() => import('./pages/WeeklySummariesPage').then((module) => ({ default: module.WeeklySummariesPage })));
@@ -147,7 +148,11 @@ function App() {
           />
           <Route
             path="/spending/*"
-            element={<SubpathRedirect from="/spending" to="/money" />}
+            element={
+              <Layout>
+                <SpendingPage />
+              </Layout>
+            }
           />
 
           <Route

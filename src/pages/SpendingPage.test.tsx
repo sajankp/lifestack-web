@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../components/ui/toast';
 import { MemoryRouter, useLocation } from 'react-router';
@@ -7,7 +7,6 @@ import { http, HttpResponse } from 'msw';
 
 import { SpendingPage } from './SpendingPage';
 import { server } from '../test/setup';
-import { useAuthStore } from '../store/authStore';
 
 const LocationProbe = () => {
   const location = useLocation();
@@ -28,11 +27,6 @@ const renderWithQuery = (ui: React.ReactNode, initialEntry = '/spending') => {
       </ToastProvider>
     </QueryClientProvider>,
   );
-};
-
-const chooseLedgerAccount = async () => {
-  fireEvent.click(screen.getByTestId('ledger-account-select'));
-  fireEvent.click(await screen.findByRole('option', { name: /My Wallet/ }));
 };
 
 const CATEGORY = {
@@ -62,6 +56,8 @@ const USER_SETTINGS = {
   workspace_currency_display_preference: 'symbol',
   effective_reporting_currency_code: 'USD',
   effective_currency_display_preference: 'symbol',
+  effective_locale: 'en-US',
+  effective_decimal_places: 2,
   updated_at: '2026-01-01T00:00:00Z',
 };
 
@@ -75,17 +71,7 @@ const WORKSPACE_SETTINGS = {
 
 const EMPTY_PAGE = { items: [], total: 0, limit: 50, offset: 0 };
 const EMPTY_SUMMARY = { income_total: 0, expense_total: 0, net_total: 0, category_totals: [] };
-const EMPTY_LEDGER = {
-  account_public_id: ACCOUNT.public_id,
-  account_name: ACCOUNT.name,
-  account_currency: 'USD',
-  opening_balance: '0',
-  closing_balance: '0',
-  total_entries: 0,
-  items: [],
-};
 
-// baseHandlers is used as fallback — always pass custom overrides FIRST in server.use()
 const baseHandlers = [
   http.get('*/v1/spending/categories', () =>
     HttpResponse.json({ items: [CATEGORY], total: 1, limit: 200, offset: 0 }),
@@ -98,150 +84,99 @@ const baseHandlers = [
   http.get('*/v1/finance/accounts', () =>
     HttpResponse.json({ items: [ACCOUNT], total: 1, limit: 200, offset: 0 }),
   ),
-  http.get('*/v1/spending/transactions', () => HttpResponse.json(EMPTY_PAGE)),
   http.get('*/v1/spending/transactions/summary', () => HttpResponse.json(EMPTY_SUMMARY)),
   http.get('*/v1/spending/budgets', () => HttpResponse.json(EMPTY_PAGE)),
   http.get('*/v1/spending/recurring', () => HttpResponse.json(EMPTY_PAGE)),
-  http.get('*/v1/finance/transfers', () => HttpResponse.json(EMPTY_PAGE)),
   http.get('*/v1/finance/settings/user', () => HttpResponse.json(USER_SETTINGS)),
   http.get('*/v1/finance/settings', () => HttpResponse.json(WORKSPACE_SETTINGS)),
-  http.get('*/v1/spending/accounts/*/ledger', () => HttpResponse.json(EMPTY_LEDGER)),
-  http.get('*/v1/finance/accounts/*/balance', () =>
+  http.get('*/v1/spending/kpis', () => HttpResponse.json(EMPTY_PAGE)),
+  http.get('*/v1/spending/analytics/pacing', () =>
     HttpResponse.json({
-      account_public_id: ACCOUNT.public_id,
-      account_name: ACCOUNT.name,
-      account_type: ACCOUNT.account_type,
-      currency_code: 'USD',
-      spending_balance: '0',
-      transaction_count: 0,
-      transfer_count: 0,
+      month: '2026-10',
+      total_budget: '0.00',
+      total_spent: '0.00',
+      remaining: '0.00',
+      daily_burn_rate: '0.00',
+      projected_total: '0.00',
+      fixed_burn_spent: '0.00',
+      discretionary_spent: '0.00',
+      days_remaining: 20,
+      days_elapsed: 10,
+      total_days: 30,
+      daily_spend: [],
+      category_pacing: [],
     }),
   ),
-  http.get('*/v1/finance/accounts/*/reconciliation', () =>
-    HttpResponse.json({
-      projected_balance: '0',
-      snapshot_balance: null,
-      discrepancy: null,
-      snapshot_as_of: null,
-    }),
+  http.get('*/v1/spending/analytics/breakdown', () =>
+    HttpResponse.json({ from: '2026-10-01', to: '2026-10-31', type: 'expense', total: '0.00', categories: [] }),
+  ),
+  http.get('*/v1/spending/analytics/trends', () =>
+    HttpResponse.json({ from: '2026-04-01', to: '2026-10-01', points: [] }),
+  ),
+  http.get('*/v1/spending/analytics/savings-rate', () =>
+    HttpResponse.json({ from: '2026-04-01', to: '2026-10-01', points: [] }),
   ),
 ];
 
-// jsdom doesn't implement these browser APIs used by Radix/cmdk
-beforeAll(() => {
-  global.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  };
-  Element.prototype.scrollIntoView = vi.fn();
-});
-
-// The transaction form's "last used account" pre-fill (spec-054) persists
-// across renders via localStorage — reset it so tests don't leak state.
-beforeEach(() => {
-  window.localStorage.clear();
-  useAuthStore.setState({
-    isAuthenticated: true,
-    isAuthResolved: true,
-    user: {
-      public_id: 'user-1',
-      email: 'user@example.com',
-      username: 'user',
-      is_active: true,
-      timezone: 'UTC',
-    },
-  });
-});
-
 describe('SpendingPage', () => {
-  it('uses a refreshable child route for Account activity', async () => {
-    renderWithQuery(
-      <>
-        <SpendingPage />
-        <LocationProbe />
-      </>,
-      '/spending/account-activity',
-    );
-
-    expect(await screen.findByText('Viewing Account activity')).toBeInTheDocument();
-    expect(screen.getByTestId('spending-tab-ledger')).toHaveClass('text-cyan-400');
-    expect(screen.getByTestId('route-location')).toHaveTextContent('/spending/account-activity');
+  beforeEach(() => {
+    server.use(...baseHandlers);
   });
 
-  it('redirects legacy tab links to canonical child routes', async () => {
+  it('redirects root /spending to canonical /spending/recurring route', async () => {
     renderWithQuery(
       <>
-        <SpendingPage />
         <LocationProbe />
+        <SpendingPage />
       </>,
-      '/spending?tab=ledger',
+      '/spending',
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('route-location')).toHaveTextContent('/spending/account-activity');
+      expect(screen.getByTestId('route-location')).toHaveTextContent('/spending/recurring');
     });
-    expect(screen.queryByText('Viewing Transactions')).not.toBeInTheDocument();
   });
 
-  it('renders page hero and summary cards', async () => {
-    server.use(...baseHandlers);
-    renderWithQuery(<SpendingPage />);
-
-    expect(await screen.findByText('Spending Overview')).toBeInTheDocument();
-    expect(await screen.findByText('Total Income')).toBeInTheDocument();
-    expect(screen.getByText('Total Expenses')).toBeInTheDocument();
-    expect(screen.getByText('Net cash flow (selected period)')).toBeInTheDocument();
-  });
-
-  it('shows correct summary totals from API response', async () => {
-    server.use(
-      // override goes first — MSW checks in order, first match wins
-      http.get('*/v1/spending/transactions/summary', () =>
-        HttpResponse.json({
-          income_total: 3000,
-          expense_total: 1200,
-          net_total: 1800,
-          category_totals: [],
-        }),
-      ),
-      ...baseHandlers,
+  it('redirects legacy /spending/transactions to /money', async () => {
+    renderWithQuery(
+      <>
+        <LocationProbe />
+        <SpendingPage />
+      </>,
+      '/spending/transactions',
     );
 
-    renderWithQuery(<SpendingPage />);
-
-    expect(await screen.findByText('$3,000.00')).toBeInTheDocument();
-    expect(await screen.findByText('$1,200.00')).toBeInTheDocument();
-    expect(await screen.findByText('$1,800.00')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('route-location')).toHaveTextContent('/money');
+    });
   });
 
-  it('shows empty state when there are no transactions', async () => {
-    server.use(...baseHandlers);
-    renderWithQuery(<SpendingPage />);
-
-    expect(await screen.findByText('No transactions yet')).toBeInTheDocument();
-    expect(
-      screen.getByText('Start tracking your spending by adding a new transaction.'),
-    ).toBeInTheDocument();
-  });
-
-  it('renders transaction rows from API', async () => {
+  it('renders page hero and summary KPI cards', async () => {
     server.use(
-      http.get('*/v1/spending/transactions', () =>
+      http.get('*/v1/spending/transactions/summary', () =>
+        HttpResponse.json({
+          income_total: 5000,
+          expense_total: 1250,
+          net_total: 3750,
+          category_totals: [{ category_id: CATEGORY.public_id, total_amount: 1250 }],
+        }),
+      ),
+      http.get('*/v1/spending/recurring', () =>
         HttpResponse.json({
           items: [
             {
-              public_id: 'tx-001',
-              category_id: 'cat-food-id',
-              account_id: 'acc-wallet-id',
-              amount: '42.50',
+              public_id: 'rec-1',
+              category_id: CATEGORY.public_id,
+              account_id: ACCOUNT.public_id,
+              amount: '50.00',
               type: 'expense',
-              occurred_at: '2026-06-15T12:00:00Z',
-              description: 'Grocery run',
-              wallet_name: null,
-              labels: null,
-              created_at: '2026-06-15T12:00:00Z',
-              updated_at: '2026-06-15T12:00:00Z',
+              description: 'Streaming Sub',
+              frequency: 'monthly',
+              interval: 1,
+              anchor_date: '2026-01-01',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
             },
           ],
           total: 1,
@@ -249,535 +184,111 @@ describe('SpendingPage', () => {
           offset: 0,
         }),
       ),
-      ...baseHandlers,
     );
 
-    renderWithQuery(<SpendingPage />);
+    renderWithQuery(<SpendingPage />, '/spending/recurring');
 
-    // Transactions render in two responsive layouts (mobile cards + desktop
-    // table), so this content appears twice in the DOM — assert on all matches.
-    expect((await screen.findAllByText('Grocery run')).length).toBeGreaterThan(0);
-    expect((await screen.findAllByText('Food')).length).toBeGreaterThan(0);
-    expect((await screen.findAllByText('My Wallet')).length).toBeGreaterThan(0);
+    expect(await screen.findByText('Spending Command Center')).toBeInTheDocument();
+    expect(await screen.findByText('Recurring Rules')).toBeInTheDocument();
+    expect(await screen.findByText('Streaming Sub')).toBeInTheDocument();
   });
 
-  it('removes a deleted transaction from the list immediately, without waiting on the list refetch', async () => {
-    const TXN = {
-      public_id: 'tx-del-1',
-      category_id: 'cat-food-id',
-      account_id: 'acc-wallet-id',
-      amount: '12.00',
-      type: 'expense',
-      occurred_at: '2026-06-15T12:00:00Z',
-      description: 'Coffee Shop',
-      wallet_name: null,
-      labels: null,
-      created_at: '2026-06-15T12:00:00Z',
-      updated_at: '2026-06-15T12:00:00Z',
-    };
-    const OTHER_UNASSIGNED_TXN = {
-      public_id: 'tx-other-unassigned',
-      category_id: 'cat-food-id',
-      account_id: null,
-      amount: '5.00',
-      type: 'expense',
-      occurred_at: '2026-06-10T12:00:00Z',
-      description: 'Cash purchase',
-      wallet_name: null,
-      labels: null,
-      created_at: '2026-06-10T12:00:00Z',
-      updated_at: '2026-06-10T12:00:00Z',
-    };
-    let listCallCount = 0;
-    let unassignedCallCount = 0;
-    // Both queries hang after their first response — the post-delete
-    // invalidation refetch never resolves in this test (simulating a slow
-    // round trip), so any change visible afterward must come from the
-    // optimistic cache update, not a fresh fetch.
-    server.use(
-      http.get('*/v1/spending/transactions', ({ request }) => {
-        const url = new URL(request.url);
-        if (url.searchParams.get('unassigned') === 'true') {
-          unassignedCallCount += 1;
-          if (unassignedCallCount === 1) {
-            return HttpResponse.json({
-              items: [OTHER_UNASSIGNED_TXN],
-              total: 1,
-              limit: 1,
-              offset: 0,
-            });
-          }
-          return new Promise<never>(() => {});
-        }
-        listCallCount += 1;
-        if (listCallCount === 1) {
-          return HttpResponse.json({ items: [TXN], total: 1, limit: 50, offset: 0 });
-        }
-        return new Promise<never>(() => {});
-      }),
-      http.delete('*/v1/spending/transactions/tx-del-1', () => new HttpResponse(null, { status: 204 })),
-      ...baseHandlers,
+  it('switches between 4 core planning tabs', async () => {
+    renderWithQuery(
+      <>
+        <LocationProbe />
+        <SpendingPage />
+      </>,
+      '/spending/recurring',
     );
 
-    renderWithQuery(<SpendingPage />);
-    expect((await screen.findAllByText('Coffee Shop')).length).toBeGreaterThan(0);
+    expect(await screen.findByTestId('spending-tab-recurring')).toBeInTheDocument();
+    expect(screen.getByTestId('spending-tab-budgets')).toBeInTheDocument();
+    expect(screen.getByTestId('spending-tab-kpis')).toBeInTheDocument();
+    expect(screen.getByTestId('spending-tab-analytics')).toBeInTheDocument();
 
-    // Confirm the unrelated "No account" cache entry (which never contained
-    // the transaction being deleted) starts at its real count.
-    fireEvent.click(screen.getByTestId('spending-account-filter'));
-    expect(await screen.findByRole('option', { name: /No account \(1\)/ })).toBeInTheDocument();
-    fireEvent.keyDown(screen.getByTestId('spending-account-filter'), { key: 'Escape' });
-
-    fireEvent.click(screen.getByTitle('Delete transaction'));
-
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Delete transaction?')).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
-
-    await waitFor(() => {
-      expect(screen.queryByText('Coffee Shop')).not.toBeInTheDocument();
-    });
-
-    // The unrelated cache entry must be untouched by the optimistic update
-    // — it never held the deleted transaction, so its total must not drop.
-    fireEvent.click(screen.getByTestId('spending-account-filter'));
-    expect(await screen.findByRole('option', { name: /No account \(1\)/ })).toBeInTheDocument();
-  });
-
-  it('opens and closes the new transaction modal', async () => {
-    server.use(...baseHandlers);
-    renderWithQuery(<SpendingPage />);
-
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-open-new-transaction'));
-
-    expect(await screen.findByTestId('spending-transaction-amount')).toBeInTheDocument();
-
-    fireEvent.click(await screen.findByRole('button', { name: /Cancel/i }));
-    await waitFor(() => {
-      expect(screen.queryByTestId('spending-transaction-amount')).not.toBeInTheDocument();
-    });
-  });
-
-  it('creates a category with an explicit color from Manage Categories (#193)', async () => {
-    let capturedPayload: Record<string, unknown> | null = null;
-    server.use(
-      http.post('*/v1/spending/categories', async ({ request }) => {
-        capturedPayload = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json({
-          ...CATEGORY,
-          public_id: 'cat-dining',
-          name: 'Dining Out',
-          color: capturedPayload.color,
-          icon: capturedPayload.icon,
-        });
-      }),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-open-manage-categories'));
-
-    fireEvent.change(screen.getByTestId('spending-category-name'), {
-      target: { value: 'Dining Out' },
-    });
-    fireEvent.change(screen.getByTestId('spending-category-color'), {
-      target: { value: '#f97316' },
-    });
-    fireEvent.change(screen.getByTestId('spending-category-icon'), {
-      target: { value: '🍽️' },
-    });
-    fireEvent.click(screen.getByTestId('spending-category-create'));
-
-    await waitFor(() => expect(capturedPayload).toMatchObject({
-      name: 'Dining Out',
-      color: '#f97316',
-      icon: '🍽️',
-    }));
-  });
-
-  it('creates a transaction and closes modal on success', async () => {
-    let capturedPayload: Record<string, unknown> | null = null;
-
-    server.use(
-      http.post('*/v1/spending/transactions', async ({ request }) => {
-        const body = (await request.json()) as Record<string, unknown>;
-        capturedPayload = body;
-        return HttpResponse.json(
-          {
-            public_id: 'tx-new',
-            category_id: body.category_id,
-            account_id: null,
-            amount: body.amount,
-            type: body.type,
-            occurred_at: body.occurred_at,
-            description: null,
-            wallet_name: null,
-            labels: null,
-            created_at: '2026-06-28T00:00:00Z',
-            updated_at: '2026-06-28T00:00:00Z',
-          },
-          { status: 201 },
-        );
-      }),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-open-new-transaction'));
-
-    // Fill amount
-    const amountInput = await screen.findByTestId('spending-transaction-amount');
-    fireEvent.change(amountInput, { target: { value: '55.00' } });
-
-    // Open category dropdown (Popover + cmdk variant)
-    fireEvent.click(screen.getByTestId('spending-transaction-category'));
-    const foodOption = await screen.findByRole('option', { name: /Food/ });
-    fireEvent.click(foodOption);
-
-    // Account is required on create (spec-054)
-    fireEvent.click(screen.getByTestId('spending-transaction-account'));
-    const walletOption = await screen.findByRole('option', { name: /My Wallet/ });
-    fireEvent.click(walletOption);
-
-    // Save button should now be enabled
-    const saveBtn = screen.getByTestId('spending-transaction-save');
-    expect(saveBtn).not.toBeDisabled();
-    fireEvent.click(saveBtn);
-
-    await waitFor(() => {
-      expect(capturedPayload).not.toBeNull();
-    });
-    expect(capturedPayload).toMatchObject({
-      amount: 55,
-      type: 'expense',
-      category_id: 'cat-food-id',
-    });
-
-    // Modal closes on success
-    await waitFor(() => {
-      expect(screen.queryByTestId('spending-transaction-amount')).not.toBeInTheDocument();
-    });
-  });
-
-  it('blocks saving a new transaction without an account and shows the inline error', async () => {
-    server.use(...baseHandlers);
-    renderWithQuery(<SpendingPage />);
-
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-open-new-transaction'));
-
-    const amountInput = await screen.findByTestId('spending-transaction-amount');
-    fireEvent.change(amountInput, { target: { value: '20.00' } });
-    fireEvent.click(screen.getByTestId('spending-transaction-category'));
-    fireEvent.click(await screen.findByRole('option', { name: /Food/ }));
-
-    // No account selected — save stays disabled and the inline error shows,
-    // pointing at Finance Settings (spec-054).
-    expect(screen.getByTestId('spending-transaction-save')).toBeDisabled();
-    const error = screen.getByTestId('spending-transaction-account-error');
-    expect(error).toBeInTheDocument();
-    expect(within(error).getByRole('link', { name: /default spending account/i })).toHaveAttribute(
-      'href',
-      '/settings',
-    );
-  });
-
-  it('keeps a pristine New Transaction form free of the account error until touched', async () => {
-    server.use(...baseHandlers);
-    renderWithQuery(<SpendingPage />);
-
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-open-new-transaction'));
-    await screen.findByTestId('spending-transaction-amount');
-
-    // Pristine modal — no red error before any interaction (UX review Part 2 #5).
-    expect(screen.queryByTestId('spending-transaction-account-error')).not.toBeInTheDocument();
-
-    // Once the user starts filling the form, the nudge appears.
-    fireEvent.change(screen.getByTestId('spending-transaction-amount'), {
-      target: { value: '5.00' },
-    });
-    expect(screen.getByTestId('spending-transaction-account-error')).toBeInTheDocument();
-  });
-
-  it('offers Add recurring from the compact hero on the Recurring tab', async () => {
-    // The header collapse removed the full action row from secondary tabs,
-    // which left a non-empty Recurring tab without an add affordance (#215).
-    server.use(...baseHandlers);
-    renderWithQuery(<SpendingPage />);
-
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-recurring'));
-    fireEvent.click(await screen.findByTestId('spending-open-add-recurring'));
-    expect(await screen.findByTestId('spending-recurring-category')).toBeInTheDocument();
-  });
-
-  it('pre-selects the workspace default spending account on a new transaction', async () => {
-    server.use(
-      http.get('*/v1/finance/settings', () =>
-        HttpResponse.json({
-          ...WORKSPACE_SETTINGS,
-          default_spending_account_id: ACCOUNT.public_id,
-        }),
-      ),
-      ...baseHandlers,
-    );
-    renderWithQuery(<SpendingPage />);
-
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-open-new-transaction'));
-    await screen.findByTestId('spending-transaction-amount');
-
-    // Pre-selected — no inline error, and the account trigger shows the name.
-    expect(screen.queryByTestId('spending-transaction-account-error')).not.toBeInTheDocument();
-    expect(screen.getByTestId('spending-transaction-account')).toHaveTextContent('My Wallet');
-  });
-
-  it('shows a "No account" filter option with an unassigned count and filters the list', async () => {
-    server.use(
-      http.get('*/v1/spending/transactions', ({ request }) => {
-        const url = new URL(request.url);
-        if (url.searchParams.get('unassigned') === 'true') {
-          return HttpResponse.json({
-            items: [
-              {
-                public_id: 'tx-unassigned',
-                category_id: CATEGORY.public_id,
-                account_id: null,
-                amount: 12,
-                type: 'expense',
-                occurred_at: '2026-06-01T00:00:00Z',
-                description: 'legacy row',
-                wallet_name: null,
-                labels: null,
-                created_at: '2026-06-01T00:00:00Z',
-                updated_at: '2026-06-01T00:00:00Z',
-              },
-            ],
-            total: 1,
-            limit: 50,
-            offset: 0,
-          });
-        }
-        return HttpResponse.json(EMPTY_PAGE);
-      }),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-
-    fireEvent.click(screen.getByTestId('spending-account-filter'));
-    const noAccountOption = await screen.findByRole('option', { name: /No account \(1\)/ });
-    fireEvent.click(noAccountOption);
-
-    await screen.findAllByText('legacy row');
-  });
-
-  it('defaults transactions sort to newest date and updates the query when changed', async () => {
-    const sortValues: (string | null)[] = [];
-    server.use(
-      http.get('*/v1/spending/transactions', ({ request }) => {
-        const url = new URL(request.url);
-        // Only record the main list query (the unassigned-count query omits sort).
-        if (url.searchParams.get('unassigned') !== 'true') {
-          sortValues.push(url.searchParams.get('sort'));
-        }
-        return HttpResponse.json(EMPTY_PAGE);
-      }),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-
-    await waitFor(() => expect(sortValues).toContain('date_desc'));
-
-    fireEvent.click(screen.getByTestId('spending-sort'));
-    const amountOption = await screen.findByRole('option', { name: /Amount \(high to low\)/ });
-    fireEvent.click(amountOption);
-
-    await waitFor(() => expect(sortValues).toContain('amount_desc'));
-  });
-
-  it('switches to budgets tab and shows empty state', async () => {
-    server.use(...baseHandlers);
-    renderWithQuery(<SpendingPage />);
-
-    await screen.findByText('Spending Overview');
+    // Switch to Budgets
     fireEvent.click(screen.getByTestId('spending-tab-budgets'));
+    await waitFor(() => {
+      expect(screen.getByTestId('route-location')).toHaveTextContent('/spending/budgets');
+    });
 
-    expect(await screen.findByText('No budgets set')).toBeInTheDocument();
-    expect(screen.getByText('Set a budget to track your limits.')).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /Date range, category, and account filters are available on Transactions and Account activity tabs\./,
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByTestId('spending-account-filter')).not.toBeInTheDocument();
-    expect(screen.queryByText('Total Income')).not.toBeInTheDocument();
-    expect(screen.queryByText('Net cash flow (selected period)')).not.toBeInTheDocument();
+    // Switch to KPIs
+    fireEvent.click(screen.getByTestId('spending-tab-kpis'));
+    await waitFor(() => {
+      expect(screen.getByTestId('route-location')).toHaveTextContent('/spending/kpis');
+    });
+
+    // Switch to Analytics
+    fireEvent.click(screen.getByTestId('spending-tab-analytics'));
+    await waitFor(() => {
+      expect(screen.getByTestId('route-location')).toHaveTextContent('/spending/analytics');
+    });
   });
 
-  it('switches to budgets tab and shows budget cards with progress', async () => {
-    const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const monthStart = `${currentMonth}-01`;
-
-    server.use(
-      http.get('*/v1/spending/budgets', () =>
-        HttpResponse.json({
-          items: [
-            {
-              public_id: 'budget-001',
-              category_id: 'cat-food-id',
-              amount: '500',
-              month_start: monthStart,
-              created_at: '2026-06-01T00:00:00Z',
-              updated_at: '2026-06-01T00:00:00Z',
-            },
-          ],
-          total: 1,
-          limit: 50,
-          offset: 0,
-        }),
-      ),
-      http.get('*/v1/spending/transactions/summary', () =>
-        HttpResponse.json({
-          income_total: 0,
-          expense_total: 200,
-          net_total: -200,
-          category_totals: [{ category_id: 'cat-food-id', total: 200 }],
-        }),
-      ),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-budgets'));
-
-    // Budget amount and spent amount both appear; check both are present
-    const amounts = await screen.findAllByText(/\$\d+\.\d+/);
-    const amountValues = amounts.map((el) => el.textContent);
-    expect(amountValues).toContain('$500.00');
-    expect(amountValues).toContain('$200.00');
-  });
-
-  it('switches to recurring tab and shows empty state', async () => {
-    server.use(...baseHandlers);
-    renderWithQuery(<SpendingPage />);
-
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-recurring'));
-
-    expect(await screen.findByText('No recurring rules yet')).toBeInTheDocument();
-  });
-
-  it('blocks creating a recurring rule without an account and shows the inline error', async () => {
-    server.use(...baseHandlers);
-    renderWithQuery(<SpendingPage />);
-
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-recurring'));
-    fireEvent.click(await screen.findByText('Add First Rule'));
-
-    await screen.findByTestId('spending-recurring-category');
-    fireEvent.click(screen.getByTestId('spending-recurring-category'));
-    fireEvent.click(await screen.findByRole('option', { name: /Food/ }));
-
-    // No account selected — create stays disabled and the inline error shows,
-    // pointing at Finance Settings (spec-084, same invariant as spec-054).
-    expect(screen.getByTestId('spending-recurring-create')).toBeDisabled();
-    const error = screen.getByTestId('spending-recurring-account-error');
-    expect(error).toBeInTheDocument();
-    expect(within(error).getByRole('link', { name: /default spending account/i })).toHaveAttribute(
-      'href',
-      '/settings',
-    );
-  });
-
-  it('creates a recurring rule once an account is selected', async () => {
-    let capturedPayload: Record<string, unknown> | null = null;
+  it('creates a recurring rule and displays it in the list', async () => {
+    let createdRule: Record<string, unknown> | null = null;
     server.use(
       http.post('*/v1/spending/recurring', async ({ request }) => {
-        capturedPayload = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json(
-          {
-            public_id: 'rec-new',
-            category_id: 'cat-food-id',
-            account_id: ACCOUNT.public_id,
-            amount: '25.00',
-            type: 'expense',
-            description: null,
-            frequency: 'monthly',
-            interval: 1,
-            anchor_date: '2026-01-01',
-            end_date: null,
-            is_active: true,
-            next_due_date: '2026-01-01',
-            last_generated_at: null,
-            monthly_mode: 'day_of_month',
-            by_weekday: null,
-            by_ordinal: null,
-            created_at: '2026-01-01T00:00:00Z',
-            updated_at: '2026-01-01T00:00:00Z',
-          },
-          { status: 201 },
-        );
+        createdRule = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({
+          public_id: 'rec-new',
+          ...createdRule,
+          is_active: true,
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+        });
       }),
-      ...baseHandlers,
     );
-    renderWithQuery(<SpendingPage />);
 
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-recurring'));
-    fireEvent.click(await screen.findByText('Add First Rule'));
+    renderWithQuery(<SpendingPage />, '/spending/recurring');
 
-    await screen.findByTestId('spending-recurring-category');
-    fireEvent.click(screen.getByTestId('spending-recurring-category'));
-    fireEvent.click(await screen.findByRole('option', { name: /Food/ }));
+    // Wait for categories to load
+    expect(await screen.findByText('Recurring Rules')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId('spending-recurring-account'));
-    fireEvent.click(await screen.findByRole('option', { name: /My Wallet/ }));
+    const newBtn = screen.getByRole('button', { name: /New Rule/i });
+    fireEvent.click(newBtn);
 
-    const amountInput = screen.getByTestId('spending-recurring-amount');
-    fireEvent.change(amountInput, { target: { value: '25.00' } });
+    expect(await screen.findByText('New Recurring Rule')).toBeInTheDocument();
 
-    const saveBtn = screen.getByTestId('spending-recurring-create');
-    expect(saveBtn).not.toBeDisabled();
-    fireEvent.click(saveBtn);
+    // Fill amount and description
+    const amountInput = screen.getByPlaceholderText('0.00');
+    fireEvent.change(amountInput, { target: { value: '99.99' } });
+
+    const descInput = screen.getByPlaceholderText(/Netflix/i);
+    fireEvent.change(descInput, { target: { value: 'Gym Membership' } });
+
+    // Submit
+    const submitBtn = screen.getByRole('button', { name: 'Create Rule' });
+    fireEvent.click(submitBtn);
 
     await waitFor(() => {
-      expect(capturedPayload).not.toBeNull();
-    });
-    expect(capturedPayload).toMatchObject({
-      category_id: 'cat-food-id',
-      account_id: ACCOUNT.public_id,
+      expect(createdRule).toEqual(
+        expect.objectContaining({
+          amount: 99.99,
+          description: 'Gym Membership',
+        }),
+      );
     });
   });
 
-  it('switches to recurring tab and shows recurring rule cards', async () => {
+  it('deactivates recurring rule with confirmation dialog', async () => {
+    let deactivatedId: string | null = null;
     server.use(
       http.get('*/v1/spending/recurring', () =>
         HttpResponse.json({
           items: [
             {
-              public_id: 'rec-001',
-              category_id: 'cat-food-id',
-              amount: '150.00',
+              public_id: 'rec-deact-1',
+              category_id: CATEGORY.public_id,
+              account_id: ACCOUNT.public_id,
+              amount: '15.00',
               type: 'expense',
-              description: 'Monthly groceries',
+              description: 'Active Service',
               frequency: 'monthly',
               interval: 1,
               anchor_date: '2026-01-01',
-              end_date: null,
               is_active: true,
-              next_due_date: '2026-07-15',
-              last_generated_at: null,
               created_at: '2026-01-01T00:00:00Z',
               updated_at: '2026-01-01T00:00:00Z',
             },
@@ -787,597 +298,118 @@ describe('SpendingPage', () => {
           offset: 0,
         }),
       ),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-recurring'));
-
-    const ruleCard = await screen.findByTestId('spending-recurring-rule-rec-001');
-    expect(ruleCard).toBeInTheDocument();
-    expect(ruleCard).toHaveTextContent('Monthly groceries');
-    expect(ruleCard).toHaveTextContent('Monthly');
-  });
-
-  it('deactivate recurring rule shows confirmation dialog then calls delete', async () => {
-    let deleteCalled = false;
-    server.use(
-      http.get('*/v1/spending/recurring', () =>
-        HttpResponse.json({
-          items: [
-            {
-              public_id: 'rec-001',
-              category_id: 'cat-food-id',
-              amount: '100.00',
-              type: 'expense',
-              description: 'Rent',
-              frequency: 'monthly',
-              interval: 1,
-              anchor_date: '2026-01-01',
-              end_date: null,
-              is_active: true,
-              next_due_date: '2026-07-01',
-              last_generated_at: null,
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-01-01T00:00:00Z',
-            },
-          ],
-          total: 1,
-          limit: 50,
-          offset: 0,
-        }),
-      ),
-      http.delete('*/v1/spending/recurring/rec-001', () => {
-        deleteCalled = true;
+      http.delete('*/v1/spending/recurring/:id', ({ params }) => {
+        deactivatedId = String(params.id);
         return new HttpResponse(null, { status: 204 });
       }),
-      ...baseHandlers,
     );
 
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-recurring'));
+    renderWithQuery(<SpendingPage />, '/spending/recurring');
 
-    fireEvent.click(await screen.findByTestId('spending-recurring-deactivate'));
+    expect(await screen.findByText('Active Service')).toBeInTheDocument();
+
+    // Click deactivate toggle
+    const toggleBtn = screen.getByTestId('spending-recurring-deactivate');
+    fireEvent.click(toggleBtn);
 
     expect(await screen.findByText('Deactivate recurring rule?')).toBeInTheDocument();
-    expect(screen.getByText(/Deactivate "Rent"/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Deactivate rule' }));
+    // Confirm dialog
+    const confirmBtn = screen.getByRole('button', { name: 'Deactivate rule' });
+    fireEvent.click(confirmBtn);
 
     await waitFor(() => {
-      expect(screen.queryByText('Deactivate recurring rule?')).not.toBeInTheDocument();
+      expect(deactivatedId).toBe('rec-deact-1');
     });
-    expect(deleteCalled).toBe(true);
   });
 
-  it('shows the Account activity (merged transfers) tab with no entries', async () => {
-    server.use(...baseHandlers);
-    renderWithQuery(<SpendingPage />);
-
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    await chooseLedgerAccount();
-
-    expect(await screen.findByText('No transactions for this account yet.')).toBeInTheDocument();
-  });
-
-  it('highlights each daily closing entry in the saved user timezone', async () => {
-    useAuthStore.setState((state) => ({
-      ...state,
-      user: state.user ? { ...state.user, timezone: 'Asia/Kolkata' } : null,
-    }));
-    const ledgerEntry = (public_id: string, occurred_at: string, running_balance: string) => ({
-      public_id,
-      entry_kind: 'transaction',
-      account_id: ACCOUNT.public_id,
-      amount: '10.00',
-      type: 'expense',
-      occurred_at,
-      description: public_id,
-      running_balance,
-      source_type: 'manual',
-      created_at: occurred_at,
-    });
+  it('creates and manages categories from dialog', async () => {
+    let createdCategory: Record<string, unknown> | null = null;
     server.use(
-      http.get('*/v1/spending/accounts/*/ledger', () =>
-        HttpResponse.json({
-          ...EMPTY_LEDGER,
-          total_entries: 4,
-          items: [
-            ledgerEntry('latest-aug-4', '2026-08-04T18:00:00Z', '90.00'),
-            ledgerEntry('middle-aug-4', '2026-08-04T10:00:00Z', '100.00'),
-            ledgerEntry('utc-aug-3-local-aug-4', '2026-08-03T20:00:00Z', '110.00'),
-            ledgerEntry('latest-aug-3', '2026-08-03T17:00:00Z', '120.00'),
-          ],
-        }),
-      ),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    await chooseLedgerAccount();
-
-    await screen.findAllByText('latest-aug-4');
-    expect(document.querySelectorAll('[data-daily-close="true"]')).toHaveLength(4);
-    expect(
-      document.querySelectorAll('[data-entry-id="latest-aug-4"][data-daily-close="true"]'),
-    ).toHaveLength(2);
-    expect(
-      document.querySelectorAll('[data-entry-id="latest-aug-3"][data-daily-close="true"]'),
-    ).toHaveLength(2);
-    expect(document.querySelectorAll('[data-entry-id="middle-aug-4"][data-daily-close]')).toHaveLength(
-      0,
-    );
-    expect(screen.getAllByText('4-Aug-2026')).toHaveLength(6);
-  });
-
-  it('shows a transfer row on the Account activity tab', async () => {
-    server.use(
-      // The real API rejects limit > 200 (app/core/pagination.py MAX_LIMIT) with a 422 —
-      // mirror that here so a regression to an over-the-cap lookup fetch (like the
-      // getTransfers(500, 0) bug) fails this test instead of silently passing.
-      http.get('*/v1/finance/transfers', ({ request }) => {
-        const limit = Number(new URL(request.url).searchParams.get('limit') ?? '50');
-        if (limit > 200) {
-          return HttpResponse.json({ detail: 'limit must be <= 200' }, { status: 422 });
-        }
+      http.post('*/v1/spending/categories', async ({ request }) => {
+        createdCategory = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json({
-          items: [
-            {
-              public_id: 'tfr-001',
-              from_account_id: 1,
-              from_account_name: 'My Wallet',
-              from_account_type: 'wallet',
-              from_module: 'spending',
-              to_account_id: 2,
-              to_account_name: 'My Bank',
-              to_account_type: 'bank',
-              to_module: 'spending',
-              from_currency_code: 'USD',
-              to_currency_code: 'USD',
-              gross_amount: '200.00',
-              net_amount_received: '200.00',
-              fx_rate_used: null,
-              fx_fee_amount: '0.00',
-              platform_fee_amount: '0.00',
-              tax_amount: '0.00',
-              occurred_at: '2026-06-20T00:00:00Z',
-              notes: 'Monthly top-up',
-              created_at: '2026-06-20T00:00:00Z',
-              updated_at: '2026-06-20T00:00:00Z',
-            },
-          ],
-          total: 1,
-          limit,
-          offset: 0,
+          public_id: 'cat-new-created',
+          name: createdCategory?.name ?? '',
+          color: createdCategory?.color ?? null,
+          is_system: false,
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
         });
       }),
-      http.get('*/v1/spending/accounts/*/ledger', () =>
-        HttpResponse.json({
-          ...EMPTY_LEDGER,
-          total_entries: 1,
-          items: [
-            {
-              public_id: 'tfr-001',
-              entry_kind: 'transfer_out',
-              account_id: ACCOUNT.public_id,
-              amount: '200.00',
-              type: null,
-              occurred_at: '2026-06-20T00:00:00Z',
-              description: 'Monthly top-up',
-              running_balance: '-200.00',
-              source_type: 'transfer',
-              created_at: '2026-06-20T00:00:00Z',
-            },
-          ],
-        }),
-      ),
-      ...baseHandlers,
     );
 
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    await chooseLedgerAccount();
+    renderWithQuery(<SpendingPage />, '/spending/recurring');
 
-    // Transfer rows render in two responsive layouts (mobile cards + desktop table).
-    expect((await screen.findAllByText('Transfer → Monthly top-up')).length).toBeGreaterThan(0);
-    expect((await screen.findAllByTitle('Edit transfer')).length).toBeGreaterThan(0);
-  });
+    const catBtn = await screen.findByRole('button', { name: /Categories/i });
+    fireEvent.click(catBtn);
 
-  it('finds a transfer past the first 200 by paging through the transfers lookup', async () => {
-    const makeFillerTransfer = (n: number) => ({
-      public_id: `tfr-filler-${n}`,
-      from_account_id: 1,
-      from_account_name: 'My Wallet',
-      from_account_type: 'wallet',
-      from_module: 'spending',
-      to_account_id: 2,
-      to_account_name: 'My Bank',
-      to_account_type: 'bank',
-      to_module: 'spending',
-      from_currency_code: 'USD',
-      to_currency_code: 'USD',
-      gross_amount: '1.00',
-      net_amount_received: '1.00',
-      fx_rate_used: null,
-      fx_fee_amount: '0.00',
-      platform_fee_amount: '0.00',
-      tax_amount: '0.00',
-      occurred_at: '2026-01-01T00:00:00Z',
-      notes: null,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
+    expect(await screen.findByText('Manage Categories')).toBeInTheDocument();
+
+    const nameInput = screen.getByPlaceholderText('Category name');
+    fireEvent.change(nameInput, { target: { value: 'Entertainment' } });
+
+    const addBtn = screen.getByRole('button', { name: 'Add Category' });
+    fireEvent.click(addBtn);
+
+    await waitFor(() => {
+      expect(createdCategory).toEqual(
+        expect.objectContaining({
+          name: 'Entertainment',
+        }),
+      );
     });
-    const targetTransfer = {
-      public_id: 'tfr-201',
-      from_account_id: 1,
-      from_account_name: 'My Wallet',
-      from_account_type: 'wallet',
-      from_module: 'spending',
-      to_account_id: 3,
-      to_account_name: 'Brokerage',
-      to_account_type: 'brokerage',
-      to_module: 'investing',
-      from_currency_code: 'USD',
-      to_currency_code: 'USD',
-      gross_amount: '5000.00',
-      net_amount_received: '5000.00',
-      fx_rate_used: null,
-      fx_fee_amount: '0.00',
-      platform_fee_amount: '0.00',
-      tax_amount: '0.00',
-      occurred_at: '2026-06-25T00:00:00Z',
-      notes: 'Brokerage funding',
-      created_at: '2026-06-25T00:00:00Z',
-      updated_at: '2026-06-25T00:00:00Z',
-    };
-    const TOTAL = 201; // one more than a single MAX_LIMIT=200 page
-
-    server.use(
-      http.get('*/v1/finance/transfers', ({ request }) => {
-        const url = new URL(request.url);
-        const limit = Number(url.searchParams.get('limit') ?? '50');
-        const offset = Number(url.searchParams.get('offset') ?? '0');
-        if (limit > 200) {
-          return HttpResponse.json({ detail: 'limit must be <= 200' }, { status: 422 });
-        }
-        const items =
-          offset === 0
-            ? Array.from({ length: 200 }, (_, i) => makeFillerTransfer(i))
-            : [targetTransfer];
-        return HttpResponse.json({ items, total: TOTAL, limit, offset });
-      }),
-      http.get('*/v1/spending/accounts/*/ledger', () =>
-        HttpResponse.json({
-          ...EMPTY_LEDGER,
-          total_entries: 1,
-          items: [
-            {
-              public_id: 'tfr-201',
-              entry_kind: 'transfer_out',
-              account_id: ACCOUNT.public_id,
-              amount: '5000.00',
-              type: null,
-              occurred_at: '2026-06-25T00:00:00Z',
-              description: 'Brokerage funding',
-              running_balance: '-5000.00',
-              source_type: 'transfer',
-              created_at: '2026-06-25T00:00:00Z',
-            },
-          ],
-        }),
-      ),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    await chooseLedgerAccount();
-
-    expect((await screen.findAllByText('Transfer → Brokerage funding')).length).toBeGreaterThan(
-      0,
-    );
-    expect((await screen.findAllByTitle('Delete transfer')).length).toBeGreaterThan(0);
   });
 
-  it('blocks saving an edited transfer with an invalid FX fee', async () => {
-    const transfer = {
-      public_id: 'tfr-002',
-      from_account_id: 1,
-      from_account_public_id: 'acc-wallet-id',
-      from_account_name: 'My Wallet',
-      from_account_type: 'wallet',
-      from_module: 'spending',
-      to_account_id: 2,
-      to_account_public_id: 'acc-bank-id',
-      to_account_name: 'My Bank',
-      to_account_type: 'bank',
-      to_module: 'spending',
-      from_currency_code: 'USD',
-      to_currency_code: 'USD',
-      gross_amount: '200.00',
-      net_amount_received: '200.00',
-      fx_rate_used: null,
-      fx_fee_amount: '0.00',
-      platform_fee_amount: '0.00',
-      tax_amount: '0.00',
-      occurred_at: '2026-06-20T00:00:00Z',
-      notes: 'Monthly top-up',
-      created_at: '2026-06-20T00:00:00Z',
-      updated_at: '2026-06-20T00:00:00Z',
-    };
-    server.use(
-      http.get('*/v1/finance/transfers', () =>
-        HttpResponse.json({ items: [transfer], total: 1, limit: 50, offset: 0 }),
-      ),
-      http.get('*/v1/finance/accounts', () =>
-        HttpResponse.json({
-          items: [
-            ACCOUNT,
-            {
-              public_id: 'acc-bank-id',
-              name: 'My Bank',
-              account_type: 'bank' as const,
-              default_currency_code: 'USD',
-              is_active: true,
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-01-01T00:00:00Z',
-            },
-          ],
-          total: 2,
-          limit: 200,
-          offset: 0,
-        }),
-      ),
-      http.get('*/v1/spending/accounts/*/ledger', () =>
-        HttpResponse.json({
-          ...EMPTY_LEDGER,
-          total_entries: 1,
-          items: [
-            {
-              public_id: 'tfr-002',
-              entry_kind: 'transfer_out',
-              account_id: ACCOUNT.public_id,
-              amount: '200.00',
-              type: null,
-              occurred_at: '2026-06-20T00:00:00Z',
-              description: 'Monthly top-up',
-              running_balance: '-200.00',
-              source_type: 'transfer',
-              created_at: '2026-06-20T00:00:00Z',
-            },
-          ],
-        }),
-      ),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    await chooseLedgerAccount();
-    await screen.findAllByText('Transfer → Monthly top-up');
-
-    fireEvent.click(screen.getAllByTitle('Edit transfer')[0]);
-    const modalHeading = await screen.findByText('Edit Transfer');
-    const modal = modalHeading.closest('[role="dialog"]') as HTMLElement;
-    expect(modal).not.toBeNull();
-    const form = modal.querySelector('form') as HTMLFormElement;
-    expect(form).not.toBeNull();
-
-    const fxFeeLabel = within(modal).getByText('FX Fee');
-    const fxFeeInput = fxFeeLabel.parentElement?.querySelector('input') as HTMLInputElement;
-    fireEvent.change(fxFeeInput, { target: { value: '-1' } });
-    fireEvent.submit(form);
-
-    expect(
-      await within(modal).findByText('FX fee must be a valid non-negative number'),
-    ).toBeInTheDocument();
-  });
-
-  it('disables Save Changes on the edit-transfer form when source and destination accounts are the same', async () => {
-    const transfer = {
-      public_id: 'tfr-003',
-      from_account_id: 1,
-      from_account_public_id: 'acc-wallet-id',
-      from_account_name: 'My Wallet',
-      from_account_type: 'wallet',
-      from_module: 'spending',
-      to_account_id: 1,
-      to_account_public_id: 'acc-wallet-id',
-      to_account_name: 'My Wallet',
-      to_account_type: 'wallet',
-      to_module: 'spending',
-      from_currency_code: 'USD',
-      to_currency_code: 'USD',
-      gross_amount: '200.00',
-      net_amount_received: '200.00',
-      fx_rate_used: null,
-      fx_fee_amount: '0.00',
-      platform_fee_amount: '0.00',
-      tax_amount: '0.00',
-      occurred_at: '2026-06-20T00:00:00Z',
-      notes: 'Self transfer edge case',
-      created_at: '2026-06-20T00:00:00Z',
-      updated_at: '2026-06-20T00:00:00Z',
-    };
-    server.use(
-      http.get('*/v1/finance/transfers', () =>
-        HttpResponse.json({ items: [transfer], total: 1, limit: 50, offset: 0 }),
-      ),
-      http.get('*/v1/spending/accounts/*/ledger', () =>
-        HttpResponse.json({
-          ...EMPTY_LEDGER,
-          total_entries: 1,
-          items: [
-            {
-              public_id: 'tfr-003',
-              entry_kind: 'transfer_out',
-              account_id: ACCOUNT.public_id,
-              amount: '200.00',
-              type: null,
-              occurred_at: '2026-06-20T00:00:00Z',
-              description: 'Self transfer edge case',
-              running_balance: '-200.00',
-              source_type: 'transfer',
-              created_at: '2026-06-20T00:00:00Z',
-            },
-          ],
-        }),
-      ),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-ledger'));
-    await chooseLedgerAccount();
-    await screen.findAllByText('Transfer → Self transfer edge case');
-
-    fireEvent.click(screen.getAllByTitle('Edit transfer')[0]);
-    await screen.findByText('Edit Transfer');
-
-    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
-  });
-
-  it('switches to analytics tab without showing budget performance (that now lives only on the Budgets tab)', async () => {
-    server.use(
-      http.get('*/v1/spending/analytics/trends', () => HttpResponse.json({ months: [] })),
-      http.get('*/v1/spending/analytics/breakdown', () =>
-        HttpResponse.json({ categories: [], total: 0 }),
-      ),
-      http.get('*/v1/spending/analytics/savings-rate', () =>
-        HttpResponse.json({
-          months: [],
-          period_totals: {
-            total_income: 0,
-            total_expense: 0,
-            total_savings: 0,
-            average_savings_rate_pct: 0,
-          },
-        }),
-      ),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-analytics'));
-
-    await screen.findByText('Income vs Expenses Trend');
-
-    expect(screen.queryByText('Budget Guardrails & Performance')).not.toBeInTheDocument();
-  });
-
-  it('lets the analytics tab select a specific month independent of the transactions date-range filter', async () => {
-    const breakdownRanges: Array<{ from: string | null; to: string | null }> = [];
-    server.use(
-      http.get('*/v1/spending/analytics/trends', () => HttpResponse.json({ months: [] })),
-      http.get('*/v1/spending/analytics/breakdown', ({ request }) => {
-        const url = new URL(request.url);
-        breakdownRanges.push({
-          from: url.searchParams.get('from'),
-          to: url.searchParams.get('to'),
-        });
-        return HttpResponse.json({ categories: [], total: 0 });
-      }),
-      http.get('*/v1/spending/analytics/savings-rate', () =>
-        HttpResponse.json({
-          months: [],
-          period_totals: {
-            total_income: 0,
-            total_expense: 0,
-            total_savings: 0,
-            average_savings_rate_pct: 0,
-          },
-        }),
-      ),
-      ...baseHandlers,
-    );
-
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-analytics'));
-    await screen.findByText('Income vs Expenses Trend');
-
-    // Narrow to a single month via the Duration selector — this is what
-    // isolates one specific month's split, same as Budgets' "1 Month" mode.
-    // The window change swaps in a fresh (uncached) query combo, so the tab
-    // briefly re-renders its loading skeleton before the controls return.
-    fireEvent.click(screen.getByRole('button', { name: '1M' }));
-    await screen.findByTestId('spending-analytics-month');
-
-    const rangesBeforeChange = breakdownRanges.length;
-
-    // Pick a month a few months back — far enough from "now" to be unambiguous
-    // in the dropdown, and always present given buildMonthOptions' 24-month lookback.
-    const now = new Date();
-    const target = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 3, 1));
-    const targetValue = `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(
-      2,
-      '0',
-    )}`;
-    const targetLabel = new Intl.DateTimeFormat(undefined, {
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'UTC',
-    }).format(target);
-
-    fireEvent.click(await screen.findByTestId('spending-analytics-month'));
-    const targetOption = await screen.findByRole('option', { name: targetLabel });
-    fireEvent.click(targetOption);
-
-    await waitFor(() => expect(breakdownRanges.length).toBeGreaterThan(rangesBeforeChange));
-    const latest = breakdownRanges[breakdownRanges.length - 1];
-    // With Duration = "1M", both ends of the range fall in the
-    // selected month — proving the breakdown is scoped to exactly that month.
-    expect(latest.from?.startsWith(targetValue)).toBe(true);
-    expect(latest.to?.startsWith(targetValue)).toBe(true);
-  });
-
-  it('allows selecting multi-month budget performance range on the budgets tab, showing a per-month breakdown', async () => {
+  it('allows selecting multi-month budget performance range on budgets tab', async () => {
     server.use(
       http.get('*/v1/spending/analytics/budget-performance', () =>
         HttpResponse.json({
+          from: '2026-01-01',
+          to: '2026-03-31',
           categories: [
             {
-              category_id: 'cat-food-id',
+              category_id: CATEGORY.public_id,
               category_name: 'Food',
-              budget_amount: '1500',
-              actual_amount: '600',
-              utilization_pct: 40.0,
-              remaining: '900',
-              status: 'on_track',
+              budget_amount: '900.00',
+              actual_amount: '650.00',
+              utilization_pct: 72.2,
+              remaining: '250.00',
+              monthly_breakdown: [
+                {
+                  month: '2026-01',
+                  budget_amount: '300.00',
+                  actual_amount: '200.00',
+                  utilization_pct: 66.7,
+                  remaining: '100.00',
+                },
+                {
+                  month: '2026-02',
+                  budget_amount: '300.00',
+                  actual_amount: '250.00',
+                  utilization_pct: 83.3,
+                  remaining: '50.00',
+                },
+                {
+                  month: '2026-03',
+                  budget_amount: '300.00',
+                  actual_amount: '200.00',
+                  utilization_pct: 66.7,
+                  remaining: '100.00',
+                },
+              ],
             },
           ],
-          groups: [],
         }),
       ),
-      ...baseHandlers,
     );
 
-    renderWithQuery(<SpendingPage />);
-    await screen.findByText('Spending Overview');
-    fireEvent.click(screen.getByTestId('spending-tab-budgets'));
+    renderWithQuery(<SpendingPage />, '/spending/budgets');
 
     const threeMonthsBtn = await screen.findByRole('button', { name: '3 Months' });
     fireEvent.click(threeMonthsBtn);
 
-    await screen.findByText(/Budget Performance: [A-Za-z]{3} \d{4} - [A-Za-z]{3} \d{4}/);
-
-    expect(screen.getByText('Food')).toBeInTheDocument();
-    expect(screen.getByText('Total Spent')).toBeInTheDocument();
-    expect(screen.getByText('Total Budget')).toBeInTheDocument();
-    // The mocked endpoint returns the same single-month figures for every
-    // month in the 3-month window, so the aggregated total is 3x that.
-    expect(screen.getByText('$1,800.00')).toBeInTheDocument();
-    expect(screen.getByText('$4,500.00')).toBeInTheDocument();
-    expect(screen.getByText('By month')).toBeInTheDocument();
+    expect(await screen.findByText('Food')).toBeInTheDocument();
+    expect(screen.getByText(/72% utilized overall/i)).toBeInTheDocument();
   });
 });

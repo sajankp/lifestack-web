@@ -100,17 +100,17 @@ const CONFIRMATION_CARD_REGISTRY: Record<
   transaction: {
     icon: CreditCard,
     label: 'Spending',
-    getRoute: () => '/spending/transactions',
+    getRoute: () => '/money',
   },
   capital_transfer: {
     icon: ArrowRightLeft,
     label: 'Transfer',
-    getRoute: () => '/spending/account-activity',
+    getRoute: () => '/money',
   },
   investment_dividend: {
     icon: TrendingUp,
     label: 'Investment income',
-    getRoute: () => '/investing/cash',
+    getRoute: () => '/portfolio',
   },
 };
 

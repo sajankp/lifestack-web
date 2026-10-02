@@ -267,8 +267,8 @@ describe('Capture panel verification', () => {
   });
 
   it.each([
-    ['capital_transfer', 'Transfer', '/spending/account-activity'],
-    ['investment_dividend', 'Investment income', '/investing/cash'],
+    ['capital_transfer', 'Transfer', '/money'],
+    ['investment_dividend', 'Investment income', '/portfolio'],
   ])('renders a route-aware confirmation card for %s', (entityType, label, href) => {
     renderWidget();
     const ws = openPanelAndGetSocket();

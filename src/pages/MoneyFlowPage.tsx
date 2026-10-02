@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -48,6 +48,20 @@ export const MoneyFlowPage: React.FC = () => {
   const [isDividendModalOpen, setIsDividendModalOpen] = useState(false);
   const [isCreateAccountModalOpen, setIsCreateAccountModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      setIsTransactionModalOpen(true);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('new');
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [searchParams, setSearchParams]);
   const [transactionDefaultAccountId, setTransactionDefaultAccountId] = useState<string | undefined>();
   const [editingFeedItem, setEditingFeedItem] = useState<ActivityFeedItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<ActivityFeedItem | null>(null);
@@ -349,10 +363,14 @@ export const MoneyFlowPage: React.FC = () => {
 
   const handleConfirmDelete = () => {
     if (!deletingItem) return;
+    // For transfers, item.id is a synthetic UUID5 (outflow/inflow derived),
+    // not the actual transfer public_id. Use source_ref which carries the
+    // real public_id that the DELETE endpoint expects.
+    const deleteId = deletingItem.source_ref || deletingItem.id;
     if (deletingItem.event_type === 'transfer') {
-      deleteTransferMutation.mutate(deletingItem.id);
+      deleteTransferMutation.mutate(deleteId);
     } else {
-      deleteTransactionMutation.mutate(deletingItem.id);
+      deleteTransactionMutation.mutate(deleteId);
     }
   };
 
