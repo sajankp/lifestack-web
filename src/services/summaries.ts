@@ -35,6 +35,10 @@ export const summariesService = {
     });
     return WeeklySummarySchema.parse(res.data);
   },
+  generateWeekly: async (date?: string): Promise<WeeklySummary> => {
+    const res = await api.post('/summaries/weekly/generate', { date: date || null });
+    return WeeklySummarySchema.parse(res.data);
+  },
   listMonthly: async (
     limit = 20,
     offset = 0,
@@ -62,6 +66,13 @@ export const summariesService = {
   },
   generateMonthly: async (year: number, month: number): Promise<MonthlySummary> => {
     const res = await api.post('/summaries/monthly/generate', { year, month });
+    return MonthlySummarySchema.parse(res.data);
+  },
+  updateMonthly: async (
+    summaryId: string,
+    data: Record<string, unknown>,
+  ): Promise<MonthlySummary> => {
+    const res = await api.patch(`/summaries/monthly/${summaryId}`, data);
     return MonthlySummarySchema.parse(res.data);
   },
   getCadenceSettings: async (): Promise<WorkspaceSummarySetting> => {
