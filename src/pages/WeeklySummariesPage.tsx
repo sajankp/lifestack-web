@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CalendarDays, Plus, RefreshCw, Sparkles } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Pencil, Plus, RefreshCw, Sparkles } from 'lucide-react';
 import { summariesService } from '../services/summaries';
 import { queryKeys } from '../lib/queryKeys';
 import { PageHero } from '../components/layout/PageHero';
@@ -23,6 +23,27 @@ interface PaginatedSummaries {
   offset: number;
 }
 
+const getWeekRange = (dateStr: string) => {
+  if (!dateStr) return { start: '', end: '' };
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return { start: dateStr, end: dateStr };
+  const year = Number(parts[0]);
+  const month = Number(parts[1]) - 1;
+  const day = Number(parts[2]);
+  const d = new Date(Date.UTC(year, month, day));
+  if (isNaN(d.getTime())) return { start: dateStr, end: dateStr };
+  const dayOfWeek = d.getUTCDay(); // 0 = Sunday, 1 = Monday, ...
+  const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() + diffToMon);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  return {
+    start: monday.toISOString().slice(0, 10),
+    end: sunday.toISOString().slice(0, 10),
+  };
+};
+
 export const WeeklySummariesPage: React.FC = () => {
   const [cadence, setCadence] = useState<'weekly' | 'monthly'>('weekly');
   const [offset, setOffset] = useState(0);
@@ -37,6 +58,59 @@ export const WeeklySummariesPage: React.FC = () => {
   const now = new Date();
   const [genYear, setGenYear] = useState(now.getUTCFullYear());
   const [genMonth, setGenMonth] = useState(now.getUTCMonth() + 1);
+
+  // Generate Week modal state
+  const [isGenerateWeeklyModalOpen, setIsGenerateWeeklyModalOpen] = useState(false);
+  const [genWeekDate, setGenWeekDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const weekRange = useMemo(() => getWeekRange(genWeekDate), [genWeekDate]);
+
+  // Edit Monthly modal state
+  const [isEditMonthlyModalOpen, setIsEditMonthlyModalOpen] = useState(false);
+  const [editingMonthlySummary, setEditingMonthlySummary] = useState<MonthlySummary | null>(null);
+  const [editMonthlyForm, setEditMonthlyForm] = useState({
+    total_income: '',
+    total_expense: '',
+    net_spending: '',
+    portfolio_value_end: '',
+    cash_end: '',
+    total_dividends: '',
+    net_worth_end: '',
+    tasks_created: '',
+    tasks_completed: '',
+    reason: '',
+  });
+
+  const handleOpenEditMonthly = (item: MonthlySummary) => {
+    setEditingMonthlySummary(item);
+    setEditMonthlyForm({
+      total_income:
+        item.spending_summary?.total_income != null ? String(item.spending_summary.total_income) : '',
+      total_expense:
+        item.spending_summary?.total_expense != null ? String(item.spending_summary.total_expense) : '',
+      net_spending:
+        item.spending_summary?.net != null ? String(item.spending_summary.net) : '',
+      portfolio_value_end:
+        item.investing_summary?.portfolio_value_end != null
+          ? String(item.investing_summary.portfolio_value_end)
+          : '',
+      cash_end:
+        item.investing_summary?.cash_end != null ? String(item.investing_summary.cash_end) : '',
+      total_dividends:
+        item.dividend_summary?.total_net != null
+          ? String(item.dividend_summary.total_net)
+          : '',
+      net_worth_end:
+        item.net_worth_summary?.net_worth_end != null
+          ? String(item.net_worth_summary.net_worth_end)
+          : '',
+      tasks_created:
+        item.todo_summary?.tasks_created != null ? String(item.todo_summary.tasks_created) : '',
+      tasks_completed:
+        item.todo_summary?.tasks_completed != null ? String(item.todo_summary.tasks_completed) : '',
+      reason: '',
+    });
+    setIsEditMonthlyModalOpen(true);
+  };
 
   const { data, isLoading, isError, refetch } = useQuery<PaginatedSummaries>({
     queryKey: ['summaries', cadence, offset],
@@ -68,7 +142,6 @@ export const WeeklySummariesPage: React.FC = () => {
     onError: () => showToast('Failed to regenerate summary. Please try again.', 'error'),
   });
 
-
   const generateMonthlyMutation = useMutation({
     mutationFn: () => summariesService.generateMonthly(genYear, genMonth),
     onSuccess: () => {
@@ -81,6 +154,112 @@ export const WeeklySummariesPage: React.FC = () => {
       showToast(msg || 'Failed to generate monthly summary.', 'error');
     },
   });
+
+  const generateWeeklyMutation = useMutation({
+    mutationFn: () => summariesService.generateWeekly(genWeekDate),
+    onSuccess: () => {
+      setIsGenerateWeeklyModalOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ['summaries', 'weekly'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.briefing() });
+      showToast('Weekly summary generated successfully.', 'success');
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showToast(msg || 'Failed to generate weekly summary.', 'error');
+    },
+  });
+
+  const updateMonthlyMutation = useMutation({
+    mutationFn: (payload: { summaryId: string; data: Record<string, unknown> }) =>
+      summariesService.updateMonthly(payload.summaryId, payload.data),
+    onSuccess: () => {
+      setIsEditMonthlyModalOpen(false);
+      setEditingMonthlySummary(null);
+      void queryClient.invalidateQueries({ queryKey: ['summaries', 'monthly'] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.briefing() });
+      showToast('Monthly summary updated successfully.', 'success');
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showToast(msg || 'Failed to update monthly summary.', 'error');
+    },
+  });
+
+  const handleSaveEditMonthly = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMonthlySummary) return;
+
+    const dataPayload: Record<string, unknown> = {};
+    if (editMonthlyForm.reason.trim()) {
+      dataPayload.reason = editMonthlyForm.reason.trim();
+    }
+
+    if (
+      editMonthlyForm.total_income !== '' ||
+      editMonthlyForm.total_expense !== '' ||
+      editMonthlyForm.net_spending !== ''
+    ) {
+      const baseSpending = editingMonthlySummary.spending_summary || {};
+      dataPayload.spending_summary = {
+        ...baseSpending,
+        status: 'complete',
+        ...(editMonthlyForm.total_income !== '' ? { total_income: editMonthlyForm.total_income } : {}),
+        ...(editMonthlyForm.total_expense !== '' ? { total_expense: editMonthlyForm.total_expense } : {}),
+        ...(editMonthlyForm.net_spending !== '' ? { net: editMonthlyForm.net_spending } : {}),
+      };
+    }
+
+    if (
+      editMonthlyForm.portfolio_value_end !== '' ||
+      editMonthlyForm.cash_end !== ''
+    ) {
+      const baseInvesting = editingMonthlySummary.investing_summary || {};
+      dataPayload.investing_summary = {
+        ...baseInvesting,
+        status: 'complete',
+        ...(editMonthlyForm.portfolio_value_end !== ''
+          ? { portfolio_value_end: editMonthlyForm.portfolio_value_end }
+          : {}),
+        ...(editMonthlyForm.cash_end !== '' ? { cash_end: editMonthlyForm.cash_end } : {}),
+      };
+    }
+
+    if (editMonthlyForm.total_dividends !== '') {
+      const baseDividend = editingMonthlySummary.dividend_summary || {};
+      dataPayload.dividend_summary = {
+        ...baseDividend,
+        status: 'complete',
+        total_dividends: editMonthlyForm.total_dividends,
+      };
+    }
+
+    if (editMonthlyForm.net_worth_end !== '') {
+      const baseNetWorth = editingMonthlySummary.net_worth_summary || {};
+      dataPayload.net_worth_summary = {
+        ...baseNetWorth,
+        status: 'complete',
+        net_worth_end: editMonthlyForm.net_worth_end,
+      };
+    }
+
+    if (editMonthlyForm.tasks_created !== '' || editMonthlyForm.tasks_completed !== '') {
+      const baseTodo = editingMonthlySummary.todo_summary || {};
+      dataPayload.todo_summary = {
+        ...baseTodo,
+        ...(editMonthlyForm.tasks_created !== ''
+          ? { tasks_created: Number(editMonthlyForm.tasks_created) }
+          : {}),
+        ...(editMonthlyForm.tasks_completed !== ''
+          ? { tasks_completed: Number(editMonthlyForm.tasks_completed) }
+          : {}),
+      };
+    }
+
+    updateMonthlyMutation.mutate({
+      summaryId: editingMonthlySummary.public_id,
+      data: dataPayload,
+    });
+  };
 
   const latest = offset === 0 ? data?.items?.[0] : undefined;
   const latestId = latest?.public_id;
@@ -96,7 +275,6 @@ export const WeeklySummariesPage: React.FC = () => {
         markedRef.current = null;
       });
   }, [latestId, latestReadAt, cadence, queryClient]);
-
 
   return (
     <PageShell>
@@ -143,18 +321,33 @@ export const WeeklySummariesPage: React.FC = () => {
           </button>
         </div>
 
-        {cadence === 'monthly' && (
-          <Button
-            type="button"
-            size="sm"
-            data-testid="generate-month-close-btn"
-            onClick={() => setIsGenerateModalOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white"
-          >
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Generate Month Close
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {cadence === 'weekly' && (
+            <Button
+              type="button"
+              size="sm"
+              data-testid="generate-week-close-btn"
+              onClick={() => setIsGenerateWeeklyModalOpen(true)}
+              className="bg-cyan-600 hover:bg-cyan-500 text-white"
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Generate Week Close
+            </Button>
+          )}
+
+          {cadence === 'monthly' && (
+            <Button
+              type="button"
+              size="sm"
+              data-testid="generate-month-close-btn"
+              onClick={() => setIsGenerateModalOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white"
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Generate Month Close
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -197,28 +390,43 @@ export const WeeklySummariesPage: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      data-testid={`regenerate-summary-${item.public_id}`}
-                      onClick={() =>
-                        regenerateMutation.mutate({
-                          summaryId: item.public_id,
-                          reason: regenerateReasons[item.public_id] ?? '',
-                        })
-                      }
-                      disabled={
-                        regenerateMutation.isPending &&
+                    <div className="flex items-center gap-2">
+                      {cadence === 'monthly' && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          data-testid={`edit-summary-${item.public_id}`}
+                          onClick={() => handleOpenEditMonthly(item as MonthlySummary)}
+                          className="hover:border-cyan-600"
+                        >
+                          <Pencil className="mr-1.5 h-3.5 w-3.5 text-cyan-400" />
+                          Edit Close
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        data-testid={`regenerate-summary-${item.public_id}`}
+                        onClick={() =>
+                          regenerateMutation.mutate({
+                            summaryId: item.public_id,
+                            reason: regenerateReasons[item.public_id] ?? '',
+                          })
+                        }
+                        disabled={
+                          regenerateMutation.isPending &&
+                          regenerateMutation.variables?.summaryId === item.public_id
+                        }
+                      >
+                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                        {regenerateMutation.isPending &&
                         regenerateMutation.variables?.summaryId === item.public_id
-                      }
-                    >
-                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                      {regenerateMutation.isPending &&
-                      regenerateMutation.variables?.summaryId === item.public_id
-                        ? 'Regenerating...'
-                        : 'Regenerate'}
-                    </Button>
+                          ? 'Regenerating...'
+                          : 'Regenerate'}
+                      </Button>
+                    </div>
                     {/* #200: the Reason field was unlabelled — nothing said where
                         the note goes. Spell out that it is saved to this summary's
                         history and surfaces in the card header after regenerating. */}
@@ -353,7 +561,17 @@ export const WeeklySummariesPage: React.FC = () => {
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
                 Generate Month Close
               </Button>
-            ) : undefined
+            ) : (
+              <Button
+                type="button"
+                data-testid="empty-generate-week-close-btn"
+                onClick={() => setIsGenerateWeeklyModalOpen(true)}
+                className="mt-3 bg-cyan-600 hover:bg-cyan-500 text-white text-xs"
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Generate Week Close
+              </Button>
+            )
           }
         />
       )}
@@ -433,6 +651,250 @@ export const WeeklySummariesPage: React.FC = () => {
                 disabled={generateMonthlyMutation.isPending}
               >
                 {generateMonthlyMutation.isPending ? 'Generating...' : 'Generate Close'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate Week Close Modal */}
+      <Dialog
+        open={isGenerateWeeklyModalOpen}
+        onOpenChange={(open) => !open && setIsGenerateWeeklyModalOpen(false)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader className="pb-3 mb-3 border-b border-slate-800">
+            <DialogTitle>Generate Weekly Summary</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              generateWeeklyMutation.mutate();
+            }}
+            className="space-y-4"
+          >
+            <p className="text-xs text-slate-400">
+              Calculate and generate the weekly summary on demand. Select any date within the target week — the system will automatically snap to the Monday–Sunday week boundary.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Date in Week
+              </label>
+              <input
+                type="date"
+                data-testid="generate-weekly-date-input"
+                value={genWeekDate}
+                onChange={(e) => setGenWeekDate(e.target.value)}
+                className="w-full h-9 rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-cyan-500 focus:outline-none"
+              />
+              {weekRange.start && (
+                <p className="mt-1.5 text-xs text-cyan-400 font-mono">
+                  Week range: {weekRange.start} (Mon) → {weekRange.end} (Sun)
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setIsGenerateWeeklyModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                data-testid="submit-generate-weekly-btn"
+                className="bg-cyan-600 hover:bg-cyan-500 text-white"
+                disabled={generateWeeklyMutation.isPending || !genWeekDate}
+              >
+                {generateWeeklyMutation.isPending ? 'Generating...' : 'Generate Week Close'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Monthly Summary Modal */}
+      <Dialog
+        open={isEditMonthlyModalOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsEditMonthlyModalOpen(false);
+            setEditingMonthlySummary(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-3 mb-3 border-b border-slate-800">
+            <DialogTitle>
+              Edit Monthly Close: {editingMonthlySummary?.month_start ? formatMonthYear(`${editingMonthlySummary.month_start}T00:00:00Z`, { long: true, fallback: 'Monthly Summary' }) : 'Monthly Summary'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSaveEditMonthly} className="space-y-4">
+            <p className="text-xs text-slate-400">
+              Manually adjust frozen financial metrics or task counters. Saved updates are stamped with your revision reason in this summary&apos;s audit trail.
+            </p>
+
+            {/* Spending section */}
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Spending & Cash Flow</span>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Total Income</label>
+                  <input
+                    type="text"
+                    data-testid="edit-monthly-income-input"
+                    value={editMonthlyForm.total_income}
+                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, total_income: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Total Expense</label>
+                  <input
+                    type="text"
+                    data-testid="edit-monthly-expense-input"
+                    value={editMonthlyForm.total_expense}
+                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, total_expense: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Net Flow</label>
+                  <input
+                    type="text"
+                    data-testid="edit-monthly-net-spending-input"
+                    value={editMonthlyForm.net_spending}
+                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, net_spending: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Investing & Net Worth section */}
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Investing & Net Worth</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Portfolio End</label>
+                  <input
+                    type="text"
+                    data-testid="edit-monthly-portfolio-input"
+                    value={editMonthlyForm.portfolio_value_end}
+                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, portfolio_value_end: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Cash End</label>
+                  <input
+                    type="text"
+                    data-testid="edit-monthly-cash-input"
+                    value={editMonthlyForm.cash_end}
+                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, cash_end: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Dividends Net</label>
+                  <input
+                    type="text"
+                    data-testid="edit-monthly-dividends-input"
+                    value={editMonthlyForm.total_dividends}
+                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, total_dividends: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Net Worth End</label>
+                  <input
+                    type="text"
+                    data-testid="edit-monthly-networth-input"
+                    value={editMonthlyForm.net_worth_end}
+                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, net_worth_end: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Productivity tasks section */}
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Productivity</span>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Tasks Created</label>
+                  <input
+                    type="number"
+                    min={0}
+                    data-testid="edit-monthly-tasks-created-input"
+                    value={editMonthlyForm.tasks_created}
+                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, tasks_created: e.target.value }))}
+                    className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Tasks Completed</label>
+                  <input
+                    type="number"
+                    min={0}
+                    data-testid="edit-monthly-tasks-completed-input"
+                    value={editMonthlyForm.tasks_completed}
+                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, tasks_completed: e.target.value }))}
+                    className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Revision reason */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Revision Reason <span className="text-slate-500 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                data-testid="edit-monthly-reason-input"
+                value={editMonthlyForm.reason}
+                onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, reason: e.target.value }))}
+                placeholder="e.g. Corrected dividend tax deduction and manual broker cash balance"
+                className="w-full h-9 rounded-lg border border-slate-700 bg-slate-900 px-3 text-xs text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Saved as the revision reason in this summary&apos;s header and audit log.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setIsEditMonthlyModalOpen(false);
+                  setEditingMonthlySummary(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                data-testid="submit-edit-monthly-btn"
+                className="bg-cyan-600 hover:bg-cyan-500 text-white"
+                disabled={updateMonthlyMutation.isPending}
+              >
+                {updateMonthlyMutation.isPending ? 'Saving Corrections...' : 'Save Corrections'}
               </Button>
             </div>
           </form>

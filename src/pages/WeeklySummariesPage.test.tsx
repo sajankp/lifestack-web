@@ -514,5 +514,194 @@ describe('WeeklySummariesPage', () => {
     expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByTestId('generate-month-close-btn')).toBeInTheDocument();
   });
+
+  it('opens generate week close modal and triggers generation', async () => {
+    let generateWeeklyCalledWith: unknown = null;
+    server.use(
+      http.get('*/v1/summaries/weekly', () =>
+        HttpResponse.json({
+          items: [],
+          total: 0,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+      http.post('*/v1/summaries/weekly/generate', async ({ request }) => {
+        generateWeeklyCalledWith = await request.json();
+        return HttpResponse.json({
+          public_id: '33333333-3333-3333-3333-333333333333',
+          week_start: '2026-06-15',
+          week_end: '2026-06-21',
+          generated_at: '2026-06-22T01:30:00Z',
+          todo_summary: { tasks_created: 0, tasks_completed: 0 },
+          spending_summary: { status: 'unavailable' },
+          investing_summary: { status: 'unavailable' },
+          highlights: { flags: [] },
+          read_at: null,
+        });
+      }),
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('No weekly summaries yet')).toBeInTheDocument();
+    const generateBtn = screen.getByTestId('generate-week-close-btn');
+    expect(generateBtn).toBeInTheDocument();
+
+    fireEvent.click(generateBtn);
+    expect(await screen.findByText('Generate Weekly Summary')).toBeInTheDocument();
+
+    const dateInput = screen.getByTestId('generate-weekly-date-input');
+    fireEvent.change(dateInput, { target: { value: '2026-06-17' } });
+
+    const submitBtn = screen.getByTestId('submit-generate-weekly-btn');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(generateWeeklyCalledWith).toEqual({ date: '2026-06-17' });
+    });
+  });
+
+  it('opens edit monthly close modal, submits corrections, and sends patch payload', async () => {
+    let patchCalledWith: unknown = null;
+    const summaryId = '99999999-9999-9999-9999-999999999999';
+
+    server.use(
+      http.get('*/v1/summaries/weekly', () =>
+        HttpResponse.json({
+          items: [],
+          total: 0,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/summaries/monthly', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: summaryId,
+              month_start: '2026-06-01',
+              month_end: '2026-06-30',
+              generated_at: '2026-07-01T01:30:00Z',
+              todo_summary: { tasks_created: 10, tasks_completed: 8 },
+              spending_summary: {
+                status: 'complete',
+                total_income: '5000.00',
+                total_expense: '3000.00',
+                net: '2000.00',
+                currency: 'USD',
+                has_multiple_currencies: false,
+                top_categories: [],
+                budget_utilization_pct: null,
+                budgets_breached: 0,
+              },
+              investing_summary: {
+                status: 'complete',
+                portfolio_value_start: '40000.00',
+                portfolio_value_end: '42000.00',
+                cash_start: '1000.00',
+                cash_end: '1500.00',
+                week_change: '2000.00',
+                week_change_pct: '5.00',
+                currency: 'USD',
+                start_snapshot_date: '2026-06-01',
+                end_snapshot_date: '2026-06-30',
+              },
+              dividend_summary: {
+                status: 'complete',
+                total_net: '250.00',
+                currency: 'USD',
+                count: 1,
+                by_symbol: [],
+                has_multiple_currencies: false,
+              },
+              net_worth_summary: {
+                status: 'complete',
+                net_worth_start: '45000.00',
+                net_worth_end: '47000.00',
+                week_change: '2000.00',
+                week_change_pct: '4.44',
+                currency: 'USD',
+                start_snapshot_date: '2026-06-01',
+                end_snapshot_date: '2026-06-30',
+              },
+              highlights: { flags: [] },
+              read_at: '2026-07-01T02:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 12,
+          offset: 0,
+        }),
+      ),
+      http.patch('*/v1/summaries/monthly/:id', async ({ request }) => {
+        patchCalledWith = await request.json();
+        return HttpResponse.json({
+          public_id: summaryId,
+          month_start: '2026-06-01',
+          month_end: '2026-06-30',
+          generated_at: '2026-07-01T01:30:00Z',
+          regenerated_at: '2026-07-02T10:00:00Z',
+          regeneration_reason: 'Manual adjustment for dividend withholding tax',
+          todo_summary: { tasks_created: 10, tasks_completed: 8 },
+          spending_summary: {
+            status: 'complete',
+            total_income: '5500.00',
+            total_expense: '3000.00',
+            net: '2500.00',
+            currency: 'USD',
+            has_multiple_currencies: false,
+            top_categories: [],
+          },
+          investing_summary: {
+            status: 'complete',
+            portfolio_value_start: '40000.00',
+            portfolio_value_end: '43000.00',
+            cash_start: '1000.00',
+            cash_end: '1500.00',
+            currency: 'USD',
+          },
+          highlights: { flags: [] },
+          read_at: '2026-07-01T02:00:00Z',
+        });
+      }),
+    );
+
+    renderPage();
+
+    // Switch to monthly
+    fireEvent.click(screen.getByTestId('cadence-monthly-btn'));
+    expect(await screen.findByText(/Month of June 2026/)).toBeInTheDocument();
+
+    const editBtn = screen.getByTestId(`edit-summary-${summaryId}`);
+    expect(editBtn).toBeInTheDocument();
+    fireEvent.click(editBtn);
+
+    // Modal opens
+    expect(await screen.findByText(/Edit Monthly Close:/)).toBeInTheDocument();
+
+    // Change total income and reason
+    const incomeInput = screen.getByTestId('edit-monthly-income-input');
+    fireEvent.change(incomeInput, { target: { value: '5500.00' } });
+
+    const reasonInput = screen.getByTestId('edit-monthly-reason-input');
+    fireEvent.change(reasonInput, {
+      target: { value: 'Manual adjustment for dividend withholding tax' },
+    });
+
+    const saveBtn = screen.getByTestId('submit-edit-monthly-btn');
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(patchCalledWith).not.toBeNull();
+    });
+
+    const payload = patchCalledWith as {
+      reason?: string;
+      spending_summary?: { total_income?: string };
+    };
+    expect(payload.reason).toBe('Manual adjustment for dividend withholding tax');
+    expect(payload.spending_summary?.total_income).toBe('5500.00');
+  });
 });
 
