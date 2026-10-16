@@ -507,11 +507,19 @@ export const UpcomingPreviewResponseSchema = z.object({
 
 export type UpcomingPreviewResponse = z.infer<typeof UpcomingPreviewResponseSchema>;
 
-export type LedgerEntryKind = 'transaction' | 'transfer_out' | 'transfer_in';
+export type LedgerEntryKind =
+  | 'transaction'
+  | 'transfer_out'
+  | 'transfer_in'
+  | 'order_buy'
+  | 'order_sell'
+  | 'dividend';
 
 export const LedgerEntrySchema = z.object({
   public_id: z.string().default(''),
-  entry_kind: z.enum(['transaction', 'transfer_out', 'transfer_in']).default('transaction'),
+  entry_kind: z
+    .enum(['transaction', 'transfer_out', 'transfer_in', 'order_buy', 'order_sell', 'dividend'])
+    .default('transaction'),
   category_id: z.string().nullable().default(null),
   account_id: z.string().nullable().default(null),
   amount: z.string().default(''),
