@@ -162,6 +162,8 @@ export const InvestingPage: React.FC = () => {
 
   const [orderForm, setOrderForm] = useState<{
     order_type: OrderType;
+    instrument_type: InstrumentType;
+    instrument_name: string;
     account_id: string;
     symbol: string;
     quantity: string;
@@ -175,6 +177,8 @@ export const InvestingPage: React.FC = () => {
     notes: string;
   }>({
     order_type: 'buy',
+    instrument_type: 'stock',
+    instrument_name: '',
     account_id: '',
     symbol: '',
     quantity: '',
@@ -267,6 +271,7 @@ export const InvestingPage: React.FC = () => {
     placeOrderMutation.mutate({
       account_id: orderForm.account_id,
       order_type: orderForm.order_type,
+      instrument_type: orderForm.instrument_type,
       symbol: orderForm.symbol.trim().toUpperCase(),
       quantity: orderQty,
       price_per_unit: orderPrice,
@@ -277,6 +282,7 @@ export const InvestingPage: React.FC = () => {
       exchange_name: orderForm.exchange_name || undefined,
       occurred_at: occurredAtDate.toISOString(),
       notes: orderForm.notes || undefined,
+      instrument_name: orderForm.instrument_name || undefined,
     });
   };
 
@@ -740,6 +746,28 @@ export const InvestingPage: React.FC = () => {
                     onChange={(v) => setOrderForm((prev) => ({ ...prev, currency: v }))}
                     placeholder="USD"
                   />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Instrument Type</label>
+                  <DropdownSelect
+                    data-testid="order-instrument-type"
+                    options={[{ label: 'Stock', value: 'stock' }, { label: 'ETF', value: 'etf' }, { label: 'Mutual Fund', value: 'mutual_fund' }]}
+                    value={orderForm.instrument_type}
+                    onChange={(v) => setOrderForm((prev) => ({ ...prev, instrument_type: v }))}
+                    placeholder="stock"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Instrument Name</label>
+                  <input
+                    data-testid="order-instrument-name"
+                    type="text"
+                    value={orderForm.instrument_name || ''}
+                    onChange={(e) => setOrderForm((prev) => ({ ...prev, instrument_name: e.target.value }))}
+                    placeholder="Required for mutual funds"
+                    className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+                  />
+                  <p className="text-xs text-slate-500">Required when Instrument Type is Mutual Fund</p>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Quantity</label>
