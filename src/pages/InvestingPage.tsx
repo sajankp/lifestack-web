@@ -6,6 +6,7 @@ import { financeService } from '../services/finance';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { investingService } from '../services/investing';
 import type {
+  InstrumentType,
   InvestingOrder,
   InvestingOrderCreate,
   InvestingOrderUpdate,
@@ -282,7 +283,7 @@ export const InvestingPage: React.FC = () => {
       exchange_name: orderForm.exchange_name || undefined,
       occurred_at: occurredAtDate.toISOString(),
       notes: orderForm.notes || undefined,
-      instrument_name: orderForm.instrument_name || undefined,
+      instrument_name: orderForm.instrument_name as string || "",
     });
   };
 
@@ -753,7 +754,7 @@ export const InvestingPage: React.FC = () => {
                     data-testid="order-instrument-type"
                     options={[{ label: 'Stock', value: 'stock' }, { label: 'ETF', value: 'etf' }, { label: 'Mutual Fund', value: 'mutual_fund' }]}
                     value={orderForm.instrument_type}
-                    onChange={(v) => setOrderForm((prev) => ({ ...prev, instrument_type: v }))}
+                    onChange={(v: string) => setOrderForm((prev) => ({ ...prev, instrument_type: v as InstrumentType }))}
                     placeholder="stock"
                   />
                 </div>
