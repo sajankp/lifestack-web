@@ -736,5 +736,162 @@ describe('MoneyFlowPage', () => {
       expect(deletedTransferId).toBe('tf-real-public-id-999');
     });
   });
-});
+  it('renders an em dash instead of a zero for totals the backend could not compute', async () => {
+    // The backend returns null for spending_total / total_net_worth when it
+    // cannot compute an honest total (no reporting currency configured, or a
+    // balance that could not be converted). Rendering those as 0 would claim
+    // "you have no money" for a workspace whose reporting currency is simply
+    // unset, so the page must show an em dash instead.
+    server.use(
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          effective_locale: 'en-US',
+          effective_decimal_places: 2,
+          effective_currency_display_preference: 'symbol',
+        }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-bank-inr',
+              name: 'HDFC Savings',
+              account_type: 'bank',
+              default_currency_code: 'INR',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/net-worth', () =>
+        HttpResponse.json({
+          reporting_currency: null,
+          spending_accounts: [],
+          spending_total: null,
+          spending_total_partial: null,
+          total_net_worth_partial: null,
+          excluded_currencies: [],
+          investing_accounts: [],
+          investing_cash_total: '0',
+          holdings_value: '0',
+          investing_total: '0',
+          total_net_worth: null,
+          valuation_status: 'no_reporting_currency',
+        }),
+      ),
+      http.get('*/v1/finance/net-worth/history', () => HttpResponse.json([])),
+      http.get('*/v1/investing/holdings', () => HttpResponse.json({ items: [], total: 0 })),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: '0.00',
+          reporting_currency: 'INR',
+          valuation_status: 'ok',
+        }),
+      ),
+      http.get('*/v1/finance/activity-feed', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 }),
+      ),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+    );
 
+    renderMoneyFlow();
+
+    // "Total Liquid Cash" is a heading the card total sits under.
+    await screen.findByText('Total Liquid Cash');
+
+    // The spending-cash card and the net-worth card both show an em dash
+    // because the backend declined to compute those totals.
+    const emDashes = await screen.findAllByText('—');
+    expect(emDashes.length).toBeGreaterThanOrEqual(2);
+
+    // And critically: no zero-valued currency is rendered for them.
+    expect(screen.queryByText('₹0.00')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the partial totals the backend provides for a partial valuation', async () => {
+    // For valuation_status 'partial' the backend sends null for the headline
+    // totals but also sends *_partial values covering the part that did
+    // convert. The page must use those rather than showing an em dash.
+    server.use(
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          effective_locale: 'en-US',
+          effective_decimal_places: 2,
+          effective_currency_display_preference: 'symbol',
+        }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-bank-inr',
+              name: 'HDFC Savings',
+              account_type: 'bank',
+              default_currency_code: 'INR',
+              is_active: true,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/net-worth', () =>
+        HttpResponse.json({
+          reporting_currency: 'INR',
+          spending_accounts: [
+            {
+              account_public_id: 'acc-bank-inr',
+              account_name: 'HDFC Savings',
+              account_type: 'bank',
+              currency_code: 'INR',
+              balance: '50000.00',
+              balance_in_reporting_currency: '50000.00',
+            },
+          ],
+          spending_total: null,
+          spending_total_partial: '50000.00',
+          total_net_worth_partial: '50000.00',
+          excluded_currencies: [],
+          investing_accounts: [],
+          investing_cash_total: '0',
+          holdings_value: '0',
+          investing_total: '0',
+          total_net_worth: null,
+          valuation_status: 'partial',
+        }),
+      ),
+      http.get('*/v1/finance/net-worth/history', () => HttpResponse.json([])),
+      http.get('*/v1/investing/holdings', () => HttpResponse.json({ items: [], total: 0 })),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: '0.00',
+          reporting_currency: 'INR',
+          valuation_status: 'ok',
+        }),
+      ),
+      http.get('*/v1/finance/activity-feed', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 }),
+      ),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+    );
+
+    renderMoneyFlow();
+
+    await screen.findByText('Total Liquid Cash');
+
+    // The partial total is used, not an em dash.
+    expect(await screen.findByText('₹50,000.00')).toBeInTheDocument();
+  });
+});
