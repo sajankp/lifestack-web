@@ -154,6 +154,9 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
               variant="secondary"
               size="sm"
               onClick={onBack}
+              aria-label="Back to activity stream"
+              title="Back to activity stream"
+              data-testid="account-detail-back"
               className="h-9 w-9 p-0 border border-slate-700 bg-slate-800 text-slate-300 hover:text-white"
             >
               <ArrowLeft className="h-4 w-4" />
