@@ -245,6 +245,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
                 required
+                data-testid="transfer-amount"
               />
             </div>
             <div>
@@ -302,6 +303,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                       value={fxRate}
                       onChange={(e) => setFxRate(e.target.value)}
                       placeholder={fxDirection === 'from_per_to' ? 'e.g. 95.00' : 'e.g. 0.0105'}
+                      data-testid="transfer-fx-rate"
                       className="flex-1"
                       required
                     />
@@ -323,6 +325,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                       step="0.0000000001"
                       value={fxRate}
                       onChange={(e) => setFxRate(e.target.value)}
+                      data-testid="transfer-fx-rate"
                     />
                   </div>
                 )}
@@ -333,6 +336,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     step="0.01"
                     value={fxFee}
                     onChange={(e) => setFxFee(e.target.value)}
+                    data-testid="transfer-fx-fee"
                   />
                 </div>
                 <div>
@@ -342,6 +346,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     step="0.01"
                     value={platformFee}
                     onChange={(e) => setPlatformFee(e.target.value)}
+                    data-testid="transfer-platform-fee"
                   />
                 </div>
                 <div>
@@ -351,6 +356,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     step="0.01"
                     value={tax}
                     onChange={(e) => setTax(e.target.value)}
+                    data-testid="transfer-tax"
                   />
                 </div>
               </div>
