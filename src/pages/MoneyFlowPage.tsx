@@ -229,53 +229,27 @@ export const MoneyFlowPage: React.FC = () => {
     return map;
   }, [accounts, holdingsRes.data, investingSummaryRes.data, reportingCurrency, fxRates]);
 
-  // High-level sums in reporting currency
-  const { totalSpendingCash, totalInvestingCash, totalInvestedPortfolio, totalNetWorth } = useMemo(() => {
-    let spendingCash = 0;
-    if (netWorthRes.data?.spending_total != null) {
-      spendingCash = Number(netWorthRes.data.spending_total);
-    } else {
-      accounts
-        .filter((a) => a.account_type !== 'brokerage')
-        .forEach((a) => {
-          spendingCash += balancesReportingByAccountId[a.public_id] || 0;
-        });
-    }
-
-    let investingCash = 0;
-    if (netWorthRes.data?.investing_cash_total != null) {
-      investingCash = Number(netWorthRes.data.investing_cash_total);
-    } else {
-      accounts
-        .filter((a) => a.account_type === 'brokerage')
-        .forEach((a) => {
-          investingCash += balancesReportingByAccountId[a.public_id] || 0;
-        });
-    }
-
-    let portfolioVal = 0;
-    if (netWorthRes.data?.holdings_value != null) {
-      portfolioVal = Number(netWorthRes.data.holdings_value);
-    } else if (investingSummaryRes.data?.portfolio_value != null) {
-      portfolioVal = Number(investingSummaryRes.data.portfolio_value);
-    } else {
-      Object.values(portfolioByAccountId).forEach((p) => {
-        portfolioVal += p.totalInvestedReporting;
-      });
-    }
-
-    const netWorth =
-      netWorthRes.data?.total_net_worth != null
-        ? Number(netWorthRes.data.total_net_worth)
-        : spendingCash + investingCash + portfolioVal;
-
-    return {
-      totalSpendingCash: spendingCash,
-      totalInvestingCash: investingCash,
-      totalInvestedPortfolio: portfolioVal,
-      totalNetWorth: netWorth,
-    };
-  }, [netWorthRes.data, investingSummaryRes.data, portfolioByAccountId, accounts, balancesReportingByAccountId]);
+  // High-level sums in reporting currency — read directly from backend.
+  // Backend is the source of truth; frontend avoids cache-drift bugs
+  // that arise from recalculating per-account balances on every transaction.
+  const totalSpendingCash =
+    netWorthRes.data?.spending_total != null
+      ? Number(netWorthRes.data.spending_total)
+      : 0;
+  const totalInvestingCash =
+    netWorthRes.data?.investing_cash_total != null
+      ? Number(netWorthRes.data.investing_cash_total)
+      : 0;
+  const totalInvestedPortfolio =
+    netWorthRes.data?.holdings_value != null
+      ? Number(netWorthRes.data.holdings_value)
+      : investingSummaryRes.data?.portfolio_value != null
+        ? Number(investingSummaryRes.data.portfolio_value)
+        : 0;
+  const totalNetWorth =
+    netWorthRes.data?.total_net_worth != null
+      ? Number(netWorthRes.data.total_net_worth)
+      : totalSpendingCash + totalInvestingCash + totalInvestedPortfolio;
 
   const selectedAccount = useMemo(() => {
     if (!selectedAccountId) return null;
