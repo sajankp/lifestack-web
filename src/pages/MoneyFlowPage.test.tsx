@@ -811,8 +811,13 @@ describe('MoneyFlowPage', () => {
     const emDashes = await screen.findAllByText('—');
     expect(emDashes.length).toBeGreaterThanOrEqual(2);
 
-    // And critically: no zero-valued currency is rendered for them.
-    expect(screen.queryByText('₹0.00')).not.toBeInTheDocument();
+    // And critically: the card totals themselves are em dashes, not zeros.
+    // Other cards on the page legitimately show a zero balance, so the
+    // assertion is scoped to the total-value element inside the card.
+    const cashCard = screen.getByText('Total Liquid Cash').closest('div.rounded-2xl');
+    expect(cashCard).not.toBeNull();
+    expect(cashCard?.textContent).toContain('—');
+    expect(cashCard?.textContent).not.toContain('₹0.00');
   });
 
   it('falls back to the partial totals the backend provides for a partial valuation', async () => {
@@ -891,7 +896,11 @@ describe('MoneyFlowPage', () => {
 
     await screen.findByText('Total Liquid Cash');
 
-    // The partial total is used, not an em dash.
-    expect(await screen.findByText('₹50,000.00')).toBeInTheDocument();
+    // The partial total is used, not an em dash. The same amount is shown
+    // on both the cash card and the net-worth card, so the assertion is
+    // scoped to the cash card rather than matching globally.
+    const cashCard = screen.getByText('Total Liquid Cash').closest('div.rounded-2xl');
+    expect(cashCard?.textContent).toContain('₹50,000.00');
+    expect(cashCard?.textContent).not.toContain('—');
   });
 });
