@@ -250,6 +250,8 @@ export type InvestingOrder = z.infer<typeof InvestingOrderSchema>;
 export interface InvestingOrderCreate {
   account_id: string;
   order_type: OrderType;
+  instrument_type: InstrumentType;
+  instrument_name: string;
   symbol: string;
   quantity: number;
   price_per_unit: number;
