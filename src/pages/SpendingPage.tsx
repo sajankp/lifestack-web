@@ -604,6 +604,11 @@ export const SpendingPage: React.FC = () => {
         setNewCatName('');
         setNewCatIcon('');
         setNewCatGroupId('');
+        // Close the modal on success. The Oct restructure (56f9956) dropped
+        // this, which left the "Manage Categories" dialog open after a
+        // category was created -- the form was cleared but the user stayed
+        // in a dialog whose purpose (add one category) was already served.
+        setIsCategoriesModalOpen(false);
       },
     },
   );
