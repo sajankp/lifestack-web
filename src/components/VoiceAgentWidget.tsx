@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '../lib/queryKeys';
+import { queryKeys, mutationInvalidations } from '../lib/queryKeys';
 import { reportException, trackEvent } from '../lib/analytics';
 import { Link } from 'react-router';
 import {
@@ -485,15 +485,32 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
       });
 
       if (isSuccess) {
-        // Automatically refresh all relevant dashboards/lists
+        // Refresh everything a voice-agent write can affect.
+        //
+        // The previous list named individual spending keys
+        // (spending.transactions(), spending.summary(), spending.budgets())
+        // instead of the module prefixes. Anything parameterised under a
+        // different key -- the spending analytics cards, the recurring rules,
+        // the KPIs -- was left stale, so a transaction created by voice
+        // showed up in the transaction list but not in the analytics that
+        // summarise it.
+        //
+        // mutationInvalidations carries the same module prefixes the
+        // manual-mutation paths use, so the two paths cannot drift.
+        const keys = new Set<readonly unknown[]>([
+          ...mutationInvalidations.transaction,
+          ...mutationInvalidations.transfer,
+          ...mutationInvalidations.order,
+          ...mutationInvalidations.dividend,
+          ...mutationInvalidations.account,
+        ]);
+        for (const key of keys) {
+          void queryClient.invalidateQueries({ queryKey: key });
+        }
         void queryClient.invalidateQueries({ queryKey: queryKeys.todo.all });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.spending.transactions() });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.spending.summary() });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.spending.budgets() });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.investing.all });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.finance.all });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
         void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.health.all });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.summaries.all });
       }
     } else if (msg.type === 'interrupted') {
       clearAudioQueue();

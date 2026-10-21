@@ -4,6 +4,7 @@ import { Calendar, DollarSign, TrendingUp } from 'lucide-react';
 import { investingService } from '../../services/investing';
 import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { toNumber } from '../../utils/numberFormat';
+import { queryKeys } from '../../lib/queryKeys';
 import type { MonthlyDividendPoint } from '../../types/investing';
 
 interface DividendTrajectoryCardProps {
@@ -26,7 +27,7 @@ export const DividendTrajectoryCard: React.FC<DividendTrajectoryCardProps> = ({
   const [hoveredPoint, setHoveredPoint] = useState<MonthlyDividendPoint | null>(null);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['investing-dividend-history'],
+    queryKey: queryKeys.investing.dividendHistory(),
     queryFn: () => investingService.getDividendHistory(),
   });
 

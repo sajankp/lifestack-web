@@ -7,6 +7,7 @@ import { useCurrencyFormatter, useDisplayProfile } from '../../hooks/useDisplayP
 import { formatCompactNumber } from '../../utils/numberFormat';
 import { formatMonthLabel, monthShortLabel } from './format';
 import { SpendPacingCard } from './SpendPacingCard';
+import { queryKeys } from '../../lib/queryKeys';
 
 
 const DONUT_COLORS = [
@@ -118,13 +119,17 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
 
   // Queries
   const { data: trendsData, isLoading: isTrendsLoading } = useQuery({
-    queryKey: ['spending-trends', analyticsRange.fromMonth, analyticsRange.toMonth],
+    queryKey: queryKeys.spending.trends(analyticsRange.fromMonth, analyticsRange.toMonth),
     queryFn: () => spendingService.getTrends(analyticsRange.fromMonth, analyticsRange.toMonth),
     enabled: !!analyticsRange.fromMonth,
   });
 
   const { data: breakdownData, isLoading: isBreakdownLoading } = useQuery({
-    queryKey: ['spending-breakdown', analyticsRange.fromDate, analyticsRange.toDate, breakdownType],
+    queryKey: queryKeys.spending.breakdown(
+      analyticsRange.fromDate,
+      analyticsRange.toDate,
+      breakdownType,
+    ),
     queryFn: () =>
       spendingService.getCategoryBreakdown(
         analyticsRange.fromDate,
@@ -153,7 +158,10 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
   });
 
   const { data: savingsRateData, isLoading: isSavingsRateLoading } = useQuery({
-    queryKey: ['spending-savings-rate', analyticsRange.fromMonth, analyticsRange.toMonth],
+    queryKey: queryKeys.spending.savingsRate(
+      analyticsRange.fromMonth,
+      analyticsRange.toMonth,
+    ),
     queryFn: () => spendingService.getSavingsRate(analyticsRange.fromMonth, analyticsRange.toMonth),
     enabled: !!analyticsRange.fromMonth,
   });

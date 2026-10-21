@@ -4,6 +4,7 @@ import { PieChart } from 'lucide-react';
 import { investingService } from '../../services/investing';
 import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { toNumber } from '../../utils/numberFormat';
+import { queryKeys } from '../../lib/queryKeys';
 import type { AssetClassAllocationItem, SectorAllocationItem } from '../../types/investing';
 
 const ALLOCATION_COLORS = [
@@ -53,7 +54,7 @@ export const PortfolioAllocationCard: React.FC<PortfolioAllocationCardProps> = (
   const [dimension, setDimension] = useState<'asset_class' | 'sector'>('asset_class');
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['investing-allocation', asOf],
+    queryKey: queryKeys.investing.allocation(asOf),
     queryFn: () => investingService.getAllocationAnalytics(asOf),
   });
 
