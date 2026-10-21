@@ -41,11 +41,7 @@ const bucketLabel = (key: string) => {
   return `${regimeShort(regime ?? '')} ${term === 'long_term' ? 'long-term' : 'short-term'}`;
 };
 
-interface TaxTabProps {
-  currencyDisplayPreference: 'symbol' | 'code';
-}
-
-export const TaxTab: React.FC<TaxTabProps> = ({ currencyDisplayPreference }) => {
+export const TaxTab: React.FC = () => {
   // The FY selector is a free picker: any FY can be typed, and an FY with
   // no recorded sells returns an explanatory empty state rather than a
   // disabled control.
@@ -61,7 +57,7 @@ export const TaxTab: React.FC<TaxTabProps> = ({ currencyDisplayPreference }) => 
   });
 
   const summary: TaxSummary | undefined = summaryQuery.data;
-  const formatter = useCurrencyFormatter(currencyDisplayPreference);
+  const formatter = useCurrencyFormatter();
 
   const buckets = useMemo(
     () => Object.entries(summary?.buckets ?? {}),

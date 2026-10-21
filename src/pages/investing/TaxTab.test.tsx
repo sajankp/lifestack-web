@@ -123,6 +123,7 @@ const SUMMARY = {
   assumptions: ['Regime foreign applied to 5 of 7 sells.'],
   disclaimers: ['This is an estimate, not a filing-ready liability.'],
   reconciliation_failures: [],
+  missing_fx_rates: [],
   message: null,
 };
 
@@ -132,7 +133,7 @@ const renderTab = () => {
   });
   return render(
     <QueryClientProvider client={client}>
-      <TaxTab currencyDisplayPreference="symbol" />
+      <TaxTab />
     </QueryClientProvider>,
   );
 };

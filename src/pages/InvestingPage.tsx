@@ -681,7 +681,7 @@ export const InvestingPage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="tax">
-          <TaxTab currencyDisplayPreference={currencyDisplayPreference} />
+          <TaxTab />
         </TabsContent>
       </Tabs>
 
