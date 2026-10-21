@@ -17,8 +17,10 @@ import { Button } from '../ui/button';
 import { formatCurrency } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
 import { useDisplayProfile } from '../../hooks/useDisplayProfile';
+import { useEffectiveTimezone } from '../../hooks/useEffectiveTimezone';
 import { financeService } from '../../services/finance';
 import { queryKeys } from '../../lib/queryKeys';
+import { dailyClosingEntryIds } from '../../pages/spending/dailyClosing';
 import type { Account, ActivityFeedItem } from '../../types/finance';
 
 interface AccountDetailViewProps {
@@ -64,6 +66,7 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
   isDeletePending = false,
 }) => {
   const displayProfile = useDisplayProfile();
+  const effectiveTimezone = useEffectiveTimezone();
 
   const isBrokerage = account.account_type === 'brokerage';
 
@@ -141,6 +144,33 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
       totalOutflow: outflowSum,
     };
   }, [activityItems, account.public_id, currentBalance, offset, precedingEventsRes.data]);
+
+  // Daily-closing highlight (spec-011): the chronologically latest entry of
+  // each calendar day is that day's closing balance, so the user can match
+  // daily closing balances against a statement without doing the arithmetic.
+  //
+  // The feed is newest-first and paginated. A page that starts in the middle
+  // of a day must NOT highlight its first row -- that row is not the day's
+  // close. So the first row of a page counts as a closing entry only when the
+  // entry immediately preceding it (newer, on an earlier page) falls on a
+  // different calendar day.
+  const dailyClosingIds = useMemo(() => {
+    const accountEvents = activityItems.filter(
+      (item) => item.account_id === account.public_id,
+    );
+    // The newest entry from the previous page, used only for the
+    // page-boundary comparison.
+    const precedingNewer = precedingEventsRes.data?.items?.find(
+      (item) => item.account_id === account.public_id,
+    );
+    return dailyClosingEntryIds(
+      accountEvents.map((item) => ({ public_id: item.id, occurred_at: item.date })),
+      precedingNewer
+        ? { public_id: precedingNewer.id, occurred_at: precedingNewer.date }
+        : undefined,
+      effectiveTimezone,
+    );
+  }, [activityItems, account.public_id, precedingEventsRes.data, effectiveTimezone]);
 
   const Icon = ACCOUNT_ICONS[account.account_type] ?? Wallet;
 
@@ -311,8 +341,19 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
-                {itemsWithRunningBalance.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
+                {itemsWithRunningBalance.map((item) => {
+                  const isDailyClosing = dailyClosingIds.has(item.id);
+                  return (
+                  <tr
+                    key={item.id}
+                    data-daily-close={isDailyClosing ? 'true' : undefined}
+                    data-entry-id={item.id}
+                    className={`transition-colors ${
+                      isDailyClosing
+                        ? 'bg-teal-950/30 ring-1 ring-inset ring-teal-500/20 hover:bg-teal-950/40'
+                        : 'hover:bg-slate-800/30'
+                    }`}
+                  >
                     <td className="px-4 py-3 whitespace-nowrap text-slate-300 font-mono text-[11px]">
                       {formatDate(item.date)}
                     </td>
@@ -343,14 +384,27 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
                         displayProfile.decimalPlaces,
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-100 whitespace-nowrap bg-slate-800/10">
-                      {formatCurrency(
-                        item.runningBalance,
-                        account.default_currency_code,
-                        displayProfile.currencyDisplay,
-                        displayProfile.locale,
-                        displayProfile.decimalPlaces,
-                      )}
+                    <td
+                      className={`px-4 py-3 text-right font-mono font-bold whitespace-nowrap ${
+                        isDailyClosing
+                          ? 'text-teal-200 bg-teal-500/10'
+                          : 'text-slate-100 bg-slate-800/10'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        {formatCurrency(
+                          item.runningBalance,
+                          account.default_currency_code,
+                          displayProfile.currencyDisplay,
+                          displayProfile.locale,
+                          displayProfile.decimalPlaces,
+                        )}
+                        {isDailyClosing && (
+                          <span className="rounded bg-teal-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-teal-200 whitespace-nowrap">
+                            Daily close
+                          </span>
+                        )}
+                      </span>
                     </td>
                     {(onEditItem || onDeleteItem) && (
                       <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -392,7 +446,8 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
                       </td>
                     )}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
