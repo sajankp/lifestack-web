@@ -1369,6 +1369,7 @@ export const SpendingPage: React.FC = () => {
                     value={field.value}
                     onChange={field.onChange}
                     placeholder="0.00"
+                    data-testid="spending-budget-amount"
                     className="bg-slate-800 border-slate-700 text-white"
                   />
                 )}
