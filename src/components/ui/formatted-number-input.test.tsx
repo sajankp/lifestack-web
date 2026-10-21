@@ -69,6 +69,53 @@ describe('FormattedNumberInput', () => {
     await waitFor(() => expect(input).toBeValid());
   });
 
+  it('accepts ordinary decimal values when min and step are both set', async () => {
+    // Regression: the step base was `min`, so with min="0.000001"
+    // step="0.0001" only 0.000001 + n*0.0001 was accepted. An ordinary FX
+    // rate like 0.8 was rejected, and because the field sets customValidity
+    // the browser silently blocked the form submit -- cross-currency
+    // transfers could not be created from the UI at all.
+    const RateField = () => {
+      const [value, setValue] = useState('0.8');
+      return (
+        <FormattedNumberInput
+          aria-label="Exchange rate"
+          value={value}
+          min="0.000001"
+          step="0.0001"
+          onChange={(event) => setValue(event.target.value)}
+        />
+      );
+    };
+    render(<RateField />);
+    const input = screen.getByRole('spinbutton', { name: 'Exchange rate' });
+
+    await waitFor(() => expect(input).toBeValid());
+  });
+
+  it('still rejects a value that is not a multiple of the step', async () => {
+    const RateField = () => {
+      const [value, setValue] = useState('');
+      return (
+        <FormattedNumberInput
+          aria-label="Exchange rate"
+          value={value}
+          min="0"
+          step="0.01"
+          onChange={(event) => setValue(event.target.value)}
+        />
+      );
+    };
+    render(<RateField />);
+    const input = screen.getByRole('spinbutton', { name: 'Exchange rate' });
+
+    fireEvent.change(input, { target: { value: '0.125' } });
+    await waitFor(() => expect(input).toBeInvalid());
+
+    fireEvent.change(input, { target: { value: '0.12' } });
+    await waitFor(() => expect(input).toBeValid());
+  });
+
   it('does not visually round high-precision values when configured to preserve them', () => {
     render(
       <FormattedNumberInput
