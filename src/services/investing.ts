@@ -19,6 +19,9 @@ import {
   DividendHistoryResponseSchema,
   ReferenceResolveResultSchema,
   ReturnMetricsResponseSchema,
+  TaxProfileSchema,
+  TaxRegimeSchema,
+  TaxSummarySchema,
 } from '../types/investing';
 import type {
   CashBalance,
@@ -51,6 +54,9 @@ import type {
   DividendHistoryResponse,
   ReferenceResolveResult,
   ReturnMetricsResponse,
+  TaxProfile,
+  TaxRegime,
+  TaxSummary,
 } from '../types/investing';
 
 
@@ -253,6 +259,41 @@ export const investingService = {
   getDividendHistory: async (): Promise<DividendHistoryResponse> => {
     const response = await api.get('/investing/dividends/history');
     return DividendHistoryResponseSchema.parse(response.data);
+  },
+
+  // ── Capital gains tax (spec-099) ─────────────────────────────────────────
+
+  getTaxSummary: async (fy?: string, accountId?: string | null): Promise<TaxSummary> => {
+    const response = await api.get('/investing/tax/summary', {
+      params: { fy: fy ?? undefined, account_id: accountId ?? undefined },
+    });
+    return TaxSummarySchema.parse(response.data);
+  },
+
+  getTaxRegimes: async (): Promise<TaxRegime[]> => {
+    const response = await api.get('/investing/tax/regimes');
+    return z.array(TaxRegimeSchema).default([]).parse(response.data);
+  },
+
+  getTaxProfile: async (): Promise<TaxProfile> => {
+    const response = await api.get('/investing/tax/profile');
+    return TaxProfileSchema.parse(response.data);
+  },
+
+  updateTaxProfile: async (data: {
+    resident_status?: string;
+    tax_regime?: string;
+    other_income?: string;
+    slab_override_pct?: string | null;
+    surcharge_override_pct?: string | null;
+    cess_pct?: string;
+    explicit_regime?: string | null;
+    apply_carry_forward?: boolean;
+    fx_overrides?: Record<string, string>;
+    notes?: string | null;
+  }): Promise<TaxProfile> => {
+    const response = await api.patch('/investing/tax/profile', data);
+    return TaxProfileSchema.parse(response.data);
   },
 
 

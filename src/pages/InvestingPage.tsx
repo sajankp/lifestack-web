@@ -37,6 +37,7 @@ import {
 import { HoldingsTab } from './investing/HoldingsTab';
 import { OrdersTab } from './investing/OrdersTab';
 import { AnalyticsTab } from './investing/AnalyticsTab';
+import { TaxTab } from './investing/TaxTab';
 import { SummaryCard } from './investing/components';
 import { ReturnMetricsPanel } from '../components/investing/ReturnMetricsPanel';
 import { formatDateTimeLocalInput, formatPerformanceMetric, statusLabel } from './investing/format';
@@ -44,11 +45,12 @@ import { mutationInvalidations, queryKeys } from '../lib/queryKeys';
 
 const refreshKeys = mutationInvalidations.order;
 
-type InvestingTab = 'holdings' | 'orders' | 'analytics';
+type InvestingTab = 'holdings' | 'orders' | 'analytics' | 'tax';
 const INVESTING_TAB_ROUTES: Record<InvestingTab, string> = {
   holdings: 'holdings',
   orders: 'orders',
   analytics: 'analytics',
+  tax: 'tax',
 };
 const INVESTING_ROUTE_TABS: Record<string, InvestingTab> = Object.fromEntries(
   Object.entries(INVESTING_TAB_ROUTES).map(([tab, route]) => [route, tab]),
@@ -641,6 +643,14 @@ export const InvestingPage: React.FC = () => {
             >
               Analytics
             </TabsTrigger>
+
+            <TabsTrigger
+              className="min-w-fit sm:min-w-[8rem]"
+              data-testid="investing-tab-tax"
+              value="tax"
+            >
+              Tax
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -668,6 +678,10 @@ export const InvestingPage: React.FC = () => {
 
         <TabsContent value="analytics">
           <AnalyticsTab currencyDisplayPreference={currencyDisplayPreference} />
+        </TabsContent>
+
+        <TabsContent value="tax">
+          <TaxTab />
         </TabsContent>
       </Tabs>
 
