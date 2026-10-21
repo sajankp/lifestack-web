@@ -33,9 +33,13 @@ interface AccountMapProps {
   isLoading?: boolean;
   reportingCurrency?: string;
   fxRates?: Record<string, number | string>;
-  totalSpendingCash?: number;
-  totalInvestingCash?: number;
-  totalInvestedPortfolio?: number;
+  // `null` means "the backend could not compute this total" (reporting
+  // currency unset, or a balance that could not be converted). The
+  // `??` fallbacks below treat null and undefined the same way, so the
+  // per-account sum is used when the headline total is unavailable.
+  totalSpendingCash?: number | null;
+  totalInvestingCash?: number | null;
+  totalInvestedPortfolio?: number | null;
 }
 
 export const AccountMap: React.FC<AccountMapProps> = ({

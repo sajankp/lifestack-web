@@ -229,53 +229,57 @@ export const MoneyFlowPage: React.FC = () => {
     return map;
   }, [accounts, holdingsRes.data, investingSummaryRes.data, reportingCurrency, fxRates]);
 
-  // High-level sums in reporting currency
-  const { totalSpendingCash, totalInvestingCash, totalInvestedPortfolio, totalNetWorth } = useMemo(() => {
-    let spendingCash = 0;
-    if (netWorthRes.data?.spending_total != null) {
-      spendingCash = Number(netWorthRes.data.spending_total);
-    } else {
-      accounts
-        .filter((a) => a.account_type !== 'brokerage')
-        .forEach((a) => {
-          spendingCash += balancesReportingByAccountId[a.public_id] || 0;
-        });
-    }
+  // High-level sums in reporting currency — read directly from backend.
+  // Backend is the source of truth; frontend avoids cache-drift bugs
+  // that arise from recalculating per-account balances on every transaction.
+  //
+  // The backend returns null for a total it cannot compute honestly:
+  //   - spending_total / total_net_worth are null when the reporting
+  //     currency is unset or a balance could not be converted
+  //     (valuation_status 'empty' | 'no_reporting_currency' | 'partial').
+  //   - for 'partial' the backend also sends spending_total_partial /
+  //     total_net_worth_partial, the sum of the part that DID convert.
+  //
+  // Collapsing a null to 0 would claim "you have no money" for a workspace
+  // whose reporting currency is simply not configured. The totals are
+  // therefore nullable here, and the render layer shows an em dash for a
+  // value the backend declined to compute.
+  const totalSpendingCash: number | null =
+    netWorthRes.data?.spending_total != null
+      ? Number(netWorthRes.data.spending_total)
+      : netWorthRes.data?.spending_total_partial != null
+        ? Number(netWorthRes.data.spending_total_partial)
+        : null;
+  const totalInvestingCash: number | null =
+    netWorthRes.data?.investing_cash_total != null
+      ? Number(netWorthRes.data.investing_cash_total)
+      : null;
+  const totalInvestedPortfolio: number | null =
+    netWorthRes.data?.holdings_value != null
+      ? Number(netWorthRes.data.holdings_value)
+      : investingSummaryRes.data?.portfolio_value != null
+        ? Number(investingSummaryRes.data.portfolio_value)
+        : null;
+  const totalNetWorth: number | null =
+    netWorthRes.data?.total_net_worth != null
+      ? Number(netWorthRes.data.total_net_worth)
+      : netWorthRes.data?.total_net_worth_partial != null
+        ? Number(netWorthRes.data.total_net_worth_partial)
+        : totalSpendingCash != null && totalInvestingCash != null && totalInvestedPortfolio != null
+          ? totalSpendingCash + totalInvestingCash + totalInvestedPortfolio
+          : null;
 
-    let investingCash = 0;
-    if (netWorthRes.data?.investing_cash_total != null) {
-      investingCash = Number(netWorthRes.data.investing_cash_total);
-    } else {
-      accounts
-        .filter((a) => a.account_type === 'brokerage')
-        .forEach((a) => {
-          investingCash += balancesReportingByAccountId[a.public_id] || 0;
-        });
-    }
-
-    let portfolioVal = 0;
-    if (netWorthRes.data?.holdings_value != null) {
-      portfolioVal = Number(netWorthRes.data.holdings_value);
-    } else if (investingSummaryRes.data?.portfolio_value != null) {
-      portfolioVal = Number(investingSummaryRes.data.portfolio_value);
-    } else {
-      Object.values(portfolioByAccountId).forEach((p) => {
-        portfolioVal += p.totalInvestedReporting;
-      });
-    }
-
-    const netWorth =
-      netWorthRes.data?.total_net_worth != null
-        ? Number(netWorthRes.data.total_net_worth)
-        : spendingCash + investingCash + portfolioVal;
-
-    return {
-      totalSpendingCash: spendingCash,
-      totalInvestingCash: investingCash,
-      totalInvestedPortfolio: portfolioVal,
-      totalNetWorth: netWorth,
-    };
-  }, [netWorthRes.data, investingSummaryRes.data, portfolioByAccountId, accounts, balancesReportingByAccountId]);
+  // A total the backend could not compute renders as an em dash, not a zero.
+  const formatTotal = (value: number | null): string =>
+    value == null
+      ? '—'
+      : formatCurrency(
+          value,
+          reportingCurrency,
+          displayProfile.currencyDisplay,
+          displayProfile.locale,
+          displayProfile.decimalPlaces,
+        );
 
   const selectedAccount = useMemo(() => {
     if (!selectedAccountId) return null;
@@ -453,13 +457,7 @@ export const MoneyFlowPage: React.FC = () => {
               </div>
               <div className="mt-2">
                 <span className="font-mono text-2xl font-bold text-emerald-400">
-                  {formatCurrency(
-                    totalSpendingCash,
-                    reportingCurrency,
-                    displayProfile.currencyDisplay,
-                    displayProfile.locale,
-                    displayProfile.decimalPlaces,
-                  )}
+                  {formatTotal(totalSpendingCash)}
                 </span>
                 <p className="mt-0.5 text-xs text-slate-500">Cash across checking, savings & wallets</p>
               </div>
@@ -475,13 +473,7 @@ export const MoneyFlowPage: React.FC = () => {
               </div>
               <div className="mt-2">
                 <span className="font-mono text-2xl font-bold text-emerald-400">
-                  {formatCurrency(
-                    totalInvestingCash,
-                    reportingCurrency,
-                    displayProfile.currencyDisplay,
-                    displayProfile.locale,
-                    displayProfile.decimalPlaces,
-                  )}
+                  {formatTotal(totalInvestingCash)}
                 </span>
                 <p className="mt-0.5 text-xs text-slate-500">Unallocated cash in trading accounts</p>
               </div>
@@ -497,17 +489,11 @@ export const MoneyFlowPage: React.FC = () => {
               </div>
               <div className="mt-2">
                 <span className="font-mono text-2xl font-bold text-cyan-300">
-                  {formatCurrency(
-                    totalNetWorth,
-                    reportingCurrency,
-                    displayProfile.currencyDisplay,
-                    displayProfile.locale,
-                    displayProfile.decimalPlaces,
-                  )}
+                  {formatTotal(totalNetWorth)}
                 </span>
                 <div className="mt-0.5 flex items-center justify-between">
                   <span className="text-xs text-slate-500">
-                    Invested: {formatCurrency(totalInvestedPortfolio, reportingCurrency, displayProfile.currencyDisplay, displayProfile.locale, displayProfile.decimalPlaces)}
+                    Invested: {formatTotal(totalInvestedPortfolio)}
                   </span>
                   <span className="text-xs text-slate-400">
                     Unified Net Worth

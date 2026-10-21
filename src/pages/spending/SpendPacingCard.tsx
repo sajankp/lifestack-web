@@ -14,6 +14,7 @@ import {
 import { spendingService } from '../../services/spending';
 import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { toNumber } from '../../utils/numberFormat';
+import { queryKeys } from '../../lib/queryKeys';
 
 interface SpendPacingCardProps {
   selectedMonth: string;
@@ -29,7 +30,7 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
   const formatCurrency = useCurrencyFormatter();
 
   const { data: pacing, isLoading, isError } = useQuery({
-    queryKey: ['spend-pacing', selectedMonth],
+    queryKey: queryKeys.spending.pacing(selectedMonth),
     queryFn: () => spendingService.getSpendPacing(selectedMonth),
     enabled: !!selectedMonth,
   });

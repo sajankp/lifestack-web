@@ -2,6 +2,11 @@
 
 **Created:** 2026-08-04
 **Status:** Implemented 2026-08-04 — persisted general user timezone; Account activity is the first consumer
+**Re-implemented:** 2026-10-21 — the highlight was dropped when `SpendingPage` was restructured into
+4 planning tabs (commit `56f9956`) and the ledger moved to `/money`. The `dailyClosingEntryIds`
+helper survived but was referenced by nothing except its own test. It is now implemented on
+`AccountDetailView` (the account drill-down on `/money`), which is the view that shows the running
+balance. The helper is unchanged and still the single source of truth for the day-boundary rule.
 **Scope:** `lifestack-api` + `lifestack-web`.
 
 ---

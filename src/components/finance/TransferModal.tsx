@@ -52,7 +52,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [tax, setTax] = useState('0');
   const [notes, setNotes] = useState('');
   const [date, setDate] = useState(formatDateInputValue(new Date()));
-  const [showFeesDisclosure, setShowFeesDisclosure] = useState(false);
+  const feesDisclosureRef = React.useRef<HTMLDetailsElement>(null);
 
   const accountById = new Map(accounts.map((account) => [account.public_id, account]));
   const fromAccount = accountById.get(fromAccountId);
@@ -72,14 +72,14 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       setTax('0');
       setNotes('');
       setDate(new Date().toISOString().split('T')[0]);
-      setShowFeesDisclosure(false);
+      if (feesDisclosureRef.current) feesDisclosureRef.current.open = false;
     }
   }, [defaultFromAccountId, open]);
 
   // Auto-open fees disclosure when cross-currency is detected
   useEffect(() => {
-    if (isCrossCurrency) {
-      setShowFeesDisclosure(true);
+    if (isCrossCurrency && feesDisclosureRef.current) {
+      feesDisclosureRef.current.open = true;
     }
   }, [isCrossCurrency]);
 
@@ -245,6 +245,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
                 required
+                data-testid="transfer-amount"
               />
             </div>
             <div>
@@ -252,10 +253,18 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               <DatePicker value={date} onChange={setDate} required />
             </div>
           </div>
+          {/* Uncontrolled <details>, like every other disclosure in the app.
+
+            It was previously driven by React (`open={showFeesDisclosure}` plus
+            an `onToggle` that wrote the state back), which deadlocked: React
+            re-rendered the element closed before the native toggle could
+            take effect, so the "Add fees / cross-currency" section could
+            never be opened and the cross-currency exchange-rate field stayed
+            permanently hidden. The `group-open:` variant rotates the
+            chevron without any state. */}
           <details
+            ref={feesDisclosureRef}
             className="group rounded-xl border border-slate-700/50 bg-slate-800/30 p-3"
-            open={showFeesDisclosure}
-            onToggle={(e) => setShowFeesDisclosure(e.currentTarget.open)}
           >
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
               <span className="flex items-center gap-2 text-sm font-medium text-slate-300">
@@ -302,6 +311,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                       value={fxRate}
                       onChange={(e) => setFxRate(e.target.value)}
                       placeholder={fxDirection === 'from_per_to' ? 'e.g. 95.00' : 'e.g. 0.0105'}
+                      data-testid="transfer-fx-rate"
                       className="flex-1"
                       required
                     />
@@ -323,6 +333,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                       step="0.0000000001"
                       value={fxRate}
                       onChange={(e) => setFxRate(e.target.value)}
+                      data-testid="transfer-fx-rate"
                     />
                   </div>
                 )}
@@ -333,6 +344,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     step="0.01"
                     value={fxFee}
                     onChange={(e) => setFxFee(e.target.value)}
+                    data-testid="transfer-fx-fee"
                   />
                 </div>
                 <div>
@@ -342,6 +354,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     step="0.01"
                     value={platformFee}
                     onChange={(e) => setPlatformFee(e.target.value)}
+                    data-testid="transfer-platform-fee"
                   />
                 </div>
                 <div>
@@ -351,6 +364,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     step="0.01"
                     value={tax}
                     onChange={(e) => setTax(e.target.value)}
+                    data-testid="transfer-tax"
                   />
                 </div>
               </div>

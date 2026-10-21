@@ -50,6 +50,17 @@ export const queryKeys = {
     budgets: <T extends unknown[]>(...params: T) => ['spending', 'budgets', ...params] as const,
     recurring: <T extends unknown[]>(...params: T) => ['spending', 'recurring', ...params] as const,
     kpis: <T extends unknown[]>(...params: T) => ['spending', 'kpis', ...params] as const,
+    // These used to be bare siblings ('spending-trends', 'spending-breakdown',
+    // 'spending-savings-rate', 'spend-pacing'). A sibling string is NOT a
+    // child of ['spending'] in TanStack Query's prefix match, so
+    // invalidating queryKeys.spending.all never reached them and the
+    // analytics cards kept showing pre-mutation numbers.
+    trends: <T extends unknown[]>(...params: T) => ['spending', 'trends', ...params] as const,
+    breakdown: <T extends unknown[]>(...params: T) =>
+      ['spending', 'breakdown', ...params] as const,
+    savingsRate: <T extends unknown[]>(...params: T) =>
+      ['spending', 'savings-rate', ...params] as const,
+    pacing: <T extends unknown[]>(...params: T) => ['spending', 'pacing', ...params] as const,
   },
 
   // ── Notifications ──────────────────────────────────────────────────────────
@@ -121,6 +132,15 @@ export const queryKeys = {
       ['investing', 'corporate-actions', ...params] as const,
     exposure: (asOf: string) => ['investing', 'analytics', 'exposure', asOf] as const,
     overlap: (asOf: string) => ['investing', 'analytics', 'overlap', asOf] as const,
+    // These used to be bare siblings ('investing-dividend-history',
+    // 'investing-performance-history', 'investing-allocation'), so
+    // invalidating queryKeys.investing.all never reached them.
+    dividendHistory: <T extends unknown[]>(...params: T) =>
+      ['investing', 'dividend-history', ...params] as const,
+    performanceHistory: <T extends unknown[]>(...params: T) =>
+      ['investing', 'performance-history', ...params] as const,
+    allocation: <T extends unknown[]>(...params: T) =>
+      ['investing', 'allocation', ...params] as const,
   },
 
   // ── Finance ────────────────────────────────────────────────────────────────

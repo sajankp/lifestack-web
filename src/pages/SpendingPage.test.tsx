@@ -359,6 +359,13 @@ describe('SpendingPage', () => {
         }),
       );
     });
+
+    // The dialog closes once the category is created. The Oct restructure
+    // (56f9956) dropped the setIsCategoriesModalOpen(false) call, which
+    // left the dialog open with a cleared form after a successful create.
+    await waitFor(() => {
+      expect(screen.queryByText('Manage Categories')).not.toBeInTheDocument();
+    });
   });
 
   it('allows selecting multi-month budget performance range on budgets tab', async () => {

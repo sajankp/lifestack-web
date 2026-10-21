@@ -12,6 +12,7 @@ import { investingService } from '../../services/investing';
 import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { toNumber } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
+import { queryKeys } from '../../lib/queryKeys';
 
 type RangeOption = '1M' | '3M' | '6M' | '1Y' | 'ALL';
 
@@ -44,7 +45,7 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
   }, [range]);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['investing-performance-history', startDate, endDate],
+    queryKey: queryKeys.investing.performanceHistory(startDate, endDate),
     queryFn: () =>
       investingService.getPerformanceHistory({
         start_date: startDate,

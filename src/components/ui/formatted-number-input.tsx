@@ -35,11 +35,15 @@ const numericConstraintMessage = (
   if (max !== undefined && numericValue > Number(max)) return `Value must be at most ${max}.`;
   if (step !== undefined && step !== 'any') {
     const numericStep = Number(step);
-    const numericBase = min === undefined ? 0 : Number(min);
-    if (Number.isFinite(numericStep) && numericStep > 0 && Number.isFinite(numericBase)) {
-      const stepsFromBase = (numericValue - numericBase) / numericStep;
-      const tolerance = 1e-9 * Math.max(1, Math.abs(stepsFromBase));
-      if (Math.abs(stepsFromBase - Math.round(stepsFromBase)) > tolerance) {
+    // The step base is 0, NOT `min`. The HTML spec uses `min` as the base for
+    // type=number inputs, but that is a trap for a decimal field: with
+    // min="0.000001" step="0.0001" only 0.000001 + n*0.0001 is accepted, so
+    // an ordinary rate like 0.8 is rejected and the browser silently blocks
+    // the form submit. "Increments of 0.0001" means multiples of 0.0001.
+    if (Number.isFinite(numericStep) && numericStep > 0) {
+      const stepsFromZero = numericValue / numericStep;
+      const tolerance = 1e-9 * Math.max(1, Math.abs(stepsFromZero));
+      if (Math.abs(stepsFromZero - Math.round(stepsFromZero)) > tolerance) {
         return `Value must use increments of ${step}.`;
       }
     }

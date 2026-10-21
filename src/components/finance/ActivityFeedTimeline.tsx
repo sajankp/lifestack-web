@@ -186,6 +186,7 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
           {onSelectAccount && (
             <div className="w-40 sm:w-48">
               <DropdownSelect
+                testId="activity-feed-account-filter"
                 options={accountOptions}
                 value={selectedAccountId ?? ''}
                 onChange={(val) => onSelectAccount(val ? val : null)}

@@ -50,7 +50,9 @@ import { AnalyticsTab } from './spending/AnalyticsTab';
 import {
   buildMonthOptions,
   getCurrentMonthValue,
+  monthStartToMonthValue,
   monthValueToDateRange,
+  monthValueToMonthStart,
 } from './spending/format';
 
 const budgetFormSchema = z
@@ -462,8 +464,12 @@ export const SpendingPage: React.FC = () => {
       const payload: BudgetCreate = {
         category_id: values.scope === 'category' ? values.categoryId : undefined,
         category_group_id: values.scope === 'group' ? values.groupId : undefined,
-        start_month: values.startMonth,
-        end_month: values.endMonth || undefined,
+        // The API's start_month/end_month are dates pinned to the first of
+        // the month; the form works in YYYY-MM. The form schema already
+        // guarantees startMonth matches /^\d{4}-\d{2}$/, so the conversion
+        // always succeeds.
+        start_month: monthValueToMonthStart(values.startMonth) ?? values.startMonth,
+        end_month: values.endMonth ? monthValueToMonthStart(values.endMonth) : undefined,
         amount: Number(values.amount),
       };
       await spendingService.createBudget(payload);
@@ -483,7 +489,7 @@ export const SpendingPage: React.FC = () => {
       if (!editingBudget) return;
       const payload: BudgetUpdate = {
         amount: Number(values.amount),
-        end_month: values.endMonth || undefined,
+        end_month: values.endMonth ? monthValueToMonthStart(values.endMonth) : undefined,
       };
       await spendingService.updateBudget(editingBudget.public_id, payload);
     },
@@ -604,6 +610,11 @@ export const SpendingPage: React.FC = () => {
         setNewCatName('');
         setNewCatIcon('');
         setNewCatGroupId('');
+        // Close the modal on success. The Oct restructure (56f9956) dropped
+        // this, which left the "Manage Categories" dialog open after a
+        // category was created -- the form was cleared but the user stayed
+        // in a dialog whose purpose (add one category) was already served.
+        setIsCategoriesModalOpen(false);
       },
     },
   );
@@ -693,8 +704,10 @@ export const SpendingPage: React.FC = () => {
       scope: b.category_group_id ? 'group' : 'category',
       categoryId: b.category_id ?? '',
       groupId: b.category_group_id ?? '',
-      startMonth: b.start_month,
-      endMonth: b.end_month ?? '',
+      // The API returns start_month/end_month as full dates; the form works
+      // in YYYY-MM.
+      startMonth: monthStartToMonthValue(b.start_month),
+      endMonth: b.end_month ? monthStartToMonthValue(b.end_month) : '',
       amount: String(b.amount),
     });
     setIsBudgetModalOpen(true);
@@ -740,6 +753,7 @@ export const SpendingPage: React.FC = () => {
               variant="secondary"
               size="sm"
               onClick={() => setIsCategoriesModalOpen(true)}
+              data-testid="spending-open-manage-categories"
               className="border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white"
             >
               <Settings2 className="mr-1.5 h-3.5 w-3.5" />
@@ -758,6 +772,7 @@ export const SpendingPage: React.FC = () => {
               <Button
                 size="sm"
                 onClick={openRecurringModalForNew}
+                data-testid="spending-open-add-recurring"
                 className="bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/20"
               >
                 <Plus className="mr-1.5 h-4 w-4" />
@@ -768,6 +783,7 @@ export const SpendingPage: React.FC = () => {
               <Button
                 size="sm"
                 onClick={openBudgetModalForNew}
+                data-testid="spending-open-set-budget"
                 className="bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-500/20"
               >
                 <Plus className="mr-1.5 h-4 w-4" />
@@ -1037,6 +1053,7 @@ export const SpendingPage: React.FC = () => {
                 name="categoryId"
                 render={({ field }) => (
                   <DropdownSelect
+                    testId="spending-recurring-category"
                     options={categoryFilterOptions}
                     value={field.value}
                     onChange={field.onChange}
@@ -1058,6 +1075,7 @@ export const SpendingPage: React.FC = () => {
                 name="accountId"
                 render={({ field }) => (
                   <DropdownSelect
+                    testId="spending-recurring-account"
                     options={accountOptions}
                     value={field.value ?? ''}
                     onChange={field.onChange}
@@ -1078,6 +1096,7 @@ export const SpendingPage: React.FC = () => {
                     <FormattedNumberInput
                       min="0.01"
                       step="0.01"
+                      data-testid="spending-recurring-amount"
                       value={field.value}
                       onChange={field.onChange}
                       placeholder="0.00"
@@ -1116,6 +1135,7 @@ export const SpendingPage: React.FC = () => {
               <Label className="text-slate-300 text-xs mb-1 block">Description</Label>
               <Input
                 {...recurringForm.register('description')}
+                data-testid="spending-recurring-description"
                 placeholder="e.g. Netflix Subscription, Gym Membership"
                 className="bg-slate-800 border-slate-700 text-white"
               />
@@ -1129,6 +1149,7 @@ export const SpendingPage: React.FC = () => {
                   name="frequency"
                   render={({ field }) => (
                     <DropdownSelect
+                      testId="spending-recurring-frequency"
                       options={[
                         { value: 'daily', label: 'Daily' },
                         { value: 'weekly', label: 'Weekly' },
@@ -1161,7 +1182,12 @@ export const SpendingPage: React.FC = () => {
                   control={recurringForm.control}
                   name="anchor_date"
                   render={({ field }) => (
-                    <DatePicker value={field.value} onChange={field.onChange} required />
+                    <DatePicker
+                      testId="spending-recurring-anchor-date"
+                      value={field.value}
+                      onChange={field.onChange}
+                      required
+                    />
                   )}
                 />
               </div>
@@ -1195,6 +1221,9 @@ export const SpendingPage: React.FC = () => {
                 className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white"
                 disabled={
                   createRecurringMutation.isPending || updateRecurringMutation.isPending
+                }
+                data-testid={
+                  editingRecurring ? 'spending-recurring-update' : 'spending-recurring-create'
                 }
               >
                 {createRecurringMutation.isPending || updateRecurringMutation.isPending
@@ -1261,12 +1290,14 @@ export const SpendingPage: React.FC = () => {
                   name="categoryId"
                   render={({ field }) => (
                     <DropdownSelect
+                      testId="spending-budget-category"
                       options={categoryFilterOptions}
                       value={field.value ?? ''}
                       onChange={field.onChange}
                       placeholder="Select category"
                       disabled={!!editingBudget}
                     />
+
                   )}
                 />
                 {budgetForm.formState.errors.categoryId && (
@@ -1346,6 +1377,7 @@ export const SpendingPage: React.FC = () => {
                     value={field.value}
                     onChange={field.onChange}
                     placeholder="0.00"
+                    data-testid="spending-budget-amount"
                     className="bg-slate-800 border-slate-700 text-white"
                   />
                 )}
@@ -1384,6 +1416,7 @@ export const SpendingPage: React.FC = () => {
                 type="submit"
                 className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white"
                 disabled={createBudgetMutation.isPending || updateBudgetMutation.isPending}
+                data-testid="spending-budget-save"
               >
                 {createBudgetMutation.isPending || updateBudgetMutation.isPending
                   ? 'Saving...'
@@ -1409,6 +1442,7 @@ export const SpendingPage: React.FC = () => {
               </h4>
               <Input
                 placeholder="Category name"
+                data-testid="spending-category-name"
                 value={newCatName}
                 onChange={(e) => setNewCatName(e.target.value)}
                 className="bg-slate-800 border-slate-700 text-white text-sm"
@@ -1418,6 +1452,7 @@ export const SpendingPage: React.FC = () => {
                   <Label className="text-slate-400 text-xs mb-1 block">Color</Label>
                   <input
                     type="color"
+                    data-testid="spending-category-color"
                     value={newCatColor}
                     onChange={(e) => setNewCatColor(e.target.value)}
                     className="h-9 w-full rounded border border-slate-700 bg-slate-800 cursor-pointer"
@@ -1437,6 +1472,7 @@ export const SpendingPage: React.FC = () => {
               <Button
                 size="sm"
                 onClick={() => createCategoryMutation.mutate()}
+                data-testid="spending-category-create"
                 disabled={!newCatName.trim() || createCategoryMutation.isPending}
                 className="w-full bg-cyan-600 hover:bg-cyan-500 text-white"
               >
