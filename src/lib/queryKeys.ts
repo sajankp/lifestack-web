@@ -131,6 +131,11 @@ export const queryKeys = {
     corporateActions: <T extends unknown[]>(...params: T) =>
       ['investing', 'corporate-actions', ...params] as const,
     exposure: (asOf: string) => ['investing', 'analytics', 'exposure', asOf] as const,
+    tax: {
+      summary: (fy?: string) => ['investing', 'tax', 'summary', fy ?? null] as const,
+      regimes: () => ['investing', 'tax', 'regimes'] as const,
+      profile: () => ['investing', 'tax', 'profile'] as const,
+    },
     overlap: (asOf: string) => ['investing', 'analytics', 'overlap', asOf] as const,
     // These used to be bare siblings ('investing-dividend-history',
     // 'investing-performance-history', 'investing-allocation'), so

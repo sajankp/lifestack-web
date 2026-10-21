@@ -569,3 +569,117 @@ export type DividendHistoryResponse = z.infer<typeof DividendHistoryResponseSche
 
 
 
+
+
+// ── Capital gains tax (spec-099) ─────────────────────────────────────────
+
+export const TaxBucketSchema = z.object({
+  regime: z.string().default('foreign'),
+  section: z.string().default(''),
+  rate_pct: z.string().default('0'),
+  gain_native: z.string().default('0'),
+  gain_inr: z.string().default('0'),
+  fees_native: z.string().default('0'),
+  fees_inr: z.string().default('0'),
+  exemption_applied: z.string().default('0'),
+  tax: z.string().default('0'),
+  sell_count: z.number().default(0),
+  lot_count: z.number().default(0),
+});
+export type TaxBucket = z.infer<typeof TaxBucketSchema>;
+
+export const TaxFxRateSchema = z.object({
+  month: z.string().default(''),
+  specified_date: z.string().default(''),
+  currency: z.string().default('INR'),
+  rate: z.string().default('0'),
+  source: z.string().default('app_rate_estimate'),
+  is_estimated: z.boolean().default(false),
+});
+export type TaxFxRate = z.infer<typeof TaxFxRateSchema>;
+
+export const TaxSlabSchema = z.object({
+  rate_pct: z.string().default('0'),
+  source: z.string().default('derived'),
+  tax_regime: z.string().default('new'),
+  surcharge_pct: z.string().default('0'),
+  surcharge_source: z.string().default('derived'),
+  cess_pct: z.string().default('4'),
+  rebate_amount: z.string().default('0'),
+  total_income_considered: z.string().default('0'),
+  marginal_relief_applied: z.boolean().default(false),
+});
+export type TaxSlab = z.infer<typeof TaxSlabSchema>;
+
+export const TaxPositionSchema = z.object({
+  symbol: z.string().default(''),
+  account_name: z.string().default(''),
+  instrument_type: z.string().default('stock'),
+  currency: z.string().default('INR'),
+  quantity: z.string().default('0'),
+  cost_per_unit: z.string().default('0'),
+  acquired_at: z.string().default(''),
+  sold_at: z.string().default(''),
+  long_term_mark_date: z.string().default(''),
+  holding_months: z.number().default(0),
+  is_long_term: z.boolean().default(false),
+  regime: z.string().default('foreign'),
+  classified_by: z.string().default(''),
+  classification_detail: z.string().default(''),
+  gain_native: z.string().default('0'),
+  gain_inr: z.string().default('0'),
+  fees_native: z.string().default('0'),
+  sale_price_per_unit: z.string().default('0'),
+});
+export type TaxPosition = z.infer<typeof TaxPositionSchema>;
+
+export const TaxSummarySchema = z.object({
+  status: z.string().default('success'),
+  fy_label: z.string().default(''),
+  currency: z.string().default('INR'),
+  buckets: z.record(z.string(), TaxBucketSchema).default({}),
+  total_gain_inr: z.string().default('0'),
+  total_tax_inr: z.string().default('0'),
+  effective_rate_pct: z.string().default('0'),
+  slab: TaxSlabSchema.nullable().catch(null).default(null),
+  fx_rates: z.array(TaxFxRateSchema).default([]),
+  positions: z.array(TaxPositionSchema).default([]),
+  assumptions: z.array(z.string()).default([]),
+  disclaimers: z.array(z.string()).default([]),
+  reconciliation_failures: z.array(z.record(z.string(), z.string())).default([]),
+  missing_fx_rates: z
+    .array(z.object({ month: z.string().default(''), currency: z.string().default('') }))
+    .default([]),
+  message: z.string().nullable().catch(null).default(null),
+});
+export type TaxSummary = z.infer<typeof TaxSummarySchema>;
+
+export const TaxRegimeSchema = z.object({
+  key: z.string().default(''),
+  label: z.string().default(''),
+  description: z.string().default(''),
+  ltcg_holding_months: z.number().default(24),
+  stcg_section: z.string().default(''),
+  ltcg_section: z.string().default(''),
+  ltcg_rate_pct: z.string().default('0.125'),
+  ltcg_exemption_inr: z.string().default('0'),
+  stcg_is_flat: z.boolean().default(false),
+  stcg_flat_rate_pct: z.string().nullable().catch(null).default(null),
+  cess_pct: z.string().default('4'),
+});
+export type TaxRegime = z.infer<typeof TaxRegimeSchema>;
+
+export const TaxProfileSchema = z.object({
+  public_id: z.string().default(''),
+  resident_status: z.string().default('resident'),
+  tax_regime: z.string().default('new'),
+  other_income: z.string().default('0'),
+  slab_override_pct: z.string().nullable().catch(null).default(null),
+  surcharge_override_pct: z.string().nullable().catch(null).default(null),
+  cess_pct: z.string().default('4'),
+  explicit_regime: z.string().nullable().catch(null).default(null),
+  apply_carry_forward: z.boolean().default(true),
+  fx_overrides: z.record(z.string(), z.string()).default({}),
+  notes: z.string().nullable().catch(null).default(null),
+});
+export type TaxProfile = z.infer<typeof TaxProfileSchema>;
