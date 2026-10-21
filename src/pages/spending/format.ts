@@ -92,6 +92,16 @@ export const buildMonthOptions = (pastCount = 24, futureCount = 12) => {
 
 export const monthStartToMonthValue = (monthStart: string) => monthStart.slice(0, 7);
 
+// The API's budget start_month/end_month are `date` fields that must be the
+// first day of the month (BudgetCreate.validate_first_of_month). The form
+// works in `YYYY-MM`, so the request layer has to widen it.
+export const monthValueToMonthStart = (monthValue: string): string | undefined => {
+  if (!/^\d{4}-\d{2}$/.test(monthValue)) return undefined;
+  const month = Number(monthValue.split('-')[1]);
+  if (month < 1 || month > 12) return undefined;
+  return `${monthValue}-01`;
+};
+
 // Range-containment check mirroring the API's non-overlap/coverage model
 // (spec-064): a budget covers `monthValue` when its start is on/before it and
 // its end (null = ongoing) is on/after it.

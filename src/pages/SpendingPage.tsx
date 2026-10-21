@@ -50,7 +50,9 @@ import { AnalyticsTab } from './spending/AnalyticsTab';
 import {
   buildMonthOptions,
   getCurrentMonthValue,
+  monthStartToMonthValue,
   monthValueToDateRange,
+  monthValueToMonthStart,
 } from './spending/format';
 
 const budgetFormSchema = z
@@ -462,8 +464,12 @@ export const SpendingPage: React.FC = () => {
       const payload: BudgetCreate = {
         category_id: values.scope === 'category' ? values.categoryId : undefined,
         category_group_id: values.scope === 'group' ? values.groupId : undefined,
-        start_month: values.startMonth,
-        end_month: values.endMonth || undefined,
+        // The API's start_month/end_month are dates pinned to the first of
+        // the month; the form works in YYYY-MM. The form schema already
+        // guarantees startMonth matches /^\d{4}-\d{2}$/, so the conversion
+        // always succeeds.
+        start_month: monthValueToMonthStart(values.startMonth) ?? values.startMonth,
+        end_month: values.endMonth ? monthValueToMonthStart(values.endMonth) : undefined,
         amount: Number(values.amount),
       };
       await spendingService.createBudget(payload);
@@ -483,7 +489,7 @@ export const SpendingPage: React.FC = () => {
       if (!editingBudget) return;
       const payload: BudgetUpdate = {
         amount: Number(values.amount),
-        end_month: values.endMonth || undefined,
+        end_month: values.endMonth ? monthValueToMonthStart(values.endMonth) : undefined,
       };
       await spendingService.updateBudget(editingBudget.public_id, payload);
     },
@@ -698,8 +704,10 @@ export const SpendingPage: React.FC = () => {
       scope: b.category_group_id ? 'group' : 'category',
       categoryId: b.category_id ?? '',
       groupId: b.category_group_id ?? '',
-      startMonth: b.start_month,
-      endMonth: b.end_month ?? '',
+      // The API returns start_month/end_month as full dates; the form works
+      // in YYYY-MM.
+      startMonth: monthStartToMonthValue(b.start_month),
+      endMonth: b.end_month ? monthStartToMonthValue(b.end_month) : '',
       amount: String(b.amount),
     });
     setIsBudgetModalOpen(true);
