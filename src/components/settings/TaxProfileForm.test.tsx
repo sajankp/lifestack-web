@@ -72,7 +72,7 @@ describe('TaxProfileForm', () => {
   });
 
   it('updates other_income and submits', async () => {
-    let submittedData: any = null;
+    let submittedData: Record<string, unknown> | null = null;
     mockedInvesting.updateTaxProfile.mockImplementation(async (data) => {
       submittedData = data;
       return { ...DEFAULT_PROFILE, ...data };
@@ -95,7 +95,7 @@ describe('TaxProfileForm', () => {
   });
 
   it('changes tax_regime via Select and submits', async () => {
-    let submittedData: any = null;
+    let submittedData: Record<string, unknown> | null = null;
     mockedInvesting.updateTaxProfile.mockImplementation(async (data) => {
       submittedData = data;
       return { ...DEFAULT_PROFILE, ...data };

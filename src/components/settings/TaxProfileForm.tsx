@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { investingService, type TaxProfile } from '../../services/investing';
+import { investingService } from '../../services/investing';
 import { useToast } from '../../components/ui/toast';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -145,7 +145,7 @@ export const TaxProfileForm: React.FC = () => {
       return;
     }
 
-    const changes: Record<string, any> = {};
+    const changes: Record<string, unknown> = {};
 
     if (residentStatus !== initialValues.resident_status) changes.resident_status = residentStatus;
     if (taxRegime !== initialValues.tax_regime) changes.tax_regime = taxRegime;
