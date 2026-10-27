@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TaxTab } from './TaxTab';
 import { investingService } from '../../services/investing';
+import { ToastProvider } from '../../components/ui/toast';
 
 vi.mock('../../services/investing', () => ({
   investingService: {
@@ -133,7 +135,11 @@ const renderTab = () => {
   });
   return render(
     <QueryClientProvider client={client}>
-      <TaxTab />
+      <ToastProvider>
+        <MemoryRouter>
+          <TaxTab />
+        </MemoryRouter>
+      </ToastProvider>
     </QueryClientProvider>,
   );
 };
