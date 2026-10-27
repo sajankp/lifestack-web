@@ -739,7 +739,8 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                     <div
                       key={h.public_id}
                       className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-4"
-                    >                      data-testid={`investing-holding-symbol-${h.symbol}`}
+                      data-testid={`investing-holding-symbol-${h.symbol}`}
+                    >
 
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">

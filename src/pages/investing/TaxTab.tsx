@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Calculator, Coins, FileText, Info, Scale } from 'lucide-react';
+import { AlertTriangle, Calculator, Coins, FileText, Info, Scale, Settings } from 'lucide-react';
 import { investingService } from '../../services/investing';
 import type { TaxBucket, TaxPosition, TaxRegime, TaxSummary } from '../../types/investing';
 import { toNumber } from '../../utils/numberFormat';
@@ -42,6 +43,7 @@ const bucketLabel = (key: string) => {
 };
 
 export const TaxTab: React.FC = () => {
+  const navigate = useNavigate();
   // The FY selector is a free picker: any FY can be typed, and an FY with
   // no recorded sells returns an explanatory empty state rather than a
   // disabled control.
@@ -204,6 +206,16 @@ export const TaxTab: React.FC = () => {
               placeholder="Select FY"
             />
           </div>
+        </div>
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('/settings/tax')}
+            className="flex items-center gap-1.5 text-xs font-medium text-cyan-300 hover:text-cyan-200"
+          >
+            <Settings className="h-3.5 w-3.5" />
+            Configure tax profile
+          </button>
         </div>
 
         {hasSells ? (

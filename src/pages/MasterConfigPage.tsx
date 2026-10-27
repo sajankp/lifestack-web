@@ -14,6 +14,7 @@ import {
   type InstrumentUpdate,
   type InstrumentConstituentUpsert,
 } from '../services/investing';
+import { TaxProfileForm } from '../components/settings/TaxProfileForm';
 import { AccountTypeBadge, CurrencyBadge, StatusBadge } from '../components/finance/Badges';
 import { DropdownSelect } from '../components/DropdownSelect';
 import { PageHero } from '../components/layout/PageHero';
@@ -48,6 +49,7 @@ const SETTINGS_TABS = [
   'categories',
   'instruments',
   'summaries',
+  'tax',
   'danger',
 ] as const;
 type SettingsTab = (typeof SETTINGS_TABS)[number];
@@ -59,6 +61,7 @@ const SETTINGS_TAB_ROUTES: Record<SettingsTab, string> = {
   categories: 'categories',
   instruments: 'instruments',
   summaries: 'summaries',
+  tax: 'tax',
   danger: 'danger',
 };
 const SETTINGS_ROUTE_TABS: Record<string, SettingsTab> = Object.fromEntries(
@@ -973,6 +976,9 @@ export const MasterConfigPage: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="summaries" data-testid="settings-tab-summaries">
             Weekly Summaries
+          </TabsTrigger>
+          <TabsTrigger value="tax" data-testid="settings-tab-tax">
+            Capital Gains Tax
           </TabsTrigger>
           <TabsTrigger value="danger" data-testid="settings-tab-danger">
             Danger zone
@@ -2229,6 +2235,10 @@ export const MasterConfigPage: React.FC = () => {
               </p>
             )}
           </section>
+        </TabsContent>
+
+        <TabsContent value="tax" className="space-y-6">
+          <TaxProfileForm />
         </TabsContent>
 
         <TabsContent value="danger" className="space-y-6">
