@@ -283,30 +283,30 @@ export const MasterConfigPage: React.FC = () => {
 
   React.useEffect(() => {
     if (activeWorkspaceId) {
-      setShowLauncher(
+            setShowLauncher(
         window.localStorage.getItem(`lifestack:show-capture-launcher:${activeWorkspaceId}`) !==
           'false',
       );
     }
-    setEditingAccountId(null);
-    setEditingAccountName('');
-    setEditingAccountType('wallet');
-    setEditingAccountCurrency('');
-    setEditingAccountIsActive(true);
-    setEditingCategoryId(null);
-    setEditingCategoryName('');
-    setEditingCategoryColor('');
-    setEditingCategoryIcon('');
-    setEditingCategoryGroupId('');
-    setAccountPendingDelete(null);
-    setCategoryPendingDelete(null);
-    setDeleteCategoryError(null);
-    setNewAccountName('');
-    setResetStatus('idle');
-    setIsConfirmResetOpen(false);
-    setResetConfirmationText('');
-    setEditingGroupId(null);
-    setGroupPendingDelete(null);
+        setEditingAccountId(null);
+        setEditingAccountName('');
+        setEditingAccountType('wallet');
+        setEditingAccountCurrency('');
+        setEditingAccountIsActive(true);
+        setEditingCategoryId(null);
+        setEditingCategoryName('');
+        setEditingCategoryColor('');
+        setEditingCategoryIcon('');
+        setEditingCategoryGroupId('');
+        setAccountPendingDelete(null);
+        setCategoryPendingDelete(null);
+        setDeleteCategoryError(null);
+        setNewAccountName('');
+        setResetStatus('idle');
+        setIsConfirmResetOpen(false);
+        setResetConfirmationText('');
+        setEditingGroupId(null);
+        setGroupPendingDelete(null);
     setDeleteGroupError(null);
     setIsMergeDialogOpen(false);
     setMergeTargetId('');
@@ -568,12 +568,12 @@ export const MasterConfigPage: React.FC = () => {
   }, [constituentRows]);
 
   React.useEffect(() => {
-    setReportingCurrency(settings?.reporting_currency_code ?? '');
-    setCurrencyDisplayPreference(settings?.currency_display_preference ?? 'symbol');
-    setLookthroughMinWeightPct(String(settings?.lookthrough_min_weight_pct ?? '0.5'));
-    setDefaultSpendingAccountId(settings?.default_spending_account_id ?? '');
-    setLocale(settings?.locale ?? 'en-US');
-    setDecimalPlaces(String(settings?.decimal_places ?? 2));
+        setReportingCurrency(settings?.reporting_currency_code ?? '');
+        setCurrencyDisplayPreference(settings?.currency_display_preference ?? 'symbol');
+        setLookthroughMinWeightPct(String(settings?.lookthrough_min_weight_pct ?? '0.5'));
+        setDefaultSpendingAccountId(settings?.default_spending_account_id ?? '');
+        setLocale(settings?.locale ?? 'en-US');
+        setDecimalPlaces(String(settings?.decimal_places ?? 2));
   }, [
     settings?.reporting_currency_code,
     settings?.currency_display_preference,
@@ -583,14 +583,14 @@ export const MasterConfigPage: React.FC = () => {
     settings?.decimal_places,
   ]);
   React.useEffect(() => {
-    setCadenceDayOfWeek(String(summaryCadenceSettings?.cadence_day_of_week ?? 0));
-    setCadenceHourUtc(String(summaryCadenceSettings?.cadence_hour_utc ?? 1));
+        setCadenceDayOfWeek(String(summaryCadenceSettings?.cadence_day_of_week ?? 0));
+        setCadenceHourUtc(String(summaryCadenceSettings?.cadence_hour_utc ?? 1));
   }, [summaryCadenceSettings?.cadence_day_of_week, summaryCadenceSettings?.cadence_hour_utc]);
   React.useEffect(() => {
-    setUserReportingCurrencyOverride(userSettings?.reporting_currency_override_code ?? '');
-    setUserDisplayPreferenceOverride(userSettings?.currency_display_preference_override ?? '');
-    setUserLocaleOverride(userSettings?.locale_override ?? '');
-    setUserDecimalPlacesOverride(
+        setUserReportingCurrencyOverride(userSettings?.reporting_currency_override_code ?? '');
+        setUserDisplayPreferenceOverride(userSettings?.currency_display_preference_override ?? '');
+        setUserLocaleOverride(userSettings?.locale_override ?? '');
+        setUserDecimalPlacesOverride(
       userSettings?.decimal_places_override != null
         ? String(userSettings.decimal_places_override)
         : '',

@@ -151,15 +151,17 @@ export const TodoPage: React.FC = () => {
   const [isCompletedOpen, setIsCompletedOpen] = useState(
     () => new URLSearchParams(window.location.search).get('status') === 'completed',
   );
+  const [hasHandledNewParam, setHasHandledNewParam] = useState(false);
   const [isClearCompletedOpen, setIsClearCompletedOpen] = useState(false);
 
   // Deep links using ?status=completed must expand the section even when
   // they're followed via in-app navigation (not just the initial mount).
   useEffect(() => {
-    if (searchParams.get('status') === 'completed') {
-      setIsCompletedOpen(true);
+    const shouldOpen = searchParams.get('status') === 'completed';
+    if (shouldOpen !== isCompletedOpen) {
+            setIsCompletedOpen(shouldOpen);
     }
-  }, [searchParams]);
+  }, [searchParams, isCompletedOpen]);
 
   const [ruleTitle, setRuleTitle] = useState('');
   const [ruleDescription, setRuleDescription] = useState('');
@@ -222,17 +224,20 @@ export const TodoPage: React.FC = () => {
   // Header "+ Todo" quick-add navigates here with ?new=1; open the create
   // modal once, then strip the param so back/refresh doesn't reopen it.
   useEffect(() => {
-    if (searchParams.get('new') === '1') {
+    if (searchParams.get('new') === '1' && !hasHandledNewParam) {
       openNewTaskModal();
-      setSearchParams(
+            setSearchParams(
         (params) => {
           params.delete('new');
           return params;
         },
         { replace: true },
       );
+            setHasHandledNewParam(true);
+    } else if (searchParams.get('new') !== '1') {
+            setHasHandledNewParam(false);
     }
-  }, [openNewTaskModal, searchParams, setSearchParams]);
+  }, [openNewTaskModal, searchParams, setSearchParams, hasHandledNewParam]);
 
   const createMutation = useInvalidatingMutation(
     (newTodo: TodoCreate) => todoService.createTodo(newTodo),

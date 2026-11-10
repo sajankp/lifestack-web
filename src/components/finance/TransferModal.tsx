@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { DropdownSelect } from '../DropdownSelect';
 import { DatePicker } from '../DatePicker';
@@ -52,6 +52,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const [tax, setTax] = useState('0');
   const [notes, setNotes] = useState('');
   const [date, setDate] = useState(formatDateInputValue(new Date()));
+  const isInitializedRef = useRef(false);
   const feesDisclosureRef = React.useRef<HTMLDetailsElement>(null);
 
   const accountById = new Map(accounts.map((account) => [account.public_id, account]));
@@ -61,19 +62,24 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     Boolean(fromAccount && toAccount && fromAccount.default_currency_code !== toAccount.default_currency_code);
 
   useEffect(() => {
-    if (open) {
-      setFromAccountId(defaultFromAccountId ?? '');
-      setToAccountId('');
-      setAmount('');
-      setFxRate('');
-      setFxDirection('from_per_to');
-      setFxFee('0');
-      setPlatformFee('0');
-      setTax('0');
-      setNotes('');
-      setDate(new Date().toISOString().split('T')[0]);
-      if (feesDisclosureRef.current) feesDisclosureRef.current.open = false;
+    if (!open) {
+      isInitializedRef.current = false;
+      return;
     }
+    if (isInitializedRef.current) return;
+
+    setFromAccountId(defaultFromAccountId ?? '');
+    setToAccountId('');
+    setAmount('');
+    setFxRate('');
+    setFxDirection('from_per_to');
+    setFxFee('0');
+    setPlatformFee('0');
+    setTax('0');
+    setNotes('');
+    setDate(new Date().toISOString().split('T')[0]);
+    if (feesDisclosureRef.current) feesDisclosureRef.current.open = false;
+    isInitializedRef.current = true;
   }, [defaultFromAccountId, open]);
 
   // Auto-open fees disclosure when cross-currency is detected

@@ -201,16 +201,16 @@ export const ImportsPage: React.FC = () => {
   // never clobbers a manual dropdown selection.
   useEffect(() => {
     if (initialModule) {
-      setModule(initialModule);
+            setModule(initialModule);
       if (initialModule === 'finance-account-statement') {
-        setDateFormat((prev) => prev || 'yyyy-MM-dd');
+                setDateFormat((prev) => prev || 'yyyy-MM-dd');
       }
     }
     if (targetAccountParam) {
-      setTargetAccountId(targetAccountParam);
+            setTargetAccountId(targetAccountParam);
     }
     if (shouldOpenUpload) {
-      setIsUploadModalOpen(true);
+            setIsUploadModalOpen(true);
     }
   }, [initialModule, targetAccountParam, shouldOpenUpload]);
 
