@@ -22,6 +22,8 @@ export const HoldingSchema = z.object({
   book_value: z.union([z.number(), z.string()]).optional(),
   gain_loss: z.union([z.number(), z.string()]).optional(),
   gain_loss_pct: z.union([z.number(), z.string()]).optional(),
+  halal_verdict: z.string().optional(),
+  theme_tags: z.array(z.string()).default([]),
   created_at: z.string().default(''),
   updated_at: z.string().default(''),
 });
