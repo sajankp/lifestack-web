@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { ToastProvider } from '../../components/ui/toast';
 import { AnalyticsTab } from './AnalyticsTab';
 import { server } from '../../test/setup';
+import type { PortfolioReport } from '../../types/investing';
 
 beforeAll(() => {
   global.ResizeObserver = class {
@@ -71,9 +72,9 @@ const mockAnalyticsEndpoints = (instruments: unknown[] = []) => {
     ),
     http.get('*/v1/investing/analytics/allocation', () =>
       HttpResponse.json({
+        as_of_date: '2026-09-13',
         currency: 'USD',
         total_portfolio_value: '0.00',
-        as_of_date: '2026-09-13',
         holdings_value: '0.00',
         cash_value: '0.00',
         asset_classes: [],
@@ -131,6 +132,9 @@ describe('AnalyticsTab', () => {
           return HttpResponse.json([]);
         },
       ),
+      http.get('*/v1/platform/workspaces/', () =>
+        HttpResponse.json({ items: [] }),
+      ),
     );
 
     renderWithQuery(<AnalyticsTab currencyDisplayPreference="symbol" />);
@@ -183,6 +187,9 @@ describe('AnalyticsTab', () => {
       http.patch('*/v1/investing/instruments/instrument-etf-id', () =>
         HttpResponse.json({ detail: 'ticker: required for US ETF' }, { status: 422 }),
       ),
+      http.get('*/v1/platform/workspaces/', () =>
+        HttpResponse.json({ items: [] }),
+      ),
     );
 
     renderWithQuery(<AnalyticsTab currencyDisplayPreference="symbol" />);
@@ -201,6 +208,11 @@ describe('AnalyticsTab', () => {
     // visibly show data -- the number was correct but unscoped (it measures
     // fund decomposition, not whether holdings have data at all).
     mockAnalyticsEndpoints([]);
+    server.use(
+      http.get('*/v1/platform/workspaces/', () =>
+        HttpResponse.json({ items: [] }),
+      ),
+    );
 
     renderWithQuery(<AnalyticsTab currencyDisplayPreference="symbol" />);
 
@@ -208,5 +220,116 @@ describe('AnalyticsTab', () => {
     expect(screen.getByText(/Decomposition status:/)).toBeInTheDocument();
     expect(screen.queryByText(/^Coverage:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Status:/)).not.toBeInTheDocument();
+  });
+
+  const MOCK_WORKSPACE = {
+    public_id: 'ws-1',
+    name: 'Default',
+    description: null,
+    is_active: true,
+    role: 'owner',
+  };
+
+  const MOCK_PORTFOLIO_REPORT: PortfolioReport = {
+    public_id: 'rep-1',
+    as_of: '2026-10-31',
+    run_id: 'run-1',
+    theme_weights: [
+      { theme: 'US Equities', weight: 55 },
+      { theme: 'India Equities', weight: 30 },
+      { theme: 'Gold', weight: 10 },
+      { theme: 'Cash', weight: 5 },
+    ],
+    harvest_candidates: [
+      { symbol: 'RELIANCE', quantity: '10', loss: '45000.00', tax_saved: '13500.00' },
+    ],
+    lrs_headroom: { headroom_inr: '750000.00' },
+    tax_buckets: [
+      {
+        regime: 'foreign',
+        section: '115AD',
+        rate_pct: '12.5',
+        gain_native: '83333.33',
+        gain_inr: '100000.00',
+        fees_native: '0',
+        fees_inr: '0',
+        exemption_applied: '0',
+        tax: '12500.00',
+        sell_count: 2,
+        lot_count: 2,
+      },
+    ],
+    created_at: '2026-11-01T00:00:00Z',
+    scalars_json: null,
+    foundation_json: {
+      countries: JSON.stringify([
+        { country: 'US', weight: 70 },
+        { country: 'IN', weight: 20 },
+        { country: 'GB', weight: 7 },
+        { country: 'AE', weight: 3 },
+      ]),
+    },
+    actions_md: null,
+  };
+
+  const mockReportEndpoints = () => {
+    server.use(
+      http.get('*/v1/platform/workspaces/', () =>
+        HttpResponse.json({ items: [MOCK_WORKSPACE] }),
+      ),
+      http.get('*/v1/investing/portfolio-reports', () =>
+        HttpResponse.json({ items: [MOCK_PORTFOLIO_REPORT], total: 1, next_cursor: null }),
+      ),
+    );
+  };
+
+  it('renders the portfolio report cards from the latest report (live data)', async () => {
+    mockAnalyticsEndpoints([]);
+    mockReportEndpoints();
+
+    renderWithQuery(<AnalyticsTab currencyDisplayPreference="symbol" />);
+
+    expect(await screen.findByText('Portfolio Report (Latest)')).toBeInTheDocument();
+    expect(await screen.findByText('LRS Headroom')).toBeInTheDocument();
+    expect(await screen.findByText('₹750,000.00')).toBeInTheDocument();
+    expect(await screen.findByText('Tax Buckets')).toBeInTheDocument();
+    expect(await screen.findByText('Theme Split')).toBeInTheDocument();
+    expect(await screen.findByText('Country Split')).toBeInTheDocument();
+    expect(await screen.findByText('Harvest Candidates')).toBeInTheDocument();
+  });
+
+  it('shows the empty state when no report exists yet', async () => {
+    mockAnalyticsEndpoints([]);
+    server.use(
+      http.get('*/v1/platform/workspaces/', () =>
+        HttpResponse.json({ items: [MOCK_WORKSPACE] }),
+      ),
+      http.get('*/v1/investing/portfolio-reports', () =>
+        HttpResponse.json({ items: [], total: 0, next_cursor: null }),
+      ),
+    );
+
+    renderWithQuery(<AnalyticsTab currencyDisplayPreference="symbol" />);
+
+    expect(await screen.findByText('No portfolio report available')).toBeInTheDocument();
+    expect(screen.queryByText('LRS Headroom')).not.toBeInTheDocument();
+  });
+
+  it('opens the report detail view with the full foundation_json', async () => {
+    mockAnalyticsEndpoints([]);
+    mockReportEndpoints();
+
+    renderWithQuery(<AnalyticsTab currencyDisplayPreference="symbol" />);
+
+    expect(await screen.findByText('LRS Headroom')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('investing-report-detail'));
+
+    expect(await screen.findByText('Portfolio Report Detail')).toBeInTheDocument();
+    expect(screen.getByText(/run-1/)).toBeInTheDocument();
+    expect(screen.getByText(/"countries"/)).toBeInTheDocument();
+    expect(
+      screen.getByText('Report as of 2026-10-31 · run run-1 · 2026-11-01T00:00:00Z'),
+    ).toBeInTheDocument();
   });
 });
