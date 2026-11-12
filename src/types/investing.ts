@@ -503,27 +503,32 @@ export const PerformanceHistoryResponseSchema = z.object({
 export type PerformanceHistoryResponse = z.infer<typeof PerformanceHistoryResponseSchema>;
 
 export const AssetClassAllocationItemSchema = z.object({
-  asset_class: z.string().default('other'),
-  total_value: z.union([z.number(), z.string()]).default(0),
-  percentage: z.union([z.number(), z.string()]).default(0),
-  holdings_count: z.number().default(0),
+  key: z.string(),
+  label: z.string(),
+  value: z.union([z.number(), z.string()]).default(0),
+  pct: z.number().default(0),
+  count: z.number().default(0),
 });
 export type AssetClassAllocationItem = z.infer<typeof AssetClassAllocationItemSchema>;
 
 export const SectorAllocationItemSchema = z.object({
   sector: z.string().default('Unclassified'),
-  total_value: z.union([z.number(), z.string()]).default(0),
-  percentage: z.union([z.number(), z.string()]).default(0),
-  holdings_count: z.number().default(0),
+  value: z.union([z.number(), z.string()]).default(0),
+  pct: z.number().default(0),
 });
 export type SectorAllocationItem = z.infer<typeof SectorAllocationItemSchema>;
 
 export const PortfolioAllocationResponseSchema = z.object({
+  as_of_date: z.string().default(''),
   currency: z.string().default('USD'),
   total_portfolio_value: z.union([z.number(), z.string()]).default(0),
-  as_of: z.string().default(''),
-  by_asset_class: z.array(AssetClassAllocationItemSchema).default([]),
-  by_sector: z.array(SectorAllocationItemSchema).default([]),
+  holdings_value: z.union([z.number(), z.string()]).default(0),
+  cash_value: z.union([z.number(), z.string()]).default(0),
+  asset_classes: z.array(AssetClassAllocationItemSchema).default([]),
+  sectors: z.array(SectorAllocationItemSchema).default([]),
+  lookthrough: z.boolean().default(false),
+  fund_coverage: z.array(z.unknown()).default([]),
+  warnings: z.array(z.string()).default([]),
 });
 export type PortfolioAllocationResponse = z.infer<typeof PortfolioAllocationResponseSchema>;
 

@@ -73,9 +73,11 @@ const mockAnalyticsEndpoints = (instruments: unknown[] = []) => {
       HttpResponse.json({
         currency: 'USD',
         total_portfolio_value: '0.00',
-        as_of: '2026-09-13T00:00:00Z',
-        by_asset_class: [],
-        by_sector: [],
+        as_of_date: '2026-09-13',
+        holdings_value: '0.00',
+        cash_value: '0.00',
+        asset_classes: [],
+        sectors: [],
       }),
     ),
     http.get('*/v1/investing/dividends/history', () =>
