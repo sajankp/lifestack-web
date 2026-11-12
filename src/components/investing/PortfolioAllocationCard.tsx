@@ -54,8 +54,8 @@ export const PortfolioAllocationCard: React.FC<PortfolioAllocationCardProps> = (
   const [dimension, setDimension] = useState<'asset_class' | 'sector'>('asset_class');
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: queryKeys.investing.allocation(asOf),
-    queryFn: () => investingService.getAllocationAnalytics(asOf),
+    queryKey: queryKeys.investing.allocation(asOf, true),
+    queryFn: () => investingService.getAllocationAnalytics(asOf, true),
   });
 
   if (isLoading) {
@@ -82,27 +82,27 @@ export const PortfolioAllocationCard: React.FC<PortfolioAllocationCardProps> = (
     label: string;
     value: number;
     pct: number;
-    count: number;
+    count: number | undefined;
     color: string;
   }> = (dimension === 'asset_class' ? allocation.asset_classes : allocation.sectors)
     .filter((item) => item.pct > 0 && toNumber(item.value) > 0)
     .map(
-    (item: AssetClassAllocationItem | SectorAllocationItem, idx: number) => {
-      const isAssetClass = 'key' in item;
-      const rawKey = isAssetClass ? item.key : item.sector;
-      const label = isAssetClass ? formatAssetClassName(rawKey) : rawKey;
-      const pct = item.pct;
-      const val = toNumber(item.value);
-      return {
-        key: rawKey,
-        label,
-        value: val,
-        pct,
-        count: isAssetClass ? item.count : 0,
-        color: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length],
-      };
-    },
-  );
+      (item: AssetClassAllocationItem | SectorAllocationItem, idx: number) => {
+        const isAssetClass = 'key' in item;
+        const rawKey = isAssetClass ? item.key : item.sector;
+        const label = isAssetClass ? formatAssetClassName(rawKey) : rawKey;
+        const pct = item.pct;
+        const val = toNumber(item.value);
+        return {
+          key: rawKey,
+          label,
+          value: val,
+          pct,
+          count: isAssetClass ? (item as AssetClassAllocationItem).count : undefined,
+          color: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length],
+        };
+      },
+    );
 
   const hasHoldings = items.length > 0 && totalValue > 0;
 
@@ -216,9 +216,11 @@ export const PortfolioAllocationCard: React.FC<PortfolioAllocationCardProps> = (
                     <span className="truncate font-medium text-slate-200">
                       {item.label}
                     </span>
-                    <span className="ml-1.5 text-[11px] text-slate-500">
-                      ({item.count} {item.count === 1 ? 'holding' : 'holdings'})
-                    </span>
+                    {item.count != null && (
+                      <span className="ml-1.5 text-[11px] text-slate-500">
+                        ({item.count} {item.count === 1 ? 'holding' : 'holdings'})
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0 ml-3">

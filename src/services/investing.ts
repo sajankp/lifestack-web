@@ -253,9 +253,12 @@ export const investingService = {
     return PerformanceHistoryResponseSchema.parse(response.data);
   },
 
-  getAllocationAnalytics: async (asOf?: string): Promise<PortfolioAllocationResponse> => {
+  getAllocationAnalytics: async (
+    asOf?: string,
+    lookthrough?: boolean
+  ): Promise<PortfolioAllocationResponse> => {
     const response = await api.get('/investing/analytics/allocation', {
-      params: asOf ? { as_of: asOf } : undefined,
+      params: { as_of: asOf, lookthrough },
     });
     return PortfolioAllocationResponseSchema.parse(response.data);
   },
