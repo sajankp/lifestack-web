@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { investingService } from '../../services/investing';
 import { useToast } from '../../components/ui/toast';
@@ -42,6 +42,7 @@ export const TaxProfileForm: React.FC = () => {
   const [nextFxId, setNextFxId] = useState(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [fxOpen, setFxOpen] = useState(false);
+  const initializedRef = useRef<string | null>(null);
 
   const initialValues = {
     resident_status: 'resident',
@@ -60,39 +61,46 @@ export const TaxProfileForm: React.FC = () => {
   const [initialFxOverrides, setInitialFxOverrides] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (profile) {
-      setResidentStatus(profile.resident_status);
-      setTaxRegime(profile.tax_regime);
-      setOtherIncome(profile.other_income);
-      setExplicitRegime(profile.explicit_regime ?? '');
-      setSlabOverride(profile.slab_override_pct ?? '');
-      setSurchargeOverride(profile.surcharge_override_pct ?? '');
-      setCessPct(profile.cess_pct);
-      setApplyCarryForward(profile.apply_carry_forward);
-      setNotes(profile.notes ?? '');
+    if (initializedRef.current && profile === undefined) return;
+    if (initializedRef.current && profile !== undefined && initializedRef.current === 'done') return;
 
-      const fxRows: FxOverrideRow[] = Object.entries(profile.fx_overrides).map(([month, rate], idx) => ({
-        id: idx,
-        month,
-        rate,
-      }));
-      setFxOverrides(fxRows);
-      setNextFxId(fxRows.length);
-      setInitialFxOverrides(profile.fx_overrides);
-    } else {
-      setResidentStatus(initialValues.resident_status);
-      setTaxRegime(initialValues.tax_regime);
-      setOtherIncome(initialValues.other_income);
-      setExplicitRegime(initialValues.explicit_regime);
-      setSlabOverride(initialValues.slab_override_pct ?? '');
-      setSurchargeOverride(initialValues.surcharge_override_pct ?? '');
-      setCessPct(initialValues.cess_pct);
-      setApplyCarryForward(initialValues.apply_carry_forward);
-      setNotes(initialValues.notes ?? '');
-      setFxOverrides([]);
-      setNextFxId(0);
-      setInitialFxOverrides({});
-    }
+        (() => {
+      if (profile) {
+        setResidentStatus(profile.resident_status);
+        setTaxRegime(profile.tax_regime);
+        setOtherIncome(profile.other_income);
+        setExplicitRegime(profile.explicit_regime ?? '');
+        setSlabOverride(profile.slab_override_pct ?? '');
+        setSurchargeOverride(profile.surcharge_override_pct ?? '');
+        setCessPct(profile.cess_pct);
+        setApplyCarryForward(profile.apply_carry_forward);
+        setNotes(profile.notes ?? '');
+
+        const fxRows: FxOverrideRow[] = Object.entries(profile.fx_overrides).map(([month, rate], idx) => ({
+          id: idx,
+          month,
+          rate,
+        }));
+        setFxOverrides(fxRows);
+        setNextFxId(fxRows.length);
+        setInitialFxOverrides(profile.fx_overrides);
+      } else {
+        setResidentStatus(initialValues.resident_status);
+        setTaxRegime(initialValues.tax_regime);
+        setOtherIncome(initialValues.other_income);
+        setExplicitRegime(initialValues.explicit_regime);
+        setSlabOverride(initialValues.slab_override_pct ?? '');
+        setSurchargeOverride(initialValues.surcharge_override_pct ?? '');
+        setCessPct(initialValues.cess_pct);
+        setApplyCarryForward(initialValues.apply_carry_forward);
+        setNotes(initialValues.notes ?? '');
+        setFxOverrides([]);
+        setNextFxId(0);
+        setInitialFxOverrides({});
+      }
+    })();
+
+    initializedRef.current = 'done';
   }, [profile]);
 
   const updateMutation = useMutation({

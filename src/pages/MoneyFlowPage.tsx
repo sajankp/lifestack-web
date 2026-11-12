@@ -48,11 +48,12 @@ export const MoneyFlowPage: React.FC = () => {
   const [isDividendModalOpen, setIsDividendModalOpen] = useState(false);
   const [isCreateAccountModalOpen, setIsCreateAccountModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [hasHandledNewParam, setHasHandledNewParam] = useState(false);
 
   useEffect(() => {
-    if (searchParams.get('new') === '1') {
-      setIsTransactionModalOpen(true);
-      setSearchParams(
+    if (searchParams.get('new') === '1' && !hasHandledNewParam) {
+            setIsTransactionModalOpen(true);
+            setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
           next.delete('new');
@@ -60,8 +61,11 @@ export const MoneyFlowPage: React.FC = () => {
         },
         { replace: true },
       );
+            setHasHandledNewParam(true);
+    } else if (searchParams.get('new') !== '1') {
+            setHasHandledNewParam(false);
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, hasHandledNewParam]);
   const [transactionDefaultAccountId, setTransactionDefaultAccountId] = useState<string | undefined>();
   const [editingFeedItem, setEditingFeedItem] = useState<ActivityFeedItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<ActivityFeedItem | null>(null);

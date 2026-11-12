@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DropdownSelect } from '../DropdownSelect';
 import { DatePicker } from '../DatePicker';
@@ -79,17 +79,17 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   });
 
   // Track the ID we have initialized for
-  const [initializedForId, setInitializedForId] = useState<string | null>(null);
+  const initializedForIdRef = useRef<string | null>(null);
 
   // Initialize form state when modal opens or detail data resolves
   useEffect(() => {
     if (!open) {
-      setInitializedForId(null);
+      initializedForIdRef.current = null;
       return;
     }
 
     if (transactionToEdit) {
-      if (initializedForId === transactionToEdit.public_id) return;
+      if (initializedForIdRef.current === transactionToEdit.public_id) return;
       setEditingTransactionId(transactionToEdit.public_id);
       setType(transactionToEdit.type);
       setAmount(String(transactionToEdit.amount));
@@ -102,11 +102,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       );
       setDescription(transactionToEdit.description || '');
       setSelectedTagIds(transactionToEdit.tags?.map((t) => t.public_id) ?? []);
-      setInitializedForId(transactionToEdit.public_id);
+      initializedForIdRef.current = transactionToEdit.public_id;
     } else if (initialFeedItem && initialFeedItem.event_type === 'spend') {
       const detail = transactionDetailRes.data;
       if (detail && detail.public_id === initialFeedItem.id) {
-        if (initializedForId === `detail_${detail.public_id}`) return;
+        if (initializedForIdRef.current === `detail_${detail.public_id}`) return;
         setEditingTransactionId(detail.public_id);
         setType(detail.type);
         setAmount(String(detail.amount));
@@ -119,8 +119,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         );
         setDescription(detail.description || '');
         setSelectedTagIds(detail.tags?.map((t) => t.public_id) ?? []);
-        setInitializedForId(`detail_${detail.public_id}`);
-      } else if (!initializedForId) {
+        initializedForIdRef.current = `detail_${detail.public_id}`;
+      } else if (!initializedForIdRef.current) {
         setEditingTransactionId(initialFeedItem.id);
         const rawAmt = initialFeedItem.amount.replace('+', '').replace('-', '');
         const isIncome = initialFeedItem.amount.startsWith('+');
@@ -136,23 +136,23 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
         const matched = categories.find((c) => c.name === initialFeedItem.category_name);
         if (matched) {
-          setCategoryId(matched.public_id);
+                    setCategoryId(matched.public_id);
         } else if (categories.length > 0) {
-          setCategoryId(categories[0].public_id);
+                    setCategoryId(categories[0].public_id);
         }
-        setInitializedForId(`initial_${initialFeedItem.id}`);
+        initializedForIdRef.current = `initial_${initialFeedItem.id}`;
       }
-    } else if (!initializedForId) {
+    } else if (!initializedForIdRef.current) {
       // New Transaction
-      setEditingTransactionId(null);
-      setType('expense');
-      setAmount('');
-      setCategoryId(categories[0]?.public_id || '');
-      setAccountId(defaultAccountId || accounts[0]?.public_id || '');
-      setDate(formatDateInputValue(new Date()));
-      setDescription('');
-      setSelectedTagIds([]);
-      setInitializedForId('__new__');
+            setEditingTransactionId(null);
+            setType('expense');
+            setAmount('');
+            setCategoryId(categories[0]?.public_id || '');
+            setAccountId(defaultAccountId || accounts[0]?.public_id || '');
+            setDate(formatDateInputValue(new Date()));
+            setDescription('');
+            setSelectedTagIds([]);
+      initializedForIdRef.current = '__new__';
     }
   }, [
     open,
@@ -162,30 +162,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     defaultAccountId,
     accounts,
     categories,
-    initializedForId,
   ]);
-
-  // Pre-select first category / account when they resolve if not yet chosen
-  useEffect(() => {
-    if (!open) return;
-    if (!categoryId && categories.length > 0) {
-      if (initialFeedItem?.category_name) {
-        const matched = categories.find((c) => c.name === initialFeedItem.category_name);
-        if (matched) {
-          setCategoryId(matched.public_id);
-          return;
-        }
-      }
-      setCategoryId(categories[0].public_id);
-    }
-  }, [open, categoryId, categories, initialFeedItem]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (!accountId && accounts.length > 0) {
-      setAccountId(defaultAccountId || accounts[0].public_id);
-    }
-  }, [open, accountId, accounts, defaultAccountId]);
 
   const isEditing = Boolean(editingTransactionId);
 

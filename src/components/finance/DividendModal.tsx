@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Coins, HelpCircle } from 'lucide-react';
 import { DropdownSelect } from '../DropdownSelect';
 import { DatePicker } from '../DatePicker';
@@ -41,6 +41,7 @@ export const DividendModal: React.FC<DividendModalProps> = ({
   const [currency, setCurrency] = useState('');
   const [payDate, setPayDate] = useState(formatDateInputValue(new Date()));
   const [notes, setNotes] = useState('');
+  const isInitializedRef = useRef(false);
 
   const brokerageAccounts = accounts.filter((a) => a.account_type === 'brokerage');
   const creditEligibleAccounts = accounts.filter(
@@ -49,25 +50,32 @@ export const DividendModal: React.FC<DividendModalProps> = ({
 
   const selectedHoldingAccount = accounts.find((a) => a.public_id === holdingAccountId);
 
+  // Initialize form when modal opens — done once per open cycle
   useEffect(() => {
-    if (open) {
-      const initialBrokerage = defaultAccountId
-        ? brokerageAccounts.find((a) => a.public_id === defaultAccountId) ?? brokerageAccounts[0]
-        : brokerageAccounts[0];
-      setHoldingAccountId(initialBrokerage?.public_id ?? '');
-      setCreditAccountId('same');
-      setSymbol('');
-      setIncomeType('dividend');
-      setGrossAmount('');
-      setTaxWithheld('0');
-      setCurrency(initialBrokerage?.default_currency_code ?? 'INR');
-      setPayDate(new Date().toISOString().split('T')[0]);
-      setNotes('');
+    if (!open) {
+      isInitializedRef.current = false;
+      return;
     }
+    if (isInitializedRef.current) return;
+
+    const initialBrokerage = defaultAccountId
+      ? brokerageAccounts.find((a) => a.public_id === defaultAccountId) ?? brokerageAccounts[0]
+      : brokerageAccounts[0];
+    setHoldingAccountId(initialBrokerage?.public_id ?? '');
+    setCreditAccountId('same');
+    setSymbol('');
+    setIncomeType('dividend');
+    setGrossAmount('');
+    setTaxWithheld('0');
+    setCurrency(initialBrokerage?.default_currency_code ?? 'INR');
+    setPayDate(new Date().toISOString().split('T')[0]);
+    setNotes('');
+    isInitializedRef.current = true;
   }, [open, defaultAccountId, accounts]);
 
+  // Sync currency when holding account changes (user-driven, not initialization)
   useEffect(() => {
-    if (selectedHoldingAccount) {
+    if (selectedHoldingAccount && isInitializedRef.current) {
       setCurrency(selectedHoldingAccount.default_currency_code);
     }
   }, [selectedHoldingAccount]);

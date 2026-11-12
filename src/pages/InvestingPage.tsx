@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpDown, ChartNoAxesCombined, Landmark, PiggyBank, Plus, WalletCards } from 'lucide-react';
@@ -76,10 +76,13 @@ export const InvestingPage: React.FC = () => {
   // UX-REVIEW P2 item 13), so this just opens the page-level modal state.
   const shouldAutoOpenOrder = searchParams.get('order') === '1';
   const [isPlaceOrderModalOpen, setIsPlaceOrderModalOpen] = useState(false);
+  const hasHandledOrderParamRef = useRef(false);
+
   React.useEffect(() => {
     if (requestedTab || shouldAutoOpenOrder) {
-      if (shouldAutoOpenOrder) {
+      if (shouldAutoOpenOrder && !hasHandledOrderParamRef.current) {
         setIsPlaceOrderModalOpen(true);
+        hasHandledOrderParamRef.current = true;
       }
       if (requestedTab) {
         const params = new URLSearchParams(location.search);
@@ -97,6 +100,8 @@ export const InvestingPage: React.FC = () => {
           { replace: true },
         );
       }
+    } else if (!shouldAutoOpenOrder) {
+      hasHandledOrderParamRef.current = false;
     }
   }, [basePath, location.search, navigate, requestedTab, shouldAutoOpenOrder, setSearchParams, legacyTab]);
 
@@ -203,7 +208,7 @@ export const InvestingPage: React.FC = () => {
   React.useEffect(() => {
     if (isPlaceOrderModalOpen && !orderForm.account_id && brokerageAccounts.length > 0) {
       const defaultAccount = brokerageAccounts[0];
-      setOrderForm((prev) => ({
+            setOrderForm((prev) => ({
         ...prev,
         account_id: defaultAccount.public_id,
         currency: defaultAccount.default_currency_code || prev.currency,
