@@ -22,6 +22,8 @@ import {
   TaxProfileSchema,
   TaxRegimeSchema,
   TaxSummarySchema,
+  PortfolioReportListSchema,
+  PortfolioReportItemSchema,
 } from '../types/investing';
 import type {
   CashBalance,
@@ -345,6 +347,37 @@ export const investingService = {
       params: { account_id: accountId },
     });
     return z.array(InvestingOrderSchema).default([]).parse(response.data);
+  },
+
+  getPortfolioReports: async (
+    params?: {
+      limit?: number;
+      offset?: number;
+      from_date?: string;
+      to_date?: string;
+      include_payload?: boolean;
+    }
+  ): Promise<z.infer<typeof PortfolioReportListSchema>> => {
+    const response = await api.get('/investing/portfolio-reports', {
+      params: {
+        limit: params?.limit || undefined,
+        offset: params?.offset || undefined,
+        from_date: params?.from_date || undefined,
+        to_date: params?.to_date || undefined,
+        include_payload: params?.include_payload || undefined,
+      },
+    });
+    return PortfolioReportListSchema.parse(response.data);
+  },
+
+  getPortfolioReport: async (
+    publicId: string,
+    include_payload?: boolean
+  ): Promise<z.infer<typeof PortfolioReportItemSchema>> => {
+    const response = await api.get(`/investing/portfolio-reports/${publicId}`, {
+      params: { include_payload: include_payload || undefined },
+    });
+    return PortfolioReportItemSchema.parse(response.data);
   },
 
   bulkImportOrders: async (data: InvestingOrderBulkCreate): Promise<InvestingOrder[]> => {
