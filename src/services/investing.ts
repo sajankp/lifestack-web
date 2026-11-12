@@ -22,6 +22,8 @@ import {
   TaxProfileSchema,
   TaxRegimeSchema,
   TaxSummarySchema,
+  PortfolioReportListSchema,
+  PortfolioReportSchema,
 } from '../types/investing';
 import type {
   CashBalance,
@@ -51,6 +53,8 @@ import type {
   PerformanceSummary,
   PerformanceHistoryResponse,
   PortfolioAllocationResponse,
+  PortfolioReport,
+  PortfolioReportList,
   DividendHistoryResponse,
   ReferenceResolveResult,
   ReturnMetricsResponse,
@@ -345,6 +349,35 @@ export const investingService = {
       params: { account_id: accountId },
     });
     return z.array(InvestingOrderSchema).default([]).parse(response.data);
+  },
+
+  getPortfolioReports: async (
+    workspaceId: string,
+    fromDate?: string,
+    toDate?: string,
+    limit: number = 50,
+    cursor?: string | number | null,
+  ): Promise<PortfolioReportList> => {
+    const response = await api.get('/investing/portfolio-reports', {
+      params: {
+        workspace_id: workspaceId,
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+        limit,
+        cursor: cursor || undefined,
+      },
+    });
+    return PortfolioReportListSchema.parse(response.data);
+  },
+
+  getPortfolioReport: async (
+    publicId: string,
+    include_payload?: boolean,
+  ): Promise<PortfolioReport> => {
+    const response = await api.get(`/investing/portfolio-reports/${publicId}`, {
+      params: { include_payload: include_payload || undefined },
+    });
+    return PortfolioReportSchema.parse(response.data);
   },
 
   bulkImportOrders: async (data: InvestingOrderBulkCreate): Promise<InvestingOrder[]> => {
