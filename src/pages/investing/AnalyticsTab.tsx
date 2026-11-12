@@ -5,6 +5,7 @@ import {
   BarChart3,
   ChevronDown,
   Edit2,
+  FileText,
   Layers,
   PieChart,
   Plus,
@@ -31,9 +32,11 @@ import type {
 import { formatDateInput, instrumentTypeLabel, instrumentTypeOptions } from './format';
 import { PortfolioPerformanceChart } from '../../components/investing/PortfolioPerformanceChart';
 import { PortfolioAllocationCard } from '../../components/investing/PortfolioAllocationCard';
+import { PortfolioReportCards } from '../../components/investing/PortfolioReportCards';
 import { DividendTrajectoryCard } from '../../components/investing/DividendTrajectoryCard';
 import { DividendsSection } from '../../components/investing/DividendsSection';
 import { financeService } from '../../services/finance';
+import { useActiveWorkspace } from '../../hooks/useActiveWorkspace';
 
 
 const EMPTY_IDENTITY: IdentifierFieldsValue = { ticker: '', isin: '', exchange: '' };
@@ -77,6 +80,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
   });
   const accounts = useMemo(() => accountsQuery.data?.items ?? [], [accountsQuery.data]);
   const [analyticsAsOf, setAnalyticsAsOf] = useState(formatDateInput(new Date()));
+  const [isReportDetailOpen, setIsReportDetailOpen] = useState(false);
   const [isCreateInstrumentModalOpen, setIsCreateInstrumentModalOpen] = useState(false);
   const [isSeedConstituentsModalOpen, setIsSeedConstituentsModalOpen] = useState(false);
   const [instrumentForm, setInstrumentForm] = useState<InstrumentCreate>({
@@ -123,6 +127,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
   const overlapLoading = overlapRes.isLoading;
 
   const analyticsCurrency = exposureRes.data?.currency;
+
+  const { activeWorkspaceId } = useActiveWorkspace(true);
+
+  const portfolioReportsRes = useQuery({
+    queryKey: queryKeys.investing.portfolioReports.list({ limit: 1 }),
+    queryFn: () =>
+      investingService.getPortfolioReports(activeWorkspaceId!, undefined, undefined, 1),
+    enabled: !!activeWorkspaceId,
+  });
+  const latestReport = portfolioReportsRes.data?.items?.[0] ?? null;
+  const portfolioReportsLoading = portfolioReportsRes.isLoading;
 
   const sortedExposureRows = useMemo(
     () =>
@@ -382,6 +397,67 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
           accountFilter=""
           currencyDisplayPreference={currencyDisplayPreference}
         />
+
+        {/* Portfolio Report Cards (Biweekly Foundation Report) */}
+        <div data-testid="portfolio-report-cards-section" className="space-y-4">
+          <h3 className="font-semibold text-white text-base">Portfolio Report (Latest)</h3>
+          {latestReport && (
+            <button
+              type="button"
+              onClick={() => setIsReportDetailOpen(true)}
+              data-testid="investing-report-detail"
+              className="ml-auto flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:bg-slate-900/80"
+            >
+              <FileText className="h-3.5 w-3.5" /> View detail
+            </button>
+          )}
+          {portfolioReportsLoading ? (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-5 animate-pulse"
+                >
+                  <div className="h-4 w-3/4 bg-slate-700/50 rounded mb-3" />
+                  <div className="h-8 w-1/2 bg-slate-700/50 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <PortfolioReportCards
+              report={latestReport}
+              currencyDisplayPreference={currencyDisplayPreference}
+            />
+          )}
+        </div>
+
+        {/* Portfolio Report detail — full foundation_json payload */}
+        <Dialog
+          open={isReportDetailOpen}
+          onOpenChange={setIsReportDetailOpen}
+        >
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="pb-4 mb-4 border-b border-slate-800">
+              <DialogTitle>Portfolio Report Detail</DialogTitle>
+            </DialogHeader>
+            {latestReport && (
+              <div className="space-y-4">
+                <div className="text-xs text-slate-400">
+                  Report as of {latestReport.as_of}{' · '}
+                  run {latestReport.run_id}{' · '}
+                  {latestReport.created_at}
+                </div>
+                <div
+                  className="rounded-lg border border-slate-700/40 bg-slate-900/40 p-4 font-mono text-xs max-h-96 overflow-auto"
+                >
+                  <pre className="text-slate-300 whitespace-pre-wrap break-all m-0">
+                    {JSON.stringify(latestReport.foundation_json ?? {}, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Instrument/constituent authoring is workspace setup, not a daily
 

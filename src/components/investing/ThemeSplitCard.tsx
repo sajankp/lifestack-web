@@ -100,29 +100,39 @@ export const ThemeSplitCard: React.FC<ThemeSplitCardProps> = ({ themeWeights }) 
           <div className="relative flex-shrink-0 h-44 w-44">
             <svg className="h-full w-full" viewBox="0 0 160 160">
               {(() => {
-                let accumulatedPct = 0;
-                return slices.map((slice) => {
-                  const slicePct = slice.pct / 100;
-                  const dash = Math.max(0, slicePct * CIRCUMFERENCE - (slices.length > 1 ? GAP : 0));
-                  const offset = -(accumulatedPct * CIRCUMFERENCE);
-                  accumulatedPct += slicePct;
-                  return (
-                    <circle
-                      key={slice.theme}
-                      cx={80}
-                      cy={80}
-                      r={DONUT_RADIUS}
-                      fill="transparent"
-                      stroke={slice.color}
-                      strokeWidth="16"
-                      strokeDasharray={`${dash} ${CIRCUMFERENCE}`}
-                      strokeDashoffset={offset}
-                      transform="rotate(-90 80 80)"
-                    >
-                      <title>{`${slice.theme}: ${slice.pct.toFixed(1)}%`}</title>
-                    </circle>
-                  );
-                });
+                return slices.reduce(
+                  (acc: { circles: React.ReactNode[]; accumulatedPct: number }, slice) => {
+                    const slicePct = slice.pct / 100;
+                    const dash = Math.max(
+                      0,
+                      slicePct * CIRCUMFERENCE - (slices.length > 1 ? GAP : 0),
+                    );
+                    const offset = -(acc.accumulatedPct * CIRCUMFERENCE);
+                    return {
+                      circles: [
+                        ...acc.circles,
+                        (
+                          <circle
+                            key={slice.theme}
+                            cx={80}
+                            cy={80}
+                            r={DONUT_RADIUS}
+                            fill="transparent"
+                            stroke={slice.color}
+                            strokeWidth="16"
+                            strokeDasharray={`${dash} ${CIRCUMFERENCE}`}
+                            strokeDashoffset={offset}
+                            transform="rotate(-90 80 80)"
+                          >
+                            <title>{`${slice.theme}: ${slice.pct.toFixed(1)}%`}</title>
+                          </circle>
+                        ),
+                      ],
+                      accumulatedPct: acc.accumulatedPct + slicePct,
+                    };
+                  },
+                  { circles: [] as React.ReactNode[], accumulatedPct: 0 },
+                ).circles;
               })()}
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">

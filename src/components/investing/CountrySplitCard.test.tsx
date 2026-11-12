@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { CountrySplitCard, extractCountryWeights } from './CountrySplitCard';
+import { CountrySplitCard } from './CountrySplitCard';
+import { extractCountryWeights } from '../../utils/portfolioReport';
 
 const COUNTRIES: Array<{ country: string; weight: number }> = [
   { country: 'US', weight: 55 },
