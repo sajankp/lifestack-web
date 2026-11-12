@@ -981,6 +981,8 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                   >
                     Gain / Loss
                   </SortableHeader>
+                  <th className="px-4 py-3">Halal</th>
+                  <th className="px-4 py-3">Theme Tags</th>
                   <th className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>
@@ -998,12 +1000,14 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                       <td className="px-4 py-3.5 text-right"><SkeletonLine className="h-4 w-16 ml-auto" /></td>
                       <td className="px-4 py-3.5 text-right"><SkeletonLine className="h-4 w-20 ml-auto" /></td>
                       <td className="px-4 py-3.5 text-right"><SkeletonLine className="h-4 w-16 ml-auto" /></td>
+                      <td className="px-4 py-3.5"><SkeletonLine className="h-4 w-20" /></td>
+                      <td className="px-4 py-3.5"><SkeletonLine className="h-4 w-24" /></td>
                       <td className="px-4 py-3.5 text-right"><SkeletonLine className="h-4 w-8 ml-auto" /></td>
                     </tr>
                   ))
                 ) : sortedHoldings.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-6" colSpan={11}>
+                    <td className="px-4 py-6" colSpan={13}>
                       <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-400">
                         <span>No holdings yet.</span>
                         <Link
@@ -1206,6 +1210,42 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
                             {gainLossPct.toFixed(2)}%)
                           </span>
                         </td>
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const v = h.halal_verdict;
+                            if (!v) return <span className="text-slate-400 text-xs">—</span>;
+                            const isOk = v === 'halal' || v === 'permissible';
+                            return (
+                              <span
+                                className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${
+                                  isOk
+                                    ? 'border-green-500/50 bg-green-500/10 text-green-400'
+                                    : v === 'non_halal'
+                                      ? 'border-rose-500/50 bg-rose-500/10 text-rose-400'
+                                      : 'border-slate-600/50 bg-slate-900/50 text-slate-400'
+                                }`}
+                              >
+                                {v.replace('_', ' ')}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-4 py-3">
+                          {(h.theme_tags ?? []).length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {(h.theme_tags ?? []).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="rounded border border-slate-600/50 bg-slate-800 px-2 py-0.5 text-xs text-slate-300"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-xs">—</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-2">
                             <button
@@ -1245,7 +1285,7 @@ export const HoldingsTab: React.FC<HoldingsTabProps> = ({
               {sortedHoldings.length > 0 ? (
                 <tfoot>
                   <tr className="border-t border-slate-700/50 bg-slate-900/40">
-                    <td className="px-4 py-3 text-slate-400 font-semibold" colSpan={6}>
+                    <td className="px-4 py-3 text-slate-400 font-semibold" colSpan={8}>
                       Total Cost & Value
                     </td>
                     <td className="px-4 py-3 font-semibold text-white">
