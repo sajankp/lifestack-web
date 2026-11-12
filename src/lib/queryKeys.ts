@@ -150,8 +150,8 @@ export const queryKeys = {
       ['investing', 'dividend-history', ...params] as const,
     performanceHistory: <T extends unknown[]>(...params: T) =>
       ['investing', 'performance-history', ...params] as const,
-    allocation: <T extends unknown[]>(...params: T) =>
-      ['investing', 'allocation', ...params] as const,
+    allocation: (asOf?: string, lookthrough?: boolean) =>
+      ['investing', 'allocation', asOf, lookthrough] as const,
   },
 
   // ── Finance ────────────────────────────────────────────────────────────────
