@@ -111,4 +111,82 @@ describe('investingService', () => {
     const result = await investingService.resolveReference({ isin: 'BOGUS' });
     expect(result.identifier_status).toBe('unresolved');
   });
+
+  it('calls portfolio reports list endpoint with workspace, dates, limit and cursor', async () => {
+    vi.spyOn(api, 'get').mockResolvedValueOnce({
+      data: { total: 0, next_cursor: null, items: [] },
+    } as never);
+
+    await investingService.getPortfolioReports('ws-1', '2026-01-01', '2026-03-31', 10, 'cur-1');
+
+    expect(api.get).toHaveBeenCalledWith('/investing/portfolio-reports', {
+      params: {
+        workspace_id: 'ws-1',
+        from_date: '2026-01-01',
+        to_date: '2026-03-31',
+        limit: 10,
+        cursor: 'cur-1',
+      },
+    });
+  });
+
+  it('omits undefined optional portfolio report params', async () => {
+    vi.spyOn(api, 'get').mockResolvedValueOnce({
+      data: { total: 0, next_cursor: null, items: [] },
+    } as never);
+
+    await investingService.getPortfolioReports('ws-1');
+
+    expect(api.get).toHaveBeenCalledWith('/investing/portfolio-reports', {
+      params: {
+        workspace_id: 'ws-1',
+        from_date: undefined,
+        to_date: undefined,
+        limit: 50,
+        cursor: undefined,
+      },
+    });
+  });
+
+  it('calls portfolio report detail endpoint and parses the item', async () => {
+    vi.spyOn(api, 'get').mockResolvedValueOnce({
+      data: {
+        public_id: 'r1',
+        as_of: '2026-06-30',
+        run_id: 'run-1',
+        theme_weights: [{ theme: 'equity', weight: '60' }],
+        harvest_candidates: [
+          { symbol: 'RELIANCE', quantity: '2', loss: '5000', tax_saved: '1500' },
+        ],
+        lrs_headroom: { headroom_inr: '250000' },
+        tax_buckets: [
+          {
+            regime: 'foreign',
+            section: '115AD',
+            rate_pct: '12.5',
+            gain_native: '0',
+            gain_inr: '0',
+            fees_native: '0',
+            fees_inr: '0',
+            exemption_applied: '0',
+            tax: '0',
+            sell_count: 0,
+            lot_count: 0,
+          },
+        ],
+        created_at: '2026-06-30T10:00:00Z',
+      },
+    } as never);
+
+    const result = await investingService.getPortfolioReport('r1', true);
+
+    expect(api.get).toHaveBeenCalledWith('/investing/portfolio-reports/r1', {
+      params: { include_payload: true },
+    });
+    expect(result.public_id).toBe('r1');
+    expect(result.theme_weights[0]?.theme).toBe('equity');
+    expect(result.harvest_candidates[0]?.symbol).toBe('RELIANCE');
+    expect(result.lrs_headroom?.headroom_inr).toBe('250000');
+    expect(result.tax_buckets[0]?.tax).toBe('0');
+  });
 });

@@ -692,29 +692,48 @@ export const TaxProfileSchema = z.object({
 export type TaxProfile = z.infer<typeof TaxProfileSchema>;
 
 // ─── Portfolio report history (biweekly foundation report snapshots) ───────
-// Mirrors backend app/investing/schemas.py PortfolioReportItem / PortfolioReportList.
+// Mirrors backend app/investing/schemas.py PortfolioReport / PortfolioReportList.
 // GET /investing/portfolio-reports   list, cursor-paginated, newest as_of first
 // GET /investing/portfolio-reports/{public_id}   detail
-export const PortfolioReportItemSchema = z.object({
+
+export const ThemeWeightSchema = z.object({
+  theme: z.string().default(''),
+  weight: z.union([z.number(), z.string()]).default(0),
+});
+export type ThemeWeight = z.infer<typeof ThemeWeightSchema>;
+
+export const HarvestCandidateSchema = z.object({
+  symbol: z.string().default(''),
+  quantity: z.union([z.number(), z.string()]).default(0),
+  loss: z.union([z.number(), z.string()]).default(0),
+  tax_saved: z.union([z.number(), z.string()]).default(0),
+});
+export type HarvestCandidate = z.infer<typeof HarvestCandidateSchema>;
+
+export const LrsHeadroomSchema = z.object({
+  headroom_inr: z.union([z.number(), z.string()]).nullable().default(null),
+});
+export type LrsHeadroom = z.infer<typeof LrsHeadroomSchema>;
+
+export const PortfolioReportSchema = z.object({
   public_id: z.string().default(''),
   as_of: z.string().default(''),
   run_id: z.string().default(''),
-  theme_weights: z.record(z.string()).default({}),
-  harvest_candidates: z.array(z.any()).default([]),
-  lrs_headroom_inr: z.string().nullable().catch(null).default(null),
-  tax_buckets: z.record(z.string()).default({}),
+  theme_weights: z.array(ThemeWeightSchema).default([]),
+  harvest_candidates: z.array(HarvestCandidateSchema).default([]),
+  lrs_headroom: LrsHeadroomSchema.nullable().catch(null).default(null),
+  tax_buckets: z.array(TaxBucketSchema).default([]),
   created_at: z.string().default(''),
-  scalars_json: z.record(z.string()).nullish().default(null),
-  foundation_json: z.record(z.string()).nullish().default(null),
+  scalars_json: z.record(z.string(), z.string()).nullish().default(null),
+  foundation_json: z.record(z.string(), z.string()).nullish().default(null),
   actions_md: z.string().nullish().default(null),
 });
-
-export type PortfolioReportItem = z.infer<typeof PortfolioReportItemSchema>;
+export type PortfolioReport = z.infer<typeof PortfolioReportSchema>;
 
 export const PortfolioReportListSchema = z.object({
   total: z.number().default(0),
   next_cursor: z.number().nullable().catch(null).default(null),
-  items: z.array(PortfolioReportItemSchema).default([]),
+  items: z.array(PortfolioReportSchema).default([]),
 });
 
 export type PortfolioReportList = z.infer<typeof PortfolioReportListSchema>;

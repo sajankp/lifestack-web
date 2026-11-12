@@ -23,7 +23,7 @@ import {
   TaxRegimeSchema,
   TaxSummarySchema,
   PortfolioReportListSchema,
-  PortfolioReportItemSchema,
+  PortfolioReportSchema,
 } from '../types/investing';
 import type {
   CashBalance,
@@ -53,6 +53,8 @@ import type {
   PerformanceSummary,
   PerformanceHistoryResponse,
   PortfolioAllocationResponse,
+  PortfolioReport,
+  PortfolioReportList,
   DividendHistoryResponse,
   ReferenceResolveResult,
   ReturnMetricsResponse,
@@ -350,21 +352,19 @@ export const investingService = {
   },
 
   getPortfolioReports: async (
-    params?: {
-      limit?: number;
-      offset?: number;
-      from_date?: string;
-      to_date?: string;
-      include_payload?: boolean;
-    }
-  ): Promise<z.infer<typeof PortfolioReportListSchema>> => {
+    workspaceId: string,
+    fromDate?: string,
+    toDate?: string,
+    limit: number = 50,
+    cursor?: string | number | null,
+  ): Promise<PortfolioReportList> => {
     const response = await api.get('/investing/portfolio-reports', {
       params: {
-        limit: params?.limit || undefined,
-        offset: params?.offset || undefined,
-        from_date: params?.from_date || undefined,
-        to_date: params?.to_date || undefined,
-        include_payload: params?.include_payload || undefined,
+        workspace_id: workspaceId,
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+        limit,
+        cursor: cursor || undefined,
       },
     });
     return PortfolioReportListSchema.parse(response.data);
@@ -372,12 +372,12 @@ export const investingService = {
 
   getPortfolioReport: async (
     publicId: string,
-    include_payload?: boolean
-  ): Promise<z.infer<typeof PortfolioReportItemSchema>> => {
+    include_payload?: boolean,
+  ): Promise<PortfolioReport> => {
     const response = await api.get(`/investing/portfolio-reports/${publicId}`, {
       params: { include_payload: include_payload || undefined },
     });
-    return PortfolioReportItemSchema.parse(response.data);
+    return PortfolioReportSchema.parse(response.data);
   },
 
   bulkImportOrders: async (data: InvestingOrderBulkCreate): Promise<InvestingOrder[]> => {
