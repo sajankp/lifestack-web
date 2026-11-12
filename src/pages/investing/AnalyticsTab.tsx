@@ -33,6 +33,7 @@ import { PortfolioPerformanceChart } from '../../components/investing/PortfolioP
 import { PortfolioAllocationCard } from '../../components/investing/PortfolioAllocationCard';
 import { DividendTrajectoryCard } from '../../components/investing/DividendTrajectoryCard';
 import { DividendsSection } from '../../components/investing/DividendsSection';
+import { PortfolioReportCards } from '../../components/investing/PortfolioReportCards';
 import { financeService } from '../../services/finance';
 
 
@@ -123,6 +124,13 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
   const overlapLoading = overlapRes.isLoading;
 
   const analyticsCurrency = exposureRes.data?.currency;
+
+  const portfolioReportsRes = useQuery({
+    queryKey: queryKeys.investing.portfolioReports.list({ limit: 1 }),
+    queryFn: () => investingService.getPortfolioReports({ limit: 1 }),
+  });
+  const latestReport = portfolioReportsRes.data?.items?.[0] ?? null;
+  const portfolioReportsLoading = portfolioReportsRes.isLoading;
 
   const sortedExposureRows = useMemo(
     () =>
@@ -382,6 +390,29 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
           accountFilter=""
           currencyDisplayPreference={currencyDisplayPreference}
         />
+
+        {/* Portfolio Report Cards (Biweekly Foundation Report) */}
+        <div data-testid="portfolio-report-cards-section" className="space-y-4">
+          <h3 className="font-semibold text-white text-base">Portfolio Report (Latest)</h3>
+          {portfolioReportsLoading ? (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-5 animate-pulse"
+                >
+                  <div className="h-4 w-3/4 bg-slate-700/50 rounded mb-3" />
+                  <div className="h-8 w-1/2 bg-slate-700/50 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <PortfolioReportCards
+              report={latestReport}
+              currencyDisplayPreference={currencyDisplayPreference}
+            />
+          )}
+        </div>
 
         {/* Instrument/constituent authoring is workspace setup, not a daily
 

@@ -137,6 +137,12 @@ export const queryKeys = {
       profile: () => ['investing', 'tax', 'profile'] as const,
     },
     overlap: (asOf: string) => ['investing', 'analytics', 'overlap', asOf] as const,
+    portfolioReports: {
+      list: (params?: { limit?: number; offset?: number; from_date?: string; to_date?: string; include_payload?: boolean }) =>
+        ['investing', 'portfolio-reports', 'list', params] as const,
+      detail: (publicId: string) =>
+        ['investing', 'portfolio-reports', 'detail', publicId] as const,
+    },
     // These used to be bare siblings ('investing-dividend-history',
     // 'investing-performance-history', 'investing-allocation'), so
     // invalidating queryKeys.investing.all never reached them.
