@@ -32,37 +32,24 @@ describe('PortfolioAllocationCard', () => {
     server.use(
       http.get('*/v1/investing/analytics/allocation', () =>
         HttpResponse.json({
+          as_of_date: '2026-09-12',
           currency: 'USD',
           total_portfolio_value: '50000.00',
-          as_of: '2026-09-12T12:00:00Z',
-          by_asset_class: [
-            {
-              asset_class: 'stock',
-              total_value: '35000.00',
-              percentage: '70.0',
-              holdings_count: 5,
-            },
-            {
-              asset_class: 'etf',
-              total_value: '15000.00',
-              percentage: '30.0',
-              holdings_count: 2,
-            },
+          holdings_value: '50000.00',
+          cash_value: '0.00',
+          asset_classes: [
+            { key: 'stock', label: 'Stocks', value: '35000.00', pct: 70.0, count: 5 },
+            { key: 'etf', label: 'ETFs', value: '15000.00', pct: 30.0, count: 2 },
+            { key: 'mutual_fund', label: 'Mutual Funds', value: '0.00', pct: 0.0, count: 0 },
+            { key: 'cash', label: 'Cash', value: '0.00', pct: 0.0, count: 0 },
           ],
-          by_sector: [
-            {
-              sector: 'Technology',
-              total_value: '30000.00',
-              percentage: '60.0',
-              holdings_count: 4,
-            },
-            {
-              sector: 'Healthcare',
-              total_value: '20000.00',
-              percentage: '40.0',
-              holdings_count: 3,
-            },
+          sectors: [
+            { sector: 'Information Technology', value: '30000.00', pct: 60.0 },
+            { sector: 'Health Care', value: '20000.00', pct: 40.0 },
           ],
+          lookthrough: false,
+          fund_coverage: [],
+          warnings: [],
         }),
       ),
     );
@@ -70,30 +57,57 @@ describe('PortfolioAllocationCard', () => {
     renderComponent();
 
     expect(await screen.findByText('Portfolio Allocation')).toBeInTheDocument();
-    expect(screen.getByText('Stocks & Equities')).toBeInTheDocument();
+    expect(await screen.findByText('Stocks & Equities')).toBeInTheDocument();
     expect(screen.getByText('ETFs & Funds')).toBeInTheDocument();
     expect(screen.getByText('70.0%')).toBeInTheDocument();
     expect(screen.getByText('30.0%')).toBeInTheDocument();
+    // Empty buckets (0 holdings, 0 value) are not listed
+    expect(screen.queryByText('Mutual Funds')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cash & Equivalents')).not.toBeInTheDocument();
 
     // Toggle to Sectors
-    const sectorBtn = screen.getByRole('button', { name: 'Sectors' });
-    fireEvent.click(sectorBtn);
+    fireEvent.click(screen.getByRole('button', { name: 'Sectors' }));
 
-    expect(await screen.findByText('Technology')).toBeInTheDocument();
-    expect(screen.getByText('Healthcare')).toBeInTheDocument();
+    expect(await screen.findByText('Information Technology')).toBeInTheDocument();
+    expect(screen.getByText('Health Care')).toBeInTheDocument();
     expect(screen.getByText('60.0%')).toBeInTheDocument();
     expect(screen.getByText('40.0%')).toBeInTheDocument();
+  });
+
+  it('lists a cash-only portfolio under Cash', async () => {
+    server.use(
+      http.get('*/v1/investing/analytics/allocation', () =>
+        HttpResponse.json({
+          as_of_date: '2026-09-12',
+          currency: 'USD',
+          total_portfolio_value: '1000.00',
+          holdings_value: '0.00',
+          cash_value: '1000.00',
+          asset_classes: [
+            { key: 'cash', label: 'Cash', value: '1000.00', pct: 100.0, count: 1 },
+          ],
+          sectors: [],
+        }),
+      ),
+    );
+
+    renderComponent();
+
+    expect(await screen.findByText('Cash & Equivalents')).toBeInTheDocument();
+    expect(screen.getByText('100.0%')).toBeInTheDocument();
   });
 
   it('renders empty state when no holdings are present', async () => {
     server.use(
       http.get('*/v1/investing/analytics/allocation', () =>
         HttpResponse.json({
+          as_of_date: '2026-09-12',
           currency: 'USD',
           total_portfolio_value: '0.00',
-          as_of: '2026-09-12T12:00:00Z',
-          by_asset_class: [],
-          by_sector: [],
+          holdings_value: '0.00',
+          cash_value: '0.00',
+          asset_classes: [],
+          sectors: [],
         }),
       ),
     );
