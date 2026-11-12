@@ -5,7 +5,7 @@ import { investingService } from '../../services/investing';
 import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { toNumber } from '../../utils/numberFormat';
 import { queryKeys } from '../../lib/queryKeys';
-import type { AssetClassAllocationItem, SectorAllocationItem } from '../../types/investing';
+import type { PortfolioAllocationResponse, AssetClassAllocationItem, SectorAllocationItem } from '../../types/investing';
 
 const ALLOCATION_COLORS = [
   '#3b82f6', // blue
@@ -74,8 +74,9 @@ export const PortfolioAllocationCard: React.FC<PortfolioAllocationCardProps> = (
     return null;
   }
 
-  const currency = data.currency || displayCurrency;
-  const totalValue = toNumber(data.total_portfolio_value);
+  const allocation = data as PortfolioAllocationResponse;
+  const currency = allocation.currency || displayCurrency;
+  const totalValue = toNumber(allocation.total_portfolio_value);
   const items: Array<{
     key: string;
     label: string;
@@ -83,19 +84,21 @@ export const PortfolioAllocationCard: React.FC<PortfolioAllocationCardProps> = (
     pct: number;
     count: number;
     color: string;
-  }> = (dimension === 'asset_class' ? data.by_asset_class : data.by_sector).map(
+  }> = (dimension === 'asset_class' ? allocation.asset_classes : allocation.sectors)
+    .filter((item) => item.pct > 0 && toNumber(item.value) > 0)
+    .map(
     (item: AssetClassAllocationItem | SectorAllocationItem, idx: number) => {
-      const isAssetClass = 'asset_class' in item;
-      const rawKey = isAssetClass ? item.asset_class : item.sector;
+      const isAssetClass = 'key' in item;
+      const rawKey = isAssetClass ? item.key : item.sector;
       const label = isAssetClass ? formatAssetClassName(rawKey) : rawKey;
-      const pct = toNumber(item.percentage);
-      const val = toNumber(item.total_value);
+      const pct = item.pct;
+      const val = toNumber(item.value);
       return {
         key: rawKey,
         label,
         value: val,
         pct,
-        count: item.holdings_count,
+        count: isAssetClass ? item.count : 0,
         color: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length],
       };
     },
@@ -116,7 +119,7 @@ export const PortfolioAllocationCard: React.FC<PortfolioAllocationCardProps> = (
           <div>
             <h3 className="font-semibold text-white text-base">Portfolio Allocation</h3>
             <p className="text-xs text-slate-400">
-              Breakdown by {dimension === 'asset_class' ? 'asset class' : 'industry sector'}
+              Breakdown by {dimension === 'asset_class' ? 'asset class' : 'sector'}
             </p>
           </div>
         </div>
