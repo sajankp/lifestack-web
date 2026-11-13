@@ -692,7 +692,7 @@ export const TaxProfileSchema = z.object({
 export type TaxProfile = z.infer<typeof TaxProfileSchema>;
 
 // ─── Portfolio report history (biweekly foundation report snapshots) ───────
-// Mirrors backend app/investing/schemas.py PortfolioReport / PortfolioReportList.
+// Mirrors backend app/investing/schemas.py PortfolioReportItem / PortfolioReportList.
 // GET /investing/portfolio-reports   list, cursor-paginated, newest as_of first
 // GET /investing/portfolio-reports/{public_id}   detail
 
@@ -710,20 +710,25 @@ export const HarvestCandidateSchema = z.object({
 });
 export type HarvestCandidate = z.infer<typeof HarvestCandidateSchema>;
 
+// Backend: lrs_headroom_inr: str | None (string, not object)
 export const LrsHeadroomSchema = z.object({
-  headroom_inr: z.union([z.number(), z.string()]).nullable().default(null),
+  lrs_headroom_inr: z.string().nullable().catch(null).default(null),
 });
 export type LrsHeadroom = z.infer<typeof LrsHeadroomSchema>;
 
 export const PortfolioReportSchema = z.object({
-  public_id: z.string().default(''),
-  as_of: z.string().default(''),
-  run_id: z.string().default(''),
-  theme_weights: z.array(ThemeWeightSchema).default([]),
-  harvest_candidates: z.array(HarvestCandidateSchema).default([]),
-  lrs_headroom: LrsHeadroomSchema.nullable().catch(null).default(null),
-  tax_buckets: z.array(TaxBucketSchema).default([]),
-  created_at: z.string().default(''),
+  public_id: z.string().uuid(),
+  as_of: z.string(), // ISO date
+  run_id: z.string(),
+  // Backend: theme_weights: dict[str, Any] (string-to-any mapping)
+  theme_weights: z.record(z.string(), z.union([z.number(), z.string()])).default({}),
+  // Backend: harvest_candidates: list[Any]
+  harvest_candidates: z.array(z.unknown()).default([]),
+  // Backend: lrs_headroom_inr: str | None (string, not object)
+  lrs_headroom_inr: z.string().nullable().catch(null).default(null),
+  // Backend: tax_buckets: dict[str, Any] (string-to-any mapping)
+  tax_buckets: z.record(z.string(), z.unknown()).default({}),
+  created_at: z.string(), // ISO datetime
   scalars_json: z.record(z.string(), z.string()).nullish().default(null),
   foundation_json: z.record(z.string(), z.string()).nullish().default(null),
   actions_md: z.string().nullish().default(null),

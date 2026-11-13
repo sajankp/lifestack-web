@@ -17,7 +17,7 @@ export const LrsHeadroomCard: React.FC<LrsHeadroomCardProps> = ({
   currencyDisplayPreference = 'symbol',
 }) => {
   const formatCurrency = useCurrencyFormatter();
-  const headroomInr = lrsHeadroom?.headroom_inr ?? null;
+  const headroomInr = lrsHeadroom?.lrs_headroom_inr ?? null;
   const hasData = headroomInr != null;
 
   return (

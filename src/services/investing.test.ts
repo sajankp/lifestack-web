@@ -151,29 +151,13 @@ describe('investingService', () => {
   it('calls portfolio report detail endpoint and parses the item', async () => {
     vi.spyOn(api, 'get').mockResolvedValueOnce({
       data: {
-        public_id: 'r1',
+        public_id: '550e8400-e29b-41d4-a716-446655440000',
         as_of: '2026-06-30',
         run_id: 'run-1',
-        theme_weights: [{ theme: 'equity', weight: '60' }],
-        harvest_candidates: [
-          { symbol: 'RELIANCE', quantity: '2', loss: '5000', tax_saved: '1500' },
-        ],
-        lrs_headroom: { headroom_inr: '250000' },
-        tax_buckets: [
-          {
-            regime: 'foreign',
-            section: '115AD',
-            rate_pct: '12.5',
-            gain_native: '0',
-            gain_inr: '0',
-            fees_native: '0',
-            fees_inr: '0',
-            exemption_applied: '0',
-            tax: '0',
-            sell_count: 0,
-            lot_count: 0,
-          },
-        ],
+        theme_weights: { equity: '60', debt: '40' },
+        harvest_candidates: [{ symbol: 'RELIANCE', quantity: '2', loss: '5000', tax_saved: '1500' }],
+        lrs_headroom_inr: '250000',
+        tax_buckets: { foreign_115AD: { regime: 'foreign', section: '115AD', tax: '1500' } },
         created_at: '2026-06-30T10:00:00Z',
       },
     } as never);
@@ -183,10 +167,10 @@ describe('investingService', () => {
     expect(api.get).toHaveBeenCalledWith('/investing/portfolio-reports/r1', {
       params: { include_payload: true },
     });
-    expect(result.public_id).toBe('r1');
-    expect(result.theme_weights[0]?.theme).toBe('equity');
+    expect(result.public_id).toBe('550e8400-e29b-41d4-a716-446655440000');
+    expect(result.theme_weights.equity).toBe('60');
     expect(result.harvest_candidates[0]?.symbol).toBe('RELIANCE');
-    expect(result.lrs_headroom?.headroom_inr).toBe('250000');
-    expect(result.tax_buckets[0]?.tax).toBe('0');
+    expect(result.lrs_headroom_inr).toBe('250000');
+    expect(result.tax_buckets.foreign_115AD?.tax).toBe('1500');
   });
 });

@@ -5,22 +5,41 @@ import { formatQuantity, toNumber } from '../../utils/numberFormat';
 import type { HarvestCandidate } from '../../types/investing';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 
+// Portfolio report harvest candidates can be any object (backend returns list[Any])
+type HarvestCandidateInput = HarvestCandidate | Record<string, unknown>;
+
+interface Totals {
+  loss: number;
+  taxSaved: number;
+}
+
 interface HarvestCandidatesCardProps {
-  harvestCandidates: HarvestCandidate[];
+  harvestCandidates: HarvestCandidateInput[];
 }
 
 export const HarvestCandidatesCard: React.FC<HarvestCandidatesCardProps> = ({
   harvestCandidates,
 }) => {
   const formatCurrency = useCurrencyFormatter();
-  const candidates = harvestCandidates.filter((c) => toNumber(c.loss) > 0);
+
+  // Extract loss/tax_saved from either HarvestCandidate or generic object
+  const getLoss = (c: HarvestCandidateInput): number =>
+    toNumber('loss' in c ? c.loss : (c.loss_inr as string | number | undefined) ?? 0);
+  const getTaxSaved = (c: HarvestCandidateInput): number =>
+    toNumber('tax_saved' in c ? c.tax_saved : (c.tax_saved_inr as string | number | undefined) ?? 0);
+  const getSymbol = (c: HarvestCandidateInput): string =>
+    'symbol' in c ? c.symbol : ((c.symbol as string) ?? '—');
+  const getQuantity = (c: HarvestCandidateInput): string | number =>
+    'quantity' in c ? c.quantity : ((c.quantity as string | number) ?? '—');
+
+  const candidates = harvestCandidates.filter((c) => getLoss(c) > 0);
 
   const totals = candidates.reduce(
-    (acc, c) => ({
-      loss: acc.loss + toNumber(c.loss),
-      taxSaved: acc.taxSaved + toNumber(c.tax_saved),
+    (acc: Totals, c: HarvestCandidateInput) => ({
+      loss: acc.loss + getLoss(c),
+      taxSaved: acc.taxSaved + getTaxSaved(c),
     }),
-    { loss: 0, taxSaved: 0 },
+    { loss: 0, taxSaved: 0 } as Totals,
   );
 
   if (candidates.length === 0) {
@@ -56,24 +75,24 @@ export const HarvestCandidatesCard: React.FC<HarvestCandidatesCardProps> = ({
       <CardContent className="pt-3 space-y-2">
         {candidates.map((candidate, idx) => (
           <div
-            key={candidate.symbol || String(idx)}
+            key={getSymbol(candidate) || String(idx)}
             className="flex items-center justify-between gap-3 px-2 py-2 rounded-lg border border-slate-700/40 bg-slate-900/30 hover:border-slate-700/60 transition-colors"
             data-testid={`harvest-row-${idx}`}
           >
             <div className="flex flex-col gap-0.5 min-w-0">
               <span className="font-medium text-slate-200 truncate">
-                {candidate.symbol || '—'}
+                {getSymbol(candidate)}
               </span>
               <span className="text-[11px] text-slate-500">
-                {formatQuantity(candidate.quantity)} qty
+                {formatQuantity(getQuantity(candidate))} qty
               </span>
             </div>
             <div className="flex flex-col items-end gap-0.5 min-w-0">
               <span className="font-mono text-xs text-rose-400 text-right">
-                − {formatCurrency(candidate.loss, 'INR', 'code')}
+                − {formatCurrency(getLoss(candidate), 'INR', 'code')}
               </span>
               <span className="font-mono text-xs text-emerald-300 text-right">
-                Tax saved {formatCurrency(candidate.tax_saved, 'INR', 'code')}
+                Tax saved {formatCurrency(getTaxSaved(candidate), 'INR', 'code')}
               </span>
             </div>
           </div>

@@ -12,8 +12,11 @@ import {
 import { Badge } from '../ui/Badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
+// Accept both array (capital gains tax) and record (portfolio report)
+type TaxBucketsInput = TaxBucket[] | Record<string, TaxBucket>;
+
 interface TaxBucketsCardProps {
-  taxBuckets: TaxBucket[];
+  taxBuckets: TaxBucketsInput;
   currencyDisplayPreference?: 'symbol' | 'code';
 }
 
@@ -22,7 +25,13 @@ export const TaxBucketsCard: React.FC<TaxBucketsCardProps> = ({
   currencyDisplayPreference = 'symbol',
 }) => {
   const formatCurrency = useCurrencyFormatter();
-  const buckets = taxBuckets.filter((b) => toNumber(b.gain_inr) !== 0 || toNumber(b.tax) !== 0);
+  
+  // Convert to array if it's a record
+  const bucketsArray = Array.isArray(taxBuckets)
+    ? taxBuckets
+    : Object.entries(taxBuckets).map(([key, bucket]) => ({ ...bucket, section: bucket.section || key }));
+
+  const buckets = bucketsArray.filter((b) => toNumber(b.gain_inr) !== 0 || toNumber(b.tax) !== 0);
 
   const totals = buckets.reduce(
     (acc, b) => ({

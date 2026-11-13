@@ -27,8 +27,11 @@ const DONUT_RADIUS = 60;
 const CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
 const GAP = 3;
 
+// Accept both array (allocation API) and record (portfolio report)
+type ThemeWeightsInput = ThemeWeight[] | Record<string, number | string>;
+
 interface ThemeSplitCardProps {
-  themeWeights: ThemeWeight[];
+  themeWeights: ThemeWeightsInput;
 }
 
 interface Slice {
@@ -39,11 +42,16 @@ interface Slice {
 }
 
 export const ThemeSplitCard: React.FC<ThemeSplitCardProps> = ({ themeWeights }) => {
-  const totalWeight = themeWeights.reduce((acc, t) => acc + toNumber(t.weight), 0);
+  // Convert to array if it's a record
+  const weightsArray = Array.isArray(themeWeights)
+    ? themeWeights
+    : Object.entries(themeWeights).map(([theme, weight]) => ({ theme, weight }));
+
+  const totalWeight = weightsArray.reduce((acc, t) => acc + toNumber(t.weight), 0);
   const hasData = totalWeight > 0;
 
   const slices: Slice[] = hasData
-    ? themeWeights
+    ? weightsArray
         .filter((t) => toNumber(t.weight) > 0)
         .map((t, idx) => {
           const weight = toNumber(t.weight);
