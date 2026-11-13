@@ -131,7 +131,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
   const { activeWorkspaceId } = useActiveWorkspace(true);
 
   const portfolioReportsRes = useQuery({
-    queryKey: queryKeys.investing.portfolioReports.list({ limit: 1 }),
+    queryKey: queryKeys.investing.portfolioReports.list({ workspaceId: activeWorkspaceId!, limit: 1 }),
     queryFn: () =>
       investingService.getPortfolioReports(activeWorkspaceId!, undefined, undefined, 1),
     enabled: !!activeWorkspaceId,

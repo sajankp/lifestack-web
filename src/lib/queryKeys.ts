@@ -138,7 +138,7 @@ export const queryKeys = {
     },
     overlap: (asOf: string) => ['investing', 'analytics', 'overlap', asOf] as const,
     portfolioReports: {
-      list: (params?: { limit?: number; offset?: number; from_date?: string; to_date?: string; include_payload?: boolean }) =>
+      list: (params?: { workspaceId?: string; limit?: number; offset?: number; from_date?: string; to_date?: string; include_payload?: boolean }) =>
         ['investing', 'portfolio-reports', 'list', params] as const,
       detail: (publicId: string) =>
         ['investing', 'portfolio-reports', 'detail', publicId] as const,
