@@ -355,7 +355,7 @@ export const investingService = {
   },
 
   getPortfolioReports: async (
-    workspaceId: string,
+    workspacePublicId: string,
     fromDate?: string,
     toDate?: string,
     limit: number = 50,
@@ -363,7 +363,7 @@ export const investingService = {
   ): Promise<PortfolioReportList> => {
     const response = await api.get('/investing/portfolio-reports', {
       params: {
-        workspace_id: workspaceId,
+        workspace_public_id: workspacePublicId,
         from_date: fromDate || undefined,
         to_date: toDate || undefined,
         limit,
