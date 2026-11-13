@@ -36,7 +36,7 @@ export const PortfolioReportCards: React.FC<PortfolioReportCardsProps> = ({
       className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
     >
       <LrsHeadroomCard
-        lrsHeadroom={report.lrs_headroom}
+        lrsHeadroom={report.lrs_headroom_inr ? { lrs_headroom_inr: report.lrs_headroom_inr } : null}
         asOf={report.as_of || undefined}
         currencyDisplayPreference={currencyDisplayPreference}
       />
