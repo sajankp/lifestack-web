@@ -138,6 +138,17 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
   });
   const latestReport = portfolioReportsRes.data?.items?.[0] ?? null;
   const portfolioReportsLoading = portfolioReportsRes.isLoading;
+  const portfolioReportsError = portfolioReportsRes.isError;
+  
+  // Debug: log query state
+  React.useEffect(() => {
+    if (portfolioReportsError) {
+      console.error('Portfolio reports query error:', portfolioReportsRes.error);
+    }
+    if (portfolioReportsRes.data) {
+      console.log('Portfolio reports data:', portfolioReportsRes.data);
+    }
+  }, [portfolioReportsRes.data, portfolioReportsError]);
 
   const sortedExposureRows = useMemo(
     () =>
@@ -422,6 +433,10 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                   <div className="h-8 w-1/2 bg-slate-700/50 rounded" />
                 </div>
               ))}
+            </div>
+          ) : portfolioReportsError ? (
+            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-300 text-sm">
+              Failed to load portfolio reports: {(portfolioReportsRes.error as Error)?.message ?? 'Unknown error'}
             </div>
           ) : (
             <PortfolioReportCards
