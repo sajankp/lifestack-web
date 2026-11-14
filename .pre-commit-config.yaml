@@ -1,3 +1,8 @@
+# prettier is a node hook; use the node already on the machine/CI instead of
+# having pre-commit build one with nodeenv (which fails to resolve a version here).
+default_language_version:
+  node: system
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0

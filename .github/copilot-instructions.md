@@ -1,4 +1,5 @@
 <!-- AUTO-SYNCED from .agent/context.md — do not edit directly. Run: make sync-agent-docs -->
+
 # Lifestack Web — Agent Context
 
 > This file is the canonical source of project conventions for AI coding agents.
@@ -134,5 +135,6 @@ PR ready for review.
 
 - Protected main blocks push → Push feature branch and open PR instead
 - Flaky UI assertions → Prefer role-based queries and explicit waits in tests
+- Hooks not running on commit → A fresh clone has none installed (CI is then the first place lint/format failures show). Run `make hooks` once per clone
 - Pre-commit failure → Fix hooks, recommit, re-verify with `git status`
 - Full-stack confidence → Web CI has no E2E dispatch sender yet, and the E2E workflow has no `repository_dispatch` receiver. Use a fresh manual/nightly composed run until the contract is completed.
