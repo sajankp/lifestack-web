@@ -314,6 +314,23 @@ describe('AnalyticsTab', () => {
     expect(screen.queryByText('LRS Headroom')).not.toBeInTheDocument();
   });
 
+  it('shows an error (not the empty state) when the reports request fails', async () => {
+    mockAnalyticsEndpoints([]);
+    server.use(
+      http.get('*/v1/platform/workspaces/', () =>
+        HttpResponse.json({ items: [MOCK_WORKSPACE] }),
+      ),
+      http.get('*/v1/investing/portfolio-reports', () =>
+        HttpResponse.json({ detail: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    renderWithQuery(<AnalyticsTab currencyDisplayPreference="symbol" />);
+
+    expect(await screen.findByText(/Failed to load portfolio reports/)).toBeInTheDocument();
+    expect(screen.queryByText('No portfolio report available')).not.toBeInTheDocument();
+  });
+
   it('opens the report detail view with the full foundation_json', async () => {
     mockAnalyticsEndpoints([]);
     mockReportEndpoints();
