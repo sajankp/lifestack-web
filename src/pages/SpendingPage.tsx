@@ -297,7 +297,7 @@ export const SpendingPage: React.FC = () => {
 
   // Query recurring rules
   const recurringQuery = useQuery({
-    queryKey: queryKeys.spending.recurring({ offset: recurringOffset, limit: DEFAULT_PAGE_SIZE }),
+    queryKey: queryKeys.spending.recurring({ limit: DEFAULT_PAGE_SIZE, offset: recurringOffset }),
     queryFn: () => spendingService.getRecurring(DEFAULT_PAGE_SIZE, recurringOffset),
   });
   const recurringResponse = recurringQuery.data;
@@ -305,11 +305,7 @@ export const SpendingPage: React.FC = () => {
 
   // Query budgets
   const budgetsQuery = useQuery({
-    queryKey: queryKeys.spending.budgets({
-      month: budgetsMonth,
-      offset: budgetOffset,
-      limit: DEFAULT_PAGE_SIZE,
-    }),
+    queryKey: queryKeys.spending.budgets({ month: budgetsMonth, limit: DEFAULT_PAGE_SIZE, offset: budgetOffset }),
     queryFn: () =>
       spendingService.getBudgets(
         DEFAULT_PAGE_SIZE,

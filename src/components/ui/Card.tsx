@@ -17,9 +17,7 @@ const cardVariants = cva(
   },
 );
 
-interface CardProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof cardVariants> {}
+type CardProps = React.HTMLAttributes<HTMLDivElement> & VariantProps<typeof cardVariants>;
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant, ...props }, ref) => (
@@ -28,31 +26,31 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
 );
 Card.displayName = 'Card';
 
-interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {}
+type CardHeaderProps = React.HTMLAttributes<HTMLDivElement>;
 const CardHeader: React.FC<CardHeaderProps> = ({ className, ...props }) => (
   <div className={cn('flex flex-col space-y-1.5', className)} {...props} />
 );
 CardHeader.displayName = 'CardHeader';
 
-interface CardTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {}
+type CardTitleProps = React.HTMLAttributes<HTMLHeadingElement>;
 const CardTitle: React.FC<CardTitleProps> = ({ className, ...props }) => (
   <h3 className={cn('font-semibold text-white text-base', className)} {...props} />
 );
 CardTitle.displayName = 'CardTitle';
 
-interface CardDescriptionProps extends React.HTMLAttributes<HTMLParagraphElement> {}
+type CardDescriptionProps = React.HTMLAttributes<HTMLParagraphElement>;
 const CardDescription: React.FC<CardDescriptionProps> = ({ className, ...props }) => (
   <p className={cn('text-xs text-slate-400', className)} {...props} />
 );
 CardDescription.displayName = 'CardDescription';
 
-interface CardContentProps extends React.HTMLAttributes<HTMLDivElement> {}
+type CardContentProps = React.HTMLAttributes<HTMLDivElement>;
 const CardContent: React.FC<CardContentProps> = ({ className, ...props }) => (
   <div className={cn('pt-1', className)} {...props} />
 );
 CardContent.displayName = 'CardContent';
 
-interface CardFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
+type CardFooterProps = React.HTMLAttributes<HTMLDivElement>;
 const CardFooter: React.FC<CardFooterProps> = ({ className, ...props }) => (
   <div
     className={cn(
