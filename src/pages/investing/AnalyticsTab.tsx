@@ -139,16 +139,6 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
   const latestReport = portfolioReportsRes.data?.items?.[0] ?? null;
   const portfolioReportsLoading = portfolioReportsRes.isLoading;
   const portfolioReportsError = portfolioReportsRes.isError;
-  
-  // Debug: log query state
-  React.useEffect(() => {
-    if (portfolioReportsError) {
-      console.error('Portfolio reports query error:', portfolioReportsRes.error);
-    }
-    if (portfolioReportsRes.data) {
-      console.log('Portfolio reports data:', portfolioReportsRes.data);
-    }
-  }, [portfolioReportsRes.data, portfolioReportsError]);
 
   const sortedExposureRows = useMemo(
     () =>
