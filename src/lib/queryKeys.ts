@@ -47,8 +47,22 @@ export const queryKeys = {
     transactions: <T extends unknown[]>(...params: T) =>
       ['spending', 'transactions', ...params] as const,
     summary: <T extends unknown[]>(...params: T) => ['spending', 'summary', ...params] as const,
-    budgets: <T extends unknown[]>(...params: T) => ['spending', 'budgets', ...params] as const,
-    recurring: <T extends unknown[]>(...params: T) => ['spending', 'recurring', ...params] as const,
+    budgets: ({
+      month,
+      limit,
+      offset,
+    }: {
+      month?: string;
+      limit?: number;
+      offset?: number;
+    } = {}) => ['spending', 'budgets', month, limit, offset] as const,
+    recurring: ({
+      limit,
+      offset,
+    }: {
+      limit?: number;
+      offset?: number;
+    } = {}) => ['spending', 'recurring', limit, offset] as const,
     kpis: <T extends unknown[]>(...params: T) => ['spending', 'kpis', ...params] as const,
     // These used to be bare siblings ('spending-trends', 'spending-breakdown',
     // 'spending-savings-rate', 'spend-pacing'). A sibling string is NOT a
@@ -138,8 +152,32 @@ export const queryKeys = {
     },
     overlap: (asOf: string) => ['investing', 'analytics', 'overlap', asOf] as const,
     portfolioReports: {
-      list: (params?: { workspaceId?: string; limit?: number; offset?: number; from_date?: string; to_date?: string; include_payload?: boolean }) =>
-        ['investing', 'portfolio-reports', 'list', params] as const,
+      list: ({
+        workspaceId,
+        limit,
+        offset,
+        from_date,
+        to_date,
+        include_payload,
+      }: {
+        workspaceId?: string;
+        limit?: number;
+        offset?: number;
+        from_date?: string;
+        to_date?: string;
+        include_payload?: boolean;
+      } = {}) =>
+        [
+          'investing',
+          'portfolio-reports',
+          'list',
+          workspaceId,
+          limit,
+          offset,
+          from_date,
+          to_date,
+          include_payload,
+        ] as const,
       detail: (publicId: string) =>
         ['investing', 'portfolio-reports', 'detail', publicId] as const,
     },

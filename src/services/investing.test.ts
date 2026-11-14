@@ -121,7 +121,7 @@ describe('investingService', () => {
 
     expect(api.get).toHaveBeenCalledWith('/investing/portfolio-reports', {
       params: {
-        workspace_id: 'ws-1',
+        workspace_public_id: 'ws-1',
         from_date: '2026-01-01',
         to_date: '2026-03-31',
         limit: 10,
@@ -139,7 +139,7 @@ describe('investingService', () => {
 
     expect(api.get).toHaveBeenCalledWith('/investing/portfolio-reports', {
       params: {
-        workspace_id: 'ws-1',
+        workspace_public_id: 'ws-1',
         from_date: undefined,
         to_date: undefined,
         limit: 50,

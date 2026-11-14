@@ -5,7 +5,7 @@ import { formatQuantity, toNumber } from '../../utils/numberFormat';
 import type { HarvestCandidate } from '../../types/investing';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 
-// Portfolio report harvest candidates can be any object (backend returns list[Any])
+// Portfolio report harvest candidates can be any object (backend returns list[Any])\n// API test data uses { symbol, loss_inr } but frontend expects { symbol, quantity, loss, tax_saved }\n// Cron script may send yet another format - be defensive\n
 type HarvestCandidateInput = HarvestCandidate | Record<string, unknown>;
 
 interface Totals {
