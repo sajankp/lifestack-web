@@ -44,7 +44,9 @@ const MOCK_REPORT: PortfolioReport = {
 
 const renderCards = (props: Parameters<typeof PortfolioReportCards>[0]) =>
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} >
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       <PortfolioReportCards {...props} />
     </QueryClientProvider>,
   );
@@ -61,6 +63,42 @@ describe('PortfolioReportCards', () => {
     );
   });
 
+  it('renders tax and harvest rows from the shapes the cron actually stores', async () => {
+    // Production rows: flat tax scalars and the script's harvest_detail keys.
+    renderCards({
+      report: {
+        ...MOCK_REPORT,
+        harvest_candidates: [
+          {
+            symbol: 'ABC',
+            account: 'IND Money',
+            qty: 4,
+            unrealised_loss_inr: 2500.5,
+            days_to_long_term: 40,
+            tax_saved_inr: 780.25,
+          },
+        ],
+        tax_buckets: {
+          lt_gain_inr: 1000,
+          lt_tax_inr: 125,
+          st_gain_inr: 200,
+          st_tax_inr: 70,
+          total_tax_inr: 195,
+          slab_pct: 30,
+          advance_paid_inr: 0,
+        },
+      },
+      currencyDisplayPreference: 'symbol',
+    });
+
+    expect(await screen.findByTestId('tax-bucket-row-0')).toBeInTheDocument();
+    expect(screen.getByTestId('tax-bucket-row-1')).toBeInTheDocument();
+    expect(screen.queryByText('No tax buckets recorded')).not.toBeInTheDocument();
+
+    expect(await screen.findByTestId('harvest-row-0')).toHaveTextContent('ABC');
+    expect(screen.queryByText('No harvest candidates')).not.toBeInTheDocument();
+  });
+
   it('renders all five report cards from the latest report', async () => {
     renderCards({ report: MOCK_REPORT, currencyDisplayPreference: 'symbol' });
 
@@ -68,7 +106,9 @@ describe('PortfolioReportCards', () => {
 
     expect(await screen.findByText('LRS Headroom')).toBeInTheDocument();
     // Currency formatting may vary by locale
-    expect(await screen.findByText((content) => content.includes('750') && content.includes('000'))).toBeInTheDocument();
+    expect(
+      await screen.findByText((content) => content.includes('750') && content.includes('000')),
+    ).toBeInTheDocument();
 
     expect(await screen.findByText('Tax Buckets')).toBeInTheDocument();
     // Check totals with flexible matching
@@ -88,7 +128,9 @@ describe('PortfolioReportCards', () => {
     expect(await screen.findByText('Harvest Candidates')).toBeInTheDocument();
     expect(screen.getByText('RELIANCE')).toBeInTheDocument();
     expect(
-      within(screen.getByTestId('harvest-row-0')).getByText((content) => content.includes('45') && content.includes('000')),
+      within(screen.getByTestId('harvest-row-0')).getByText(
+        (content) => content.includes('45') && content.includes('000'),
+      ),
     ).toBeInTheDocument();
     const totalLoss = screen.getByTestId('harvest-total-loss');
     expect(totalLoss.textContent).toMatch(/45.*000/);
