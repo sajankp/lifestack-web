@@ -1,13 +1,16 @@
 import React from 'react';
 import { EmptyState } from '../ui/FeedbackStates';
 import { Folder } from 'lucide-react';
-import type { PortfolioReport } from '../../types/investing';
+import type { PortfolioReport, TaxBucket, HarvestCandidate } from '../../types/investing';
 import { CountrySplitCard } from './CountrySplitCard';
 import { extractCountryWeights } from '../../utils/portfolioReport';
 import { HarvestCandidatesCard } from './HarvestCandidatesCard';
 import { LrsHeadroomCard } from './LrsHeadroomCard';
 import { TaxBucketsCard } from './TaxBucketsCard';
 import { ThemeSplitCard } from './ThemeSplitCard';
+
+// Local type to match HarvestCandidatesCard's expected input
+type HarvestCandidateInput = HarvestCandidate | Record<string, unknown>;
 
 interface PortfolioReportCardsProps {
   report: PortfolioReport | null;
@@ -41,14 +44,14 @@ export const PortfolioReportCards: React.FC<PortfolioReportCardsProps> = ({
         currencyDisplayPreference={currencyDisplayPreference}
       />
       <TaxBucketsCard
-        taxBuckets={report.tax_buckets}
+        taxBuckets={report.tax_buckets as Record<string, TaxBucket>}
         currencyDisplayPreference={currencyDisplayPreference}
       />
       <ThemeSplitCard themeWeights={report.theme_weights} />
       <CountrySplitCard
         countryWeights={extractCountryWeights(report.foundation_json as Record<string, string> | null)}
       />
-      <HarvestCandidatesCard harvestCandidates={report.harvest_candidates} />
+      <HarvestCandidatesCard harvestCandidates={report.harvest_candidates as HarvestCandidateInput[]} />
     </div>
   );
 };

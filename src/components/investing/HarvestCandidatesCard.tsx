@@ -23,14 +23,24 @@ export const HarvestCandidatesCard: React.FC<HarvestCandidatesCardProps> = ({
   const formatCurrency = useCurrencyFormatter();
 
   // Extract loss/tax_saved from either HarvestCandidate or generic object
-  const getLoss = (c: HarvestCandidateInput): number =>
-    toNumber('loss' in c ? c.loss : (c.loss_inr as string | number | undefined) ?? 0);
-  const getTaxSaved = (c: HarvestCandidateInput): number =>
-    toNumber('tax_saved' in c ? c.tax_saved : (c.tax_saved_inr as string | number | undefined) ?? 0);
-  const getSymbol = (c: HarvestCandidateInput): string =>
-    'symbol' in c ? c.symbol : ((c.symbol as string) ?? '—');
-  const getQuantity = (c: HarvestCandidateInput): string | number =>
-    'quantity' in c ? c.quantity : ((c.quantity as string | number) ?? '—');
+  const getLoss = (c: HarvestCandidateInput): number => {
+    if ('loss' in c && typeof c.loss === 'string') return toNumber(c.loss);
+    if ('loss_inr' in c && typeof c.loss_inr === 'string') return toNumber(c.loss_inr);
+    return 0;
+  };
+  const getTaxSaved = (c: HarvestCandidateInput): number => {
+    if ('tax_saved' in c && typeof c.tax_saved === 'string') return toNumber(c.tax_saved);
+    if ('tax_saved_inr' in c && typeof c.tax_saved_inr === 'string') return toNumber(c.tax_saved_inr);
+    return 0;
+  };
+  const getSymbol = (c: HarvestCandidateInput): string => {
+    if ('symbol' in c && typeof c.symbol === 'string') return c.symbol;
+    return '—';
+  };
+  const getQuantity = (c: HarvestCandidateInput): string | number => {
+    if ('quantity' in c) return c.quantity as string | number;
+    return '—';
+  };
 
   const candidates = harvestCandidates.filter((c) => getLoss(c) > 0);
 

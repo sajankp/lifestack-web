@@ -149,18 +149,17 @@ describe('investingService', () => {
   });
 
   it('calls portfolio report detail endpoint and parses the item', async () => {
-    vi.spyOn(api, 'get').mockResolvedValueOnce({
-      data: {
-        public_id: '550e8400-e29b-41d4-a716-446655440000',
-        as_of: '2026-06-30',
-        run_id: 'run-1',
-        theme_weights: { equity: '60', debt: '40' },
-        harvest_candidates: [{ symbol: 'RELIANCE', quantity: '2', loss: '5000', tax_saved: '1500' }],
-        lrs_headroom_inr: '250000',
-        tax_buckets: { foreign_115AD: { regime: 'foreign', section: '115AD', tax: '1500' } },
-        created_at: '2026-06-30T10:00:00Z',
-      },
-    } as never);
+    const mockReport = {
+      public_id: '550e8400-e29b-41d4-a716-446655440000',
+      as_of: '2026-06-30',
+      run_id: 'run-1',
+      theme_weights: { equity: '60', debt: '40' },
+      harvest_candidates: [{ symbol: 'RELIANCE', quantity: '2', loss: '5000', tax_saved: '1500' }],
+      lrs_headroom_inr: '250000',
+      tax_buckets: { foreign_115AD: { regime: 'foreign', section: '115AD', tax: '1500' } },
+      created_at: '2026-06-30T10:00:00Z',
+    };
+    vi.spyOn(api, 'get').mockResolvedValueOnce({ data: mockReport } as never);
 
     const result = await investingService.getPortfolioReport('r1', true);
 
@@ -169,8 +168,11 @@ describe('investingService', () => {
     });
     expect(result.public_id).toBe('550e8400-e29b-41d4-a716-446655440000');
     expect(result.theme_weights.equity).toBe('60');
-    expect(result.harvest_candidates[0]?.symbol).toBe('RELIANCE');
+    // harvest_candidates and tax_buckets are unknown in type, cast for assertions
+    const harvest = result.harvest_candidates as Array<{ symbol: string }>;
+    expect(harvest[0]?.symbol).toBe('RELIANCE');
     expect(result.lrs_headroom_inr).toBe('250000');
-    expect(result.tax_buckets.foreign_115AD?.tax).toBe('1500');
+    const taxBuckets = result.tax_buckets as Record<string, { tax: string }>;
+    expect(taxBuckets.foreign_115AD?.tax).toBe('1500');
   });
 });
