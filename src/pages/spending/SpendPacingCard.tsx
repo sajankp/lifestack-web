@@ -29,7 +29,11 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
 }) => {
   const formatCurrency = useCurrencyFormatter();
 
-  const { data: pacing, isLoading, isError } = useQuery({
+  const {
+    data: pacing,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: queryKeys.spending.pacing(selectedMonth),
     queryFn: () => spendingService.getSpendPacing(selectedMonth),
     enabled: !!selectedMonth,
@@ -39,7 +43,7 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
     return (
       <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-5 animate-pulse">
         <div className="h-5 w-48 bg-slate-700/50 rounded mb-4" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="h-20 bg-slate-700/30 rounded-xl" />
           <div className="h-20 bg-slate-700/30 rounded-xl" />
           <div className="h-20 bg-slate-700/30 rounded-xl" />
@@ -57,9 +61,7 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
   const dailyBurn = toNumber(pacing.daily_burn_rate);
   const totalSpent = toNumber(pacing.actual_spend ?? pacing.total_spent ?? 0);
 
-  const projectedSpend = toNumber(
-    pacing.projected_month_end_spend ?? pacing.projected_spend ?? 0,
-  );
+  const projectedSpend = toNumber(pacing.projected_month_end_spend ?? pacing.projected_spend ?? 0);
   const totalBudget = pacing.total_budget != null ? toNumber(pacing.total_budget) : null;
   const budgetConsumedPct =
     pacing.budget_consumed_pct != null ? toNumber(pacing.budget_consumed_pct) : null;
@@ -83,12 +85,12 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
   const isOnTrack = status === 'on_track';
 
   const fixedSpend = pacing.fixed_spend != null ? toNumber(pacing.fixed_spend) : null;
-  const discretionarySpend = pacing.discretionary_spend != null ? toNumber(pacing.discretionary_spend) : null;
+  const discretionarySpend =
+    pacing.discretionary_spend != null ? toNumber(pacing.discretionary_spend) : null;
   const fixedBurnRate = pacing.fixed_burn_rate != null ? toNumber(pacing.fixed_burn_rate) : null;
-  const discretionaryBurnRate = pacing.discretionary_burn_rate != null ? toNumber(pacing.discretionary_burn_rate) : null;
+  const discretionaryBurnRate =
+    pacing.discretionary_burn_rate != null ? toNumber(pacing.discretionary_burn_rate) : null;
   const categories = pacing.categories ?? [];
-
-
 
   return (
     <div
@@ -138,7 +140,7 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
       </div>
 
       {/* 4 Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Daily Burn Rate */}
         <div className="rounded-xl border border-slate-700/40 bg-slate-900/40 p-4">
           <div className="flex items-center justify-between text-xs text-slate-400">
@@ -171,7 +173,11 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
             {totalBudget !== null
               ? pacingDelta !== null && pacingDelta > 0
                 ? `+${formatCurrency(pacingDelta, currency, currencyDisplayPreference)} vs budget`
-                : `${formatCurrency(Math.abs(pacingDelta ?? 0), currency, currencyDisplayPreference)} buffer`
+                : `${formatCurrency(
+                    Math.abs(pacingDelta ?? 0),
+                    currency,
+                    currencyDisplayPreference,
+                  )} buffer`
               : 'Based on current velocity'}
           </p>
         </div>
@@ -195,7 +201,11 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
           </div>
           <p className="mt-1 text-xs text-slate-500">
             {totalBudget !== null && totalBudget > totalSpent
-              ? `${formatCurrency(totalBudget - totalSpent, currency, currencyDisplayPreference)} remaining`
+              ? `${formatCurrency(
+                  totalBudget - totalSpent,
+                  currency,
+                  currencyDisplayPreference,
+                )} remaining`
               : totalBudget !== null
                 ? 'Budget exceeded'
                 : 'No budget target set'}
@@ -208,11 +218,10 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
             <span>Month Elapsed</span>
             <Calendar className="h-4 w-4 text-cyan-400" />
           </div>
-          <div className="mt-2 text-xl font-bold text-white">
-            {monthElapsedPct.toFixed(1)}%
-          </div>
+          <div className="mt-2 text-xl font-bold text-white">{monthElapsedPct.toFixed(1)}%</div>
           <p className="mt-1 text-xs text-slate-500">
-            Day {pacing.days_elapsed} of {pacing.days_in_month} ({pacing.days_remaining} day{pacing.days_remaining === 1 ? '' : 's'} left)
+            Day {pacing.days_elapsed} of {pacing.days_in_month} ({pacing.days_remaining} day
+            {pacing.days_remaining === 1 ? '' : 's'} left)
           </p>
         </div>
       </div>
@@ -222,9 +231,11 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
         <div className="space-y-3">
           {/* Time Elapsed Bar */}
           <div>
-            <div className="flex justify-between text-xs text-slate-400 mb-1">
+            <div className="mb-1 flex justify-between gap-3 text-xs text-slate-400">
               <span>Time Elapsed ({monthElapsedPct.toFixed(0)}%)</span>
-              <span>Day {pacing.days_elapsed} / {pacing.days_in_month}</span>
+              <span>
+                Day {pacing.days_elapsed} / {pacing.days_in_month}
+              </span>
             </div>
             <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
               <div
@@ -237,9 +248,9 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
           {/* Budget Consumed Bar (if budget exists) */}
           {totalBudget !== null && budgetConsumedPct !== null && (
             <div>
-              <div className="flex justify-between text-xs text-slate-400 mb-1">
+              <div className="mb-1 flex flex-wrap justify-between gap-x-3 gap-y-0.5 text-xs text-slate-400">
                 <span>Budget Consumed ({budgetConsumedPct.toFixed(0)}%)</span>
-                <span>
+                <span className="whitespace-nowrap">
                   {formatCurrency(totalSpent, currency, currencyDisplayPreference)} of{' '}
                   {formatCurrency(totalBudget, currency, currencyDisplayPreference)}
                 </span>
@@ -275,15 +286,21 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
                 </strong>
                 .
                 {safeDailyRemaining !== null && safeDailyRemaining > 0 && (
-                  <> Reduce burn to <strong className="text-white">{formatCurrency(safeDailyRemaining, currency, currencyDisplayPreference)}/day</strong> to stay within budget.</>
+                  <>
+                    {' '}
+                    Reduce burn to{' '}
+                    <strong className="text-white">
+                      {formatCurrency(safeDailyRemaining, currency, currencyDisplayPreference)}/day
+                    </strong>{' '}
+                    to stay within budget.
+                  </>
                 )}
               </span>
             ) : isUnderBudget ? (
               <span className="text-emerald-300">
-                Pacing healthy: You have consumed{' '}
-                <strong>{budgetConsumedPct?.toFixed(0)}%</strong> of your budget while{' '}
-                <strong>{monthElapsedPct.toFixed(0)}%</strong> of the month has elapsed. Projected
-                budget buffer of{' '}
+                Pacing healthy: You have consumed <strong>{budgetConsumedPct?.toFixed(0)}%</strong>{' '}
+                of your budget while <strong>{monthElapsedPct.toFixed(0)}%</strong> of the month has
+                elapsed. Projected budget buffer of{' '}
                 <strong className="text-emerald-200">
                   {formatCurrency(Math.abs(pacingDelta ?? 0), currency, currencyDisplayPreference)}
                 </strong>
@@ -306,15 +323,13 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
       {/* Fixed vs Discretionary Burn Breakdown */}
       {(fixedSpend !== null || discretionarySpend !== null) && (
         <div className="mt-4 rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
               Burn Velocity Split
             </span>
-            <span className="text-xs text-slate-400">
-              Survival vs Lifestyle
-            </span>
+            <span className="text-xs text-slate-400">Survival vs Lifestyle</span>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="rounded-lg bg-slate-800/50 p-3 border border-slate-700/30">
               <div className="flex justify-between items-center text-xs">
                 <span className="text-indigo-400 font-medium flex items-center gap-1.5">
@@ -367,7 +382,7 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
       {/* Category Spend Pacing Table / List */}
       {categories.length > 0 && (
         <div className="mt-4 rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
               Category Pacing Breakdown
             </span>
@@ -379,7 +394,8 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
             {categories.map((cat) => {
               const catActual = toNumber(cat.actual_spend);
               const catBudget = cat.budget_amount != null ? toNumber(cat.budget_amount) : null;
-              const catConsumed = cat.budget_consumed_pct != null ? toNumber(cat.budget_consumed_pct) : null;
+              const catConsumed =
+                cat.budget_consumed_pct != null ? toNumber(cat.budget_consumed_pct) : null;
               const catProjected = toNumber(cat.projected_spend);
               const catBurn = toNumber(cat.daily_burn_rate);
               const catStatus = cat.pacing_status ?? cat.status ?? 'no_budget';
@@ -393,31 +409,32 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
                   className="rounded-lg bg-slate-800/40 p-3 border border-slate-700/20 hover:border-slate-700/50 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="font-medium text-sm text-white">{cat.category_name}</span>
                       {isCatOver && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                        <span className="whitespace-nowrap text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
                           Over Pacing
                         </span>
                       )}
                       {isCatOnTrack && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                        <span className="whitespace-nowrap text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
                           On Track
                         </span>
                       )}
                       {isCatUnder && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        <span className="whitespace-nowrap text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                           Under Budget
                         </span>
                       )}
                     </div>
-                    <div className="text-right">
+                    <div className="shrink-0 whitespace-nowrap text-right">
                       <span className="text-sm font-semibold text-white">
                         {formatCurrency(catActual, currency, currencyDisplayPreference)}
                       </span>
                       {catBudget !== null && (
                         <span className="text-xs text-slate-400">
-                          {' '}/ {formatCurrency(catBudget, currency, currencyDisplayPreference)}
+                          {' '}
+                          / {formatCurrency(catBudget, currency, currencyDisplayPreference)}
                         </span>
                       )}
                     </div>
@@ -441,8 +458,12 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
                   )}
 
                   <div className="mt-1.5 flex items-center justify-between text-xs text-slate-400">
-                    <span>Burn: {formatCurrency(catBurn, currency, currencyDisplayPreference)}/day</span>
-                    <span>Proj: {formatCurrency(catProjected, currency, currencyDisplayPreference)}</span>
+                    <span>
+                      Burn: {formatCurrency(catBurn, currency, currencyDisplayPreference)}/day
+                    </span>
+                    <span>
+                      Proj: {formatCurrency(catProjected, currency, currencyDisplayPreference)}
+                    </span>
                   </div>
                 </div>
               );

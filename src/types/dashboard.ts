@@ -9,12 +9,16 @@ export const DashboardTodoItemSchema = z.object({
 });
 export type DashboardTodoItem = z.infer<typeof DashboardTodoItemSchema>;
 
+// Mirrors the API's `top_overspent_categories` rows (app/application/workflows.py):
+// Decimal fields serialise as strings, `category_id` is the integer category id.
+const DecimalLikeSchema = z.union([z.number(), z.string()]);
+
 export const DashboardOverspentCategorySchema = z.object({
-  category_id: z.string().optional(),
-  name: z.string().optional(),
-  budget: z.number().nullable().optional(),
-  amount: z.number().optional(),
-  overage: z.number().optional(),
+  category_id: z.number().optional(),
+  spent: DecimalLikeSchema.optional(),
+  budget: DecimalLikeSchema.nullable().optional(),
+  overspend: DecimalLikeSchema.optional(),
+  ratio: DecimalLikeSchema.optional(),
 });
 export type DashboardOverspentCategory = z.infer<typeof DashboardOverspentCategorySchema>;
 

@@ -72,7 +72,8 @@ export const AccountMap: React.FC<AccountMapProps> = ({
     totalSpendingCash ??
     cashAccounts.reduce(
       (acc, a) =>
-        acc + (balancesReportingByAccountId?.[a.public_id] ?? balancesByAccountId[a.public_id] ?? 0),
+        acc +
+        (balancesReportingByAccountId?.[a.public_id] ?? balancesByAccountId[a.public_id] ?? 0),
       0,
     );
 
@@ -80,7 +81,8 @@ export const AccountMap: React.FC<AccountMapProps> = ({
     totalInvestingCash ??
     brokerageAccounts.reduce(
       (acc, a) =>
-        acc + (balancesReportingByAccountId?.[a.public_id] ?? balancesByAccountId[a.public_id] ?? 0),
+        acc +
+        (balancesReportingByAccountId?.[a.public_id] ?? balancesByAccountId[a.public_id] ?? 0),
       0,
     );
 
@@ -106,14 +108,14 @@ export const AccountMap: React.FC<AccountMapProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-base font-bold text-white">Account Architecture</h2>
           <p className="text-xs text-slate-400">
             Interactive map of your liquid cash, brokerage balances, and investment holdings
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="secondary"
             size="sm"
@@ -209,7 +211,8 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                     const isSelected = selectedAccountId === acc.public_id;
                     const Icon = getAccountIcon(acc.account_type);
                     const isDifferentCurrency =
-                      acc.default_currency_code.trim().toUpperCase() !== repCurrency.trim().toUpperCase();
+                      acc.default_currency_code.trim().toUpperCase() !==
+                      repCurrency.trim().toUpperCase();
 
                     return (
                       <div
@@ -327,7 +330,8 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                     const repBal = balancesReportingByAccountId?.[acc.public_id];
                     const isSelected = selectedAccountId === acc.public_id;
                     const isDifferentCurrency =
-                      acc.default_currency_code.trim().toUpperCase() !== repCurrency.trim().toUpperCase();
+                      acc.default_currency_code.trim().toUpperCase() !==
+                      repCurrency.trim().toUpperCase();
 
                     return (
                       <div
@@ -396,8 +400,7 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                   onClick={() => onOpenDividend()}
                   className="text-xs h-8 gap-1 border border-slate-700 hover:bg-slate-800 text-slate-300"
                 >
-                  <TrendingUp className="h-3 w-3 text-emerald-400" />
-                  + Dividend
+                  <TrendingUp className="h-3 w-3 text-emerald-400" />+ Dividend
                 </Button>
                 <Button
                   variant="secondary"
@@ -405,8 +408,7 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                   onClick={() => onOpenOrder()}
                   className="text-xs h-8 gap-1 border border-slate-700 hover:bg-slate-800 text-slate-300"
                 >
-                  <LineChart className="h-3 w-3 text-violet-400" />
-                  + Trade
+                  <LineChart className="h-3 w-3 text-violet-400" />+ Trade
                 </Button>
               </div>
             </div>
@@ -451,7 +453,8 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                       holdingsCount: 0,
                     };
                     const isDifferentCurrency =
-                      acc.default_currency_code.trim().toUpperCase() !== repCurrency.trim().toUpperCase();
+                      acc.default_currency_code.trim().toUpperCase() !==
+                      repCurrency.trim().toUpperCase();
 
                     return (
                       <div
@@ -467,7 +470,8 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                               {acc.name} Holdings
                             </span>
                             <span className="text-[11px] text-slate-400">
-                              {port.holdingsCount} {port.holdingsCount === 1 ? 'position' : 'positions'}
+                              {port.holdingsCount}{' '}
+                              {port.holdingsCount === 1 ? 'position' : 'positions'}
                             </span>
                           </div>
                         </div>

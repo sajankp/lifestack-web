@@ -190,7 +190,7 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wide">
                 Metric
@@ -217,7 +217,7 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wide">
                 Filter
@@ -263,7 +263,7 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
           </div>
 
           {form.hasTarget ? (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-semibold text-slate-400 uppercase tracking-wide">
                   Target value
@@ -325,16 +325,17 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
           <p className="text-slate-400">Track a recurring financial question beyond budgets.</p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {kpis.map((kpi: Kpi) => {
             const current = parseFloat(kpi.current_value.toString());
             const target =
               kpi.target_value != null ? parseFloat(kpi.target_value.toString()) : null;
             const hasFiniteCurrent = Number.isFinite(current);
             const hasPositiveTarget = target != null && Number.isFinite(target) && target > 0;
-            const progress = hasPositiveTarget && hasFiniteCurrent
-              ? Math.min(100, Math.max(0, (current / target) * 100))
-              : null;
+            const progress =
+              hasPositiveTarget && hasFiniteCurrent
+                ? Math.min(100, Math.max(0, (current / target) * 100))
+                : null;
             const breachDeltaPct =
               hasPositiveTarget && hasFiniteCurrent && kpi.is_breached
                 ? kpi.target_direction === 'lte'
@@ -357,7 +358,9 @@ const KpisTabImpl: React.FC<KpisTabProps> = ({
                         className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-400"
                       >
                         <AlertTriangle className="h-3 w-3" />
-                        {breachDeltaPct != null ? `${Math.round(breachDeltaPct)}% breach` : 'Breached'}
+                        {breachDeltaPct != null
+                          ? `${Math.round(breachDeltaPct)}% breach`
+                          : 'Breached'}
                       </span>
                     ) : null}
                     <button

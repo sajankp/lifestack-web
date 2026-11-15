@@ -61,10 +61,7 @@ export const TaxTab: React.FC = () => {
   const summary: TaxSummary | undefined = summaryQuery.data;
   const formatter = useCurrencyFormatter();
 
-  const buckets = useMemo(
-    () => Object.entries(summary?.buckets ?? {}),
-    [summary?.buckets],
-  );
+  const buckets = useMemo(() => Object.entries(summary?.buckets ?? {}), [summary?.buckets]);
 
   const positions = summary?.positions ?? [];
   const fxRates = summary?.fx_rates ?? [];
@@ -157,8 +154,8 @@ export const TaxTab: React.FC = () => {
           </ul>
         ) : null}
         <p className="mt-3 text-xs text-amber-100/70">
-          Add the Rule 115 rate for those months in your tax profile, or seed the
-          app&apos;s FX rate for the month, and the estimate will appear here.
+          Add the Rule 115 rate for those months in your tax profile, or seed the app&apos;s FX rate
+          for the month, and the estimate will appear here.
         </p>
       </div>
     );
@@ -174,24 +171,21 @@ export const TaxTab: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <Calculator className="h-4 w-4 text-slate-400" />
-              <h2 className="text-sm font-semibold text-slate-100">
-                Capital gains tax estimate
-              </h2>
+              <h2 className="text-sm font-semibold text-slate-100">Capital gains tax estimate</h2>
               <TaxInfoTip
                 label="About this estimate"
                 content={
                   <>
-                    <strong>An estimate, not a filing-ready liability.</strong> It taxes
-                    your capital gains at your marginal rate using the FIFO cost basis
-                    already recorded on each lot. It does not compute your total income,
-                    other heads, or your actual tax payable. Verify with your CA.
+                    <strong>An estimate, not a filing-ready liability.</strong> It taxes your
+                    capital gains at your marginal rate using the FIFO cost basis already recorded
+                    on each lot. It does not compute your total income, other heads, or your actual
+                    tax payable. Verify with your CA.
                   </>
                 }
               />
             </div>
             <p className="mt-1 text-xs text-slate-400">
-              Financial year {summary?.fy_label ?? fy} ·{' '}
-              {summary?.currency ?? 'INR'}
+              Financial year {summary?.fy_label ?? fy} · {summary?.currency ?? 'INR'}
             </p>
           </div>
           <div className="w-44">
@@ -219,7 +213,7 @@ export const TaxTab: React.FC = () => {
         </div>
 
         {hasSells ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-slate-700/50 bg-slate-800/40 p-3">
               <div className="text-xs text-slate-400">Estimated tax</div>
               <div
@@ -267,8 +261,8 @@ export const TaxTab: React.FC = () => {
             No capital gains recorded for {summary?.fy_label ?? fy}
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            Tax is computed from recorded <em>sell</em> orders. Add the sells for this
-            financial year and the estimate will appear here.
+            Tax is computed from recorded <em>sell</em> orders. Add the sells for this financial
+            year and the estimate will appear here.
           </p>
         </div>
       ) : null}
@@ -277,7 +271,7 @@ export const TaxTab: React.FC = () => {
       {hasSells ? (
         <div>
           <h3 className="mb-2 text-sm font-semibold text-slate-200">Gains by regime</h3>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {buckets.map(([key, bucket]: [string, TaxBucket]) => {
               const regime = regimeByKey[bucket.regime];
               const isIndian = bucket.regime === 'indian';
@@ -289,12 +283,9 @@ export const TaxTab: React.FC = () => {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="text-sm font-semibold text-slate-100">
-                        {bucketLabel(key)}
-                      </div>
+                      <div className="text-sm font-semibold text-slate-100">{bucketLabel(key)}</div>
                       <div className="mt-0.5 text-xs text-slate-400">
-                        {REGIME_LABELS[bucket.regime] ?? bucket.regime} · Sec{' '}
-                        {bucket.section}
+                        {REGIME_LABELS[bucket.regime] ?? bucket.regime} · Sec {bucket.section}
                       </div>
                     </div>
                     <TaxInfoTip
@@ -374,15 +365,14 @@ export const TaxTab: React.FC = () => {
               label="About the marginal rate"
               content={
                 <>
-                  A slab is a <strong>marginal</strong> rate: short-term gains are added
-                  to your other income, and the combined total sets the rate. That is
-                  why the rate depends on your other income rather than on the gain
-                  alone.
+                  A slab is a <strong>marginal</strong> rate: short-term gains are added to your
+                  other income, and the combined total sets the rate. That is why the rate depends
+                  on your other income rather than on the gain alone.
                 </>
               }
             />
           </div>
-          <dl className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+          <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
             <div className="flex justify-between">
               <dt className="text-slate-400">Marginal rate</dt>
               <dd className="font-medium text-slate-100">
@@ -419,17 +409,15 @@ export const TaxTab: React.FC = () => {
         <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-4">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-100">
-              Exchange rates used (Rule 115)
-            </h3>
+            <h3 className="text-sm font-semibold text-slate-100">Exchange rates used (Rule 115)</h3>
             <TaxInfoTip
               label="About the exchange rate"
               content={
                 <>
-                  Capital gains convert to INR at the <strong>SBI telegraphic transfer
-                  buying rate</strong> on the last day of the month before the month of
-                  transfer. An <em>estimated</em> rate is the app's stored market rate —
-                  check it against SBI's published card before filing.
+                  Capital gains convert to INR at the{' '}
+                  <strong>SBI telegraphic transfer buying rate</strong> on the last day of the month
+                  before the month of transfer. An <em>estimated</em> rate is the app's stored
+                  market rate — check it against SBI's published card before filing.
                 </>
               }
             />
@@ -503,13 +491,9 @@ export const TaxTab: React.FC = () => {
               <tbody>
                 {positions.map((lot: TaxPosition, i: number) => (
                   <tr key={`${lot.symbol}-${i}`} className="border-b border-slate-800/60">
-                    <td className="py-1.5 pr-3 font-medium text-slate-100">
-                      {lot.symbol}
-                    </td>
+                    <td className="py-1.5 pr-3 font-medium text-slate-100">{lot.symbol}</td>
                     <td className="py-1.5 pr-3 text-slate-300">{lot.account_name}</td>
-                    <td className="py-1.5 pr-3 text-slate-300">
-                      {lot.acquired_at.slice(0, 10)}
-                    </td>
+                    <td className="py-1.5 pr-3 text-slate-300">{lot.acquired_at.slice(0, 10)}</td>
                     <td className="py-1.5 pr-3 text-slate-400">
                       {lot.long_term_mark_date.slice(0, 10)}
                     </td>

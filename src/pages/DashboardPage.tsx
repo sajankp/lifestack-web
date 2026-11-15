@@ -187,7 +187,7 @@ export const DashboardPage: React.FC = () => {
 
           <div
             data-testid="dashboard-stat-grid"
-            className="grid gap-6 md:grid-cols-2 xl:grid-cols-3"
+            className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3"
           >
             <MetricCard
               to="/todo"
@@ -258,7 +258,7 @@ export const DashboardPage: React.FC = () => {
                   <Wallet className="h-5 w-5 text-violet-400" />
                   <h2 className="text-xl font-semibold">Budget spotlight</h2>
                 </div>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {budgetSpotlight.map((item) => {
                     const utilization = Math.min(100, Math.max(0, item.utilization_pct));
                     const barColor =
@@ -339,7 +339,8 @@ export const DashboardPage: React.FC = () => {
               'multi_currency_unconverted',
               'conversion_required',
             ];
-            const isValuationStale = !!statusLower && degradedValuationStatuses.includes(statusLower);
+            const isValuationStale =
+              !!statusLower && degradedValuationStatuses.includes(statusLower);
 
             const hasCues =
               overdueCount > 0 ||
@@ -349,7 +350,7 @@ export const DashboardPage: React.FC = () => {
             if (!hasCues) return null;
 
             return (
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                 {overdueCount > 0 && (
                   <Link
                     to="/todo"
@@ -394,8 +395,9 @@ export const DashboardPage: React.FC = () => {
                     <div className="flex-1">
                       <p className="font-semibold text-rose-100">Overspent Budgets</p>
                       <p className="mt-1 text-sm text-rose-300/90">
-                        You have exceeded monthly budget limits in:{' '}
-                        {overspentCategories.map((c) => c.name || 'Unknown').join(', ')}.
+                        You have exceeded monthly budget limits in {overspentCategories.length}{' '}
+                        {overspentCategories.length === 1 ? 'category' : 'categories'}. Review your
+                        budgets to see which.
                       </p>
                     </div>
                     <ArrowRight className="h-4 w-4 shrink-0 mt-0.5 text-rose-400" />
@@ -454,7 +456,7 @@ export const DashboardPage: React.FC = () => {
                   No insights right now — check back after your next few transactions.
                 </p>
               ) : (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {insights.map((insight) => {
                     const isWarning = insight.severity === 'warning';
                     return (
@@ -527,17 +529,17 @@ type MetricCardProps = {
 const MetricCard = ({ to, label, value, note, icon, accent, testId }: MetricCardProps) => (
   <Link
     to={to}
-    className={`group relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br ${accent} p-6 shadow-xl shadow-black/10 transition hover:border-slate-600`}
+    className={`group relative block min-w-0 overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br ${accent} p-5 shadow-xl shadow-black/10 transition hover:border-slate-600 sm:p-6`}
   >
     <div className="flex items-start justify-between gap-4">
-      <div>
+      <div className="min-w-0">
         <p className="text-sm uppercase tracking-[0.24em] text-slate-400">{label}</p>
         <p data-testid={testId} className="mt-3 text-3xl font-bold tracking-tight text-white">
           {value}
         </p>
         <p className="mt-2 text-sm text-slate-300">{note}</p>
       </div>
-      <div className="rounded-2xl border border-white/10 bg-white/10 p-3 text-white transition group-hover:bg-white/20">
+      <div className="shrink-0 rounded-2xl border border-white/10 bg-white/10 p-3 text-white transition group-hover:bg-white/20">
         {icon}
       </div>
     </div>

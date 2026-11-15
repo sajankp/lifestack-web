@@ -9,8 +9,10 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { investingService } from '../../services/investing';
+import { useChartWidth } from '../../hooks/useChartWidth';
+import { isTouchPointer } from '../../lib/chartPointer';
 import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
-import { toNumber } from '../../utils/numberFormat';
+import { formatCompactNumber, toNumber } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
 import { queryKeys } from '../../lib/queryKeys';
 
@@ -70,8 +72,7 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
   const currency = data?.currency || 'USD';
   const firstPoint = points.length > 0 ? points[0] : null;
   const latestPoint = points.length > 0 ? points[points.length - 1] : null;
-  const computedChange =
-    firstPoint && latestPoint ? latestPoint.value - firstPoint.value : 0;
+  const computedChange = firstPoint && latestPoint ? latestPoint.value - firstPoint.value : 0;
   const computedChangePct =
     firstPoint && firstPoint.value > 0 ? (computedChange / firstPoint.value) * 100 : 0;
   const netChange = data?.net_change != null ? toNumber(data.net_change) : computedChange;
@@ -86,9 +87,12 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
   const activePoint = hoverIndex !== null && points[hoverIndex] ? points[hoverIndex] : latestPoint;
 
   // Chart SVG layout calculations
-  const width = 800;
+  // Lay the plot out in real pixels so axis labels keep their size on phones.
+  const [chartRef, width] = useChartWidth<HTMLDivElement>(800);
+  const isCompact = width < 520;
   const height = 300;
-  const paddingX = 60;
+  // Wide enough for the "USD 6,281.00" tick labels outside compact mode.
+  const paddingX = isCompact ? 48 : 84;
   const paddingY = 40;
 
   const chartMetrics = useMemo(() => {
@@ -134,7 +138,9 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
     const firstX = getX(0);
     const lastX = getX(points.length - 1);
     const baselineY = height - paddingY;
-    const valueArea = `M ${firstX},${baselineY} L ${valueCoords.join(' L ')} L ${lastX},${baselineY} Z`;
+    const valueArea = `M ${firstX},${baselineY} L ${valueCoords.join(
+      ' L ',
+    )} L ${lastX},${baselineY} Z`;
 
     return {
       minVal,
@@ -146,7 +152,7 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
       bmPath,
       valueArea,
     };
-  }, [points, showBenchmark]);
+  }, [points, showBenchmark, width, paddingX]);
 
   return (
     <div
@@ -188,7 +194,7 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
       </div>
 
       {/* KPI Cards Strip */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5 lg:gap-4">
         {/* Latest Market Value */}
         <div className="rounded-xl border border-slate-700/40 bg-slate-900/40 p-3.5">
           <div className="flex items-center justify-between text-xs text-slate-400">
@@ -270,7 +276,7 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
         </div>
 
         {/* Tier 3: Benchmark Alpha */}
-        <div className="rounded-xl border border-slate-700/40 bg-slate-900/40 p-3.5">
+        <div className="col-span-2 rounded-xl border border-slate-700/40 bg-slate-900/40 p-3.5 lg:col-span-1">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span>Alpha vs Index</span>
             <span className="h-2 w-2 rounded-full bg-cyan-400" />
@@ -280,15 +286,20 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
               alphaPct != null && alphaPct >= 0
                 ? 'text-emerald-400'
                 : alphaPct != null
-                ? 'text-amber-400'
-                : 'text-slate-300'
+                  ? 'text-amber-400'
+                  : 'text-slate-300'
             }`}
           >
             {alphaPct != null ? `${alphaPct >= 0 ? '+' : ''}${alphaPct.toFixed(2)}%` : 'Active'}
           </div>
-          <p className="mt-0.5 text-[11px] text-slate-500 truncate" title={`Benchmark: ${benchmarkSymbol}`}>
+          <p
+            className="mt-0.5 text-[11px] text-slate-500 truncate"
+            title={`Benchmark: ${benchmarkSymbol}`}
+          >
             {benchmarkReturnPct != null
-              ? `vs ${benchmarkSymbol} (${benchmarkReturnPct >= 0 ? '+' : ''}${benchmarkReturnPct.toFixed(1)}%)`
+              ? `vs ${benchmarkSymbol} (${
+                  benchmarkReturnPct >= 0 ? '+' : ''
+                }${benchmarkReturnPct.toFixed(1)}%)`
               : `vs ${benchmarkSymbol}`}
           </p>
         </div>
@@ -315,7 +326,7 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
       ) : (
         <div className="relative">
           {/* Legend with Benchmark Toggle */}
-          <div className="mb-2 flex items-center justify-end gap-4 text-xs">
+          <div className="mb-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-xs">
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-4 rounded-full bg-emerald-400" />
               <span className="text-slate-300 font-medium">Market Value</span>
@@ -339,12 +350,14 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
             </button>
           </div>
 
-          <div className="relative w-full overflow-x-auto">
+          <div ref={chartRef} className="relative w-full">
             <svg
-              className="w-full min-w-[600px]"
+              className="block w-full touch-pan-y"
               viewBox={`0 0 ${width} ${height}`}
-              onMouseLeave={() => setHoverIndex(null)}
-              onMouseMove={(e) => {
+              onPointerLeave={(e) => {
+                if (!isTouchPointer(e)) setHoverIndex(null);
+              }}
+              onPointerMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const svgX = ((e.clientX - rect.left) / rect.width) * width;
                 // Find closest point
@@ -390,7 +403,7 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
                       textAnchor="end"
                       className="text-[10px] fill-slate-500 font-medium"
                     >
-                      {formatCurrency(val, currency, 'code')}
+                      {isCompact ? formatCompactNumber(val) : formatCurrency(val, currency, 'code')}
                     </text>
                   </g>
                 );
@@ -421,12 +434,7 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
               />
 
               {/* Market Value Line (Solid Emerald) */}
-              <path
-                d={chartMetrics.valuePath}
-                fill="none"
-                stroke="#10b981"
-                strokeWidth={2.5}
-              />
+              <path d={chartMetrics.valuePath} fill="none" stroke="#10b981" strokeWidth={2.5} />
 
               {/* Date ticks on X-axis */}
               {(() => {

@@ -38,7 +38,7 @@ export const DividendTrajectoryCard: React.FC<DividendTrajectoryCardProps> = ({
         className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-5 animate-pulse"
       >
         <div className="h-5 w-48 bg-slate-700/50 rounded mb-4" />
-        <div className="grid gap-4 sm:grid-cols-3 mb-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-4">
           <div className="h-20 bg-slate-700/30 rounded-xl" />
           <div className="h-20 bg-slate-700/30 rounded-xl" />
           <div className="h-20 bg-slate-700/30 rounded-xl" />
@@ -80,7 +80,7 @@ export const DividendTrajectoryCard: React.FC<DividendTrajectoryCardProps> = ({
       </div>
 
       {/* 3 KPI Summary Cards */}
-      <div className="grid gap-3 sm:grid-cols-3 mb-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-5">
         <div className="rounded-xl border border-slate-700/40 bg-slate-900/40 p-3.5">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span>Trailing 12-Month Yield</span>
@@ -119,7 +119,8 @@ export const DividendTrajectoryCard: React.FC<DividendTrajectoryCardProps> = ({
       {/* Monthly Bar Chart */}
       {points.length === 0 ? (
         <div className="rounded-xl border border-slate-700/30 bg-slate-900/30 p-6 text-center text-xs text-slate-400">
-          No dividend payments recorded yet. Add dividend transactions to see your passive income growth trajectory.
+          No dividend payments recorded yet. Add dividend transactions to see your passive income
+          growth trajectory.
         </div>
       ) : (
         <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
@@ -129,7 +130,13 @@ export const DividendTrajectoryCard: React.FC<DividendTrajectoryCardProps> = ({
             </span>
             {hoveredPoint ? (
               <span className="text-xs text-emerald-400 font-medium">
-                {formatMonthLabel(hoveredPoint.month)}: {formatCurrency(toNumber(hoveredPoint.net_amount), currency, currencyDisplayPreference)} ({hoveredPoint.count} payout{hoveredPoint.count === 1 ? '' : 's'})
+                {formatMonthLabel(hoveredPoint.month)}:{' '}
+                {formatCurrency(
+                  toNumber(hoveredPoint.net_amount),
+                  currency,
+                  currencyDisplayPreference,
+                )}{' '}
+                ({hoveredPoint.count} payout{hoveredPoint.count === 1 ? '' : 's'})
               </span>
             ) : (
               <span className="text-xs text-slate-500">Hover bar for details</span>
@@ -139,7 +146,8 @@ export const DividendTrajectoryCard: React.FC<DividendTrajectoryCardProps> = ({
           <div className="h-44 flex items-end gap-2 pt-6 pb-2 px-1">
             {points.map((pt) => {
               const netVal = toNumber(pt.net_amount);
-              const heightPct = maxNet > 0 ? Math.max(8, Math.min(100, (netVal / maxNet) * 100)) : 8;
+              const heightPct =
+                maxNet > 0 ? Math.max(8, Math.min(100, (netVal / maxNet) * 100)) : 8;
               const isHovered = hoveredPoint?.month === pt.month;
 
               return (

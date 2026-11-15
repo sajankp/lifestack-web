@@ -80,8 +80,7 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
       (item.description && item.description.toLowerCase().includes(q)) ||
       (item.symbol && item.symbol.toLowerCase().includes(q)) ||
       (item.account_name && item.account_name.toLowerCase().includes(q)) ||
-      (item.counterpart_account_name &&
-        item.counterpart_account_name.toLowerCase().includes(q))
+      (item.counterpart_account_name && item.counterpart_account_name.toLowerCase().includes(q))
     );
   });
 
@@ -94,7 +93,9 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
           icon: isIncome ? ArrowUpRight : ArrowDownRight,
           iconBg: isIncome ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400',
           badgeText: isIncome ? 'Income' : 'Spend',
-          badgeBg: isIncome ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700',
+          badgeBg: isIncome
+            ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+            : 'bg-slate-800 text-slate-400 border-slate-700',
           amountColor: isIncome ? 'text-emerald-400' : 'text-slate-200',
         };
       }
@@ -114,7 +115,9 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
           icon: LineChart,
           iconBg: isBuy ? 'bg-violet-500/10 text-violet-400' : 'bg-emerald-500/10 text-emerald-400',
           badgeText: isBuy ? 'Buy Order' : 'Sell Order',
-          badgeBg: isBuy ? 'bg-violet-500/10 text-violet-300 border-violet-500/20' : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
+          badgeBg: isBuy
+            ? 'bg-violet-500/10 text-violet-300 border-violet-500/20'
+            : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
           amountColor: isBuy ? 'text-slate-200' : 'text-emerald-400',
         };
       }
@@ -144,13 +147,12 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
   return (
     <div className="space-y-4">
       {/* Filter and Search Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-slate-800 bg-slate-900/60 p-3">
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-3 xl:flex-row xl:items-center xl:justify-between">
         {/* Event Type Pills */}
         <div className="flex flex-wrap items-center gap-1.5">
           {eventTypeFilters.map((tab) => {
             const isSelected =
-              tab.value === selectedEventType ||
-              (tab.value === null && !selectedEventType);
+              tab.value === selectedEventType || (tab.value === null && !selectedEventType);
             return (
               <button
                 key={tab.label}
@@ -169,9 +171,9 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
         </div>
 
         {/* Account Filter & Search */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {onSearchChange && (
-            <div className="relative w-48 sm:w-56">
+            <div className="relative min-w-[9rem] flex-1 xl:w-56 xl:flex-none">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
               <Input
                 type="text"
@@ -184,7 +186,7 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
           )}
 
           {onSelectAccount && (
-            <div className="w-40 sm:w-48">
+            <div className="w-40 shrink-0 sm:w-48">
               <DropdownSelect
                 testId="activity-feed-account-filter"
                 options={accountOptions}
@@ -209,7 +211,8 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
             <Wallet className="h-10 w-10 text-slate-600 mb-3" />
             <h4 className="text-sm font-semibold text-slate-300">No activity recorded</h4>
             <p className="text-xs text-slate-500 max-w-sm mt-1">
-              Transactions, transfers, trade orders, and dividends will appear here in chronological order.
+              Transactions, transfers, trade orders, and dividends will appear here in chronological
+              order.
             </p>
           </div>
         ) : (
@@ -224,16 +227,16 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
               return (
                 <div
                   key={item.id}
-                  className="group flex items-center justify-between p-3.5 hover:bg-slate-800/40 transition-colors"
+                  className="group flex items-start justify-between gap-3 p-3.5 hover:bg-slate-800/40 transition-colors sm:items-center"
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex min-w-0 flex-1 items-center gap-3.5">
                     <div className={`rounded-xl p-2.5 shrink-0 ${visuals.iconBg}`}>
                       <Icon className="h-4 w-4" />
                     </div>
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-white truncate max-w-xs sm:max-w-md">
+                        <span className="line-clamp-2 break-words text-xs font-semibold text-white sm:max-w-md sm:truncate">
                           {item.description}
                         </span>
                         <span
@@ -261,8 +264,8 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                        <span>{formatDate(item.date)}</span>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400">
+                        <span className="whitespace-nowrap">{formatDate(item.date)}</span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <Building2 className="h-3 w-3 text-slate-500" />
@@ -280,7 +283,7 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0 pl-3">
+                  <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3 sm:pl-3">
                     <div className="text-right">
                       <span className={`block font-mono text-xs sm:text-sm ${visuals.amountColor}`}>
                         {isPositive ? '+' : ''}
@@ -297,34 +300,43 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
                       </span>
                     </div>
 
-                    {(onEditItem || onDeleteItem) && (item.event_type === 'spend' || item.event_type === 'transfer') && (
-                      <div className="flex items-center gap-1 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                        {item.event_type === 'spend' && onEditItem && (
-                          <button
-                            type="button"
-                            onClick={() => onEditItem(item)}
-                            disabled={isDeletePending}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-cyan-500/10 hover:text-cyan-300 transition-colors disabled:opacity-50"
-                            title="Edit transaction"
-                            aria-label="Edit transaction"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {onDeleteItem && (
-                          <button
-                            type="button"
-                            onClick={() => onDeleteItem(item)}
-                            disabled={isDeletePending}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
-                            title={item.event_type === 'transfer' ? 'Delete transfer' : 'Delete transaction'}
-                            aria-label={item.event_type === 'transfer' ? 'Delete transfer' : 'Delete transaction'}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    )}
+                    {(onEditItem || onDeleteItem) &&
+                      (item.event_type === 'spend' || item.event_type === 'transfer') && (
+                        <div className="flex items-center gap-1 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          {item.event_type === 'spend' && onEditItem && (
+                            <button
+                              type="button"
+                              onClick={() => onEditItem(item)}
+                              disabled={isDeletePending}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-cyan-500/10 hover:text-cyan-300 transition-colors disabled:opacity-50"
+                              title="Edit transaction"
+                              aria-label="Edit transaction"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {onDeleteItem && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteItem(item)}
+                              disabled={isDeletePending}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
+                              title={
+                                item.event_type === 'transfer'
+                                  ? 'Delete transfer'
+                                  : 'Delete transaction'
+                              }
+                              aria-label={
+                                item.event_type === 'transfer'
+                                  ? 'Delete transfer'
+                                  : 'Delete transaction'
+                              }
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                   </div>
                 </div>
               );

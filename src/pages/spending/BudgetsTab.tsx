@@ -72,7 +72,7 @@ const BudgetsTabImpl: React.FC<BudgetsTabProps> = ({
             <p className="text-slate-400">No active budgets found for this period window.</p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {multiMonthBudgets.map((b) => {
               const theme = b.isGroup ? getGroupTheme(b.id) : getCategoryTheme(b.id);
               const progress = Math.min(100, Math.max(0, b.utilization));
@@ -225,7 +225,7 @@ const BudgetsTabImpl: React.FC<BudgetsTabProps> = ({
               ) : null}
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {budgets?.map((b) => {
                 const isGroup = !!b.category_group_id;
                 const theme = isGroup

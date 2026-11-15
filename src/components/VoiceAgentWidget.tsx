@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys, mutationInvalidations } from '../lib/queryKeys';
 import { reportException, trackEvent } from '../lib/analytics';
 import { Link } from 'react-router';
+import { useIsScrolling } from '../hooks/useIsScrolling';
 import {
   Mic,
   MicOff,
@@ -134,19 +135,22 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
   const panelHeight = isMobileViewport ? Math.min(560, Math.max(420, viewportHeight * 0.72)) : 600;
   const launcherStorageKey = 'voice-agent-launcher-pos-v1';
 
-  const clampLauncherPos = useCallback((position: { x: number; y: number }) => {
-    if (typeof window === 'undefined') return position;
-    return {
-      x: Math.min(
-        Math.max(viewportMargin, position.x),
-        window.innerWidth - launcherSize - viewportMargin,
-      ),
-      y: Math.min(
-        Math.max(viewportMargin, position.y),
-        window.innerHeight - launcherSize - viewportMargin,
-      ),
-    };
-  }, [launcherSize, viewportMargin]);
+  const clampLauncherPos = useCallback(
+    (position: { x: number; y: number }) => {
+      if (typeof window === 'undefined') return position;
+      return {
+        x: Math.min(
+          Math.max(viewportMargin, position.x),
+          window.innerWidth - launcherSize - viewportMargin,
+        ),
+        y: Math.min(
+          Math.max(viewportMargin, position.y),
+          window.innerHeight - launcherSize - viewportMargin,
+        ),
+      };
+    },
+    [launcherSize, viewportMargin],
+  );
 
   const getDefaultLauncherPos = () =>
     clampLauncherPos({
@@ -191,6 +195,8 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
   const [messages, setMessages] = useState<Message[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showLauncher, setShowLauncher] = useState(true);
+  // Tuck the floating button away while the page scrolls so it never sits on content.
+  const isScrolling = useIsScrolling();
 
   const [launcherPos, setLauncherPos] = useState<{ x: number; y: number }>(() => {
     const defaultPos = getDefaultLauncherPos();
@@ -873,6 +879,8 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
           className={`fixed z-50 flex h-12 w-12 cursor-grab items-center justify-center rounded-full bg-slate-900 border transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(30,41,59,0.5)] sm:h-14 sm:w-14 ${
+            isScrolling && !isRecording && !isOpen ? 'pointer-events-none opacity-0' : ''
+          } ${
             isRecording
               ? 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.6)]'
               : 'border-slate-800 hover:border-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)]'

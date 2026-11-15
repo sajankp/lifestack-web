@@ -48,6 +48,27 @@ beforeAll(() => {
 });
 
 describe('InvestingPage', () => {
+  it('collapses the return metrics / valuation block behind a toggle (phones) and expands it on demand', async () => {
+    renderAtPath(<InvestingPage />, '/investing/holdings');
+
+    const toggle = await screen.findByTestId('investing-details-toggle');
+    const details = document.getElementById('investing-details');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    // Hidden below lg, always shown from lg up (Tailwind classes; jsdom has no CSS).
+    expect(details).toHaveClass('hidden', 'lg:block');
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(details).toHaveClass('block');
+    expect(details).not.toHaveClass('hidden');
+    expect(
+      within(details as HTMLElement).getByTestId('investing-reporting-currency'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('shows valuation status and N/A totals for multi-currency unconverted summary', async () => {
     server.use(
       http.get('*/v1/investing/holdings', () =>
@@ -2288,8 +2309,6 @@ describe('InvestingPage', () => {
     expect(await screen.findByText(/Dividends/)).toBeInTheDocument();
     expect(screen.getByText('TCS')).toBeInTheDocument();
   });
-
-
 
   it('opens the Orders tab and the Place Order modal directly from a ?tab=orders&order=1 deep link', async () => {
     server.use(

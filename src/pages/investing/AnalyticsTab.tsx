@@ -38,7 +38,6 @@ import { DividendsSection } from '../../components/investing/DividendsSection';
 import { financeService } from '../../services/finance';
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace';
 
-
 const EMPTY_IDENTITY: IdentifierFieldsValue = { ticker: '', isin: '', exchange: '' };
 
 interface ConstituentRow {
@@ -131,7 +130,10 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
   const { activeWorkspaceId } = useActiveWorkspace(true);
 
   const portfolioReportsRes = useQuery({
-    queryKey: queryKeys.investing.portfolioReports.list({ workspaceId: activeWorkspaceId!, limit: 1 }),
+    queryKey: queryKeys.investing.portfolioReports.list({
+      workspaceId: activeWorkspaceId!,
+      limit: 1,
+    }),
     queryFn: () =>
       investingService.getPortfolioReports(activeWorkspaceId!, undefined, undefined, 1),
     enabled: !!activeWorkspaceId,
@@ -382,14 +384,12 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
         <PortfolioPerformanceChart currencyDisplayPreference={currencyDisplayPreference} />
 
         {/* Portfolio Asset & Sector Allocation + Dividend Trajectory */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <PortfolioAllocationCard
             asOf={analyticsAsOf}
             currencyDisplayPreference={currencyDisplayPreference}
           />
-          <DividendTrajectoryCard
-            currencyDisplayPreference={currencyDisplayPreference}
-          />
+          <DividendTrajectoryCard currencyDisplayPreference={currencyDisplayPreference} />
         </div>
 
         {/* Dividends History & Management */}
@@ -413,7 +413,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
             </button>
           )}
           {portfolioReportsLoading ? (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[...Array(5)].map((_, i) => (
                 <div
                   key={i}
@@ -426,7 +426,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
             </div>
           ) : portfolioReportsError ? (
             <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-300 text-sm">
-              Failed to load portfolio reports: {(portfolioReportsRes.error as Error)?.message ?? 'Unknown error'}
+              Failed to load portfolio reports:{' '}
+              {(portfolioReportsRes.error as Error)?.message ?? 'Unknown error'}
             </div>
           ) : (
             <PortfolioReportCards
@@ -437,10 +438,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
         </div>
 
         {/* Portfolio Report detail — full foundation_json payload */}
-        <Dialog
-          open={isReportDetailOpen}
-          onOpenChange={setIsReportDetailOpen}
-        >
+        <Dialog open={isReportDetailOpen} onOpenChange={setIsReportDetailOpen}>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader className="pb-4 mb-4 border-b border-slate-800">
               <DialogTitle>Portfolio Report Detail</DialogTitle>
@@ -448,13 +446,13 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
             {latestReport && (
               <div className="space-y-4">
                 <div className="text-xs text-slate-400">
-                  Report as of {latestReport.as_of}{' · '}
-                  run {latestReport.run_id}{' · '}
+                  Report as of {latestReport.as_of}
+                  {' · '}
+                  run {latestReport.run_id}
+                  {' · '}
                   {latestReport.created_at}
                 </div>
-                <div
-                  className="rounded-lg border border-slate-700/40 bg-slate-900/40 p-4 font-mono text-xs max-h-96 overflow-auto"
-                >
+                <div className="rounded-lg border border-slate-700/40 bg-slate-900/40 p-4 font-mono text-xs max-h-96 overflow-auto">
                   <pre className="text-slate-300 whitespace-pre-wrap break-all m-0">
                     {JSON.stringify(latestReport.foundation_json ?? {}, null, 2)}
                   </pre>
@@ -496,7 +494,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
           </div>
         </details>
 
-        <div className="grid gap-6 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
           <div className="lg:col-span-1 space-y-4">
             <div className="space-y-4 rounded-2xl border border-slate-700/50 bg-slate-800/40 p-4">
               <h3 className="font-semibold text-white">Analytics Controls</h3>
@@ -624,8 +622,8 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ currencyDisplayPrefe
                 {!!exposure?.warnings?.length && (
                   <p data-testid="analytics-warnings-summary" className="text-xs text-amber-300">
                     {new Set(exposure.warnings).size} data warning
-                    {new Set(exposure.warnings).size === 1 ? '' : 's'} — see Analytics Controls
-                    for details.
+                    {new Set(exposure.warnings).size === 1 ? '' : 's'} — see Analytics Controls for
+                    details.
                   </p>
                 )}
                 {exposure && (

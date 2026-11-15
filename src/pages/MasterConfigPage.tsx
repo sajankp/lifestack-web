@@ -1,7 +1,19 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, ChevronDown, Edit2, Layers, Link2, LockKeyhole, Plus, Search, Trash2, Unplug } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  Edit2,
+  Layers,
+  Link2,
+  LockKeyhole,
+  Plus,
+  Search,
+  Trash2,
+  Unplug,
+} from 'lucide-react';
 import { financeService } from '../services/finance';
 import { spendingService } from '../services/spending';
 import { platformService } from '../services/platform';
@@ -141,9 +153,8 @@ export const MasterConfigPage: React.FC = () => {
   const setSession = useAuthStore((state) => state.setSession);
   const requestedTab = new URLSearchParams(location.search).get('tab');
   const pathTab = SETTINGS_ROUTE_TABS[location.pathname.slice('/settings/'.length)];
-  const legacyTab = requestedTab && requestedTab in SETTINGS_TAB_ROUTES
-    ? (requestedTab as SettingsTab)
-    : null;
+  const legacyTab =
+    requestedTab && requestedTab in SETTINGS_TAB_ROUTES ? (requestedTab as SettingsTab) : null;
   const activeSettingsTab = pathTab ?? legacyTab ?? 'currency';
 
   // Deep links (e.g. from the Dashboard onboarding checklist or the Net
@@ -153,9 +164,14 @@ export const MasterConfigPage: React.FC = () => {
     if (requestedTab && (SETTINGS_TABS as readonly string[]).includes(requestedTab)) {
       const params = new URLSearchParams(location.search);
       params.delete('tab');
-      navigate(`/settings/${SETTINGS_TAB_ROUTES[legacyTab ?? 'currency']}${params.toString() ? `?${params}` : ''}`, {
-        replace: true,
-      });
+      navigate(
+        `/settings/${SETTINGS_TAB_ROUTES[legacyTab ?? 'currency']}${
+          params.toString() ? `?${params}` : ''
+        }`,
+        {
+          replace: true,
+        },
+      );
     }
   }, [location.search, navigate, requestedTab, legacyTab]);
 
@@ -165,9 +181,14 @@ export const MasterConfigPage: React.FC = () => {
     if (!isSettingsRoot && !isUnknownSettingsBranch) return;
     const params = new URLSearchParams(location.search);
     params.delete('tab');
-    navigate(`/settings/${SETTINGS_TAB_ROUTES[legacyTab ?? 'currency']}${params.toString() ? `?${params}` : ''}`, {
-      replace: true,
-    });
+    navigate(
+      `/settings/${SETTINGS_TAB_ROUTES[legacyTab ?? 'currency']}${
+        params.toString() ? `?${params}` : ''
+      }`,
+      {
+        replace: true,
+      },
+    );
   }, [legacyTab, location.pathname, location.search, navigate, pathTab]);
 
   const [newAccountName, setNewAccountName] = useState('');
@@ -414,7 +435,8 @@ export const MasterConfigPage: React.FC = () => {
       setCreateInstrumentError(null);
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
         (err as Error)?.message ??
         'Failed to create instrument';
       setCreateInstrumentError(msg);
@@ -431,7 +453,8 @@ export const MasterConfigPage: React.FC = () => {
       setEditInstrumentError(null);
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
         (err as Error)?.message ??
         'Failed to update instrument';
       setEditInstrumentError(msg);
@@ -447,13 +470,16 @@ export const MasterConfigPage: React.FC = () => {
       setTimeout(() => {
         setConstituentsInstrument(null);
         setConstituentsSuccess(false);
-        setConstituentRows([{ company_name: '', company_ticker: '', company_isin: '', weight: '' }]);
+        setConstituentRows([
+          { company_name: '', company_ticker: '', company_isin: '', weight: '' },
+        ]);
         setConstituentPasteText('');
         setConstituentsError(null);
       }, 800);
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
         (err as Error)?.message ??
         'Failed to save constituents';
       setConstituentsError(msg);
@@ -507,9 +533,7 @@ export const MasterConfigPage: React.FC = () => {
     setConstituentsInstrument(inst);
     setConstituentsAsOf(new Date().toISOString().slice(0, 10));
     setConstituentsSource('Quarterly Factsheet');
-    setConstituentRows([
-      { company_name: '', company_ticker: '', company_isin: '', weight: '' },
-    ]);
+    setConstituentRows([{ company_name: '', company_ticker: '', company_isin: '', weight: '' }]);
     setConstituentPasteText('');
     setConstituentsError(null);
     setConstituentsSuccess(false);
@@ -517,7 +541,10 @@ export const MasterConfigPage: React.FC = () => {
 
   const handleParseConstituentPaste = () => {
     if (!constituentPasteText.trim()) return;
-    const lines = constituentPasteText.split('\n').map((l) => l.trim()).filter(Boolean);
+    const lines = constituentPasteText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
     const parsed = lines
       .map((line) => {
         const parts = line.includes('\t') ? line.split('\t') : line.split(',');
@@ -953,7 +980,9 @@ export const MasterConfigPage: React.FC = () => {
 
       <Tabs
         value={activeSettingsTab}
-        onValueChange={(value) => navigate(`/settings/${SETTINGS_TAB_ROUTES[value as SettingsTab]}`)}
+        onValueChange={(value) =>
+          navigate(`/settings/${SETTINGS_TAB_ROUTES[value as SettingsTab]}`)
+        }
       >
         <TabsList>
           <TabsTrigger value="preferences" data-testid="settings-tab-preferences">
@@ -995,7 +1024,7 @@ export const MasterConfigPage: React.FC = () => {
               Sets your calendar-day boundaries across Lifestack. Account activity uses this to
               identify each day&apos;s closing balance.
             </p>
-            <div className="mt-4 grid max-w-xl gap-3 sm:grid-cols-[1fr,auto]">
+            <div className="mt-4 grid grid-cols-1 max-w-xl gap-3 sm:grid-cols-[1fr,auto]">
               <div>
                 <Label htmlFor="user-timezone">IANA timezone</Label>
                 <Input
@@ -1047,7 +1076,7 @@ export const MasterConfigPage: React.FC = () => {
                 </p>
               </div>
             </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {(['google', 'github'] as const).map((provider) => {
                 const linked = Boolean(authIdentities?.providers?.includes(provider));
                 const canUnlink = Boolean(
@@ -1090,7 +1119,7 @@ export const MasterConfigPage: React.FC = () => {
                 : 'Add a password so this account can also sign in without an OAuth provider.'}
             </p>
             {!authIdentities?.has_password && (
-              <div className="mt-4 grid max-w-xl gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid grid-cols-1 max-w-xl gap-3 sm:grid-cols-2">
                 <Input
                   type="password"
                   aria-label="New password"
@@ -1178,7 +1207,9 @@ export const MasterConfigPage: React.FC = () => {
                       <p className="mt-1 text-xs text-slate-500">
                         {connection.scopes.join(', ') || 'No scopes'}
                         {connection.last_used_at
-                          ? ` · Last used ${new Date(connection.last_used_at).toLocaleString(displayLocale)}`
+                          ? ` · Last used ${new Date(connection.last_used_at).toLocaleString(
+                              displayLocale,
+                            )}`
                           : ''}
                       </p>
                     </div>
@@ -1223,7 +1254,7 @@ export const MasterConfigPage: React.FC = () => {
               This reporting currency drives default display in dashboard and spending. Investing
               still supports native multi-currency holdings.
             </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr,1fr,auto]">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr,1fr,auto]">
               <DropdownSelect
                 testId="master-workspace-currency"
                 value={reportingCurrency}
@@ -1245,7 +1276,9 @@ export const MasterConfigPage: React.FC = () => {
                 onClick={() => updateSettingsMutation.mutate()}
                 disabled={updateSettingsMutation.isPending}
               >
-                {updateSettingsMutation.isPending ? 'Saving workspace settings...' : 'Save workspace settings'}
+                {updateSettingsMutation.isPending
+                  ? 'Saving workspace settings...'
+                  : 'Save workspace settings'}
               </Button>
             </div>
             <div className="mt-4 border-t border-slate-800 pt-4">
@@ -1253,7 +1286,7 @@ export const MasterConfigPage: React.FC = () => {
               <p className="mt-1 text-xs text-slate-500">
                 Locale controls digit grouping app-wide (India uses 1,00,000-style grouping).
               </p>
-              <div className="mt-2 grid gap-3 sm:grid-cols-[1fr,1fr,auto] max-w-lg">
+              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-[1fr,1fr,auto] max-w-lg">
                 <DropdownSelect
                   testId="master-workspace-locale"
                   value={locale}
@@ -1301,7 +1334,7 @@ export const MasterConfigPage: React.FC = () => {
               Constituents below this portfolio weight are hidden from detail lists only. Totals,
               concentration, and overlap calculations still use every constituent.
             </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr,auto] max-w-md">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr,auto] max-w-md">
               <label className="space-y-1 text-sm text-slate-300">
                 <span>Minimum constituent weight (%)</span>
                 <input
@@ -1315,9 +1348,7 @@ export const MasterConfigPage: React.FC = () => {
                   className="h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-slate-100"
                 />
               </label>
-              <p className="self-end text-xs text-slate-500">
-                Included with workspace settings.
-              </p>
+              <p className="self-end text-xs text-slate-500">Included with workspace settings.</p>
             </div>
           </section>
 
@@ -1347,7 +1378,7 @@ export const MasterConfigPage: React.FC = () => {
             <p className="mt-1 text-sm text-slate-400">
               Optional per-user overrides. Leave blank to inherit workspace defaults.
             </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr,1fr,auto]">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr,1fr,auto]">
               <DropdownSelect
                 testId="master-user-currency-override"
                 value={userReportingCurrencyOverride}
@@ -1368,7 +1399,7 @@ export const MasterConfigPage: React.FC = () => {
                 Both override rows are saved together below.
               </p>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr,1fr,auto]">
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[1fr,1fr,auto]">
               <DropdownSelect
                 testId="master-user-locale-override"
                 value={userLocaleOverride}
@@ -1417,7 +1448,7 @@ export const MasterConfigPage: React.FC = () => {
               linkage.
             </p>
 
-            <div className="mt-4 grid gap-3 lg:grid-cols-4">
+            <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-4">
               <Input
                 data-testid="master-account-name"
                 value={newAccountName}
@@ -1467,7 +1498,7 @@ export const MasterConfigPage: React.FC = () => {
                     Cancel
                   </button>
                 </div>
-                <div className="grid gap-3 lg:grid-cols-5">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
                   <Input
                     data-testid="master-account-edit-name"
                     value={editingAccountName}
@@ -1664,7 +1695,7 @@ export const MasterConfigPage: React.FC = () => {
                     Cancel
                   </button>
                 </div>
-                <div className="grid gap-3 md:grid-cols-5">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                   <Input
                     data-testid="master-category-edit-name"
                     value={editingCategoryName}
@@ -1741,7 +1772,7 @@ export const MasterConfigPage: React.FC = () => {
                       <td className="px-4 py-3">{category.is_system ? 'System' : 'Custom'}</td>
                       <td className="px-4 py-3">
                         {category.category_group_id
-                          ? (groupById.get(category.category_group_id)?.name ?? '-')
+                          ? groupById.get(category.category_group_id)?.name ?? '-'
                           : '-'}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -1803,7 +1834,7 @@ export const MasterConfigPage: React.FC = () => {
               a group un-groups its categories rather than deleting them.
             </p>
 
-            <div className="mt-4 grid gap-3 lg:grid-cols-4">
+            <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-4">
               <Input
                 data-testid="master-group-name"
                 value={newGroupName}
@@ -1858,7 +1889,7 @@ export const MasterConfigPage: React.FC = () => {
                     Cancel
                   </button>
                 </div>
-                <div className="grid gap-3 md:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                   <Input
                     data-testid="master-group-edit-name"
                     value={editingGroupName}
@@ -1898,7 +1929,7 @@ export const MasterConfigPage: React.FC = () => {
                   </p>
                   <div
                     data-testid="master-group-member-categories"
-                    className="mt-2 grid max-h-48 gap-1.5 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/40 p-3 sm:grid-cols-2 md:grid-cols-3"
+                    className="mt-2 grid grid-cols-1 max-h-48 gap-1.5 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/40 p-3 sm:grid-cols-2 md:grid-cols-3"
                   >
                     {categories.map((category) => {
                       const isChecked = editingGroupMemberIds.includes(category.public_id);
@@ -2017,7 +2048,8 @@ export const MasterConfigPage: React.FC = () => {
               <div>
                 <h2 className="text-lg font-semibold text-white">Instruments & Asset Classes</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Master registry for securities, asset class mappings, exchange identifiers, and fund constituent lookthrough weights.
+                  Master registry for securities, asset class mappings, exchange identifiers, and
+                  fund constituent lookthrough weights.
                 </p>
               </div>
               <Button
@@ -2147,7 +2179,8 @@ export const MasterConfigPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-2">
-                          {(inst.instrument_type === 'etf' || inst.instrument_type === 'mutual_fund') && (
+                          {(inst.instrument_type === 'etf' ||
+                            inst.instrument_type === 'mutual_fund') && (
                             <Button
                               type="button"
                               variant="secondary"
@@ -2202,7 +2235,7 @@ export const MasterConfigPage: React.FC = () => {
               Choose which day and hour (UTC) your weekly summary is generated. Monthly cadence
               isn&apos;t available yet.
             </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-[1fr,1fr,auto] max-w-lg">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[1fr,1fr,auto] max-w-lg">
               <DropdownSelect
                 testId="master-summary-cadence-day"
                 value={cadenceDayOfWeek}
@@ -2626,11 +2659,7 @@ export const MasterConfigPage: React.FC = () => {
             )}
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setIsAddInstrumentOpen(false)}
-            >
+            <Button type="button" variant="secondary" onClick={() => setIsAddInstrumentOpen(false)}>
               Cancel
             </Button>
             <Button
@@ -2731,11 +2760,7 @@ export const MasterConfigPage: React.FC = () => {
             )}
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setEditingInstrument(null)}
-            >
+            <Button type="button" variant="secondary" onClick={() => setEditingInstrument(null)}>
               Cancel
             </Button>
             <Button
@@ -2777,7 +2802,8 @@ export const MasterConfigPage: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Constituent Breakdown — {constituentsInstrument?.symbol}</DialogTitle>
             <DialogDescription>
-              Configure underlying holding constituents and weights for portfolio lookthrough and exposure analytics.
+              Configure underlying holding constituents and weights for portfolio lookthrough and
+              exposure analytics.
             </DialogDescription>
           </DialogHeader>
 
@@ -2807,7 +2833,9 @@ export const MasterConfigPage: React.FC = () => {
             <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-300">Quick Bulk Paste</span>
-                <span className="text-[11px] text-slate-500">Format: Name, Ticker, ISIN, Weight%</span>
+                <span className="text-[11px] text-slate-500">
+                  Format: Name, Ticker, ISIN, Weight%
+                </span>
               </div>
               <textarea
                 data-testid="master-constituents-paste"

@@ -1,13 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import {
-  ArrowRightLeft,
-  PieChart,
-  Plus,
-  RefreshCw,
-  Wallet,
-} from 'lucide-react';
+import { ArrowRightLeft, PieChart, Plus, RefreshCw, Wallet } from 'lucide-react';
 import { PageShell } from '../components/layout/PageShell';
 import { PageHero } from '../components/layout/PageHero';
 import { Button } from '../components/ui/button';
@@ -62,12 +56,16 @@ export const MoneyFlowPage: React.FC = () => {
       );
     }
   }, [searchParams, setSearchParams]);
-  const [transactionDefaultAccountId, setTransactionDefaultAccountId] = useState<string | undefined>();
+  const [transactionDefaultAccountId, setTransactionDefaultAccountId] = useState<
+    string | undefined
+  >();
   const [editingFeedItem, setEditingFeedItem] = useState<ActivityFeedItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<ActivityFeedItem | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [transferDefaultFromId, setTransferDefaultFromId] = useState<string | undefined>();
-  const [dividendDefaultBrokerageId, setDividendDefaultBrokerageId] = useState<string | undefined>();
+  const [dividendDefaultBrokerageId, setDividendDefaultBrokerageId] = useState<
+    string | undefined
+  >();
 
   // Form state for creating account
   const [newAccName, setNewAccName] = useState('');
@@ -114,7 +112,8 @@ export const MoneyFlowPage: React.FC = () => {
 
   const fxRates =
     investingSummaryRes.data?.fx_rates_used ||
-    (netWorthRes.data as unknown as { fx_rates_used?: Record<string, number | string> })?.fx_rates_used ||
+    (netWorthRes.data as unknown as { fx_rates_used?: Record<string, number | string> })
+      ?.fx_rates_used ||
     {};
 
   // Fetch Unified Activity Feed
@@ -163,17 +162,29 @@ export const MoneyFlowPage: React.FC = () => {
     if (nw) {
       if (nw.spending_accounts) {
         nw.spending_accounts.forEach((acc) => {
-          const valInRc = acc.balance_in_reporting_currency != null
-            ? Number(acc.balance_in_reporting_currency)
-            : normalizeToReportingCurrency(acc.balance, acc.currency_code, reportingCurrency, fxRates);
+          const valInRc =
+            acc.balance_in_reporting_currency != null
+              ? Number(acc.balance_in_reporting_currency)
+              : normalizeToReportingCurrency(
+                  acc.balance,
+                  acc.currency_code,
+                  reportingCurrency,
+                  fxRates,
+                );
           map[acc.account_public_id] = valInRc;
         });
       }
       if (nw.investing_accounts) {
         nw.investing_accounts.forEach((acc) => {
-          const valInRc = acc.balance_in_reporting_currency != null
-            ? Number(acc.balance_in_reporting_currency)
-            : normalizeToReportingCurrency(acc.balance, acc.currency_code, reportingCurrency, fxRates);
+          const valInRc =
+            acc.balance_in_reporting_currency != null
+              ? Number(acc.balance_in_reporting_currency)
+              : normalizeToReportingCurrency(
+                  acc.balance,
+                  acc.currency_code,
+                  reportingCurrency,
+                  fxRates,
+                );
           map[acc.account_public_id] = valInRc;
         });
       }
@@ -187,7 +198,10 @@ export const MoneyFlowPage: React.FC = () => {
 
   // Accurate Portfolio allocation by brokerage account with multi-currency conversion
   const portfolioByAccountId = useMemo(() => {
-    const map: Record<string, { totalInvested: number; totalInvestedReporting: number; holdingsCount: number }> = {};
+    const map: Record<
+      string,
+      { totalInvested: number; totalInvestedReporting: number; holdingsCount: number }
+    > = {};
     const brokerageAccounts = accounts.filter((a) => a.account_type === 'brokerage');
 
     // Initialize all brokerage accounts to 0
@@ -208,15 +222,23 @@ export const MoneyFlowPage: React.FC = () => {
             map[targetId] = { totalInvested: 0, totalInvestedReporting: 0, holdingsCount: 0 };
           }
           const price = Number(h.current_price ?? h.avg_cost ?? 0);
-          const val = Number(h.current_value ?? (Number(h.quantity || 0) * price));
-          const valReporting = normalizeToReportingCurrency(val, h.currency, reportingCurrency, fxRates);
+          const val = Number(h.current_value ?? Number(h.quantity || 0) * price);
+          const valReporting = normalizeToReportingCurrency(
+            val,
+            h.currency,
+            reportingCurrency,
+            fxRates,
+          );
 
           map[targetId].totalInvested += val;
           map[targetId].totalInvestedReporting += valReporting;
           map[targetId].holdingsCount += 1;
         }
       });
-    } else if (investingSummaryRes.data?.portfolio_value != null && brokerageAccounts.length === 1) {
+    } else if (
+      investingSummaryRes.data?.portfolio_value != null &&
+      brokerageAccounts.length === 1
+    ) {
       const singleAcc = brokerageAccounts[0];
       const val = Number(investingSummaryRes.data.portfolio_value);
       map[singleAcc.public_id] = {
@@ -398,7 +420,8 @@ export const MoneyFlowPage: React.FC = () => {
   );
 
   const isMetricsLoading = netWorthRes.isLoading || accountsRes.isLoading;
-  const isArchitectureLoading = accountsRes.isLoading || netWorthRes.isLoading || holdingsRes.isLoading;
+  const isArchitectureLoading =
+    accountsRes.isLoading || netWorthRes.isLoading || holdingsRes.isLoading;
   const isDeletePending = deleteTransactionMutation.isPending || deleteTransferMutation.isPending;
 
   return (
@@ -415,7 +438,7 @@ export const MoneyFlowPage: React.FC = () => {
               className="h-9 gap-1.5 border border-slate-700 bg-slate-800/80 text-xs font-medium text-slate-200 hover:bg-slate-700"
             >
               <Plus className="h-3.5 w-3.5 text-emerald-400" />
-              + Transaction
+              Add transaction
             </Button>
             <Button
               variant="secondary"
@@ -459,7 +482,9 @@ export const MoneyFlowPage: React.FC = () => {
                 <span className="font-mono text-2xl font-bold text-emerald-400">
                   {formatTotal(totalSpendingCash)}
                 </span>
-                <p className="mt-0.5 text-xs text-slate-500">Cash across checking, savings & wallets</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Cash across checking, savings & wallets
+                </p>
               </div>
             </div>
 
@@ -475,7 +500,9 @@ export const MoneyFlowPage: React.FC = () => {
                 <span className="font-mono text-2xl font-bold text-emerald-400">
                   {formatTotal(totalInvestingCash)}
                 </span>
-                <p className="mt-0.5 text-xs text-slate-500">Unallocated cash in trading accounts</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Unallocated cash in trading accounts
+                </p>
               </div>
             </div>
 
@@ -495,9 +522,7 @@ export const MoneyFlowPage: React.FC = () => {
                   <span className="text-xs text-slate-500">
                     Invested: {formatTotal(totalInvestedPortfolio)}
                   </span>
-                  <span className="text-xs text-slate-400">
-                    Unified Net Worth
-                  </span>
+                  <span className="text-xs text-slate-400">Unified Net Worth</span>
                 </div>
               </div>
             </div>
@@ -565,7 +590,8 @@ export const MoneyFlowPage: React.FC = () => {
               <div>
                 <h3 className="text-base font-bold text-white">Unified Activity Stream</h3>
                 <p className="text-xs text-slate-400">
-                  Real-time timeline of spending transactions, capital transfers, trades, and dividends
+                  Real-time timeline of spending transactions, capital transfers, trades, and
+                  dividends
                 </p>
               </div>
               <Button
@@ -574,7 +600,9 @@ export const MoneyFlowPage: React.FC = () => {
                 onClick={() => activityFeedRes.refetch()}
                 className="h-8 gap-1 text-xs text-slate-400 hover:text-white"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${activityFeedRes.isFetching ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${activityFeedRes.isFetching ? 'animate-spin' : ''}`}
+                />
                 Refresh
               </Button>
             </div>
@@ -646,7 +674,8 @@ export const MoneyFlowPage: React.FC = () => {
             <strong className="text-white">
               {deletingItem?.event_type === 'transfer' ? 'transfer' : 'transaction'}
             </strong>
-            {deletingItem?.description ? ` (${deletingItem.description})` : ''}? This action cannot be undone.
+            {deletingItem?.description ? ` (${deletingItem.description})` : ''}? This action cannot
+            be undone.
           </span>
         }
         isPending={isDeletePending}

@@ -3,6 +3,8 @@ import { Link } from 'react-router';
 import { AlertCircle, TrendingUp } from 'lucide-react';
 import { formatCompactNumber, formatCurrency } from '../../utils/numberFormat';
 import { formatDate, formatShortDate } from '../../utils/dateFormat';
+import { useChartWidth } from '../../hooks/useChartWidth';
+import { indexFromPointer, isTouchPointer } from '../../lib/chartPointer';
 import type { DisplayProfile } from '../../hooks/useDisplayProfile';
 import type { ExcludedCurrency, NetWorthHistoryItem } from '../../types/finance';
 
@@ -43,12 +45,15 @@ export const StatusBanner: React.FC<{
   );
 };
 
+const MAX_POINTS_WITH_DOTS = 45;
+
 export const NetWorthHistoryChart: React.FC<{
   history: NetWorthHistoryItem[] | undefined;
   currency: string | null;
   displayProfile: DisplayProfile;
 }> = ({ history, currency, displayProfile }) => {
   const [hoverIndex, setHoverIndex] = React.useState<number | null>(null);
+  const [chartRef, width] = useChartWidth<HTMLDivElement>(800);
 
   if (!history || history.length < 2) {
     return (
@@ -63,9 +68,8 @@ export const NetWorthHistoryChart: React.FC<{
     );
   }
 
-  const width = 800;
   const height = 280;
-  const paddingX = 40;
+  const paddingX = width < 520 ? 36 : 40;
   const paddingY = 20;
 
   const points = history.map((item) => ({
@@ -81,6 +85,7 @@ export const NetWorthHistoryChart: React.FC<{
   }));
 
   const maxVal = Math.max(...points.map((p) => p.total), 1);
+  const showDots = points.length <= MAX_POINTS_WITH_DOTS;
 
   const getX = (index: number) => {
     return paddingX + (index / (points.length - 1)) * (width - 2 * paddingX);
@@ -171,11 +176,17 @@ export const NetWorthHistoryChart: React.FC<{
         </div>
       </div>
 
-      <div className="relative w-full overflow-x-auto">
+      <div ref={chartRef} className="relative w-full">
         <svg
-          className="w-full min-w-[640px]"
+          className="block w-full touch-pan-y"
           viewBox={`0 0 ${width} ${height}`}
-          onMouseLeave={() => setHoverIndex(null)}
+          onPointerLeave={(e) => {
+            // A touch pointer "leaves" as the finger lifts; keep the tooltip then.
+            if (!isTouchPointer(e)) setHoverIndex(null);
+          }}
+          onPointerMove={(e) =>
+            setHoverIndex(indexFromPointer(e, points.length, width, paddingX, width - paddingX))
+          }
         >
           <defs>
             <linearGradient id="colorHoldings" x1="0" y1="0" x2="0" y2="1">
@@ -278,8 +289,12 @@ export const NetWorthHistoryChart: React.FC<{
 
           {/* Dot anchors */}
           {points.map((p, i) => {
+            // A dot per snapshot beads a dense series (daily data) into a dotted band;
+            // keep them only while sparse, and always for points that carry a flag.
+            if (!showDots && !p.isUserProvided && !p.isRevised) return null;
             const titleParts: string[] = [];
-            if (p.isUserProvided) titleParts.push(`User-provided${p.hasComponents ? '' : ' (total only)'}`);
+            if (p.isUserProvided)
+              titleParts.push(`User-provided${p.hasComponents ? '' : ' (total only)'}`);
             if (p.isRevised) titleParts.push('Includes data later reverted');
             return (
               <g key={i} className="group cursor-pointer">
@@ -293,9 +308,7 @@ export const NetWorthHistoryChart: React.FC<{
                   strokeDasharray={p.isUserProvided ? '2 1.5' : undefined}
                 >
                   {titleParts.length > 0 && (
-                    <title>
-                      {`${titleParts.join(' — ')} — ${formatShortDate(p.dateStr)}`}
-                    </title>
+                    <title>{`${titleParts.join(' — ')} — ${formatShortDate(p.dateStr)}`}</title>
                   )}
                 </circle>
                 {p.isRevised && (
@@ -366,7 +379,11 @@ export const NetWorthHistoryChart: React.FC<{
               const warnH = p.isRevised ? 30 : 0;
               const boxH = headH + rows.length * lineH + warnH + 8;
               const placeRight = hx + 12 + boxW <= width - paddingX;
-              const boxX = placeRight ? hx + 12 : hx - 12 - boxW;
+              // Clamp so the box never spills outside a narrow (phone-width) plot.
+              const boxX = Math.max(
+                4,
+                Math.min(width - boxW - 4, placeRight ? hx + 12 : hx - 12 - boxW),
+              );
               const boxY = Math.min(paddingY, height - paddingY - boxH);
               return (
                 <g style={{ pointerEvents: 'none' }}>
@@ -447,8 +464,12 @@ export const NetWorthHistoryChart: React.FC<{
                       y={boxY + headH + rows.length * lineH + 16}
                       className="text-[10px] fill-rose-300"
                     >
-                      <tspan x={boxX + 10} dy="0">* Includes data from an</tspan>
-                      <tspan x={boxX + 10} dy="12">import later reverted</tspan>
+                      <tspan x={boxX + 10} dy="0">
+                        * Includes data from an
+                      </tspan>
+                      <tspan x={boxX + 10} dy="12">
+                        import later reverted
+                      </tspan>
                     </text>
                   )}
                 </g>
@@ -468,7 +489,7 @@ export const NetWorthHistoryChart: React.FC<{
                 width={right - left}
                 height={height}
                 fill="transparent"
-                onMouseEnter={() => setHoverIndex(i)}
+                onPointerEnter={() => setHoverIndex(i)}
                 onFocus={() => setHoverIndex(i)}
               />
             );

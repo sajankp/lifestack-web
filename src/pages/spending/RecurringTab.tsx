@@ -70,7 +70,7 @@ const RecurringTabImpl: React.FC<RecurringTabProps> = ({
           </button>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {recurringItems.map((r) => {
             const catTheme = getCategoryTheme(r.category_id);
             const isIncome = r.type === 'income';
