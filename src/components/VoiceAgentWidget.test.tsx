@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../components/ui/toast';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { useCaptureStore } from '../store/captureStore';
 
@@ -66,10 +66,17 @@ class FakeMediaRecorder {
   static isTypeSupported = () => true;
   state = 'recording';
   stream: { getTracks: () => Array<{ stop: () => void }> };
-  ondataavailable: ((event: { data: Blob }) => void) | null = null;
+  ondataavailable: ((event: { data: unknown }) => void) | null = null;
+  onstop: (() => void) | null = null;
   start = vi.fn();
+  // Like a real MediaRecorder: stop() flushes one last dataavailable event,
+  // then fires 'stop'.
   stop = vi.fn(() => {
     this.state = 'inactive';
+    this.ondataavailable?.({
+      data: { size: 3, arrayBuffer: () => Promise.resolve(new ArrayBuffer(3)) },
+    });
+    this.onstop?.();
   });
   constructor(stream: FakeMediaRecorder['stream']) {
     this.stream = stream;
@@ -165,9 +172,9 @@ describe('Capture panel verification', () => {
     const ws = openPanelAndGetSocket();
 
     expect(screen.getAllByTestId('voice-status-log-item')).toHaveLength(1);
-    expect(
-      screen.getByTestId('voice-status-log-item'),
-    ).toHaveTextContent('Connected. Tap the microphone to talk or type a message.');
+    expect(screen.getByTestId('voice-status-log-item')).toHaveTextContent(
+      'Connected. Tap the microphone to talk or type a message.',
+    );
 
     act(() => {
       ws.onmessage?.({
@@ -277,7 +284,8 @@ describe('Capture panel verification', () => {
       ws.onmessage?.({
         data: JSON.stringify({
           type: 'tool_response',
-          name: entityType === 'capital_transfer' ? 'create_transfer' : 'create_investment_dividend',
+          name:
+            entityType === 'capital_transfer' ? 'create_transfer' : 'create_investment_dividend',
           status: 'success',
           result: {
             entity_type: entityType,
@@ -541,5 +549,114 @@ describe('Capture panel verification', () => {
     renderWidget({ hidden: true });
 
     expect(screen.queryByRole('button', { name: 'Open capture panel' })).not.toBeInTheDocument();
+  });
+  // ── spec-109: turn visibility ───────────────────────────────────────────
+
+  const sendServer = (ws: FakeWebSocket, msg: Record<string, unknown>) => {
+    act(() => {
+      ws.onmessage?.({ data: JSON.stringify(msg) });
+    });
+  };
+
+  it('walks the turn phases instead of showing a constant Listening (spec-109)', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      renderWidget();
+      const ws = openPanelAndGetSocket();
+
+      sendServer(ws, { type: 'input_transcript', content: 'spent 250 ' });
+      expect(screen.getByTestId('voice-phase')).toHaveTextContent('Hearing you');
+
+      // No further words for 700 ms: the user has stopped, the model is working.
+      act(() => {
+        vi.advanceTimersByTime(700);
+      });
+      expect(screen.getByTestId('voice-phase')).toHaveTextContent('Thinking');
+
+      sendServer(ws, { type: 'transcript', content: 'Logged.' });
+      expect(screen.getByTestId('voice-phase')).toHaveTextContent('Speaking');
+
+      sendServer(ws, { type: 'turn_complete' });
+      expect(screen.queryByTestId('voice-phase')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a new input fragment restarts the thinking countdown', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      renderWidget();
+      const ws = openPanelAndGetSocket();
+
+      sendServer(ws, { type: 'input_transcript', content: 'spent ' });
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      sendServer(ws, { type: 'input_transcript', content: '250' });
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      expect(screen.getByTestId('voice-phase')).toHaveTextContent('Hearing you');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows Thinking while a tool runs and Speaking when audio arrives', () => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+
+    sendServer(ws, { type: 'tool_call', name: 'list_todos', arguments: {} });
+    expect(screen.getByTestId('voice-phase')).toHaveTextContent('Thinking');
+
+    playServerAudio(ws);
+    expect(screen.getByTestId('voice-phase')).toHaveTextContent('Speaking');
+
+    sendServer(ws, { type: 'interrupted' });
+    expect(screen.queryByTestId('voice-phase')).toBeNull();
+  });
+
+  it('renders what the agent heard live as one user bubble per turn', () => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+
+    sendServer(ws, { type: 'input_transcript', content: 'spent ' });
+    sendServer(ws, { type: 'input_transcript', content: '250 on lunch' });
+    expect(screen.getByText('spent 250 on lunch')).toBeInTheDocument();
+
+    // Assistant reply closes the user's turn; the next utterance is a new bubble.
+    sendServer(ws, { type: 'transcript', content: 'Done.' });
+    sendServer(ws, { type: 'turn_complete' });
+    sendServer(ws, { type: 'input_transcript', content: 'thanks' });
+
+    expect(screen.getByText('spent 250 on lunch')).toBeInTheDocument();
+    expect(screen.getByText('thanks')).toBeInTheDocument();
+  });
+
+  it('flushes the stream after the final audio chunk when the mic is stopped', async () => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start listening' }));
+    await screen.findByRole('button', { name: 'Stop listening' });
+    fireEvent.click(screen.getByRole('button', { name: 'Stop listening' }));
+
+    await waitFor(() =>
+      expect(ws.send).toHaveBeenCalledWith(JSON.stringify({ type: 'audio_stream_end' })),
+    );
+    const calls = ws.send.mock.calls.map((c) => c[0]);
+    const endIndex = calls.indexOf(JSON.stringify({ type: 'audio_stream_end' }));
+    // The last flushed chunk (binary) must precede the end-of-stream marker.
+    expect(calls.slice(0, endIndex).some((c) => c instanceof ArrayBuffer)).toBe(true);
+  });
+
+  it('does not send audio_stream_end when the mic was never started', () => {
+    renderWidget();
+    const ws = openPanelAndGetSocket();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Close capture panel' })[0]);
+
+    expect(ws.send).not.toHaveBeenCalledWith(JSON.stringify({ type: 'audio_stream_end' }));
   });
 });

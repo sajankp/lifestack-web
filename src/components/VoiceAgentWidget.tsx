@@ -50,7 +50,10 @@ type RealtimeAgentMessage = {
     | 'interrupted'
     | 'session_resumption'
     | 'session_state'
-    | 'session_info';
+    | 'session_info'
+    // spec-109: what the model heard, and the end of its turn.
+    | 'input_transcript'
+    | 'turn_complete';
   content?: string;
   name?: string;
   arguments?: Record<string, unknown>;
@@ -73,6 +76,19 @@ type RealtimeAgentMessage = {
 
 // spec-079 Stage B: cap auto-reconnect so a persistently-down backend doesn't
 // loop forever; the user can still retry manually.
+// spec-109: with no new input words for this long the user has stopped talking
+// and the agent is working on the request.
+const THINKING_AFTER_SILENCE_MS = 700;
+
+type AgentPhase = 'listening' | 'hearing' | 'thinking' | 'speaking';
+
+const PHASE_LABELS: Record<AgentPhase, string> = {
+  listening: 'Listening',
+  hearing: 'Hearing you',
+  thinking: 'Thinking…',
+  speaking: 'Speaking',
+};
+
 const MAX_RECONNECT_ATTEMPTS = 5;
 
 // spec-090: a resumption handle older than this is dropped instead of resumed —
@@ -183,6 +199,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
 
   const [isRecording, setIsRecording] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [agentPhase, setAgentPhase] = useState<AgentPhase>('listening');
   const [inputText, setInputText] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<
     'disconnected' | 'connecting' | 'connected' | 'error'
@@ -238,6 +255,12 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
   const resumptionHandleAtRef = useRef<number | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const unmountCleanupRef = useRef<(() => void) | null>(null);
+  // spec-109: turn visibility. The thinking timer flips hearing -> thinking once
+  // the input words stop; the live bubble id groups one utterance's fragments;
+  // the send chain keeps mic chunks and the end-of-stream marker in order.
+  const thinkingTimerRef = useRef<number | null>(null);
+  const liveUserMsgIdRef = useRef<string | null>(null);
+  const audioSendChainRef = useRef<Promise<void>>(Promise.resolve());
 
   // Sync preference
   useEffect(() => {
@@ -364,10 +387,56 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
     nextPlayTimeRef.current = 0;
   };
 
+  const clearThinkingTimer = () => {
+    if (thinkingTimerRef.current !== null) {
+      window.clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
+    }
+  };
+
+  // The agent has started to respond (or the turn ended): the user's utterance
+  // is complete, so the next input words start a new bubble.
+  const enterAgentPhase = (phase: AgentPhase) => {
+    clearThinkingTimer();
+    liveUserMsgIdRef.current = null;
+    setAgentPhase(phase);
+  };
+
+  const handleInputTranscript = (fragment: string) => {
+    if (!fragment) return;
+    if (!liveUserMsgIdRef.current) liveUserMsgIdRef.current = Math.random().toString();
+    const id = liveUserMsgIdRef.current;
+    setMessages((prev) => {
+      const index = prev.findIndex((m) => m.id === id);
+      if (index < 0) {
+        return [
+          ...prev,
+          {
+            id,
+            role: 'user',
+            type: 'text',
+            content: fragment.trimStart(),
+            timestamp: new Date(),
+          },
+        ];
+      }
+      const next = [...prev];
+      next[index] = { ...next[index], content: next[index].content + fragment };
+      return next;
+    });
+    setAgentPhase('hearing');
+    clearThinkingTimer();
+    thinkingTimerRef.current = window.setTimeout(() => {
+      thinkingTimerRef.current = null;
+      setAgentPhase('thinking');
+    }, THINKING_AFTER_SILENCE_MS);
+  };
+
   // Queue and play 24kHz raw mono PCM chunk
   const playAudioChunk = (pcmData: ArrayBuffer) => {
     if (!audioCtxRef.current) return;
 
+    enterAgentPhase('speaking');
     const int16Array = new Int16Array(pcmData, 0, Math.floor(pcmData.byteLength / 2));
     const float32Array = new Float32Array(int16Array.length);
     for (let i = 0; i < int16Array.length; i++) {
@@ -397,7 +466,12 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
 
   // Parse server messages
   const handleServerMessage = (msg: RealtimeAgentMessage) => {
-    if (msg.type === 'transcript') {
+    if (msg.type === 'input_transcript') {
+      handleInputTranscript(msg.content ?? '');
+    } else if (msg.type === 'turn_complete') {
+      enterAgentPhase('listening');
+    } else if (msg.type === 'transcript') {
+      enterAgentPhase('speaking');
       setMessages((prev) => {
         const lastMsg = prev[prev.length - 1];
         if (lastMsg && lastMsg.role === 'agent' && lastMsg.type === 'text') {
@@ -423,6 +497,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
     } else if (msg.type === 'tool_call') {
       // Barge-in: interrupt current voice playback
       clearAudioQueue();
+      enterAgentPhase('thinking');
 
       const toolCallId = `tool-${Date.now()}-${Math.random()}`;
       setMessages((prev) => [
@@ -520,6 +595,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
       }
     } else if (msg.type === 'interrupted') {
       clearAudioQueue();
+      enterAgentPhase('listening');
     } else if (msg.type === 'session_resumption') {
       // Store the latest handle so an unexpected drop can resume with context;
       // timestamp it so a stale handle can be aged out (spec-090).
@@ -697,17 +773,32 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
       const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = mediaRecorder;
 
-      mediaRecorder.ondataavailable = async (event) => {
-        if (event.data && event.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
+      // Chunks and the end-of-stream marker go through one promise chain so the
+      // marker can never overtake the last (async-converted) chunk.
+      audioSendChainRef.current = Promise.resolve();
+      mediaRecorder.ondataavailable = (event) => {
+        const blob = event.data;
+        if (!blob || blob.size === 0) return;
+        audioSendChainRef.current = audioSendChainRef.current.then(async () => {
+          if (wsRef.current?.readyState !== WebSocket.OPEN) return;
           try {
-            const buffer = await event.data.arrayBuffer();
+            const buffer = await blob.arrayBuffer();
             if (wsRef.current?.readyState === WebSocket.OPEN) {
               wsRef.current.send(buffer);
             }
           } catch (e) {
             reportException(e, 'capture_audio_chunk_send');
           }
-        }
+        });
+      };
+      // spec-109: after the final chunk, tell the server the mic stopped so
+      // Gemini flushes any cached audio (documented requirement after a pause).
+      mediaRecorder.onstop = () => {
+        audioSendChainRef.current = audioSendChainRef.current.then(() => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: 'audio_stream_end' }));
+          }
+        });
       };
 
       mediaRecorder.start(100);
@@ -802,6 +893,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
   // Keep the unmount cleanup pointed at the latest lifecycle functions without
   // re-running the cleanup effect on every render.
   unmountCleanupRef.current = () => {
+    clearThinkingTimer();
     stopRecording();
     clearAudioQueue();
     teardownConnection();
@@ -1163,11 +1255,15 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
               <div ref={transcriptEndRef} />
             </div>
 
-            {/* CSS-based Voice Activity Waveform */}
-            {isRecording && (
+            {/* Turn-phase indicator (spec-109): reflects what the agent is doing,
+                not just that the mic is on. */}
+            {(isRecording || agentPhase !== 'listening') && (
               <div className="flex items-center justify-center gap-1 py-2 border-t border-slate-900 bg-slate-950/50">
-                <span className="text-[10px] text-slate-400 mr-2 uppercase tracking-wider animate-pulse">
-                  Listening
+                <span
+                  data-testid="voice-phase"
+                  className="text-[10px] text-slate-400 mr-2 uppercase tracking-wider animate-pulse"
+                >
+                  {PHASE_LABELS[agentPhase]}
                 </span>
                 <div className="flex items-end gap-0.5 h-4">
                   <span
