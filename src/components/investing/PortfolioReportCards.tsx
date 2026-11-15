@@ -35,7 +35,10 @@ export const PortfolioReportCards: React.FC<PortfolioReportCardsProps> = ({
   }
 
   return (
-    <div data-testid="portfolio-report-cards" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div
+      data-testid="portfolio-report-cards"
+      className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
+    >
       <LrsHeadroomCard
         lrsHeadroom={report.lrs_headroom_inr ? { lrs_headroom_inr: report.lrs_headroom_inr } : null}
         asOf={report.as_of || undefined}

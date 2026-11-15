@@ -22,7 +22,11 @@ type FxOverrideRow = {
 };
 
 export const TaxProfileForm: React.FC = () => {
-  const { data: profile, isLoading, error: loadError } = useQuery({
+  const {
+    data: profile,
+    isLoading,
+    error: loadError,
+  } = useQuery({
     queryKey: ['tax-profile'],
     queryFn: investingService.getTaxProfile,
   });
@@ -71,11 +75,13 @@ export const TaxProfileForm: React.FC = () => {
       setApplyCarryForward(profile.apply_carry_forward);
       setNotes(profile.notes ?? '');
 
-      const fxRows: FxOverrideRow[] = Object.entries(profile.fx_overrides).map(([month, rate], idx) => ({
-        id: idx,
-        month,
-        rate,
-      }));
+      const fxRows: FxOverrideRow[] = Object.entries(profile.fx_overrides).map(
+        ([month, rate], idx) => ({
+          id: idx,
+          month,
+          rate,
+        }),
+      );
       setFxOverrides(fxRows);
       setNextFxId(fxRows.length);
       setInitialFxOverrides(profile.fx_overrides);
@@ -150,11 +156,15 @@ export const TaxProfileForm: React.FC = () => {
     if (residentStatus !== initialValues.resident_status) changes.resident_status = residentStatus;
     if (taxRegime !== initialValues.tax_regime) changes.tax_regime = taxRegime;
     if (otherIncome !== initialValues.other_income) changes.other_income = otherIncome;
-    if (explicitRegime !== initialValues.explicit_regime) changes.explicit_regime = explicitRegime || null;
-    if (slabOverride !== (initialValues.slab_override_pct ?? '')) changes.slab_override_pct = slabOverride || null;
-    if (surchargeOverride !== (initialValues.surcharge_override_pct ?? '')) changes.surcharge_override_pct = surchargeOverride || null;
+    if (explicitRegime !== initialValues.explicit_regime)
+      changes.explicit_regime = explicitRegime || null;
+    if (slabOverride !== (initialValues.slab_override_pct ?? ''))
+      changes.slab_override_pct = slabOverride || null;
+    if (surchargeOverride !== (initialValues.surcharge_override_pct ?? ''))
+      changes.surcharge_override_pct = surchargeOverride || null;
     if (cessPct !== initialValues.cess_pct) changes.cess_pct = cessPct;
-    if (applyCarryForward !== initialValues.apply_carry_forward) changes.apply_carry_forward = applyCarryForward;
+    if (applyCarryForward !== initialValues.apply_carry_forward)
+      changes.apply_carry_forward = applyCarryForward;
     if (notes !== (initialValues.notes ?? '')) changes.notes = notes || null;
 
     const fxMap: Record<string, string> = {};
@@ -209,11 +219,7 @@ export const TaxProfileForm: React.FC = () => {
   }
 
   if (loadError) {
-    return (
-      <div className="text-center py-12 text-red-400">
-        Failed to load tax profile
-      </div>
-    );
+    return <div className="text-center py-12 text-red-400">Failed to load tax profile</div>;
   }
 
   return (
@@ -227,7 +233,7 @@ export const TaxProfileForm: React.FC = () => {
           </p>
         </div>
         <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="resident-status" data-testid="tax-form-resident-status-label">
                 Resident Status
@@ -238,7 +244,9 @@ export const TaxProfileForm: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="resident">Resident</SelectItem>
-                  <SelectItem value="resident_not_ordinarily_resident">Resident Not Ordinarily Resident</SelectItem>
+                  <SelectItem value="resident_not_ordinarily_resident">
+                    Resident Not Ordinarily Resident
+                  </SelectItem>
                   <SelectItem value="non_resident">Non-Resident</SelectItem>
                 </SelectContent>
               </Select>
@@ -312,17 +320,20 @@ export const TaxProfileForm: React.FC = () => {
           <div>
             <h3 className="text-lg font-semibold text-white">Advanced Overrides</h3>
             <p className="mt-1 text-sm text-slate-400">
-              Override the derived slab, surcharge, or cess. Leave blank to derive from total income.
+              Override the derived slab, surcharge, or cess. Leave blank to derive from total
+              income.
             </p>
           </div>
           <ChevronDown
-            className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${advancedOpen ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
+              advancedOpen ? 'rotate-180' : ''
+            }`}
           />
         </button>
 
         {advancedOpen && (
           <div className="space-y-4 pt-4 border-t border-slate-800">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <Label htmlFor="slab-override" data-testid="tax-form-slab-override-label">
                   Slab Override (%)
@@ -335,7 +346,9 @@ export const TaxProfileForm: React.FC = () => {
                   max="100"
                   placeholder="derived"
                   value={slabOverride}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSlabOverride(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setSlabOverride(e.target.value)
+                  }
                   data-testid="tax-form-slab-override"
                 />
               </div>
@@ -351,7 +364,9 @@ export const TaxProfileForm: React.FC = () => {
                   max="100"
                   placeholder="derived"
                   value={surchargeOverride}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSurchargeOverride(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setSurchargeOverride(e.target.value)
+                  }
                   data-testid="tax-form-surcharge-override"
                 />
               </div>
@@ -377,7 +392,9 @@ export const TaxProfileForm: React.FC = () => {
                 type="checkbox"
                 id="apply-carry-forward"
                 checked={applyCarryForward}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApplyCarryForward(e.target.checked)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setApplyCarryForward(e.target.checked)
+                }
                 className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-primary focus:ring-primary"
                 data-testid="tax-form-carry-forward"
               />
@@ -412,13 +429,15 @@ export const TaxProfileForm: React.FC = () => {
           <div>
             <h3 className="text-lg font-semibold text-white">Rule 115 FX Overrides</h3>
             <p className="mt-1 text-sm text-slate-400">
-              SBI TT buying rate on the last day of the month <strong>before</strong> the sale month.
-              Prefill from the Tax tab's missing-rate panel. One rate per sale month; currency is
-              implied by the sale.
+              SBI TT buying rate on the last day of the month <strong>before</strong> the sale
+              month. Prefill from the Tax tab's missing-rate panel. One rate per sale month;
+              currency is implied by the sale.
             </p>
           </div>
           <ChevronDown
-            className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${fxOpen ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${
+              fxOpen ? 'rotate-180' : ''
+            }`}
           />
         </button>
 
@@ -441,12 +460,17 @@ export const TaxProfileForm: React.FC = () => {
                         placeholder="2026-04"
                         pattern="\\d{4}-\\d{2}"
                         value={row.month}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFxMonth(row.id, e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          updateFxMonth(row.id, e.target.value)
+                        }
                         data-testid={`fx-override-month-${idx}`}
                         className={row.error ? 'border-red-500' : ''}
                       />
                       {row.error && (
-                        <p className="text-xs text-red-400" data-testid={`fx-override-error-${idx}`}>
+                        <p
+                          className="text-xs text-red-400"
+                          data-testid={`fx-override-error-${idx}`}
+                        >
                           {row.error}
                         </p>
                       )}
@@ -460,12 +484,17 @@ export const TaxProfileForm: React.FC = () => {
                         max="100"
                         placeholder="83.5000"
                         value={row.rate}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateFxRate(row.id, e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          updateFxRate(row.id, e.target.value)
+                        }
                         data-testid={`fx-override-rate-${idx}`}
                         className={row.error ? 'border-red-500' : ''}
                       />
                       {row.error && (
-                        <p className="text-xs text-red-400" data-testid={`fx-override-error-${idx}`}>
+                        <p
+                          className="text-xs text-red-400"
+                          data-testid={`fx-override-error-${idx}`}
+                        >
                           {row.error}
                         </p>
                       )}

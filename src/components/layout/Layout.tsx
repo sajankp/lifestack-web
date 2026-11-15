@@ -12,6 +12,7 @@ import { resetAnalyticsIdentity } from '../../lib/analytics';
 import { Sidebar } from './Sidebar';
 import { MobileNavDrawer } from './MobileNavDrawer';
 import { ROLE_BADGE } from './constants';
+import { defaultSidebarCollapsed } from './sidebarDefault';
 import { queryKeys } from '../../lib/queryKeys';
 
 // --------------------------------------------------------------------------
@@ -22,7 +23,7 @@ export function PageSkeleton() {
   return (
     <div className="animate-pulse space-y-5 p-6">
       <div className="h-8 w-48 rounded-xl bg-slate-800" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[...Array(3)].map((_, i) => (
           <div key={i} className="h-28 rounded-2xl bg-slate-800" />
         ))}
@@ -66,10 +67,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
       const saved = localStorage.getItem('lifestack:sidebar-collapsed');
-      return saved === 'true';
+      if (saved !== null) return saved === 'true';
     } catch {
-      return false;
+      // Fall through to the width-based default.
     }
+    // No saved choice: on tablet widths (md..lg) the full 256px sidebar leaves
+    // ~450px for content, so start on the icon rail instead.
+    return defaultSidebarCollapsed();
   });
 
   const toggleSidebar = () => {
@@ -131,7 +135,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           data-testid="offline-mode-banner"
           className="fixed inset-x-0 top-0 z-[60] border-b border-amber-500/40 bg-amber-950/95 px-4 py-2 text-center text-xs font-medium text-amber-100 shadow-lg"
         >
-          You&apos;re offline. Showing cached data where available; changes will resume when you reconnect.
+          You&apos;re offline. Showing cached data where available; changes will resume when you
+          reconnect.
         </div>
       ) : null}
       {/* Desktop sidebar */}
@@ -168,7 +173,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
               {/* Workspace badge */}
               {workspace ? (
-                <div className="hidden sm:inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm">
+                <div className="hidden min-w-0 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm sm:inline-flex">
                   <Building2 className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                   {workspaces.length > 1 ? (
                     <select
@@ -177,7 +182,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       value={workspace.public_id}
                       onChange={(event) => selectWorkspace(event.target.value)}
                       disabled={isSelectingWorkspace}
-                      className="max-w-[260px] bg-transparent text-sm font-semibold text-slate-100 outline-none"
+                      className="max-w-[140px] bg-transparent text-sm font-semibold text-slate-100 outline-none lg:max-w-[260px]"
                     >
                       {workspaces.map((item) => (
                         <option
@@ -190,13 +195,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       ))}
                     </select>
                   ) : (
-                    <span className="font-semibold text-slate-100 truncate max-w-[240px]">
+                    <span className="min-w-0 max-w-[140px] truncate font-semibold text-slate-100 lg:max-w-[240px]">
                       {workspace.name}
                     </span>
                   )}
                   {roleBadge && (
                     <span
-                      className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${roleBadge}`}
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${roleBadge}`}
                     >
                       {workspace.role}
                     </span>
@@ -208,8 +213,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 </div>
               )}
 
-              {/* Quick-add shortcuts (≥lg only) */}
-              <div className="hidden items-center gap-2 md:flex">
+              {/* Quick-add shortcuts (≥lg only: at md the sidebar leaves ~500px for the header) */}
+              <div className="hidden items-center gap-2 lg:flex">
                 <Link
                   to="/todo?new=1"
                   aria-label="Add todo"
@@ -261,7 +266,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   className="list-none inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm text-slate-200 transition-colors hover:bg-slate-800 hover:text-white"
                 >
                   <UserCircle2 className="h-4 w-4 text-slate-400" />
-                  <span className="max-w-[140px] truncate">
+                  <span className="max-w-[88px] truncate lg:max-w-[140px]">
                     {user?.username ?? user?.email ?? 'Profile'}
                   </span>
                   <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
@@ -315,16 +320,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </header>
 
-        {/* Page content */}
-        <div className="flex-1 min-w-0">{children}</div>
+        {/* Page content. Bottom padding keeps the last row clear of the floating capture button. */}
+        <div className="min-w-0 flex-1 pb-20">{children}</div>
       </main>
       {/* Keyed by workspace so a switch remounts the widget and clears its
           WebSocket/message-history/resumption-handle state instead of leaking
           it into the new workspace (spec-079 Stage B review finding). */}
-      <VoiceAgentWidget
-        key={workspace?.public_id ?? 'no-workspace'}
-        hidden={mobileNavOpen}
-      />
+      <VoiceAgentWidget key={workspace?.public_id ?? 'no-workspace'} hidden={mobileNavOpen} />
     </div>
   );
 };

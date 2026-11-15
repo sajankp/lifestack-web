@@ -134,11 +134,11 @@ export const DividendsSection: React.FC<DividendsSectionProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-foreground">
           Dividends / Income ({dividendsTotal})
         </h3>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="secondary" size="sm" asChild>
             <Link to="/imports/investing-dividends">
               <Upload className="h-4 w-4 mr-1" /> Bulk import

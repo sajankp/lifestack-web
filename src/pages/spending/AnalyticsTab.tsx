@@ -8,7 +8,8 @@ import { formatCompactNumber } from '../../utils/numberFormat';
 import { formatMonthLabel, monthShortLabel } from './format';
 import { SpendPacingCard } from './SpendPacingCard';
 import { queryKeys } from '../../lib/queryKeys';
-
+import { useChartWidth } from '../../hooks/useChartWidth';
+import { indexFromPointer, isTouchPointer } from '../../lib/chartPointer';
 
 const DONUT_COLORS = [
   '#06b6d4', // Cyan
@@ -21,6 +22,15 @@ const DONUT_COLORS = [
   '#f97316', // Orange
 ];
 const DONUT_OTHER_COLOR = '#64748b';
+
+// Trend charts are laid out in real pixels (see useChartWidth) so text keeps its
+// size at every width. Phones get a narrower Y-axis gutter.
+const CHART_HEIGHT = 300;
+const plotBounds = (viewWidth: number) => {
+  const left = viewWidth < 520 ? 44 : 55;
+  const right = viewWidth - 15;
+  return { left, right, width: right - left };
+};
 
 const niceCeil = (value: number): number => {
   if (value <= 0) return 100;
@@ -53,7 +63,9 @@ function generateSmoothPath(points: { x: number; y: number }[]): string {
     const cp2x = p2.x - (p3.x - p1.x) / 6;
     const cp2y = p2.y - (p3.y - p1.y) / 6;
 
-    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(
+      1,
+    )}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
   }
   return d;
 }
@@ -83,6 +95,10 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
   const [hoveredTrendIdx, setHoveredTrendIdx] = useState<number | null>(null);
   const [hoveredSavingsIdx, setHoveredSavingsIdx] = useState<number | null>(null);
   const [hoveredCategoryIdx, setHoveredCategoryIdx] = useState<number | null>(null);
+  const [trendRef, trendW] = useChartWidth<HTMLDivElement>(500);
+  const [savingsRef, savingsW] = useChartWidth<HTMLDivElement>(500);
+  const trendPlot = plotBounds(trendW);
+  const savingsPlot = plotBounds(savingsW);
 
   // Calculate the dates range for queries
   const analyticsRange = useMemo(() => {
@@ -158,10 +174,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
   });
 
   const { data: savingsRateData, isLoading: isSavingsRateLoading } = useQuery({
-    queryKey: queryKeys.spending.savingsRate(
-      analyticsRange.fromMonth,
-      analyticsRange.toMonth,
-    ),
+    queryKey: queryKeys.spending.savingsRate(analyticsRange.fromMonth, analyticsRange.toMonth),
     queryFn: () => spendingService.getSavingsRate(analyticsRange.fromMonth, analyticsRange.toMonth),
     enabled: !!analyticsRange.fromMonth,
   });
@@ -174,15 +187,12 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
   if (isInitialAnalyticsLoad) {
     return (
       <div className="space-y-6 animate-pulse">
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <div
-              key={i}
-              className="h-28 rounded-2xl border border-slate-800 bg-slate-800/30"
-            />
+            <div key={i} className="h-28 rounded-2xl border border-slate-800 bg-slate-800/30" />
           ))}
         </div>
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="h-80 rounded-2xl border border-slate-800 bg-slate-800/30" />
           <div className="h-80 rounded-2xl border border-slate-800 bg-slate-800/30" />
         </div>
@@ -283,7 +293,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
       />
 
       {/* Period Stats Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card: Total Income */}
         <div className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/30 p-5 shadow-lg shadow-black/10 transition-all hover:border-slate-600">
           <div className="flex items-start justify-between">
@@ -366,7 +376,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
       </div>
 
       {/* Main Charts Row */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Trends Chart */}
         <div className="rounded-2xl border border-slate-700/50 bg-slate-800/30 p-5 shadow-lg shadow-black/10">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -391,7 +401,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
               No trend data available for the period
             </div>
           ) : (
-            <div className="relative h-64 w-full">
+            <div ref={trendRef} className="relative h-[300px] w-full">
               {/* Dynamic Floating Tooltip on Hover */}
               {hoveredTrendIdx !== null && trendsList[hoveredTrendIdx] && (
                 <div className="absolute top-2 right-2 z-10 rounded-xl border border-slate-700/80 bg-slate-900/95 p-3 shadow-xl backdrop-blur-md text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150">
@@ -421,7 +431,11 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                   <div className="flex items-center justify-between gap-4 text-slate-300 font-semibold border-t border-slate-800/80 pt-1">
                     <span>Net:</span>
                     {(() => {
-                      const netVal = Number(trendsList[hoveredTrendIdx].net ?? (Number(trendsList[hoveredTrendIdx].total_income) - Number(trendsList[hoveredTrendIdx].total_expense)));
+                      const netVal = Number(
+                        trendsList[hoveredTrendIdx].net ??
+                          Number(trendsList[hoveredTrendIdx].total_income) -
+                            Number(trendsList[hoveredTrendIdx].total_expense),
+                      );
                       return (
                         <span className={netVal >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
                           {formatCurrency(netVal, displayCurrency, currencyDisplayPreference)}
@@ -432,7 +446,25 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                 </div>
               )}
 
-              <svg className="h-full w-full" viewBox="0 0 500 300" preserveAspectRatio="none">
+              <svg
+                className="block h-full w-full touch-pan-y"
+                viewBox={`0 0 ${trendW} ${CHART_HEIGHT}`}
+                onPointerMove={(e) =>
+                  setHoveredTrendIdx(
+                    indexFromPointer(
+                      e,
+                      trendsList.length,
+                      trendW,
+                      trendPlot.left,
+                      trendPlot.right,
+                      'bins',
+                    ),
+                  )
+                }
+                onPointerLeave={(e) => {
+                  if (!isTouchPointer(e)) setHoveredTrendIdx(null);
+                }}
+              >
                 <defs>
                   <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#22d3ee" />
@@ -451,9 +483,9 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                   return (
                     <g key={idx}>
                       <line
-                        x1="55"
+                        x1={trendPlot.left}
                         y1={y}
-                        x2="485"
+                        x2={trendPlot.right}
                         y2={y}
                         stroke="#334155"
                         strokeOpacity="0.4"
@@ -461,7 +493,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                         strokeDasharray="3 3"
                       />
                       <text
-                        x="48"
+                        x={trendPlot.left - 7}
                         y={y + 4}
                         textAnchor="end"
                         className="text-[10px] font-semibold fill-slate-500"
@@ -474,21 +506,17 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
 
                 {/* Bars per Month */}
                 {(() => {
-                  const step = 430 / trendsList.length;
+                  const step = trendPlot.width / trendsList.length;
+                  const labelEvery = step < 30 ? 2 : 1;
                   const barW = Math.max(8, Math.min(22, step * 0.28));
                   return trendsList.map((m, idx) => {
-                    const xCenter = 55 + idx * step + step * 0.5;
+                    const xCenter = trendPlot.left + idx * step + step * 0.5;
                     const incomeH = (Number(m.total_income) / maxTrendVal) * 235;
                     const expenseH = (Number(m.total_expense) / maxTrendVal) * 235;
                     const isHovered = hoveredTrendIdx === idx;
 
                     return (
-                      <g
-                        key={m.month}
-                        className="cursor-pointer"
-                        onMouseEnter={() => setHoveredTrendIdx(idx)}
-                        onMouseLeave={() => setHoveredTrendIdx(null)}
-                      >
+                      <g key={m.month} className="cursor-pointer">
                         {/* Hover Column Background Highlight */}
                         {isHovered && (
                           <rect
@@ -527,21 +555,30 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                           }`}
                         />
                         {/* X Axis Label */}
-                        <text
-                          x={xCenter}
-                          y="275"
-                          textAnchor="middle"
-                          className={`text-[10px] font-semibold transition-colors ${
-                            isHovered ? 'fill-cyan-300 font-bold' : 'fill-slate-400'
-                          }`}
-                        >
-                          {formatMonthShort(m.month)}
-                        </text>
+                        {idx % labelEvery === 0 && (
+                          <text
+                            x={xCenter}
+                            y="275"
+                            textAnchor="middle"
+                            className={`text-[10px] font-semibold transition-colors ${
+                              isHovered ? 'fill-cyan-300 font-bold' : 'fill-slate-400'
+                            }`}
+                          >
+                            {formatMonthShort(m.month)}
+                          </text>
+                        )}
                       </g>
                     );
                   });
                 })()}
-                <line x1="55" y1="255" x2="485" y2="255" stroke="#475569" strokeWidth="1" />
+                <line
+                  x1={trendPlot.left}
+                  y1="255"
+                  x2={trendPlot.right}
+                  y2="255"
+                  stroke="#475569"
+                  strokeWidth="1"
+                />
               </svg>
             </div>
           )}
@@ -558,7 +595,8 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
               Savings Rate Trend (%)
             </h4>
             <span className="text-xs font-semibold text-emerald-400/90 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-              Avg: {averageSavingsRate !== null ? `${Number(averageSavingsRate).toFixed(1)}%` : '0%'}
+              Avg:{' '}
+              {averageSavingsRate !== null ? `${Number(averageSavingsRate).toFixed(1)}%` : '0%'}
             </span>
           </div>
 
@@ -567,7 +605,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
               No savings rate data available
             </div>
           ) : (
-            <div className="relative h-64 w-full">
+            <div ref={savingsRef} className="relative h-[300px] w-full">
               {/* Dynamic Floating Tooltip on Hover */}
               {hoveredSavingsIdx !== null && savingsRateList[hoveredSavingsIdx] && (
                 <div className="absolute top-2 right-2 z-10 rounded-xl border border-slate-700/80 bg-slate-900/95 p-3 shadow-xl backdrop-blur-md text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150">
@@ -580,13 +618,28 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                       {Number(savingsRateList[hoveredSavingsIdx].savings_rate_pct).toFixed(1)}%
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    Inflow retained as net asset surplus
-                  </p>
+                  <p className="text-[11px] text-slate-400">Inflow retained as net asset surplus</p>
                 </div>
               )}
 
-              <svg className="h-full w-full" viewBox="0 0 500 300" preserveAspectRatio="none">
+              <svg
+                className="block h-full w-full touch-pan-y"
+                viewBox={`0 0 ${savingsW} ${CHART_HEIGHT}`}
+                onPointerMove={(e) =>
+                  setHoveredSavingsIdx(
+                    indexFromPointer(
+                      e,
+                      savingsRateList.length,
+                      savingsW,
+                      savingsPlot.left,
+                      savingsPlot.right,
+                    ),
+                  )
+                }
+                onPointerLeave={(e) => {
+                  if (!isTouchPointer(e)) setHoveredSavingsIdx(null);
+                }}
+              >
                 <defs>
                   <linearGradient id="savingsAreaGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#10b981" stopOpacity="0.35" />
@@ -602,9 +655,9 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                   return (
                     <g key={idx}>
                       <line
-                        x1="55"
+                        x1={savingsPlot.left}
                         y1={y}
-                        x2="485"
+                        x2={savingsPlot.right}
                         y2={y}
                         stroke="#334155"
                         strokeOpacity="0.4"
@@ -612,7 +665,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                         strokeDasharray="3 3"
                       />
                       <text
-                        x="48"
+                        x={savingsPlot.left - 7}
                         y={y + 4}
                         textAnchor="end"
                         className="text-[10px] font-semibold fill-slate-500"
@@ -625,10 +678,11 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
 
                 {/* Area and Line Graph */}
                 {(() => {
-                  const step = 430 / Math.max(savingsRateList.length - 1, 1);
+                  const step = savingsPlot.width / Math.max(savingsRateList.length - 1, 1);
+                  const labelEvery = step < 30 ? 2 : 1;
                   const points = savingsRateList.map((m, idx) => {
                     const rate = m.savings_rate_pct ?? 0;
-                    const x = 55 + idx * step;
+                    const x = savingsPlot.left + idx * step;
                     const y = 20 + 235 - ((rate - minRate) / rateRange) * 235;
                     return { x, y, rate, month: m.month };
                   });
@@ -654,9 +708,9 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                       {/* Zero line */}
                       {minRate < 0 && (
                         <line
-                          x1="55"
+                          x1={savingsPlot.left}
                           y1={zeroY}
-                          x2="485"
+                          x2={savingsPlot.right}
                           y2={zeroY}
                           stroke="#f43f5e"
                           strokeWidth="1.5"
@@ -668,12 +722,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                       {points.map((p, idx) => {
                         const isHovered = hoveredSavingsIdx === idx;
                         return (
-                          <g
-                            key={idx}
-                            className="cursor-pointer"
-                            onMouseEnter={() => setHoveredSavingsIdx(idx)}
-                            onMouseLeave={() => setHoveredSavingsIdx(null)}
-                          >
+                          <g key={idx} className="cursor-pointer">
                             {/* Hover Vertical Guide Line */}
                             {isHovered && (
                               <line
@@ -699,34 +748,47 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                               }`}
                             />
                             {/* Value label directly above dot */}
-                            <text
-                              x={p.x}
-                              y={p.y - 10}
-                              textAnchor="middle"
-                              className={`text-[9px] font-bold transition-colors ${
-                                isHovered ? 'fill-white font-extrabold' : 'fill-emerald-300'
-                              }`}
-                            >
-                              {p.rate.toFixed(0)}%
-                            </text>
+                            {(idx % labelEvery === 0 || isHovered) && (
+                              <text
+                                x={p.x}
+                                y={p.y - 10}
+                                textAnchor={
+                                  idx === 0 ? 'start' : idx === points.length - 1 ? 'end' : 'middle'
+                                }
+                                className={`text-[9px] font-bold transition-colors ${
+                                  isHovered ? 'fill-white font-extrabold' : 'fill-emerald-300'
+                                }`}
+                              >
+                                {p.rate.toFixed(0)}%
+                              </text>
+                            )}
                             {/* Month Label */}
-                            <text
-                              x={p.x}
-                              y="275"
-                              textAnchor="middle"
-                              className={`text-[10px] font-semibold transition-colors ${
-                                isHovered ? 'fill-emerald-300 font-bold' : 'fill-slate-400'
-                              }`}
-                            >
-                              {formatMonthShort(p.month)}
-                            </text>
+                            {idx % labelEvery === 0 && (
+                              <text
+                                x={p.x}
+                                y="275"
+                                textAnchor="middle"
+                                className={`text-[10px] font-semibold transition-colors ${
+                                  isHovered ? 'fill-emerald-300 font-bold' : 'fill-slate-400'
+                                }`}
+                              >
+                                {formatMonthShort(p.month)}
+                              </text>
+                            )}
                           </g>
                         );
                       })}
                     </g>
                   );
                 })()}
-                <line x1="55" y1="255" x2="485" y2="255" stroke="#475569" strokeWidth="1" />
+                <line
+                  x1={savingsPlot.left}
+                  y1="255"
+                  x2={savingsPlot.right}
+                  y2="255"
+                  stroke="#475569"
+                  strokeWidth="1"
+                />
               </svg>
             </div>
           )}
@@ -770,7 +832,7 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
               No transactions for breakdown during this period
             </div>
           ) : (
-            <div className="grid gap-8 lg:grid-cols-12 items-center">
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-center">
               {/* SVG Donut */}
               <div className="lg:col-span-5 flex items-center justify-center">
                 <div className="relative h-52 w-52 flex-shrink-0">
@@ -802,7 +864,9 @@ const AnalyticsTabImpl: React.FC<AnalyticsTabProps> = ({
                             className="cursor-pointer transition-all duration-300 hover:opacity-100"
                             style={{
                               opacity: hoveredCategoryIdx === null || isHovered ? 1 : 0.35,
-                              filter: isHovered ? `drop-shadow(0 0 6px ${theme.color}80)` : undefined,
+                              filter: isHovered
+                                ? `drop-shadow(0 0 6px ${theme.color}80)`
+                                : undefined,
                             }}
                             onMouseEnter={() => setHoveredCategoryIdx(index)}
                             onMouseLeave={() => setHoveredCategoryIdx(null)}

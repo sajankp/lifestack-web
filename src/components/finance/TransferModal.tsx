@@ -57,8 +57,11 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   const accountById = new Map(accounts.map((account) => [account.public_id, account]));
   const fromAccount = accountById.get(fromAccountId);
   const toAccount = accountById.get(toAccountId);
-  const isCrossCurrency =
-    Boolean(fromAccount && toAccount && fromAccount.default_currency_code !== toAccount.default_currency_code);
+  const isCrossCurrency = Boolean(
+    fromAccount &&
+      toAccount &&
+      fromAccount.default_currency_code !== toAccount.default_currency_code,
+  );
 
   useEffect(() => {
     if (open) {
@@ -96,7 +99,11 @@ export const TransferModal: React.FC<TransferModalProps> = ({
 
   const netPreview = computeTransferNet({
     gross: grossNum,
-    fxRate: isCrossCurrency ? (userRateNum > 0 ? effectiveMultiplier : null) : (Number(fxRate) || null),
+    fxRate: isCrossCurrency
+      ? userRateNum > 0
+        ? effectiveMultiplier
+        : null
+      : Number(fxRate) || null,
     fxFee: Number(fxFee) || 0,
     platformFee: Number(platformFee) || 0,
     tax: Number(tax) || 0,
@@ -235,7 +242,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               </button>
             </div>
           ) : null}
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label className="mb-2 block">Amount</Label>
               <FormattedNumberInput
@@ -287,7 +294,9 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                     <button
                       type="button"
                       onClick={() =>
-                        setFxDirection((prev) => (prev === 'from_per_to' ? 'to_per_from' : 'from_per_to'))
+                        setFxDirection((prev) =>
+                          prev === 'from_per_to' ? 'to_per_from' : 'from_per_to',
+                        )
                       }
                       className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
                       title="Flip exchange rate direction"

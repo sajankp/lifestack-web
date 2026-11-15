@@ -68,7 +68,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <h3
-                className={`truncate text-sm font-semibold text-white ${
+                className={`line-clamp-2 break-words text-sm font-semibold text-white sm:line-clamp-none sm:truncate ${
                   todo.completed ? 'line-through text-slate-400' : ''
                 }`}
               >

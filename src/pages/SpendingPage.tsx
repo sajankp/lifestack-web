@@ -183,9 +183,10 @@ export const SpendingPage: React.FC = () => {
 
   const requestedLegacyTab = searchParams.get('tab');
   const pathTab = SPENDING_ROUTE_TABS[location.pathname.slice('/spending/'.length)];
-  const legacyTab = requestedLegacyTab && requestedLegacyTab in SPENDING_TAB_ROUTES
-    ? (requestedLegacyTab as SpendingTab)
-    : null;
+  const legacyTab =
+    requestedLegacyTab && requestedLegacyTab in SPENDING_TAB_ROUTES
+      ? (requestedLegacyTab as SpendingTab)
+      : null;
   const activeTab: SpendingTab = pathTab ?? legacyTab ?? 'recurring';
 
   const setActiveTab = useCallback(
@@ -220,10 +221,7 @@ export const SpendingPage: React.FC = () => {
   }, [legacyTab, location.pathname, location.search, navigate, pathTab]);
 
   const monthFilterOptions = useMemo(() => buildMonthOptions(), []);
-  const budgetsRange = useMemo(
-    () => monthValueToDateRange(budgetsMonth),
-    [budgetsMonth],
-  );
+  const budgetsRange = useMemo(() => monthValueToDateRange(budgetsMonth), [budgetsMonth]);
 
   // Settings & currency display profile
   const userSettingsQuery = useQuery({
@@ -305,13 +303,13 @@ export const SpendingPage: React.FC = () => {
 
   // Query budgets
   const budgetsQuery = useQuery({
-    queryKey: queryKeys.spending.budgets({ month: budgetsMonth, limit: DEFAULT_PAGE_SIZE, offset: budgetOffset }),
+    queryKey: queryKeys.spending.budgets({
+      month: budgetsMonth,
+      limit: DEFAULT_PAGE_SIZE,
+      offset: budgetOffset,
+    }),
     queryFn: () =>
-      spendingService.getBudgets(
-        DEFAULT_PAGE_SIZE,
-        budgetOffset,
-        `${budgetsMonth}-01`,
-      ),
+      spendingService.getBudgets(DEFAULT_PAGE_SIZE, budgetOffset, `${budgetsMonth}-01`),
     enabled: budgetsDuration === 1,
   });
   const budgetsResponse = budgetsQuery.data;
@@ -324,7 +322,10 @@ export const SpendingPage: React.FC = () => {
       const fromMonth = budgetsMonth;
       const [year, month] = budgetsMonth.split('-').map(Number);
       const endDate = new Date(Date.UTC(year, month - 1 + budgetsDuration - 1, 1));
-      const toMonth = `${endDate.getUTCFullYear()}-${String(endDate.getUTCMonth() + 1).padStart(2, '0')}`;
+      const toMonth = `${endDate.getUTCFullYear()}-${String(endDate.getUTCMonth() + 1).padStart(
+        2,
+        '0',
+      )}`;
       return spendingService.getBudgetPerformance(fromMonth, toMonth);
     },
     enabled: budgetsDuration > 1,
@@ -791,8 +792,8 @@ export const SpendingPage: React.FC = () => {
       />
 
       {/* Summary KPI Cards */}
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700">
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+        <div className="relative col-span-2 overflow-hidden rounded-2xl sm:col-span-1 border border-slate-800 bg-slate-900/60 p-4 sm:p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Month Spent ({currentMonthValue})
@@ -802,14 +803,29 @@ export const SpendingPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 text-2xl font-bold tracking-tight text-white">
-            {formatCurrency(monthSpent, displayCurrency, currencyDisplayPreference, displayLocale, decimalPlaces)}
+            {formatCurrency(
+              monthSpent,
+              displayCurrency,
+              currencyDisplayPreference,
+              displayLocale,
+              decimalPlaces,
+            )}
           </div>
           <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
-            <span>Income: {formatCurrency(monthIncome, displayCurrency, currencyDisplayPreference, displayLocale, decimalPlaces)}</span>
+            <span>
+              Income:{' '}
+              {formatCurrency(
+                monthIncome,
+                displayCurrency,
+                currencyDisplayPreference,
+                displayLocale,
+                decimalPlaces,
+              )}
+            </span>
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Active Recurring Rules
@@ -826,7 +842,7 @@ export const SpendingPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5 backdrop-blur-xl transition-all duration-300 hover:border-slate-700">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
               Active Budgets
@@ -838,9 +854,7 @@ export const SpendingPage: React.FC = () => {
           <div className="mt-3 text-2xl font-bold tracking-tight text-white">
             {budgets.length} <span className="text-sm font-normal text-slate-400">targets</span>
           </div>
-          <p className="mt-1 text-xs text-slate-400">
-            {categories.length} categories available
-          </p>
+          <p className="mt-1 text-xs text-slate-400">{categories.length} categories available</p>
         </div>
       </div>
 
@@ -1215,9 +1229,7 @@ export const SpendingPage: React.FC = () => {
               <Button
                 type="submit"
                 className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white"
-                disabled={
-                  createRecurringMutation.isPending || updateRecurringMutation.isPending
-                }
+                disabled={createRecurringMutation.isPending || updateRecurringMutation.isPending}
                 data-testid={
                   editingRecurring ? 'spending-recurring-update' : 'spending-recurring-create'
                 }
@@ -1225,8 +1237,8 @@ export const SpendingPage: React.FC = () => {
                 {createRecurringMutation.isPending || updateRecurringMutation.isPending
                   ? 'Saving...'
                   : editingRecurring
-                  ? 'Update Rule'
-                  : 'Create Rule'}
+                    ? 'Update Rule'
+                    : 'Create Rule'}
               </Button>
             </div>
           </form>
@@ -1293,7 +1305,6 @@ export const SpendingPage: React.FC = () => {
                       placeholder="Select category"
                       disabled={!!editingBudget}
                     />
-
                   )}
                 />
                 {budgetForm.formState.errors.categoryId && (
@@ -1362,7 +1373,9 @@ export const SpendingPage: React.FC = () => {
             </div>
 
             <div>
-              <Label className="text-slate-300 text-xs mb-1 block">Budget Amount ({displayCurrency}) *</Label>
+              <Label className="text-slate-300 text-xs mb-1 block">
+                Budget Amount ({displayCurrency}) *
+              </Label>
               <Controller
                 control={budgetForm.control}
                 name="amount"
@@ -1417,8 +1430,8 @@ export const SpendingPage: React.FC = () => {
                 {createBudgetMutation.isPending || updateBudgetMutation.isPending
                   ? 'Saving...'
                   : editingBudget
-                  ? 'Update Budget'
-                  : 'Create Budget'}
+                    ? 'Update Budget'
+                    : 'Create Budget'}
               </Button>
             </div>
           </form>

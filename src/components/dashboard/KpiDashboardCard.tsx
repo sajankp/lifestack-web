@@ -53,7 +53,7 @@ export const KpiDashboardCard: React.FC<KpiDashboardCardProps> = ({
         {isLoading ? (
           <div className="mt-4 h-16 animate-pulse rounded-2xl bg-slate-800/50" />
         ) : (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {kpis.map((kpi) => {
               const current = parseFloat(kpi.current_value.toString());
               const target =

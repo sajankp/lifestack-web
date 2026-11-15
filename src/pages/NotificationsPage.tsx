@@ -186,7 +186,7 @@ export const NotificationsPage: React.FC = () => {
                 Push and email notifications can be toggled per category. All categories are always
                 shown in-app.
               </p>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {displayedPreferences?.map((pref) => (
                   <div
                     key={pref.category}

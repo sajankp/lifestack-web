@@ -179,6 +179,54 @@ describe('DashboardPage', () => {
     expect(screen.queryByTestId('dashboard-cue-valuation-alert')).not.toBeInTheDocument();
   });
 
+  it('renders the overspent-budgets cue from the real API shape (numeric category_id)', async () => {
+    // The API returns top_overspent_categories as
+    // { category_id: <int>, spent, budget, overspend, ratio } (workflows.py).
+    // A string-typed category_id in the zod schema made the whole summary fail to
+    // parse, so any user with an overspent budget saw "Dashboard data could not be loaded".
+    server.use(
+      emptyNotifications(),
+      allClearBriefing(),
+      http.get('*/v1/dashboard/summary', () =>
+        HttpResponse.json({
+          todos: {
+            status: 'available',
+            open_count: 0,
+            overdue_count: 0,
+            next_due_items: [],
+            active_guardrail_todo_count: 0,
+          },
+          spending: {
+            status: 'available',
+            month_spent: '2168.47',
+            budget_spotlight: [],
+            top_overspent_categories: [
+              {
+                category_id: 35,
+                spent: '289.26',
+                budget: '200.00',
+                overspend: '89.26',
+                ratio: '1.4463',
+              },
+            ],
+          },
+          investing: { portfolio_value: null, daily_change: null, holdings_count: 0 },
+          system: { generated_at: '2026-05-24T10:00:00Z' },
+        }),
+      ),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByTestId('dashboard-cue-overspent-budgets')).toBeInTheDocument();
+    // The API gives only an internal integer id (no name), so the cue counts
+    // categories rather than printing "Unknown".
+    expect(screen.getByTestId('dashboard-cue-overspent-budgets')).toHaveTextContent(
+      'exceeded monthly budget limits in 1 category',
+    );
+    expect(screen.queryByText(/Unknown/)).not.toBeInTheDocument();
+  });
+
   it('shows the valuation alert only for genuinely degraded statuses', async () => {
     server.use(emptyNotifications(), allClearBriefing(), summaryWithValuationStatus('estimated'));
 

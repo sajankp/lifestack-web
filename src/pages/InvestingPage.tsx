@@ -1,7 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpDown, ChartNoAxesCombined, Landmark, PiggyBank, Plus, WalletCards } from 'lucide-react';
+import {
+  ArrowUpDown,
+  ChartNoAxesCombined,
+  ChevronDown,
+  Landmark,
+  PiggyBank,
+  Plus,
+  WalletCards,
+} from 'lucide-react';
 import { financeService } from '../services/finance';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { investingService } from '../services/investing';
@@ -57,6 +65,7 @@ const INVESTING_ROUTE_TABS: Record<string, InvestingTab> = Object.fromEntries(
 ) as Record<string, InvestingTab>;
 
 export const InvestingPage: React.FC = () => {
+  const [showDetails, setShowDetails] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -65,9 +74,8 @@ export const InvestingPage: React.FC = () => {
   const cleanPath = location.pathname.replace(/^\/(portfolio|investing)\/?/, '');
   const tabSegment = cleanPath.split('/')[0];
   const pathTab = INVESTING_ROUTE_TABS[tabSegment];
-  const legacyTab = requestedTab && requestedTab in INVESTING_TAB_ROUTES
-    ? (requestedTab as InvestingTab)
-    : null;
+  const legacyTab =
+    requestedTab && requestedTab in INVESTING_TAB_ROUTES ? (requestedTab as InvestingTab) : null;
   const tab = pathTab ?? legacyTab ?? 'holdings';
 
   // The Holdings empty state deep-links here as ?tab=orders&order=1 to open
@@ -85,9 +93,14 @@ export const InvestingPage: React.FC = () => {
         const params = new URLSearchParams(location.search);
         params.delete('tab');
         params.delete('order');
-        navigate(`${basePath}/${INVESTING_TAB_ROUTES[legacyTab ?? 'holdings']}${params.toString() ? `?${params}` : ''}`, {
-          replace: true,
-        });
+        navigate(
+          `${basePath}/${INVESTING_TAB_ROUTES[legacyTab ?? 'holdings']}${
+            params.toString() ? `?${params}` : ''
+          }`,
+          {
+            replace: true,
+          },
+        );
       } else {
         setSearchParams(
           (params) => {
@@ -98,17 +111,37 @@ export const InvestingPage: React.FC = () => {
         );
       }
     }
-  }, [basePath, location.search, navigate, requestedTab, shouldAutoOpenOrder, setSearchParams, legacyTab]);
+  }, [
+    basePath,
+    location.search,
+    navigate,
+    requestedTab,
+    shouldAutoOpenOrder,
+    setSearchParams,
+    legacyTab,
+  ]);
 
   React.useEffect(() => {
-    const isRoot = location.pathname === '/portfolio' || location.pathname === '/portfolio/' || location.pathname === '/investing' || location.pathname === '/investing/';
-    const isUnknownBranch = (location.pathname.startsWith('/portfolio/') || location.pathname.startsWith('/investing/')) && !pathTab;
+    const isRoot =
+      location.pathname === '/portfolio' ||
+      location.pathname === '/portfolio/' ||
+      location.pathname === '/investing' ||
+      location.pathname === '/investing/';
+    const isUnknownBranch =
+      (location.pathname.startsWith('/portfolio/') ||
+        location.pathname.startsWith('/investing/')) &&
+      !pathTab;
     if (!isRoot && !isUnknownBranch) return;
     const params = new URLSearchParams(location.search);
     params.delete('tab');
-    navigate(`${basePath}/${INVESTING_TAB_ROUTES[legacyTab ?? 'holdings']}${params.toString() ? `?${params}` : ''}`, {
-      replace: true,
-    });
+    navigate(
+      `${basePath}/${INVESTING_TAB_ROUTES[legacyTab ?? 'holdings']}${
+        params.toString() ? `?${params}` : ''
+      }`,
+      {
+        replace: true,
+      },
+    );
   }, [basePath, legacyTab, location.pathname, location.search, navigate, pathTab]);
 
   const summary = useQuery({
@@ -285,7 +318,7 @@ export const InvestingPage: React.FC = () => {
       exchange_name: orderForm.exchange_name || undefined,
       occurred_at: occurredAtDate.toISOString(),
       notes: orderForm.notes || undefined,
-      instrument_name: orderForm.instrument_name as string || "",
+      instrument_name: (orderForm.instrument_name as string) || '',
     });
   };
 
@@ -443,7 +476,7 @@ export const InvestingPage: React.FC = () => {
         }
       />
 
-      <div className="mb-6 grid gap-6 md:grid-cols-2 xl:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5 xl:gap-6">
         <SummaryCard
           label={`Portfolio value${
             performanceSummary.data?.snapshot_date
@@ -505,6 +538,7 @@ export const InvestingPage: React.FC = () => {
               : 'N/A'
           }
           icon={<Landmark className="h-5 w-5" />}
+          className="col-span-2 xl:col-span-1"
           testId="investing-total-gain-loss"
         />
         <SummaryCard
@@ -543,93 +577,114 @@ export const InvestingPage: React.FC = () => {
         />
       </div>
 
-      <div className="mb-6">
-        <ReturnMetricsPanel currencyDisplayPreference={currencyDisplayPreference} />
-      </div>
+      {/* On phones the return metrics + valuation notes push the tabs ~1,000px down
+          the page, so they collapse behind a toggle; from lg up they are always shown. */}
+      <button
+        type="button"
+        data-testid="investing-details-toggle"
+        aria-expanded={showDetails}
+        aria-controls="investing-details"
+        onClick={() => setShowDetails((open) => !open)}
+        className="mb-4 flex min-h-11 w-full items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 text-sm font-medium text-slate-200 lg:hidden"
+      >
+        <span>Return metrics &amp; valuation details</span>
+        <ChevronDown
+          className={`h-4 w-4 transition-transform ${showDetails ? 'rotate-180' : ''}`}
+        />
+      </button>
 
-      <div className="mb-6 rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
-        <p data-testid="investing-reporting-currency">
-          <span className="font-semibold text-slate-100">Reporting currency:</span>{' '}
-          {summary.data?.reporting_currency ?? 'Not configured'}
-        </p>
-        {summary.data?.currency_breakdown &&
-        Object.keys(summary.data.currency_breakdown).length > 0 ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-slate-400">Original currency mix:</span>
-            {Object.entries(summary.data.currency_breakdown).map(([code, value]) => (
-              <span key={code} className="inline-flex items-center gap-1.5">
-                <CurrencyBadge code={code} title={`Book total in ${code}`} />
-                <span className="text-xs text-slate-300">
-                  {formatCurrency(
-                    value,
-                    code,
+      <div id="investing-details" className={showDetails ? 'block' : 'hidden lg:block'}>
+        <div className="mb-6">
+          <ReturnMetricsPanel currencyDisplayPreference={currencyDisplayPreference} />
+        </div>
+
+        <div className="mb-6 rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
+          <p data-testid="investing-reporting-currency">
+            <span className="font-semibold text-slate-100">Reporting currency:</span>{' '}
+            {summary.data?.reporting_currency ?? 'Not configured'}
+          </p>
+          {summary.data?.currency_breakdown &&
+          Object.keys(summary.data.currency_breakdown).length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-slate-400">Original currency mix:</span>
+              {Object.entries(summary.data.currency_breakdown).map(([code, value]) => (
+                <span key={code} className="inline-flex items-center gap-1.5">
+                  <CurrencyBadge code={code} title={`Book total in ${code}`} />
+                  <span className="text-xs text-slate-300">
+                    {formatCurrency(
+                      value,
+                      code,
+                      currencyDisplayPreference,
+                      displayLocale,
+                      decimalPlaces,
+                    )}
+                  </span>
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <p className="mt-1">
+            <span className="font-semibold text-slate-100">Valuation status:</span>{' '}
+            {statusLabel(summary.data?.valuation_status)}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            {performanceSummary.data?.snapshot_date
+              ? `Valuation as of ${performanceSummary.data.snapshot_date} · ${performanceSummary.data.valuation_status}`
+              : 'Valuation date unavailable'}
+          </p>
+          {summary.data?.valuation_status === 'converted_available' &&
+          summary.data?.fx_rates_used &&
+          Object.keys(summary.data.fx_rates_used).length > 0 ? (
+            <div
+              className="mt-2 flex flex-wrap items-center gap-2"
+              data-testid="investing-fx-rates-used"
+            >
+              <span className="text-xs text-slate-400">FX conversion rates used:</span>
+              {Object.entries(summary.data.fx_rates_used).map(([base, rate]) => (
+                <span key={base} className="inline-flex items-center gap-1 text-xs text-slate-300">
+                  <span className="font-medium text-slate-100">1 {base}</span>
+                  <span>=</span>
+                  <span className="font-medium text-slate-100">{toNumber(rate).toFixed(4)}</span>
+                  <span>{summary.data.reporting_currency}</span>
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <p className="mt-1">
+            <span className="font-semibold text-slate-100">Performance (gain/loss):</span>{' '}
+            {performanceSummary.isLoading
+              ? 'Loading...'
+              : performanceSummary.data
+                ? `${formatCurrency(
+                    performanceSummary.data.total_gain_loss,
+                    performanceSummary.data.currency,
                     currencyDisplayPreference,
                     displayLocale,
                     decimalPlaces,
-                  )}
-                </span>
-              </span>
-            ))}
-          </div>
-        ) : null}
-        <p className="mt-1">
-          <span className="font-semibold text-slate-100">Valuation status:</span>{' '}
-          {statusLabel(summary.data?.valuation_status)}
-        </p>
-        <p className="mt-1 text-xs text-slate-400">
-          {performanceSummary.data?.snapshot_date
-            ? `Valuation as of ${performanceSummary.data.snapshot_date} · ${performanceSummary.data.valuation_status}`
-            : 'Valuation date unavailable'}
-        </p>
-        {summary.data?.valuation_status === 'converted_available' &&
-        summary.data?.fx_rates_used &&
-        Object.keys(summary.data.fx_rates_used).length > 0 ? (
-          <div
-            className="mt-2 flex flex-wrap items-center gap-2"
-            data-testid="investing-fx-rates-used"
-          >
-            <span className="text-xs text-slate-400">FX conversion rates used:</span>
-            {Object.entries(summary.data.fx_rates_used).map(([base, rate]) => (
-              <span key={base} className="inline-flex items-center gap-1 text-xs text-slate-300">
-                <span className="font-medium text-slate-100">1 {base}</span>
-                <span>=</span>
-                <span className="font-medium text-slate-100">{toNumber(rate).toFixed(4)}</span>
-                <span>{summary.data.reporting_currency}</span>
-              </span>
-            ))}
-          </div>
-        ) : null}
-        <p className="mt-1">
-          <span className="font-semibold text-slate-100">Performance (gain/loss):</span>{' '}
-          {performanceSummary.isLoading
-            ? 'Loading...'
-            : performanceSummary.data
-              ? `${formatCurrency(
-                  performanceSummary.data.total_gain_loss,
-                  performanceSummary.data.currency,
-                  currencyDisplayPreference,
-                  displayLocale,
-                  decimalPlaces,
-                )} (${performancePctLabel})`
-              : 'N/A'}
-        </p>
+                  )} (${performancePctLabel})`
+                : 'N/A'}
+          </p>
+        </div>
       </div>
 
       <Tabs
         value={tab}
-        onValueChange={(value) => navigate(`${basePath}/${INVESTING_TAB_ROUTES[value as InvestingTab]}`)}
+        onValueChange={(value) =>
+          navigate(`${basePath}/${INVESTING_TAB_ROUTES[value as InvestingTab]}`)
+        }
       >
-        <div className="-mx-1 mb-6 overflow-x-auto px-1 pb-1">
+        {/* Sticky so the tab bar stays reachable after the long summary block above it. */}
+        <div className="sticky top-0 z-20 -mx-1 mb-6 overflow-x-auto bg-slate-900/95 px-1 py-2 backdrop-blur">
           <TabsList className="min-w-max">
             <TabsTrigger
-              className="min-w-fit sm:min-w-[8rem]"
+              className="min-w-fit sm:min-w-[6rem] xl:min-w-[8rem]"
               data-testid="investing-tab-holdings"
               value="holdings"
             >
               Holdings
             </TabsTrigger>
             <TabsTrigger
-              className="min-w-fit sm:min-w-[8rem]"
+              className="min-w-fit sm:min-w-[6rem] xl:min-w-[8rem]"
               data-testid="investing-tab-orders"
               value="orders"
             >
@@ -637,7 +692,7 @@ export const InvestingPage: React.FC = () => {
             </TabsTrigger>
 
             <TabsTrigger
-              className="min-w-fit sm:min-w-[8rem]"
+              className="min-w-fit sm:min-w-[6rem] xl:min-w-[8rem]"
               data-testid="investing-tab-analytics"
               value="analytics"
             >
@@ -645,7 +700,7 @@ export const InvestingPage: React.FC = () => {
             </TabsTrigger>
 
             <TabsTrigger
-              className="min-w-fit sm:min-w-[8rem]"
+              className="min-w-fit sm:min-w-[6rem] xl:min-w-[8rem]"
               data-testid="investing-tab-tax"
               value="tax"
             >
@@ -673,8 +728,6 @@ export const InvestingPage: React.FC = () => {
             updateOrderPending={updateOrderMutation.isPending}
           />
         </TabsContent>
-
-
 
         <TabsContent value="analytics">
           <AnalyticsTab currencyDisplayPreference={currencyDisplayPreference} />
@@ -766,9 +819,15 @@ export const InvestingPage: React.FC = () => {
                   <label className="mb-1 block text-xs text-slate-400">Instrument Type</label>
                   <DropdownSelect
                     data-testid="order-instrument-type"
-                    options={[{ label: 'Stock', value: 'stock' }, { label: 'ETF', value: 'etf' }, { label: 'Mutual Fund', value: 'mutual_fund' }]}
+                    options={[
+                      { label: 'Stock', value: 'stock' },
+                      { label: 'ETF', value: 'etf' },
+                      { label: 'Mutual Fund', value: 'mutual_fund' },
+                    ]}
                     value={orderForm.instrument_type}
-                    onChange={(v: string) => setOrderForm((prev) => ({ ...prev, instrument_type: v as InstrumentType }))}
+                    onChange={(v: string) =>
+                      setOrderForm((prev) => ({ ...prev, instrument_type: v as InstrumentType }))
+                    }
                     placeholder="stock"
                   />
                 </div>
@@ -778,11 +837,15 @@ export const InvestingPage: React.FC = () => {
                     data-testid="order-instrument-name"
                     type="text"
                     value={orderForm.instrument_name || ''}
-                    onChange={(e) => setOrderForm((prev) => ({ ...prev, instrument_name: e.target.value }))}
+                    onChange={(e) =>
+                      setOrderForm((prev) => ({ ...prev, instrument_name: e.target.value }))
+                    }
                     placeholder="Required for mutual funds"
                     className="w-full rounded-lg border border-slate-600/70 bg-slate-800/60 px-3 py-2 text-sm text-white placeholder:text-slate-500"
                   />
-                  <p className="text-xs text-slate-500">Required when Instrument Type is Mutual Fund</p>
+                  <p className="text-xs text-slate-500">
+                    Required when Instrument Type is Mutual Fund
+                  </p>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs text-slate-400">Quantity</label>

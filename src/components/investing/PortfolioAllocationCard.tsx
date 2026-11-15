@@ -5,7 +5,11 @@ import { investingService } from '../../services/investing';
 import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { toNumber } from '../../utils/numberFormat';
 import { queryKeys } from '../../lib/queryKeys';
-import type { PortfolioAllocationResponse, AssetClassAllocationItem, SectorAllocationItem } from '../../types/investing';
+import type {
+  PortfolioAllocationResponse,
+  AssetClassAllocationItem,
+  SectorAllocationItem,
+} from '../../types/investing';
 
 const ALLOCATION_COLORS = [
   '#3b82f6', // blue
@@ -86,23 +90,21 @@ export const PortfolioAllocationCard: React.FC<PortfolioAllocationCardProps> = (
     color: string;
   }> = (dimension === 'asset_class' ? allocation.asset_classes : allocation.sectors)
     .filter((item) => item.pct > 0 && toNumber(item.value) > 0)
-    .map(
-      (item: AssetClassAllocationItem | SectorAllocationItem, idx: number) => {
-        const isAssetClass = 'key' in item;
-        const rawKey = isAssetClass ? item.key : item.sector;
-        const label = isAssetClass ? formatAssetClassName(rawKey) : rawKey;
-        const pct = item.pct;
-        const val = toNumber(item.value);
-        return {
-          key: rawKey,
-          label,
-          value: val,
-          pct,
-          count: isAssetClass ? (item as AssetClassAllocationItem).count : undefined,
-          color: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length],
-        };
-      },
-    );
+    .map((item: AssetClassAllocationItem | SectorAllocationItem, idx: number) => {
+      const isAssetClass = 'key' in item;
+      const rawKey = isAssetClass ? item.key : item.sector;
+      const label = isAssetClass ? formatAssetClassName(rawKey) : rawKey;
+      const pct = item.pct;
+      const val = toNumber(item.value);
+      return {
+        key: rawKey,
+        label,
+        value: val,
+        pct,
+        count: isAssetClass ? (item as AssetClassAllocationItem).count : undefined,
+        color: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length],
+      };
+    });
 
   const hasHoldings = items.length > 0 && totalValue > 0;
 
@@ -153,7 +155,8 @@ export const PortfolioAllocationCard: React.FC<PortfolioAllocationCardProps> = (
 
       {!hasHoldings ? (
         <div className="rounded-xl border border-slate-700/30 bg-slate-900/30 p-6 text-center text-xs text-slate-400">
-          No holdings recorded for {dimension === 'asset_class' ? 'asset class' : 'sector'} allocation.
+          No holdings recorded for {dimension === 'asset_class' ? 'asset class' : 'sector'}{' '}
+          allocation.
         </div>
       ) : (
         <div className="flex flex-col md:flex-row items-center gap-6">
@@ -164,10 +167,7 @@ export const PortfolioAllocationCard: React.FC<PortfolioAllocationCardProps> = (
                 let accumulatedPct = 0;
                 return items.map((slice) => {
                   const slicePct = slice.pct / 100;
-                  const dash = Math.max(
-                    0,
-                    slicePct * CIRCUMFERENCE - (items.length > 1 ? GAP : 0),
-                  );
+                  const dash = Math.max(0, slicePct * CIRCUMFERENCE - (items.length > 1 ? GAP : 0));
                   const offset = -(accumulatedPct * CIRCUMFERENCE);
                   accumulatedPct += slicePct;
 
@@ -201,32 +201,28 @@ export const PortfolioAllocationCard: React.FC<PortfolioAllocationCardProps> = (
           </div>
 
           {/* Allocation Breakdown Rows */}
-          <div className="w-full flex-1 space-y-2">
+          <div className="w-full min-w-0 flex-1 space-y-2">
             {items.map((item) => (
               <div
                 key={item.key}
                 className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-900/40 border border-slate-800/60 hover:border-slate-700/60 transition-colors"
               >
-                <div className="flex items-center gap-2.5 truncate">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <span
                     className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
                     style={{ backgroundColor: item.color }}
                   />
-                  <div className="truncate">
-                    <span className="truncate font-medium text-slate-200">
-                      {item.label}
-                    </span>
+                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+                    <span className="font-medium text-slate-200">{item.label}</span>
                     {item.count != null && (
-                      <span className="ml-1.5 text-[11px] text-slate-500">
+                      <span className="whitespace-nowrap text-[11px] text-slate-500">
                         ({item.count} {item.count === 1 ? 'holding' : 'holdings'})
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0 ml-3">
-                  <span className="font-semibold text-white">
-                    {item.pct.toFixed(1)}%
-                  </span>
+                  <span className="font-semibold text-white">{item.pct.toFixed(1)}%</span>
                   <span className="ml-2 text-slate-400">
                     {formatCurrency(item.value, currency, currencyDisplayPreference)}
                   </span>

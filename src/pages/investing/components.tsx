@@ -49,17 +49,25 @@ export const SummaryCard = ({
   icon,
   testId,
   valueTitle,
+  className = '',
 }: {
   label: string;
   value: string;
   icon: React.ReactNode;
   testId?: string;
   valueTitle?: string;
+  className?: string;
 }) => (
-  <div className="rounded-2xl border border-slate-700/50 bg-slate-800/60 p-5">
+  <div
+    className={`min-w-0 rounded-2xl border border-slate-700/50 bg-slate-800/60 p-4 sm:p-5 ${className}`}
+  >
     <div className="mb-2 inline-flex rounded-xl bg-slate-700/60 p-2 text-slate-100">{icon}</div>
     <p className="text-sm text-slate-400">{label}</p>
-    <p data-testid={testId} title={valueTitle} className="mt-2 text-2xl font-bold text-white">
+    <p
+      data-testid={testId}
+      title={valueTitle}
+      className="mt-2 break-words text-xl font-bold text-white sm:text-2xl"
+    >
       {value}
     </p>
   </div>

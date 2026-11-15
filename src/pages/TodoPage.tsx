@@ -126,7 +126,9 @@ export const TodoPage: React.FC = () => {
 
   useEffect(() => {
     const isTodoRoot = location.pathname === '/todo' || location.pathname === '/todo/';
-    const isUnknownTodoBranch = location.pathname.startsWith('/todo/') && !['tasks', 'recurring'].includes(location.pathname.slice('/todo/'.length));
+    const isUnknownTodoBranch =
+      location.pathname.startsWith('/todo/') &&
+      !['tasks', 'recurring'].includes(location.pathname.slice('/todo/'.length));
     if (!isTodoRoot && !isUnknownTodoBranch) return;
     const params = new URLSearchParams(location.search);
     params.delete('tab');
@@ -551,7 +553,7 @@ export const TodoPage: React.FC = () => {
                   disabled={createMutation.isPending || updateMutation.isPending}
                 />
               </div>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="flex flex-col gap-2">
                   <label
                     htmlFor="todo-new-priority"

@@ -84,11 +84,14 @@ export const WeeklySummariesPage: React.FC = () => {
     setEditingMonthlySummary(item);
     setEditMonthlyForm({
       total_income:
-        item.spending_summary?.total_income != null ? String(item.spending_summary.total_income) : '',
+        item.spending_summary?.total_income != null
+          ? String(item.spending_summary.total_income)
+          : '',
       total_expense:
-        item.spending_summary?.total_expense != null ? String(item.spending_summary.total_expense) : '',
-      net_spending:
-        item.spending_summary?.net != null ? String(item.spending_summary.net) : '',
+        item.spending_summary?.total_expense != null
+          ? String(item.spending_summary.total_expense)
+          : '',
+      net_spending: item.spending_summary?.net != null ? String(item.spending_summary.net) : '',
       portfolio_value_end:
         item.investing_summary?.portfolio_value_end != null
           ? String(item.investing_summary.portfolio_value_end)
@@ -96,9 +99,7 @@ export const WeeklySummariesPage: React.FC = () => {
       cash_end:
         item.investing_summary?.cash_end != null ? String(item.investing_summary.cash_end) : '',
       total_dividends:
-        item.dividend_summary?.total_net != null
-          ? String(item.dividend_summary.total_net)
-          : '',
+        item.dividend_summary?.total_net != null ? String(item.dividend_summary.total_net) : '',
       net_worth_end:
         item.net_worth_summary?.net_worth_end != null
           ? String(item.net_worth_summary.net_worth_end)
@@ -120,34 +121,35 @@ export const WeeklySummariesPage: React.FC = () => {
         : summariesService.listMonthly(limit, offset),
   });
 
-  const regenerateMutation = useMutation<
-    SummaryItem,
-    Error,
-    { summaryId: string; reason: string }
-  >({
-    mutationFn: (payload: { summaryId: string; reason: string }) =>
-      cadence === 'weekly'
-        ? summariesService.regenerate(payload.summaryId, payload.reason || undefined)
-        : summariesService.regenerateMonthly(payload.summaryId, payload.reason || undefined),
-    onSuccess: (_data, variables) => {
-      setRegenerateReasons((prev) => {
-        const next = { ...prev };
-        delete next[variables.summaryId];
-        return next;
-      });
-      void queryClient.invalidateQueries({ queryKey: ['summaries', cadence] });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.briefing() });
-      showToast('Summary regenerated successfully.', 'success');
+  const regenerateMutation = useMutation<SummaryItem, Error, { summaryId: string; reason: string }>(
+    {
+      mutationFn: (payload: { summaryId: string; reason: string }) =>
+        cadence === 'weekly'
+          ? summariesService.regenerate(payload.summaryId, payload.reason || undefined)
+          : summariesService.regenerateMonthly(payload.summaryId, payload.reason || undefined),
+      onSuccess: (_data, variables) => {
+        setRegenerateReasons((prev) => {
+          const next = { ...prev };
+          delete next[variables.summaryId];
+          return next;
+        });
+        void queryClient.invalidateQueries({ queryKey: ['summaries', cadence] });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.briefing() });
+        showToast('Summary regenerated successfully.', 'success');
+      },
+      onError: () => showToast('Failed to regenerate summary. Please try again.', 'error'),
     },
-    onError: () => showToast('Failed to regenerate summary. Please try again.', 'error'),
-  });
+  );
 
   const generateMonthlyMutation = useMutation({
     mutationFn: () => summariesService.generateMonthly(genYear, genMonth),
     onSuccess: () => {
       setIsGenerateModalOpen(false);
       void queryClient.invalidateQueries({ queryKey: ['summaries', 'monthly'] });
-      showToast(`Monthly summary for ${genYear}-${String(genMonth).padStart(2, '0')} generated.`, 'success');
+      showToast(
+        `Monthly summary for ${genYear}-${String(genMonth).padStart(2, '0')} generated.`,
+        'success',
+      );
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
@@ -203,16 +205,17 @@ export const WeeklySummariesPage: React.FC = () => {
       dataPayload.spending_summary = {
         ...baseSpending,
         status: 'complete',
-        ...(editMonthlyForm.total_income !== '' ? { total_income: editMonthlyForm.total_income } : {}),
-        ...(editMonthlyForm.total_expense !== '' ? { total_expense: editMonthlyForm.total_expense } : {}),
+        ...(editMonthlyForm.total_income !== ''
+          ? { total_income: editMonthlyForm.total_income }
+          : {}),
+        ...(editMonthlyForm.total_expense !== ''
+          ? { total_expense: editMonthlyForm.total_expense }
+          : {}),
         ...(editMonthlyForm.net_spending !== '' ? { net: editMonthlyForm.net_spending } : {}),
       };
     }
 
-    if (
-      editMonthlyForm.portfolio_value_end !== '' ||
-      editMonthlyForm.cash_end !== ''
-    ) {
+    if (editMonthlyForm.portfolio_value_end !== '' || editMonthlyForm.cash_end !== '') {
       const baseInvesting = editingMonthlySummary.investing_summary || {};
       dataPayload.investing_summary = {
         ...baseInvesting,
@@ -365,173 +368,175 @@ export const WeeklySummariesPage: React.FC = () => {
                 'week_start' in item && item.week_start
                   ? `Week of ${formatDate(`${item.week_start}T00:00:00Z`, { fallback: 'N/A' })}`
                   : 'month_start' in item && item.month_start
-                    ? `Month of ${formatMonthYear(`${item.month_start}T00:00:00Z`, { long: true, fallback: 'N/A' })}`
+                    ? `Month of ${formatMonthYear(`${item.month_start}T00:00:00Z`, {
+                        long: true,
+                        fallback: 'N/A',
+                      })}`
                     : 'Summary';
-
 
               return (
                 <article
                   key={item.public_id}
                   className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg shadow-black/10"
                 >
-                  <div className="mb-4 flex items-start justify-between gap-4">
-                    <div>
+                  <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                       <h2 className="font-semibold text-white">{headingText}</h2>
                       <p className="mt-1 text-xs text-slate-500">
-
-                      {item.regenerated_at ? (
-                        <>
-                          Regenerated {formatDateTime(item.regenerated_at, { fallback: 'N/A' })}
-                          {item.regeneration_reason && ` — ${item.regeneration_reason}`}
-                        </>
-                      ) : (
-                        <>Generated {formatDateTime(item.generated_at, { fallback: 'N/A' })}</>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-2">
-                    <div className="flex items-center gap-2">
-                      {cadence === 'monthly' && (
+                        {item.regenerated_at ? (
+                          <>
+                            Regenerated {formatDateTime(item.regenerated_at, { fallback: 'N/A' })}
+                            {item.regeneration_reason && ` — ${item.regeneration_reason}`}
+                          </>
+                        ) : (
+                          <>Generated {formatDateTime(item.generated_at, { fallback: 'N/A' })}</>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:items-end">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {cadence === 'monthly' && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            data-testid={`edit-summary-${item.public_id}`}
+                            onClick={() => handleOpenEditMonthly(item as MonthlySummary)}
+                            className="hover:border-cyan-600"
+                          >
+                            <Pencil className="mr-1.5 h-3.5 w-3.5 text-cyan-400" />
+                            Edit Close
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           variant="secondary"
                           size="sm"
-                          data-testid={`edit-summary-${item.public_id}`}
-                          onClick={() => handleOpenEditMonthly(item as MonthlySummary)}
-                          className="hover:border-cyan-600"
+                          data-testid={`regenerate-summary-${item.public_id}`}
+                          onClick={() =>
+                            regenerateMutation.mutate({
+                              summaryId: item.public_id,
+                              reason: regenerateReasons[item.public_id] ?? '',
+                            })
+                          }
+                          disabled={
+                            regenerateMutation.isPending &&
+                            regenerateMutation.variables?.summaryId === item.public_id
+                          }
                         >
-                          <Pencil className="mr-1.5 h-3.5 w-3.5 text-cyan-400" />
-                          Edit Close
-                        </Button>
-                      )}
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        data-testid={`regenerate-summary-${item.public_id}`}
-                        onClick={() =>
-                          regenerateMutation.mutate({
-                            summaryId: item.public_id,
-                            reason: regenerateReasons[item.public_id] ?? '',
-                          })
-                        }
-                        disabled={
-                          regenerateMutation.isPending &&
+                          <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                          {regenerateMutation.isPending &&
                           regenerateMutation.variables?.summaryId === item.public_id
-                        }
-                      >
-                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                        {regenerateMutation.isPending &&
-                        regenerateMutation.variables?.summaryId === item.public_id
-                          ? 'Regenerating...'
-                          : 'Regenerate'}
-                      </Button>
-                    </div>
-                    {/* #200: the Reason field was unlabelled — nothing said where
+                            ? 'Regenerating...'
+                            : 'Regenerate'}
+                        </Button>
+                      </div>
+                      {/* #200: the Reason field was unlabelled — nothing said where
                         the note goes. Spell out that it is saved to this summary's
                         history and surfaces in the card header after regenerating. */}
-                    <div className="flex flex-col items-end gap-1">
-                      <input
-                        type="text"
-                        placeholder="Reason (optional)"
-                        aria-label="Reason for regenerating (optional)"
-                        value={regenerateReasons[item.public_id] ?? ''}
-                        onChange={(e) =>
-                          setRegenerateReasons((prev) => ({
-                            ...prev,
-                            [item.public_id]: e.target.value,
-                          }))
-                        }
-                        disabled={
-                          regenerateMutation.isPending &&
-                          regenerateMutation.variables?.summaryId === item.public_id
-                        }
-                        className="w-48 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none disabled:opacity-50"
-                      />
-                      <p className="w-48 text-right text-[11px] leading-tight text-slate-500">
-                        Saved to this summary&apos;s history and shown in the header after
-                        regenerating.
+                      <div className="flex w-full flex-col gap-1 sm:w-auto sm:items-end">
+                        <input
+                          type="text"
+                          placeholder="Reason (optional)"
+                          aria-label="Reason for regenerating (optional)"
+                          value={regenerateReasons[item.public_id] ?? ''}
+                          onChange={(e) =>
+                            setRegenerateReasons((prev) => ({
+                              ...prev,
+                              [item.public_id]: e.target.value,
+                            }))
+                          }
+                          disabled={
+                            regenerateMutation.isPending &&
+                            regenerateMutation.variables?.summaryId === item.public_id
+                          }
+                          className="w-full rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs sm:w-48 text-slate-200 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none disabled:opacity-50"
+                        />
+                        <p className="text-[11px] leading-tight text-slate-500 sm:w-48 sm:text-right">
+                          Saved to this summary&apos;s history and shown in the header after
+                          regenerating.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {item.data_revised_after_snapshot && (
+                    <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-800/60 bg-amber-950/20 p-3">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                      <p className="text-sm text-amber-200">
+                        The Net Worth and Investing figures below may reflect an import that was
+                        later reverted. The underlying valuation snapshot can't be recomputed after
+                        the fact, so these figures are preserved as originally recorded — treat the
+                        movement numbers with that in mind.
                       </p>
                     </div>
-                  </div>
-                </div>
-                {item.data_revised_after_snapshot && (
-                  <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-800/60 bg-amber-950/20 p-3">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-                    <p className="text-sm text-amber-200">
-                      The Net Worth and Investing figures below may reflect an import that was
-                      later reverted. The underlying valuation snapshot can't be recomputed after
-                      the fact, so these figures are preserved as originally recorded — treat the
-                      movement numbers with that in mind.
-                    </p>
-                  </div>
-                )}
-                {item.data_stale && (
-                  <div
-                    data-testid="summary-stale-indicator"
-                    className="mb-3 flex items-start gap-2 rounded-xl border border-amber-800/60 bg-amber-950/20 p-3"
-                  >
-                    <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-                    <p className="text-sm text-amber-200">
-                      Data changed since this summary was generated — regenerate for the latest
-                      figures.
-                    </p>
-                  </div>
-                )}
-                <div className="grid gap-3 lg:grid-cols-3">
-                  <TodoCard summary={item.todo_summary} />
-                  <SpendingCard summary={item.spending_summary} />
-                  <InvestingCard summary={item.investing_summary} />
-                  {item.health_summary && <HealthCard summary={item.health_summary} />}
-                  <DividendCard summary={item.dividend_summary} />
-                  <NetWorthCard summary={item.net_worth_summary} />
-                  <ReturnMetricsCard summary={item.return_metrics_summary} />
-                </div>
-                {(item.highlights?.flags?.length ?? 0) > 0 && (
-                  <div className="mt-3 rounded-xl border border-cyan-800/60 bg-cyan-950/20 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">
-                      Highlights
-                    </p>
-                    <ul className="mt-2 space-y-1 text-sm text-slate-200">
-                      {item.highlights?.flags?.map((flag, index) => (
-                        <li key={`${flag.type}-${index}`}>{flag.message}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {((item.behavioral_correlations?.length ?? 0) > 0 ||
-                  (item.highlights?.behavioral_correlations?.length ?? 0) > 0) && (
-                  <div className="mt-3 rounded-xl border border-emerald-800/50 bg-emerald-950/20 p-4" data-testid="behavioral-correlations-section">
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Behavioral Correlations & Cross-Module Synergies
+                  )}
+                  {item.data_stale && (
+                    <div
+                      data-testid="summary-stale-indicator"
+                      className="mb-3 flex items-start gap-2 rounded-xl border border-amber-800/60 bg-amber-950/20 p-3"
+                    >
+                      <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+                      <p className="text-sm text-amber-200">
+                        Data changed since this summary was generated — regenerate for the latest
+                        figures.
+                      </p>
                     </div>
-                    <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
-                      {(item.behavioral_correlations?.length
-                        ? item.behavioral_correlations
-                        : item.highlights?.behavioral_correlations ?? []
-                      ).map((corr, idx) => (
-                        <div
-                          key={`${corr.type}-${idx}`}
-                          className="rounded-lg border border-emerald-700/30 bg-slate-900/50 p-3"
-                        >
-                          {corr.title && (
-                            <p className="text-xs font-semibold text-emerald-400 mb-1">
-                              {corr.title}
-                            </p>
-                          )}
-                          <p className="text-xs text-slate-300 leading-relaxed">
-                            {corr.message}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+                  )}
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                    <TodoCard summary={item.todo_summary} />
+                    <SpendingCard summary={item.spending_summary} />
+                    <InvestingCard summary={item.investing_summary} />
+                    {item.health_summary && <HealthCard summary={item.health_summary} />}
+                    <DividendCard summary={item.dividend_summary} />
+                    <NetWorthCard summary={item.net_worth_summary} />
+                    <ReturnMetricsCard summary={item.return_metrics_summary} />
                   </div>
-                )}
-              </article>
-            );
-          })}
-        </div>
+                  {(item.highlights?.flags?.length ?? 0) > 0 && (
+                    <div className="mt-3 rounded-xl border border-cyan-800/60 bg-cyan-950/20 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">
+                        Highlights
+                      </p>
+                      <ul className="mt-2 space-y-1 text-sm text-slate-200">
+                        {item.highlights?.flags?.map((flag, index) => (
+                          <li key={`${flag.type}-${index}`}>{flag.message}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {((item.behavioral_correlations?.length ?? 0) > 0 ||
+                    (item.highlights?.behavioral_correlations?.length ?? 0) > 0) && (
+                    <div
+                      className="mt-3 rounded-xl border border-emerald-800/50 bg-emerald-950/20 p-4"
+                      data-testid="behavioral-correlations-section"
+                    >
+                      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Behavioral Correlations & Cross-Module Synergies
+                      </div>
+                      <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {(item.behavioral_correlations?.length
+                          ? item.behavioral_correlations
+                          : item.highlights?.behavioral_correlations ?? []
+                        ).map((corr, idx) => (
+                          <div
+                            key={`${corr.type}-${idx}`}
+                            className="rounded-lg border border-emerald-700/30 bg-slate-900/50 p-3"
+                          >
+                            {corr.title && (
+                              <p className="text-xs font-semibold text-emerald-400 mb-1">
+                                {corr.title}
+                              </p>
+                            )}
+                            <p className="text-xs text-slate-300 leading-relaxed">{corr.message}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
 
           <div className="mt-5">
             <Pagination
@@ -593,7 +598,8 @@ export const WeeklySummariesPage: React.FC = () => {
             className="space-y-4"
           >
             <p className="text-xs text-slate-400">
-              Calculate and freeze the monthly financial close for productivity, spending, dividends, and portfolio performance.
+              Calculate and freeze the monthly financial close for productivity, spending,
+              dividends, and portfolio performance.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -674,7 +680,8 @@ export const WeeklySummariesPage: React.FC = () => {
             className="space-y-4"
           >
             <p className="text-xs text-slate-400">
-              Calculate and generate the weekly summary on demand. Select any date within the target week — the system will automatically snap to the Monday–Sunday week boundary.
+              Calculate and generate the weekly summary on demand. Select any date within the target
+              week — the system will automatically snap to the Monday–Sunday week boundary.
             </p>
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
@@ -729,47 +736,68 @@ export const WeeklySummariesPage: React.FC = () => {
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-3 mb-3 border-b border-slate-800">
             <DialogTitle>
-              Edit Monthly Close: {editingMonthlySummary?.month_start ? formatMonthYear(`${editingMonthlySummary.month_start}T00:00:00Z`, { long: true, fallback: 'Monthly Summary' }) : 'Monthly Summary'}
+              Edit Monthly Close:{' '}
+              {editingMonthlySummary?.month_start
+                ? formatMonthYear(`${editingMonthlySummary.month_start}T00:00:00Z`, {
+                    long: true,
+                    fallback: 'Monthly Summary',
+                  })
+                : 'Monthly Summary'}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSaveEditMonthly} className="space-y-4">
             <p className="text-xs text-slate-400">
-              Manually adjust frozen financial metrics or task counters. Saved updates are stamped with your revision reason in this summary&apos;s audit trail.
+              Manually adjust frozen financial metrics or task counters. Saved updates are stamped
+              with your revision reason in this summary&apos;s audit trail.
             </p>
 
             {/* Spending section */}
             <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Spending & Cash Flow</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Spending & Cash Flow
+              </span>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Total Income</label>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    Total Income
+                  </label>
                   <input
                     type="text"
                     data-testid="edit-monthly-income-input"
                     value={editMonthlyForm.total_income}
-                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, total_income: e.target.value }))}
+                    onChange={(e) =>
+                      setEditMonthlyForm((prev) => ({ ...prev, total_income: e.target.value }))
+                    }
                     placeholder="0.00"
                     className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Total Expense</label>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    Total Expense
+                  </label>
                   <input
                     type="text"
                     data-testid="edit-monthly-expense-input"
                     value={editMonthlyForm.total_expense}
-                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, total_expense: e.target.value }))}
+                    onChange={(e) =>
+                      setEditMonthlyForm((prev) => ({ ...prev, total_expense: e.target.value }))
+                    }
                     placeholder="0.00"
                     className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Net Flow</label>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    Net Flow
+                  </label>
                   <input
                     type="text"
                     data-testid="edit-monthly-net-spending-input"
                     value={editMonthlyForm.net_spending}
-                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, net_spending: e.target.value }))}
+                    onChange={(e) =>
+                      setEditMonthlyForm((prev) => ({ ...prev, net_spending: e.target.value }))
+                    }
                     placeholder="0.00"
                     className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                   />
@@ -779,48 +807,69 @@ export const WeeklySummariesPage: React.FC = () => {
 
             {/* Investing & Net Worth section */}
             <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Investing & Net Worth</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Investing & Net Worth
+              </span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Portfolio End</label>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    Portfolio End
+                  </label>
                   <input
                     type="text"
                     data-testid="edit-monthly-portfolio-input"
                     value={editMonthlyForm.portfolio_value_end}
-                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, portfolio_value_end: e.target.value }))}
+                    onChange={(e) =>
+                      setEditMonthlyForm((prev) => ({
+                        ...prev,
+                        portfolio_value_end: e.target.value,
+                      }))
+                    }
                     placeholder="0.00"
                     className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Cash End</label>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    Cash End
+                  </label>
                   <input
                     type="text"
                     data-testid="edit-monthly-cash-input"
                     value={editMonthlyForm.cash_end}
-                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, cash_end: e.target.value }))}
+                    onChange={(e) =>
+                      setEditMonthlyForm((prev) => ({ ...prev, cash_end: e.target.value }))
+                    }
                     placeholder="0.00"
                     className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Dividends Net</label>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    Dividends Net
+                  </label>
                   <input
                     type="text"
                     data-testid="edit-monthly-dividends-input"
                     value={editMonthlyForm.total_dividends}
-                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, total_dividends: e.target.value }))}
+                    onChange={(e) =>
+                      setEditMonthlyForm((prev) => ({ ...prev, total_dividends: e.target.value }))
+                    }
                     placeholder="0.00"
                     className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Net Worth End</label>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    Net Worth End
+                  </label>
                   <input
                     type="text"
                     data-testid="edit-monthly-networth-input"
                     value={editMonthlyForm.net_worth_end}
-                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, net_worth_end: e.target.value }))}
+                    onChange={(e) =>
+                      setEditMonthlyForm((prev) => ({ ...prev, net_worth_end: e.target.value }))
+                    }
                     placeholder="0.00"
                     className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                   />
@@ -830,27 +879,37 @@ export const WeeklySummariesPage: React.FC = () => {
 
             {/* Productivity tasks section */}
             <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3 space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Productivity</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Productivity
+              </span>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Tasks Created</label>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    Tasks Created
+                  </label>
                   <input
                     type="number"
                     min={0}
                     data-testid="edit-monthly-tasks-created-input"
                     value={editMonthlyForm.tasks_created}
-                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, tasks_created: e.target.value }))}
+                    onChange={(e) =>
+                      setEditMonthlyForm((prev) => ({ ...prev, tasks_created: e.target.value }))
+                    }
                     className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Tasks Completed</label>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    Tasks Completed
+                  </label>
                   <input
                     type="number"
                     min={0}
                     data-testid="edit-monthly-tasks-completed-input"
                     value={editMonthlyForm.tasks_completed}
-                    onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, tasks_completed: e.target.value }))}
+                    onChange={(e) =>
+                      setEditMonthlyForm((prev) => ({ ...prev, tasks_completed: e.target.value }))
+                    }
                     className="w-full h-8 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                   />
                 </div>
@@ -866,7 +925,9 @@ export const WeeklySummariesPage: React.FC = () => {
                 type="text"
                 data-testid="edit-monthly-reason-input"
                 value={editMonthlyForm.reason}
-                onChange={(e) => setEditMonthlyForm((prev) => ({ ...prev, reason: e.target.value }))}
+                onChange={(e) =>
+                  setEditMonthlyForm((prev) => ({ ...prev, reason: e.target.value }))
+                }
                 placeholder="e.g. Corrected dividend tax deduction and manual broker cash balance"
                 className="w-full h-9 rounded-lg border border-slate-700 bg-slate-900 px-3 text-xs text-white placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
               />
@@ -903,7 +964,6 @@ export const WeeklySummariesPage: React.FC = () => {
     </PageShell>
   );
 };
-
 
 const SummaryCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <div className="rounded-xl border border-slate-700 bg-slate-800/40 p-4">
@@ -1011,8 +1071,8 @@ const InvestingCard = ({ summary }: { summary: WeeklySummary['investing_summary'
     return (
       <SummaryCard title="Investing">
         <p className="text-sm text-amber-300">
-          Investing comparison unavailable — compatible start and end portfolio snapshots were
-          not found.
+          Investing comparison unavailable — compatible start and end portfolio snapshots were not
+          found.
         </p>
       </SummaryCard>
     );
@@ -1035,7 +1095,12 @@ const InvestingCard = ({ summary }: { summary: WeeklySummary['investing_summary'
       <Metric label="Investment cash" value={fmt(summary.cash_end)} />
       <Metric
         label="Weekly movement"
-        value={formatWeeklyMovement(change, summary.week_change_pct, summary.currency, displayProfile)}
+        value={formatWeeklyMovement(
+          change,
+          summary.week_change_pct,
+          summary.currency,
+          displayProfile,
+        )}
         valueClass={movementClass}
       />
       <Metric
@@ -1086,7 +1151,7 @@ const DividendCard = ({ summary }: { summary: WeeklySummary['dividend_summary'] 
     <SummaryCard title="Dividend Income">
       <Metric
         label="Received"
-        value={summary.currency ? fmt(summary.total_net) : (summary.total_net ?? '0')}
+        value={summary.currency ? fmt(summary.total_net) : summary.total_net ?? '0'}
       />
       <Metric label="Payments" value={summary.count} />
       {summary.by_symbol.slice(0, 3).map((row) => (
@@ -1128,7 +1193,12 @@ const NetWorthCard = ({ summary }: { summary: WeeklySummary['net_worth_summary']
       />
       <Metric
         label="Weekly movement"
-        value={formatWeeklyMovement(change, summary.week_change_pct, summary.currency, displayProfile)}
+        value={formatWeeklyMovement(
+          change,
+          summary.week_change_pct,
+          summary.currency,
+          displayProfile,
+        )}
         valueClass={movementClass}
       />
       <Metric

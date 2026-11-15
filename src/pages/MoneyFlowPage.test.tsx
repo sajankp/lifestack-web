@@ -297,8 +297,8 @@ describe('MoneyFlowPage', () => {
     const { fireEvent, waitFor } = await import('@testing-library/react');
     renderMoneyFlow();
 
-    // Click "+ Transaction" in header
-    const addBtn = await screen.findByText('+ Transaction');
+    // Click "Add transaction" in header
+    const addBtn = await screen.findByRole('button', { name: 'Add transaction' });
     fireEvent.click(addBtn);
 
     // Modal opens
@@ -482,9 +482,7 @@ describe('MoneyFlowPage', () => {
     fireEvent.click(deleteBtn);
 
     expect(await screen.findByText('Delete Transaction')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Are you sure you want to delete this/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete this/i)).toBeInTheDocument();
 
     // Confirm deletion
     const confirmBtn = screen.getByRole('button', { name: 'Delete' });
@@ -723,9 +721,7 @@ describe('MoneyFlowPage', () => {
     fireEvent.click(deleteBtn);
 
     expect(await screen.findByText('Delete Transfer')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Are you sure you want to delete this/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete this/i)).toBeInTheDocument();
 
     // Confirm deletion
     const confirmBtn = screen.getByRole('button', { name: 'Delete' });

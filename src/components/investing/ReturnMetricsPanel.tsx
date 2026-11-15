@@ -200,7 +200,7 @@ export const ReturnMetricsPanel: React.FC<ReturnMetricsPanelProps> = ({
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
             By account
           </p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {data.by_account.map((a: AccountReturnMetrics) => (
               <div
                 key={a.account_id}

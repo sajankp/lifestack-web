@@ -172,11 +172,13 @@ export const ImportsPage: React.FC = () => {
     ? location.pathname.slice('/imports/'.length)
     : '';
   const legacyModule = searchParams.get('module') ?? '';
-  const initialModule = (IMPORT_MODULES.has(routeModule as ImportModule)
-    ? routeModule
-    : IMPORT_MODULES.has(legacyModule as ImportModule)
-      ? legacyModule
-      : '') as ImportModule | '';
+  const initialModule = (
+    IMPORT_MODULES.has(routeModule as ImportModule)
+      ? routeModule
+      : IMPORT_MODULES.has(legacyModule as ImportModule)
+        ? legacyModule
+        : ''
+  ) as ImportModule | '';
   const [module, setModule] = useState<ImportModule | ''>(initialModule);
   const targetAccountParam =
     searchParams.get('target_account_id') ?? searchParams.get('account_id') ?? '';
@@ -216,7 +218,8 @@ export const ImportsPage: React.FC = () => {
 
   useEffect(() => {
     const isImportsRoot = location.pathname === '/imports' || location.pathname === '/imports/';
-    const isUnknownImportBranch = location.pathname.startsWith('/imports/') && !IMPORT_MODULES.has(routeModule as ImportModule);
+    const isUnknownImportBranch =
+      location.pathname.startsWith('/imports/') && !IMPORT_MODULES.has(routeModule as ImportModule);
     if (!isImportsRoot && !isUnknownImportBranch) return;
     if (legacyModule && IMPORT_MODULES.has(legacyModule as ImportModule)) {
       navigate(`/imports/${legacyModule}`, { replace: true });
@@ -305,7 +308,10 @@ export const ImportsPage: React.FC = () => {
   });
 
   const categoryNameById = useMemo(
-    () => new Map((categoriesResponse?.items ?? []).map((category) => [category.public_id, category.name])),
+    () =>
+      new Map(
+        (categoriesResponse?.items ?? []).map((category) => [category.public_id, category.name]),
+      ),
     [categoriesResponse?.items],
   );
 
@@ -317,7 +323,8 @@ export const ImportsPage: React.FC = () => {
   }, [detailQuery.data, latestValidation, selectedImportId]);
 
   const resolvePreviewCategory = (payload: Record<string, unknown>): string => {
-    const categoryName = typeof payload.category_name === 'string' ? payload.category_name.trim() : '';
+    const categoryName =
+      typeof payload.category_name === 'string' ? payload.category_name.trim() : '';
     const categoryId = typeof payload.category_id === 'string' ? payload.category_id.trim() : '';
 
     if (categoryId && categoryNameById.has(categoryId)) {
@@ -410,23 +417,29 @@ export const ImportsPage: React.FC = () => {
         };
       });
 
-      queryClient.setQueryData(['imports', 'detail', importPublicId], (previous: ImportValidateResponse) => {
-        if (!previous) return previous;
-        return {
-          ...previous,
-          import_batch: { ...previous.import_batch, status: 'committing' },
-        };
-      });
+      queryClient.setQueryData(
+        ['imports', 'detail', importPublicId],
+        (previous: ImportValidateResponse) => {
+          if (!previous) return previous;
+          return {
+            ...previous,
+            import_batch: { ...previous.import_batch, status: 'committing' },
+          };
+        },
+      );
 
-      queryClient.setQueryData(['imports', 'list'], (previous: { items?: Array<Record<string, unknown>> } | undefined) => {
-        if (!previous?.items) return previous;
-        return {
-          ...previous,
-          items: previous.items.map((item) =>
-            item.public_id === importPublicId ? { ...item, status: 'committing' } : item,
-          ),
-        };
-      });
+      queryClient.setQueryData(
+        ['imports', 'list'],
+        (previous: { items?: Array<Record<string, unknown>> } | undefined) => {
+          if (!previous?.items) return previous;
+          return {
+            ...previous,
+            items: previous.items.map((item) =>
+              item.public_id === importPublicId ? { ...item, status: 'committing' } : item,
+            ),
+          };
+        },
+      );
     },
     onSuccess: async (data, importPublicId) => {
       setLatestValidation((previous) => {
@@ -440,31 +453,39 @@ export const ImportsPage: React.FC = () => {
         };
       });
 
-      queryClient.setQueryData(['imports', 'detail', importPublicId], (previous: ImportValidateResponse) => {
-        if (!previous) return previous;
-        return {
-          ...previous,
-          import_batch: {
-            ...previous.import_batch,
-            ...data.import_batch,
-          },
-        };
-      });
+      queryClient.setQueryData(
+        ['imports', 'detail', importPublicId],
+        (previous: ImportValidateResponse) => {
+          if (!previous) return previous;
+          return {
+            ...previous,
+            import_batch: {
+              ...previous.import_batch,
+              ...data.import_batch,
+            },
+          };
+        },
+      );
 
-      queryClient.setQueryData(['imports', 'list'], (previous: { items?: Array<Record<string, unknown>> } | undefined) => {
-        if (!previous?.items) return previous;
-        return {
-          ...previous,
-          items: previous.items.map((item) =>
-            item.public_id === importPublicId ? { ...item, ...data.import_batch } : item,
-          ),
-        };
-      });
+      queryClient.setQueryData(
+        ['imports', 'list'],
+        (previous: { items?: Array<Record<string, unknown>> } | undefined) => {
+          if (!previous?.items) return previous;
+          return {
+            ...previous,
+            items: previous.items.map((item) =>
+              item.public_id === importPublicId ? { ...item, ...data.import_batch } : item,
+            ),
+          };
+        },
+      );
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['imports', 'list'] }),
         queryClient.invalidateQueries({ queryKey: ['imports', 'detail', importPublicId] }),
-        ...mutationInvalidations.importBatch.map((key) => queryClient.invalidateQueries({ queryKey: [...key] })),
+        ...mutationInvalidations.importBatch.map((key) =>
+          queryClient.invalidateQueries({ queryKey: [...key] }),
+        ),
       ]);
       trackEvent('import_completed');
       showToast('Import applied', 'success');
@@ -483,7 +504,9 @@ export const ImportsPage: React.FC = () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['imports', 'list'] }),
         queryClient.invalidateQueries({ queryKey: ['imports', 'detail', importPublicId] }),
-        ...mutationInvalidations.importBatch.map((key) => queryClient.invalidateQueries({ queryKey: [...key] })),
+        ...mutationInvalidations.importBatch.map((key) =>
+          queryClient.invalidateQueries({ queryKey: [...key] }),
+        ),
       ]);
       showToast('Import removed', 'success');
     },
@@ -733,7 +756,7 @@ export const ImportsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
           <h2 className="mb-4 text-lg font-semibold text-white">Recent imports</h2>
           {isLoadingImports ? <p className="text-slate-400">Loading imports...</p> : null}
@@ -781,8 +804,6 @@ export const ImportsPage: React.FC = () => {
 
           {selectedImportId && activeDetail ? (
             <>
-
-
               <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/40 p-3 text-sm text-slate-200">
                 <p>
                   Module: <span className="font-semibold">{activeDetail.import_batch.module}</span>
