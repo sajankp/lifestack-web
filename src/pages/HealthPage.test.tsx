@@ -21,6 +21,10 @@ const renderPage = () => {
 };
 
 const emptyDefaults = () => [
+  http.get('*/v1/health/metrics', () => HttpResponse.json([])),
+  http.get('*/v1/health/records', () =>
+    HttpResponse.json({ items: [], total: 0, limit: 25, offset: 0 }),
+  ),
   http.get('*/v1/health/medications', () =>
     HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 }),
   ),
@@ -58,6 +62,20 @@ describe('HealthPage', () => {
     renderPage();
 
     expect(await screen.findByTestId('catch-up-section')).toHaveTextContent('Catch up (1)');
+  });
+
+  it('has a Results section that explains how results arrive when there are none', async () => {
+    server.use(
+      ...emptyDefaults(),
+      http.get('*/v1/health/medications/schedule', () => HttpResponse.json([])),
+      http.get('*/v1/health/medications/overdue', () => HttpResponse.json([])),
+    );
+
+    renderPage();
+
+    const section = await screen.findByTestId('records-section');
+    expect(section).toHaveTextContent('Results');
+    expect(await screen.findByTestId('records-empty')).toHaveTextContent(/assistant \(MCP\)/);
   });
 
   it('hides the Catch up section when nothing is overdue', async () => {
@@ -107,7 +125,9 @@ describe('HealthPage', () => {
     expect(label).toHaveTextContent('Today');
 
     fireEvent.click(screen.getByTestId('dose-date-prev'));
-    await waitFor(() => expect(screen.getByTestId('dose-date-label')).toHaveTextContent('Yesterday'));
+    await waitFor(() =>
+      expect(screen.getByTestId('dose-date-label')).toHaveTextContent('Yesterday'),
+    );
     expect(screen.getByTestId('dose-date-today')).toBeInTheDocument();
 
     // The schedule query was re-issued for a different (earlier) date.

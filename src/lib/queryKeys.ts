@@ -29,6 +29,10 @@ export const queryKeys = {
     weight: <T extends unknown[]>(...params: T) => ['health', 'weight', ...params] as const,
     weightTrend: <T extends unknown[]>(...params: T) =>
       ['health', 'weight-trend', ...params] as const,
+    metrics: <T extends unknown[]>(...params: T) => ['health', 'metrics', ...params] as const,
+    series: <T extends unknown[]>(...params: T) => ['health', 'series', ...params] as const,
+    records: <T extends unknown[]>(...params: T) => ['health', 'records', ...params] as const,
+    record: <T extends unknown[]>(...params: T) => ['health', 'record', ...params] as const,
   },
 
   // ── Spending ──────────────────────────────────────────────────────────────
@@ -70,8 +74,7 @@ export const queryKeys = {
     // invalidating queryKeys.spending.all never reached them and the
     // analytics cards kept showing pre-mutation numbers.
     trends: <T extends unknown[]>(...params: T) => ['spending', 'trends', ...params] as const,
-    breakdown: <T extends unknown[]>(...params: T) =>
-      ['spending', 'breakdown', ...params] as const,
+    breakdown: <T extends unknown[]>(...params: T) => ['spending', 'breakdown', ...params] as const,
     savingsRate: <T extends unknown[]>(...params: T) =>
       ['spending', 'savings-rate', ...params] as const,
     pacing: <T extends unknown[]>(...params: T) => ['spending', 'pacing', ...params] as const,
@@ -178,8 +181,7 @@ export const queryKeys = {
           to_date,
           include_payload,
         ] as const,
-      detail: (publicId: string) =>
-        ['investing', 'portfolio-reports', 'detail', publicId] as const,
+      detail: (publicId: string) => ['investing', 'portfolio-reports', 'detail', publicId] as const,
     },
     // These used to be bare siblings ('investing-dividend-history',
     // 'investing-performance-history', 'investing-allocation'), so
@@ -213,7 +215,6 @@ export const queryKeys = {
     categoryGroups: () => ['category-groups', 'master-config'] as const,
   },
 } as const;
-
 
 /**
  * Uniform cascading invalidation presets.
@@ -268,10 +269,7 @@ export const mutationInvalidations = {
     queryKeys.dashboard.all,
   ],
   // Any budget or spending category change
-  budget: [
-    queryKeys.spending.all,
-    queryKeys.dashboard.all,
-  ],
+  budget: [queryKeys.spending.all, queryKeys.dashboard.all],
   // Any bulk import commit or revert
   importBatch: [
     queryKeys.imports.all,
