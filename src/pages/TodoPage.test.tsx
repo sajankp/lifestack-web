@@ -147,6 +147,22 @@ describe('TodoPage', () => {
     });
   });
 
+  it('allows up to 2000 characters in the new-todo description', async () => {
+    server.use(
+      http.get('*/v1/todo/', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 100, offset: 0 }),
+      ),
+      http.get('*/v1/todo/recurring/', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 100, offset: 0 }),
+      ),
+    );
+
+    renderWithQuery(<TodoPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Add todo/i }));
+    expect(await screen.findByTestId('todo-new-description')).toHaveAttribute('maxlength', '2000');
+  });
+
   it('requires confirmation before deleting a todo, and shows a toast on success', async () => {
     let deleteCalled = false;
 

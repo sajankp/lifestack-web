@@ -548,7 +548,7 @@ export const TodoPage: React.FC = () => {
                   onChange={(e) => setTaskForm((s) => ({ ...s, description: e.target.value }))}
                   placeholder="Add useful context"
                   rows={3}
-                  maxLength={500}
+                  maxLength={2000}
                   className="w-full resize-none rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-sm text-white placeholder-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                   disabled={createMutation.isPending || updateMutation.isPending}
                 />
