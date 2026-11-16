@@ -8,7 +8,7 @@ import { MetricSeriesPanel } from './MetricSeriesPanel';
 import { RecordDetailPanel } from './RecordDetailPanel';
 import { trimDecimal } from './recordsFormat';
 
-/** Results over time (spec-110): read-only here. Weight keeps its own section above. */
+/** Results over time (spec-111): read-only here. Weight keeps its own section above. */
 export const RecordsSection: React.FC = () => {
   const [metricCode, setMetricCode] = React.useState<string | null>(null);
   const [recordId, setRecordId] = React.useState<string | null>(null);

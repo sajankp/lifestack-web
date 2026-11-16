@@ -9,7 +9,7 @@ import {
 } from './healthRecords';
 
 // `healthRecords.api.json` is verbatim output of lifestack-api's /v1/health/{metrics,
-// metrics/{code}/series,records,records/{id}} (spec-110), captured from the real routes, not
+// metrics/{code}/series,records,records/{id}} (spec-111), captured from the real routes, not
 // hand-written. If the API changes shape, regenerate it from the API test run and fix the schema.
 describe('health records API contract', () => {
   it('parses the real metrics response', () => {

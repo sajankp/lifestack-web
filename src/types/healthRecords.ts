@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// spec-110: the generic health measurement store. These schemas ARE the API contract
+// spec-111: the generic health measurement store. These schemas ARE the API contract
 // (lifestack-api `app/health/measurements/schemas.py`): required fields have no defaults, so a
 // contract mismatch fails loudly instead of rendering an empty state.
 

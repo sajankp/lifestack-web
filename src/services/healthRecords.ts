@@ -23,7 +23,7 @@ export type {
   SeriesStats,
 } from '../types/healthRecords';
 
-/** Read-only: generic results are written through MCP (spec-110), never from the web. */
+/** Read-only: generic results are written through MCP (spec-111), never from the web. */
 export const healthRecordsService = {
   getMetrics: async (): Promise<HealthMetric[]> => {
     const response = await api.get('/health/metrics');
