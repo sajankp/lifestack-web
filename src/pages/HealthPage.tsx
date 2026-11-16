@@ -9,6 +9,7 @@ import { healthService } from '../services/health';
 import type { DoseSlot, MedicationCreate, MedicationUpdate } from '../services/health';
 import { DoseChecklist } from './health/DoseChecklist';
 import { WeightSection } from './health/WeightSection';
+import { RecordsSection } from './health/RecordsSection';
 import { MedicationsSection } from './health/MedicationsSection';
 import { formatDateInputValue } from '../utils/dateFormat';
 
@@ -49,9 +50,7 @@ export const HealthPage: React.FC = () => {
   });
 
   const scheduledSlotKeys = new Set(
-    (scheduleQuery.data ?? []).map(
-      (slot) => `${slot.medication_public_id}-${slot.scheduled_for}`,
-    ),
+    (scheduleQuery.data ?? []).map((slot) => `${slot.medication_public_id}-${slot.scheduled_for}`),
   );
   const catchUpSlots = (overdueQuery.data ?? []).filter(
     (slot) => !scheduledSlotKeys.has(`${slot.medication_public_id}-${slot.scheduled_for}`),
@@ -132,7 +131,7 @@ export const HealthPage: React.FC = () => {
     <PageShell animated>
       <PageHero
         title="Health"
-        subtitle="Medications and weight — logged in seconds, entered manually."
+        subtitle="Medications, weight and test results — all in one place."
       />
 
       <div className="space-y-8">
@@ -218,6 +217,13 @@ export const HealthPage: React.FC = () => {
             onLog={(weightKg) => logWeightMutation.mutate(weightKg)}
             isLogging={logWeightMutation.isPending}
           />
+        </section>
+
+        <section data-testid="records-section">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-slate-300">
+            Results
+          </h2>
+          <RecordsSection />
         </section>
 
         <section>

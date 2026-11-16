@@ -65,8 +65,7 @@ const defaultsFor = (medication?: Medication | null): MedicationFormValues => ({
   dose_text: medication?.dose_text ?? '',
   refill_note: medication?.refill_note ?? '',
   frequency: (medication?.frequency as 'daily' | 'weekly' | 'monthly') ?? 'daily',
-  schedule_mode:
-    (medication?.schedule_mode as 'fixed' | 'interval_from_last_dose') ?? 'fixed',
+  schedule_mode: (medication?.schedule_mode as 'fixed' | 'interval_from_last_dose') ?? 'fixed',
   interval: medication?.interval ?? 1,
   days_of_week: medication?.days_of_week ?? [],
   times: medication?.times && medication.times.length > 0 ? medication.times : ['09:00'],
@@ -209,9 +208,7 @@ export const MedicationFormDialog: React.FC<MedicationFormDialogProps> = ({
           <div className="grid grid-cols-2 gap-3">
             {!isInterval ? (
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-300">
-                  Frequency
-                </label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-300">Frequency</label>
                 <Controller
                   control={control}
                   name="frequency"

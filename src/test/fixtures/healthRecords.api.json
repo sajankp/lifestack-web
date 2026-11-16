@@ -1,0 +1,202 @@
+{
+  "metrics": [
+    {
+      "public_id": "baa32aa3-ca39-4524-9ac3-c5ebdfff4319",
+      "code": "body_weight",
+      "name": "Body weight",
+      "category": "body",
+      "value_type": "numeric",
+      "canonical_unit": "kg",
+      "unit_conversions": null,
+      "aliases": ["weight"],
+      "min_value": "0.010000",
+      "max_value": null,
+      "measurement_count": 0,
+      "latest": null
+    },
+    {
+      "public_id": "1a187726-b894-419f-9964-c40d63e3b9fe",
+      "code": "ldl_cholesterol",
+      "name": "LDL Cholesterol",
+      "category": "lipid",
+      "value_type": "numeric",
+      "canonical_unit": "mg/dL",
+      "unit_conversions": {
+        "mmol/L": {
+          "factor": "38.67",
+          "offset": "0"
+        }
+      },
+      "aliases": ["LDL-C"],
+      "min_value": null,
+      "max_value": null,
+      "measurement_count": 2,
+      "latest": {
+        "measured_on": "2026-11-10",
+        "value": "4.000000",
+        "value_text": null,
+        "comparator": null,
+        "unit": "mmol/L"
+      }
+    }
+  ],
+  "series": {
+    "metric": {
+      "public_id": "1a187726-b894-419f-9964-c40d63e3b9fe",
+      "code": "ldl_cholesterol",
+      "name": "LDL Cholesterol",
+      "category": "lipid",
+      "value_type": "numeric",
+      "canonical_unit": "mg/dL",
+      "unit_conversions": {
+        "mmol/L": {
+          "factor": "38.67",
+          "offset": "0"
+        }
+      },
+      "aliases": ["LDL-C"],
+      "min_value": null,
+      "max_value": null,
+      "measurement_count": 2,
+      "latest": {
+        "measured_on": "2026-11-10",
+        "value": "4.000000",
+        "value_text": null,
+        "comparator": null,
+        "unit": "mmol/L"
+      }
+    },
+    "points": [
+      {
+        "public_id": "14fdb133-a270-4246-9712-f89da55b0a1d",
+        "measured_on": "2026-11-10",
+        "measured_at": null,
+        "value": "4.000000",
+        "comparator": null,
+        "value_text": null,
+        "unit": "mmol/L",
+        "canonical_value": "154.680000",
+        "converted": true,
+        "ref_low": null,
+        "ref_high": "3.400000",
+        "ref_text": null,
+        "in_range": "high",
+        "record_public_id": "5b0d1f89-61d3-4e8d-be74-647bd3073f32",
+        "note": "fasting",
+        "source_type": "mcp",
+        "source_ref": null,
+        "metric_code": null,
+        "metric_name": null
+      },
+      {
+        "public_id": "215434fb-428a-4fee-ac79-ff8bbb753c0e",
+        "measured_on": "2026-11-01",
+        "measured_at": null,
+        "value": "20.000000",
+        "comparator": "<",
+        "value_text": null,
+        "unit": "mg/dL",
+        "canonical_value": "20.000000",
+        "converted": false,
+        "ref_low": null,
+        "ref_high": null,
+        "ref_text": null,
+        "in_range": null,
+        "record_public_id": "5b0d1f89-61d3-4e8d-be74-647bd3073f32",
+        "note": null,
+        "source_type": "mcp",
+        "source_ref": null,
+        "metric_code": null,
+        "metric_name": null
+      }
+    ],
+    "stats": {
+      "count": 2,
+      "latest": "154.680000",
+      "latest_on": "2026-11-10",
+      "min": "154.680000",
+      "max": "154.680000",
+      "delta_7d": null,
+      "delta_30d": null
+    },
+    "total": 2,
+    "limit": 50,
+    "offset": 0,
+    "has_more": false
+  },
+  "records": {
+    "items": [
+      {
+        "public_id": "5b0d1f89-61d3-4e8d-be74-647bd3073f32",
+        "kind": "lab_report",
+        "title": "Lipid panel",
+        "recorded_on": "2026-11-10",
+        "provider": "Metropolis",
+        "note": "Extracted from the emailed PDF",
+        "source_type": "mcp",
+        "source_ref": "lab-dump1",
+        "measurement_count": 2,
+        "created_at": "2026-11-16T10:41:40.486093Z"
+      }
+    ],
+    "total": 1,
+    "limit": 50,
+    "offset": 0
+  },
+  "record": {
+    "public_id": "5b0d1f89-61d3-4e8d-be74-647bd3073f32",
+    "kind": "lab_report",
+    "title": "Lipid panel",
+    "recorded_on": "2026-11-10",
+    "provider": "Metropolis",
+    "note": "Extracted from the emailed PDF",
+    "source_type": "mcp",
+    "source_ref": "lab-dump1",
+    "measurement_count": 2,
+    "created_at": "2026-11-16T10:41:40.486093Z",
+    "measurements": [
+      {
+        "public_id": "14fdb133-a270-4246-9712-f89da55b0a1d",
+        "measured_on": "2026-11-10",
+        "measured_at": null,
+        "value": "4.000000",
+        "comparator": null,
+        "value_text": null,
+        "unit": "mmol/L",
+        "canonical_value": "154.680000",
+        "converted": true,
+        "ref_low": null,
+        "ref_high": "3.400000",
+        "ref_text": null,
+        "in_range": "high",
+        "record_public_id": "5b0d1f89-61d3-4e8d-be74-647bd3073f32",
+        "note": "fasting",
+        "source_type": "mcp",
+        "source_ref": null,
+        "metric_code": "ldl_cholesterol",
+        "metric_name": "LDL Cholesterol"
+      },
+      {
+        "public_id": "215434fb-428a-4fee-ac79-ff8bbb753c0e",
+        "measured_on": "2026-11-01",
+        "measured_at": null,
+        "value": "20.000000",
+        "comparator": "<",
+        "value_text": null,
+        "unit": "mg/dL",
+        "canonical_value": "20.000000",
+        "converted": false,
+        "ref_low": null,
+        "ref_high": null,
+        "ref_text": null,
+        "in_range": null,
+        "record_public_id": "5b0d1f89-61d3-4e8d-be74-647bd3073f32",
+        "note": null,
+        "source_type": "mcp",
+        "source_ref": null,
+        "metric_code": "ldl_cholesterol",
+        "metric_name": "LDL Cholesterol"
+      }
+    ]
+  }
+}
