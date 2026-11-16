@@ -32,6 +32,9 @@ interface ActivityFeedTimelineProps {
   onSelectAccount?: (accountId: string | null) => void;
   selectedEventType?: string | null;
   onSelectEventType?: (eventType: string | null) => void;
+  categoryOptions?: Array<{ value: string; label: string }>;
+  selectedCategoryId?: string | null;
+  onSelectCategory?: (categoryId: string | null) => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   isLoading?: boolean;
@@ -51,6 +54,9 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
   onSelectAccount,
   selectedEventType,
   onSelectEventType,
+  categoryOptions = [],
+  selectedCategoryId,
+  onSelectCategory,
   searchQuery = '',
   onSearchChange,
   isLoading = false,
@@ -181,6 +187,23 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="h-8 pl-8 text-xs bg-slate-800/80 border-slate-700"
+              />
+            </div>
+          )}
+
+          {onSelectCategory && (
+            <div className="w-40 shrink-0 sm:w-48">
+              <DropdownSelect
+                testId="activity-feed-category-filter"
+                options={categoryOptions}
+                value={selectedCategoryId ?? ''}
+                onChange={(val) => onSelectCategory(val ? val : null)}
+                placeholder="All Categories"
+                clearLabel="All Categories"
+                showSearch
+                sortByLabel
+                // Only spending transactions carry a category.
+                disabled={!!selectedEventType && selectedEventType !== 'spend'}
               />
             </div>
           )}

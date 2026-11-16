@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Routes, Route } from 'react-router';
@@ -898,5 +898,128 @@ describe('MoneyFlowPage', () => {
     const cashCard = screen.getByText('Total Liquid Cash').closest('div.rounded-2xl');
     expect(cashCard?.textContent).toContain('₹50,000.00');
     expect(cashCard?.textContent).not.toContain('—');
+  });
+});
+
+describe('MoneyFlowPage category filter', () => {
+  const feedRequests: URL[] = [];
+
+  beforeEach(() => {
+    // cmdk (searchable DropdownSelect) needs these in jsdom.
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const useBaseHandlers = () => {
+    feedRequests.length = 0;
+    server.use(
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          effective_locale: 'en-US',
+          effective_decimal_places: 2,
+          effective_currency_display_preference: 'symbol',
+        }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-bank-inr',
+              name: 'HDFC Savings',
+              account_type: 'bank',
+              default_currency_code: 'INR',
+              is_active: true,
+            },
+          ],
+          total: 1,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/net-worth', () =>
+        HttpResponse.json({
+          reporting_currency: 'INR',
+          spending_accounts: [],
+          total_net_worth: '0.00',
+          valuation_status: 'ok',
+        }),
+      ),
+      http.get('*/v1/finance/net-worth/history', () => HttpResponse.json([])),
+      http.get('*/v1/investing/holdings', () => HttpResponse.json({ items: [], total: 0 })),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: '0.00',
+          reporting_currency: 'INR',
+          valuation_status: 'ok',
+        }),
+      ),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({
+          items: [
+            { public_id: 'cat-food', name: 'Food & Dining' },
+            { public_id: 'cat-travel', name: 'Travel' },
+          ],
+          total: 2,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/activity-feed', ({ request }) => {
+        feedRequests.push(new URL(request.url));
+        return HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 });
+      }),
+    );
+  };
+
+  it('sends category_id to the activity feed when a category is picked', async () => {
+    useBaseHandlers();
+    renderMoneyFlow();
+
+    fireEvent.click(await screen.findByTestId('activity-feed-category-filter'));
+    fireEvent.click(await screen.findByRole('option', { name: 'Food & Dining' }));
+
+    await waitFor(() =>
+      expect(feedRequests.some((u) => u.searchParams.get('category_id') === 'cat-food')).toBe(true),
+    );
+  });
+
+  it('restores the category filter from the URL', async () => {
+    useBaseHandlers();
+    renderMoneyFlow('/money?category=cat-travel');
+
+    await waitFor(() =>
+      expect(feedRequests.some((u) => u.searchParams.get('category_id') === 'cat-travel')).toBe(
+        true,
+      ),
+    );
+    expect(await screen.findByTestId('activity-feed-category-filter')).toHaveTextContent('Travel');
+  });
+
+  it('disables the category filter for event types that have no category', async () => {
+    useBaseHandlers();
+    renderMoneyFlow('/money?type=transfer');
+
+    expect(await screen.findByTestId('activity-feed-category-filter')).toBeDisabled();
+    await waitFor(() => expect(feedRequests.length).toBeGreaterThan(0));
+    expect(feedRequests.every((u) => !u.searchParams.has('category_id'))).toBe(true);
+  });
+
+  it('does not apply the category filter inside an account drill-down', async () => {
+    useBaseHandlers();
+    renderMoneyFlow('/money?account=acc-bank-inr&category=cat-food');
+
+    await waitFor(() => expect(feedRequests.length).toBeGreaterThan(0));
+    expect(feedRequests.every((u) => !u.searchParams.has('category_id'))).toBe(true);
   });
 });

@@ -35,6 +35,7 @@ export const MoneyFlowPage: React.FC = () => {
 
   const selectedAccountId = searchParams.get('account');
   const selectedEventType = searchParams.get('type');
+  const categoryParam = searchParams.get('category');
 
   const [feedOffset, setFeedOffset] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,17 +117,38 @@ export const MoneyFlowPage: React.FC = () => {
       ?.fx_rates_used ||
     {};
 
+  const categoriesRes = useQuery({
+    queryKey: queryKeys.spending.categories(),
+    queryFn: () => spendingService.getCategories(200, 0),
+  });
+  const categoryOptions = useMemo(
+    () => (categoriesRes.data?.items ?? []).map((c) => ({ value: c.public_id, label: c.name })),
+    [categoriesRes.data],
+  );
+
+  // Only spend events have a category, and the account drill-down computes running
+  // balances from the full feed, so the filter applies to the main timeline only.
+  const selectedCategoryId =
+    categoryParam &&
+    !selectedAccountId &&
+    (!selectedEventType || selectedEventType === 'spend') &&
+    (!categoriesRes.data || categoryOptions.some((c) => c.value === categoryParam))
+      ? categoryParam
+      : null;
+
   // Fetch Unified Activity Feed
   const activityFeedRes = useQuery({
     queryKey: queryKeys.finance.activityFeed(
       selectedAccountId || 'all',
       selectedEventType || 'all',
+      selectedCategoryId || 'all',
       feedOffset,
     ),
     queryFn: () =>
       financeService.getActivityFeed({
         account_id: selectedAccountId || undefined,
         event_types: selectedEventType ? selectedEventType : undefined,
+        category_id: selectedCategoryId || undefined,
         limit: 50,
         offset: feedOffset,
       }),
@@ -312,6 +334,7 @@ export const MoneyFlowPage: React.FC = () => {
     setSearchParams((prev) => {
       if (accountId) {
         prev.set('account', accountId);
+        prev.delete('category');
       } else {
         prev.delete('account');
       }
@@ -324,8 +347,21 @@ export const MoneyFlowPage: React.FC = () => {
     setSearchParams((prev) => {
       if (eventType) {
         prev.set('type', eventType);
+        if (eventType !== 'spend') prev.delete('category');
       } else {
         prev.delete('type');
+      }
+      return prev;
+    });
+    setFeedOffset(0);
+  };
+
+  const handleSelectCategory = (categoryId: string | null) => {
+    setSearchParams((prev) => {
+      if (categoryId) {
+        prev.set('category', categoryId);
+      } else {
+        prev.delete('category');
       }
       return prev;
     });
@@ -618,6 +654,9 @@ export const MoneyFlowPage: React.FC = () => {
               onSelectAccount={handleSelectAccount}
               selectedEventType={selectedEventType}
               onSelectEventType={handleSelectEventType}
+              categoryOptions={categoryOptions}
+              selectedCategoryId={selectedCategoryId}
+              onSelectCategory={handleSelectCategory}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               isLoading={activityFeedRes.isLoading}
