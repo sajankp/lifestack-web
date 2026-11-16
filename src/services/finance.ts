@@ -160,6 +160,7 @@ export const financeService = {
   getActivityFeed: async (params?: {
     account_id?: string;
     event_types?: string;
+    category_id?: string;
     from_date?: string;
     to_date?: string;
     limit?: number;
