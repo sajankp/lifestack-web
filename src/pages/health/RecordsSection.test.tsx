@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
+import { beforeEach, vi } from 'vitest';
 
 import { RecordsSection } from './RecordsSection';
 import { server } from '../../test/setup';
@@ -13,6 +14,10 @@ const renderSection = () => {
     </QueryClientProvider>,
   );
 };
+
+beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+});
 
 // Shapes mirror lifestack-api `app/health/measurements/schemas.py` (Decimals are strings).
 const ldlMetric = {
@@ -223,6 +228,7 @@ describe('RecordsSection', () => {
 
     fireEvent.click(await screen.findByTestId('metric-ldl_cholesterol'));
     const panel = await screen.findByTestId('metric-series-panel');
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
 
     expect(within(panel).getByTestId('tile-Latest')).toHaveTextContent('154.68 mg/dL');
     expect(within(panel).getByTestId('tile-Δ 30 days')).toHaveTextContent('+54.68 mg/dL');
@@ -249,6 +255,7 @@ describe('RecordsSection', () => {
 
     fireEvent.click(await screen.findByTestId('record-rec-1'));
     const panel = await screen.findByTestId('record-detail-panel');
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
 
     expect(within(panel).getByTestId('record-note')).toHaveTextContent(
       'Extracted from the emailed PDF',
@@ -270,6 +277,7 @@ describe('RecordsSection', () => {
     fireEvent.click(within(table).getAllByText('Added via assistant (MCP)')[0]);
 
     expect(await screen.findByTestId('record-detail-panel')).toHaveTextContent('Lipid panel');
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
   });
 
   it('shows an error, not an empty state, when the request fails', async () => {

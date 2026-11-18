@@ -63,7 +63,6 @@ import type {
   TaxSummary,
 } from '../types/investing';
 
-
 // Schemas and types live in src/types/investing.ts (G4); re-exported here so
 // existing `from '../services/investing'` imports keep working.
 export * from '../types/investing';
@@ -246,8 +245,8 @@ export const investingService = {
 
   getPerformanceHistory: async (params?: {
     account_id?: string;
-    start_date?: string;
-    end_date?: string;
+    from?: string;
+    to?: string;
   }): Promise<PerformanceHistoryResponse> => {
     const response = await api.get('/investing/performance/history', { params });
     return PerformanceHistoryResponseSchema.parse(response.data);
@@ -255,7 +254,7 @@ export const investingService = {
 
   getAllocationAnalytics: async (
     asOf?: string,
-    lookthrough?: boolean
+    lookthrough?: boolean,
   ): Promise<PortfolioAllocationResponse> => {
     const response = await api.get('/investing/analytics/allocation', {
       params: { as_of: asOf, lookthrough },
@@ -302,8 +301,6 @@ export const investingService = {
     const response = await api.patch('/investing/tax/profile', data);
     return TaxProfileSchema.parse(response.data);
   },
-
-
 
   refreshPrices: async (): Promise<{ updated: string[] }> => {
     const response = await api.post('/investing/prices/refresh');

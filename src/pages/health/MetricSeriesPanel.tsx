@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryKeys';
 import { healthRecordsService } from '../../services/healthRecords';
@@ -28,6 +28,17 @@ export const MetricSeriesPanel: React.FC<{
   onClose: () => void;
   onOpenRecord: (publicId: string) => void;
 }> = ({ code, onClose, onOpenRecord }) => {
+  const scrollPanelIntoView = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    // Opened from a card in the Results list — bring the panel into view so
+    // the data is visible without scrolling (health page UX fix).
+    try {
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch {
+      // scrollIntoView unavailable in this environment — non-fatal.
+    }
+  }, []);
+
   const query = useQuery({
     queryKey: queryKeys.health.series(code),
     queryFn: () => healthRecordsService.getSeries(code),
@@ -49,6 +60,7 @@ export const MetricSeriesPanel: React.FC<{
 
   return (
     <div
+      ref={scrollPanelIntoView}
       data-testid="metric-series-panel"
       className="space-y-4 rounded-xl border border-slate-700/60 p-4"
     >
