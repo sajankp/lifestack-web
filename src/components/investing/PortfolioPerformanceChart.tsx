@@ -50,8 +50,8 @@ export const PortfolioPerformanceChart: React.FC<PortfolioPerformanceChartProps>
     queryKey: queryKeys.investing.performanceHistory(startDate, endDate),
     queryFn: () =>
       investingService.getPerformanceHistory({
-        start_date: startDate,
-        end_date: endDate,
+        from: startDate,
+        to: endDate,
       }),
   });
 

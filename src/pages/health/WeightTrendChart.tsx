@@ -37,13 +37,21 @@ export const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ entries }) =
   const values = points.map((p) => p.value);
   const maxVal = Math.max(...values);
   const minVal = Math.min(...values);
-  const range = maxVal - minVal || 1;
+
+  // Zero-baseline scale: weight is measured from 0, so the axis must not
+  // stretch a small span (e.g. 32 → 30.2 kg) to fill the chart — that turns
+  // a gentle change into a steep, misleading drop. Floor at 0 with modest
+  // headroom above the top point so the highest dot isn't cramped.
+  const baseMin = 0;
+  const headroom = Math.max(maxVal * 0.05, 1);
+  const top = maxVal + headroom;
+  const span = top - baseMin || 1;
 
   const getX = (index: number) =>
     paddingX + (index / Math.max(points.length - 1, 1)) * (width - 2 * paddingX);
   const getY = (val: number) => {
-    const scale = (height - 2 * paddingY) / range;
-    return height - paddingY - (val - minVal) * scale;
+    const scale = (height - 2 * paddingY) / span;
+    return height - paddingY - (val - baseMin) * scale;
   };
 
   const path = points.map((p, i) => `${getX(i)},${getY(p.value)}`).join(' L ');

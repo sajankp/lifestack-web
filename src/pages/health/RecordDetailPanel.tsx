@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryKeys';
 import { healthRecordsService } from '../../services/healthRecords';
@@ -10,6 +10,17 @@ export const RecordDetailPanel: React.FC<{ id: string; onClose: () => void }> = 
   id,
   onClose,
 }) => {
+  const scrollPanelIntoView = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    // Opened from a record row in the Results list — bring the panel into view
+    // so the data is visible without scrolling (health page UX fix).
+    try {
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch {
+      // scrollIntoView unavailable in this environment — non-fatal.
+    }
+  }, []);
+
   const query = useQuery({
     queryKey: queryKeys.health.record(id),
     queryFn: () => healthRecordsService.getRecord(id),
@@ -28,6 +39,7 @@ export const RecordDetailPanel: React.FC<{ id: string; onClose: () => void }> = 
   const record = query.data;
   return (
     <div
+      ref={scrollPanelIntoView}
       data-testid="record-detail-panel"
       className="space-y-3 rounded-xl border border-slate-700/60 p-4"
     >

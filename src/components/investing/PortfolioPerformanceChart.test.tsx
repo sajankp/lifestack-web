@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
@@ -15,6 +15,7 @@ const renderComponent = () => {
 };
 
 describe('PortfolioPerformanceChart', () => {
+  let lastCapturedUrl: string | null = null;
   it('renders KPI metrics and SVG chart with performance points', async () => {
     server.use(
       http.get('*/v1/investing/performance/history', () =>
@@ -61,7 +62,6 @@ describe('PortfolioPerformanceChart', () => {
     expect(screen.getByText('+1.50%')).toBeInTheDocument();
     expect(screen.getByText(/Benchmark \(SPY\)/)).toBeInTheDocument();
 
-
     // Range buttons
     expect(screen.getByTestId('perf-range-1M')).toBeInTheDocument();
     expect(screen.getByTestId('perf-range-3M')).toBeInTheDocument();
@@ -83,5 +83,91 @@ describe('PortfolioPerformanceChart', () => {
     renderComponent();
 
     expect(await screen.findByText('Not enough history yet')).toBeInTheDocument();
+  });
+
+  it('sends from/to (not start_date/end_date) so the selected range filters history', async () => {
+    server.use(
+      http.get('*/v1/investing/performance/history', async ({ request }) => {
+        lastCapturedUrl = request.url;
+        return HttpResponse.json({
+          currency: 'USD',
+          net_change: '0.00',
+          net_change_pct: '0.00',
+          points: [
+            {
+              snapshot_date: '2026-08-01',
+              total_value: '50000.00',
+              cost_basis: '45000.00',
+              cash_balance: '2000.00',
+              unrealized_gain: '5000.00',
+              unrealized_gain_pct: '11.11',
+            },
+            {
+              snapshot_date: '2026-09-01',
+              total_value: '51500.00',
+              cost_basis: '45000.00',
+              cash_balance: '2000.00',
+              unrealized_gain: '6500.00',
+              unrealized_gain_pct: '14.44',
+            },
+          ],
+        });
+      }),
+    );
+
+    renderComponent();
+
+    const today = new Date().toISOString().split('T')[0];
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const expectedFrom = sixMonthsAgo.toISOString().split('T')[0];
+
+    await waitFor(() => expect(lastCapturedUrl).toContain(`from=${expectedFrom}`));
+    expect(lastCapturedUrl).toContain(`to=${today}`);
+    expect(lastCapturedUrl).not.toContain('start_date');
+    expect(lastCapturedUrl).not.toContain('end_date');
+  });
+
+  it('refetches history when a different period is picked', async () => {
+    server.use(
+      http.get('*/v1/investing/performance/history', async ({ request }) => {
+        lastCapturedUrl = request.url;
+        return HttpResponse.json({
+          currency: 'USD',
+          net_change: '0.00',
+          net_change_pct: '0.00',
+          points: [
+            {
+              snapshot_date: '2026-08-01',
+              total_value: '50000.00',
+              cost_basis: '45000.00',
+              cash_balance: '2000.00',
+              unrealized_gain: '5000.00',
+              unrealized_gain_pct: '11.11',
+            },
+            {
+              snapshot_date: '2026-09-01',
+              total_value: '51500.00',
+              cost_basis: '45000.00',
+              cash_balance: '2000.00',
+              unrealized_gain: '6500.00',
+              unrealized_gain_pct: '14.44',
+            },
+          ],
+        });
+      }),
+    );
+
+    renderComponent();
+
+    const today = new Date().toISOString().split('T')[0];
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    const expectedFrom = oneMonthAgo.toISOString().split('T')[0];
+
+    fireEvent.click(screen.getByTestId('perf-range-1M'));
+
+    await waitFor(() => expect(lastCapturedUrl).toContain(`from=${expectedFrom}`));
+    expect(lastCapturedUrl).toContain(`to=${today}`);
   });
 });
