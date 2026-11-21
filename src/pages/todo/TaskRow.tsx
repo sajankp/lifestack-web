@@ -1,4 +1,5 @@
 import React from 'react';
+import { Badge } from '../../components/ui/Badge';
 import { CheckCircle2, Circle, Edit2, Plus, Trash2 } from 'lucide-react';
 import type { Todo } from '../../services/todo';
 import { isOverdueTodo, priorityLabel, priorityTone } from './priorityDisplay';
@@ -93,6 +94,9 @@ export const TaskRow: React.FC<TaskRowProps> = ({
               >
                 {priorityLabel(todo.priority)}
               </span>
+              {todo.category ? (
+                <Badge data-testid={`todo-category-${todo.public_id}`}>{todo.category}</Badge>
+              ) : null}
               {dueLabel ? (
                 <span
                   className={`text-xs ${

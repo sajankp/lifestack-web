@@ -47,10 +47,14 @@ export const todoService = {
     limit: number = 50,
     offset: number = 0,
     sort: TodoSort = 'created_at',
+    category?: string | null,
   ): Promise<z.infer<typeof PaginatedTodosSchema>> => {
     const params: Record<string, string | number | boolean> = { limit, offset, sort };
     if (completed !== undefined) {
       params.completed = completed;
+    }
+    if (category !== undefined && category !== null && category !== '') {
+      params.category = category;
     }
     const response = await api.get('/todo/', { params });
     return PaginatedTodosSchema.parse(response.data);
