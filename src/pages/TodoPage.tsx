@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Edit2, Plus, RotateCcw, Trash2 } from 'lucide-react';
 
 import { DropdownSelect } from '../components/DropdownSelect';
-import { Badge } from '../components/ui/Badge';
 import { DatePicker } from '../components/DatePicker';
 import { TimePicker } from '../components/TimePicker';
 import { PageHero } from '../components/layout/PageHero';
