@@ -147,7 +147,7 @@ describe('TodoPage', () => {
     });
   });
 
-  it('allows up to 2000 characters in the new-todo description', async () => {
+  it('allows up to 20000 characters in the new-todo description', async () => {
     server.use(
       http.get('*/v1/todo/', () =>
         HttpResponse.json({ items: [], total: 0, limit: 100, offset: 0 }),
@@ -160,7 +160,80 @@ describe('TodoPage', () => {
     renderWithQuery(<TodoPage />);
 
     fireEvent.click(await screen.findByRole('button', { name: /Add todo/i }));
-    expect(await screen.findByTestId('todo-new-description')).toHaveAttribute('maxlength', '2000');
+    expect(await screen.findByTestId('todo-new-description')).toHaveAttribute('maxlength', '20000');
+  });
+
+  it('creates and filters todos by category', async () => {
+    let createPayload: Record<string, unknown> | null = null;
+    let listUrl: string | null = null;
+
+    server.use(
+      http.get('*/v1/todo/', async ({ request }) => {
+        listUrl = request.url;
+        return HttpResponse.json({
+          items: [
+            {
+              public_id: 'todo-1',
+              title: 'Buy gold',
+              description: 'Extra bullion',
+              category: 'Finance',
+              due_date: null,
+              priority: 'medium',
+              completed: false,
+              parent_public_id: null,
+              subtask_count: 0,
+              created_at: '2026-06-13T00:00:00Z',
+              updated_at: '2026-06-13T00:00:00Z',
+            },
+          ],
+          total: 1,
+          limit: 50,
+          offset: 0,
+        });
+      }),
+      http.get('*/v1/todo/recurring/', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 100, offset: 0 }),
+      ),
+      http.post('*/v1/todo/', async ({ request }) => {
+        createPayload = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          {
+            public_id: 'todo-2',
+            ...createPayload,
+            completed: false,
+            created_at: '2026-06-13T00:00:00Z',
+            updated_at: '2026-06-13T00:00:00Z',
+          },
+          { status: 201 },
+        );
+      }),
+    );
+
+    renderWithQuery(<TodoPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Add todo/i }));
+    fireEvent.change(screen.getByTestId('todo-new-title'), { target: { value: 'Buy gold' } });
+    fireEvent.change(screen.getByTestId('todo-new-category'), {
+      target: { value: 'Finance' },
+    });
+    fireEvent.click(screen.getByTestId('todo-new-submit'));
+
+    await waitFor(() => {
+      expect(createPayload).not.toBeNull();
+    });
+    expect(createPayload).toMatchObject({
+      title: 'Buy gold',
+      category: 'Finance',
+    });
+
+    // Filtering by category sends the category param to the API.
+    fireEvent.change(screen.getByTestId('todo-category-filter'), {
+      target: { value: 'Finance' },
+    });
+    await waitFor(() => {
+      expect(listUrl).not.toBeNull();
+      expect(new URL(listUrl!).searchParams.get('category')).toBe('Finance');
+    });
   });
 
   it('requires confirmation before deleting a todo, and shows a toast on success', async () => {

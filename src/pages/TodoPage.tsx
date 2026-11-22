@@ -138,6 +138,7 @@ export const TodoPage: React.FC = () => {
   const [taskForm, setTaskForm] = useState({
     title: '',
     description: '',
+    category: '',
     due_date: '',
     due_time: '',
     priority: 'low' as TodoPriority,
@@ -177,9 +178,12 @@ export const TodoPage: React.FC = () => {
   const [editingRecurringRule, setEditingRecurringRule] = useState<RecurringTodoRule | null>(null);
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
 
+  const [categoryFilter, setCategoryFilter] = useState('');
+
   const { data: openTodosResponse, isLoading } = useQuery({
-    queryKey: queryKeys.todo.list('open', openLimit),
-    queryFn: () => todoService.getTodos(false, openLimit, 0, 'due_date'),
+    queryKey: queryKeys.todo.list('open', openLimit, categoryFilter),
+    queryFn: () =>
+      todoService.getTodos(false, openLimit, 0, 'due_date', categoryFilter || undefined),
   });
 
   const { data: completedTodosResponse, isLoading: isCompletedLoading } = useQuery({
@@ -211,6 +215,7 @@ export const TodoPage: React.FC = () => {
     setTaskForm({
       title: '',
       description: '',
+      category: '',
       due_date: '',
       due_time: '',
       priority: 'low',
@@ -308,6 +313,7 @@ export const TodoPage: React.FC = () => {
     setTaskForm({
       title: '',
       description: '',
+      category: '',
       due_date: '',
       due_time: '',
       priority: 'low',
@@ -322,6 +328,7 @@ export const TodoPage: React.FC = () => {
     setTaskForm({
       title: '',
       description: '',
+      category: '',
       due_date: '',
       due_time: '',
       priority: 'low',
@@ -336,6 +343,7 @@ export const TodoPage: React.FC = () => {
     setTaskForm({
       title: todo.title,
       description: todo.description ?? '',
+      category: todo.category ?? '',
       due_date: toLocalDateInput(todo.due_date),
       due_time: toLocalTimeInput(todo.due_date),
       priority: todo.priority ?? 'low',
@@ -397,6 +405,7 @@ export const TodoPage: React.FC = () => {
     const payload: TodoCreate = {
       title: taskForm.title.trim(),
       description: taskForm.description.trim() || undefined,
+      category: taskForm.category.trim() || undefined,
       due_date: toIsoDueDate(taskForm.due_date, taskForm.due_time),
       priority: taskForm.priority,
     };
@@ -535,6 +544,21 @@ export const TodoPage: React.FC = () => {
                 />
               </div>
               <div className="flex flex-col gap-2">
+                <label htmlFor="todo-new-category" className="text-sm font-semibold text-slate-300">
+                  Category (optional, e.g. Finance)
+                </label>
+                <input
+                  id="todo-new-category"
+                  data-testid="todo-new-category"
+                  type="text"
+                  value={taskForm.category}
+                  onChange={(e) => setTaskForm((s) => ({ ...s, category: e.target.value }))}
+                  placeholder="Finance"
+                  className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-white placeholder-slate-400 text-sm focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
                 <label
                   htmlFor="todo-new-description"
                   className="text-sm font-semibold text-slate-300"
@@ -548,7 +572,7 @@ export const TodoPage: React.FC = () => {
                   onChange={(e) => setTaskForm((s) => ({ ...s, description: e.target.value }))}
                   placeholder="Add useful context"
                   rows={3}
-                  maxLength={2000}
+                  maxLength={20000}
                   className="w-full resize-none rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-sm text-white placeholder-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                   disabled={createMutation.isPending || updateMutation.isPending}
                 />
@@ -654,6 +678,38 @@ export const TodoPage: React.FC = () => {
             <SkeletonList rows={4} />
           ) : (
             <div className="space-y-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+                <label
+                  htmlFor="todo-category-filter"
+                  className="text-sm font-semibold text-slate-300"
+                >
+                  Filter by category
+                </label>
+                <input
+                  id="todo-category-filter"
+                  data-testid="todo-category-filter"
+                  type="text"
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  placeholder="e.g. Finance"
+                  className="sm:w-64 h-10 rounded-lg border border-slate-700 bg-slate-900/70 px-3 text-sm text-white placeholder-slate-400 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                />
+                {categoryFilter ? (
+                  <button
+                    type="button"
+                    data-testid="todo-category-filter-clear"
+                    onClick={() => setCategoryFilter('')}
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-800"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+                {categoryFilter && (
+                  <span className="text-xs text-slate-500">
+                    Showing todos in category “{categoryFilter}”
+                  </span>
+                )}
+              </div>
               {topLevelTodos.length === 0 ? (
                 <div className="rounded-2xl border border-slate-800 bg-slate-800/30 p-8 text-center">
                   <p className="text-slate-300">No todos yet.</p>

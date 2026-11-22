@@ -4,19 +4,21 @@ import type { Todo } from '../../services/todo';
 
 const NOW = new Date('2026-07-09T09:00:00');
 
-const makeTodo = (overrides: Partial<Todo>): Todo => ({
-  public_id: 'id',
-  title: 'title',
-  description: '',
-  due_date: null,
-  priority: 'medium',
-  completed: false,
-  parent_public_id: null,
-  subtask_count: 0,
-  created_at: '2026-07-01T00:00:00Z',
-  updated_at: '2026-07-01T00:00:00Z',
-  ...overrides,
-});
+const makeTodo = (overrides: Partial<Todo>): Todo =>
+  ({
+    public_id: 'id',
+    title: 'title',
+    description: '',
+    category: null,
+    due_date: null,
+    priority: 'medium',
+    completed: false,
+    parent_public_id: null,
+    subtask_count: 0,
+    created_at: '2026-07-01T00:00:00Z',
+    updated_at: '2026-07-01T00:00:00Z',
+    ...overrides,
+  }) as Todo;
 
 describe('bucketForDueDate', () => {
   it('buckets a null due date as No due date', () => {

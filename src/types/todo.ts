@@ -4,6 +4,7 @@ export const TodoSchema = z.object({
   public_id: z.string().default(''),
   title: z.string().default(''),
   description: z.string().catch(''),
+  category: z.string().nullable().default(null),
   due_date: z.string().nullable().default(null),
   priority: z.enum(['low', 'medium', 'high']).default('low'),
   completed: z.boolean().default(false),
@@ -18,6 +19,7 @@ export type Todo = z.infer<typeof TodoSchema>;
 export interface TodoCreate {
   title: string;
   description?: string;
+  category?: string | null;
   due_date?: string | null;
   priority?: 'low' | 'medium' | 'high';
   completed?: boolean;

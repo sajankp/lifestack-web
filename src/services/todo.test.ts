@@ -60,4 +60,12 @@ describe('todoService', () => {
     });
     expect(api.delete).toHaveBeenNthCalledWith(2, '/todo/recurring/rule-1');
   });
+
+  it('passes category through to the list endpoint', async () => {
+    vi.spyOn(api, 'get').mockResolvedValueOnce({ data: { items: [], total: 0 } } as never);
+    await todoService.getTodos(false, 10, 5, 'created_at', 'Finance');
+    expect(api.get).toHaveBeenCalledWith('/todo/', {
+      params: { limit: 10, offset: 5, sort: 'created_at', completed: false, category: 'Finance' },
+    });
+  });
 });
