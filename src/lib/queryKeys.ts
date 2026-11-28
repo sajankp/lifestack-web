@@ -152,6 +152,9 @@ export const queryKeys = {
       summary: (fy?: string) => ['investing', 'tax', 'summary', fy ?? null] as const,
       regimes: () => ['investing', 'tax', 'regimes'] as const,
       profile: () => ['investing', 'tax', 'profile'] as const,
+      opportunities: () => ['investing', 'tax', 'opportunities'] as const,
+      dates: (horizonDays?: number) => ['investing', 'tax', 'dates', horizonDays ?? null] as const,
+      simulation: (params: object) => ['investing', 'tax', 'simulation', params] as const,
     },
     overlap: (asOf: string) => ['investing', 'analytics', 'overlap', asOf] as const,
     portfolioReports: {

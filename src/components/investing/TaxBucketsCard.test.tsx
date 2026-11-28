@@ -17,6 +17,9 @@ const BUCKET: TaxBucket = {
   tax: '12500.00',
   sell_count: 2,
   lot_count: 2,
+  set_off_inr: '0',
+  carry_forward_set_off_inr: '0',
+  taxable_inr: '100000.00',
 };
 
 const renderCard = (
