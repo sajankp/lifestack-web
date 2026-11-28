@@ -402,7 +402,7 @@ export type BudgetSpotlightItem = z.infer<typeof BudgetSpotlightItemSchema>;
 
 // The month's single budget answer (spec-115 §2.1), carried by the dashboard summary (spec-113 §3).
 export const MonthBudgetLineSchema = z.object({
-  kind: z.enum(['category', 'group']).default('category'),
+  kind: z.enum(['category', 'group', 'overall']).default('category'),
   category_id: z.string().nullable().default(null),
   category_name: z.string().nullable().default(null),
   category_group_id: z.string().nullable().default(null),
@@ -418,6 +418,7 @@ export const MonthBudgetStatusSchema = z.object({
   month: z.string().default(''),
   as_of: z.string().default(''),
   lines: z.array(MonthBudgetLineSchema).default([]),
+  overall: MonthBudgetLineSchema.nullable().default(null),
   covered_spend: z.union([z.number(), z.string()]).default(0),
   covered_limit: z.union([z.number(), z.string()]).default(0),
   uncovered_spend: z.union([z.number(), z.string()]).default(0),

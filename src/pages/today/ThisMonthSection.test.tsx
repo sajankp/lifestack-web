@@ -23,6 +23,7 @@ const status = (over: Partial<MonthBudgetStatus> = {}): MonthBudgetStatus => ({
       status: 'warning',
     },
   ],
+  overall: null,
   covered_spend: '108.00',
   covered_limit: '120.00',
   uncovered_spend: '692.05',

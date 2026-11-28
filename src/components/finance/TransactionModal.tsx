@@ -15,7 +15,12 @@ import { formatDateInputValue } from '../../utils/dateFormat';
 import { useToast } from '../ui/toast';
 import type { Account } from '../../types/finance';
 import type { ActivityFeedItem } from '../../types/finance';
-import type { Transaction, TransactionCreate, TransactionType, TransactionUpdate } from '../../types/spending';
+import type {
+  Transaction,
+  TransactionCreate,
+  TransactionType,
+  TransactionUpdate,
+} from '../../types/spending';
 
 export interface TransactionModalProps {
   open: boolean;
@@ -27,6 +32,8 @@ export interface TransactionModalProps {
   transactionToEdit?: Transaction | null;
   /** ActivityFeedItem to edit (modal will load full details if needed) */
   initialFeedItem?: ActivityFeedItem | null;
+  /** Transaction type to preselect when creating a new record. */
+  initialType?: TransactionType;
   /** Optional escape hatch to a "create account" flow */
   onCreateAccount?: () => void;
 }
@@ -38,6 +45,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   defaultAccountId,
   transactionToEdit,
   initialFeedItem,
+  initialType = 'expense',
   onCreateAccount,
 }) => {
   const { showToast } = useToast();
@@ -94,7 +102,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setType(transactionToEdit.type);
       setAmount(String(transactionToEdit.amount));
       setCategoryId(transactionToEdit.category_id || categories[0]?.public_id || '');
-      setAccountId(transactionToEdit.account_id || defaultAccountId || accounts[0]?.public_id || '');
+      setAccountId(
+        transactionToEdit.account_id || defaultAccountId || accounts[0]?.public_id || '',
+      );
       setDate(
         transactionToEdit.occurred_at
           ? formatDateInputValue(new Date(transactionToEdit.occurred_at))
@@ -111,7 +121,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         setType(detail.type);
         setAmount(String(detail.amount));
         setCategoryId(detail.category_id || categories[0]?.public_id || '');
-        setAccountId(detail.account_id || initialFeedItem.account_id || defaultAccountId || accounts[0]?.public_id || '');
+        setAccountId(
+          detail.account_id ||
+            initialFeedItem.account_id ||
+            defaultAccountId ||
+            accounts[0]?.public_id ||
+            '',
+        );
         setDate(
           detail.occurred_at
             ? formatDateInputValue(new Date(detail.occurred_at))
@@ -126,7 +142,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         const isIncome = initialFeedItem.amount.startsWith('+');
         setType(isIncome ? 'income' : 'expense');
         setAmount(rawAmt || '');
-        setAccountId(initialFeedItem.account_id || defaultAccountId || accounts[0]?.public_id || '');
+        setAccountId(
+          initialFeedItem.account_id || defaultAccountId || accounts[0]?.public_id || '',
+        );
         setDate(
           initialFeedItem.date
             ? formatDateInputValue(new Date(initialFeedItem.date))
@@ -145,7 +163,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     } else if (!initializedForId) {
       // New Transaction
       setEditingTransactionId(null);
-      setType('expense');
+      setType(initialType);
       setAmount('');
       setCategoryId(categories[0]?.public_id || '');
       setAccountId(defaultAccountId || accounts[0]?.public_id || '');
@@ -158,6 +176,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     open,
     transactionToEdit,
     initialFeedItem,
+    initialType,
     transactionDetailRes.data,
     defaultAccountId,
     accounts,
@@ -286,7 +305,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             {isEditing ? 'Edit Transaction' : 'New Transaction'}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            {isEditing ? 'Edit existing transaction details' : 'Create a new spending or income transaction'}
+            {isEditing
+              ? 'Edit existing transaction details'
+              : 'Create a new spending or income transaction'}
           </DialogDescription>
         </DialogHeader>
 
@@ -425,12 +446,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               type="submit"
               data-testid="transaction-submit-btn"
               disabled={
-                isPending ||
-                !amount ||
-                !categoryId ||
-                !type ||
-                !date ||
-                (!isEditing && !accountId)
+                isPending || !amount || !categoryId || !type || !date || (!isEditing && !accountId)
               }
               className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/20"
             >

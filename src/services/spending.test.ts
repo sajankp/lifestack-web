@@ -7,6 +7,30 @@ describe('spendingService', () => {
     vi.restoreAllMocks();
   });
 
+  it('fetches the selected month budget status from the dedicated endpoint', async () => {
+    vi.spyOn(api, 'get').mockResolvedValueOnce({
+      data: {
+        month: '2026-11',
+        as_of: '2026-11-28',
+        overall: null,
+        lines: [],
+        covered_spend: '0.00',
+        covered_limit: '0.00',
+        uncovered_spend: '0.00',
+        used_pct: null,
+        breached_count: 0,
+        total_spend: '0.00',
+      },
+    } as never);
+
+    const result = await spendingService.getMonthBudgetStatus('2026-11-01');
+
+    expect(result.month).toBe('2026-11');
+    expect(api.get).toHaveBeenCalledWith('/spending/budgets/month-status', {
+      params: { month: '2026-11-01' },
+    });
+  });
+
   it('calls categories endpoints', async () => {
     vi.spyOn(api, 'get').mockResolvedValueOnce({ data: { items: [], total: 0 } } as never);
     vi.spyOn(api, 'post').mockResolvedValueOnce({ data: { public_id: 'cat1' } } as never);
@@ -96,7 +120,9 @@ describe('spendingService', () => {
       .mockResolvedValueOnce({
         data: { from: '2026-05-01', to: '2026-05-31', type: 'expense', total: '100', tags: [] },
       } as never);
-    vi.spyOn(api, 'post').mockResolvedValueOnce({ data: { public_id: 'tag1', name: 'work' } } as never);
+    vi.spyOn(api, 'post').mockResolvedValueOnce({
+      data: { public_id: 'tag1', name: 'work' },
+    } as never);
 
     await spendingService.getTags(100, 0, 'wo');
     await spendingService.createTag({ name: 'work' });

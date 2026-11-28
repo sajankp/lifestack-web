@@ -21,7 +21,13 @@ import {
 
 const refreshKeys = [queryKeys.netWorth.all, queryKeys.finance.all];
 
-export const HistoricalDataPanel: React.FC = () => {
+interface HistoricalDataPanelProps {
+  buttonLabel?: string;
+}
+
+export const HistoricalDataPanel: React.FC<HistoricalDataPanelProps> = ({
+  buttonLabel = 'Add historical data',
+}) => {
   const displayProfile = useDisplayProfile();
   const [isOpen, setIsOpen] = useState(false);
   const [tab, setTab] = useState<'net-worth' | 'fx'>('net-worth');
@@ -59,7 +65,7 @@ export const HistoricalDataPanel: React.FC = () => {
         data-testid="historical-data-open"
         onClick={() => setIsOpen(true)}
       >
-        <Upload className="h-4 w-4 mr-1" /> Add historical data
+        {buttonLabel}
       </Button>
 
       <Dialog open={isOpen} onOpenChange={(open) => !open && setIsOpen(false)}>

@@ -22,6 +22,7 @@ const renderMoneyFlow = (initialUrl = '/money') => {
         <MemoryRouter initialEntries={[initialUrl]}>
           <Routes>
             <Route path="/money" element={<MoneyFlowPage />} />
+            <Route path="/money/accounts" element={<MoneyFlowPage />} />
           </Routes>
         </MemoryRouter>
       </ToastProvider>
@@ -186,7 +187,7 @@ describe('MoneyFlowPage', () => {
       ),
     );
 
-    renderMoneyFlow();
+    renderMoneyFlow('/money/accounts');
 
     // Verify Hero Metrics rendered in reporting currency
     expect(await screen.findByText('Total Liquid Cash')).toBeInTheDocument();
@@ -297,9 +298,9 @@ describe('MoneyFlowPage', () => {
     const { fireEvent, waitFor } = await import('@testing-library/react');
     renderMoneyFlow();
 
-    // Click "Add transaction" in header
-    const addBtn = await screen.findByRole('button', { name: 'Add transaction' });
-    fireEvent.click(addBtn);
+    // Open the Add menu, then choose Expense.
+    fireEvent.click(screen.getByText('Add ▾'));
+    fireEvent.click(await screen.findByTestId('header-quick-spending'));
 
     // Modal opens
     expect(await screen.findByText('New Transaction')).toBeInTheDocument();
@@ -1123,8 +1124,8 @@ describe('MoneyFlowPage plain wording and a single Transfer button (spec-113 §2
 
     expect(await screen.findByRole('heading', { name: 'Money' })).toBeInTheDocument();
     expect(screen.getByText('Your accounts, balances and activity.')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Accounts' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Activity' })).toBeInTheDocument();
+    expect(screen.getByTestId('money-tab-accounts')).toHaveTextContent('Accounts');
 
     expect(screen.queryByText(/Money Flow & Architecture/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Unified financial ecosystem/)).not.toBeInTheDocument();
@@ -1134,7 +1135,7 @@ describe('MoneyFlowPage plain wording and a single Transfer button (spec-113 §2
 
   it('has exactly one Transfer button (the header one)', async () => {
     renderMoneyFlow();
-    await screen.findByRole('heading', { name: 'Accounts' });
+    await screen.findByRole('heading', { name: 'Money' });
 
     expect(screen.queryByText('Transfer Funds')).not.toBeInTheDocument();
     expect(screen.queryByText(/Transfer between accounts/)).not.toBeInTheDocument();

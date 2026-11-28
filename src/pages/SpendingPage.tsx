@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { DropdownSelect } from '../components/DropdownSelect';
 import { DatePicker } from '../components/DatePicker';
+import { MoneyNavTabs } from '../components/finance/MoneyNavTabs';
 import { PageHero } from '../components/layout/PageHero';
 import { PageShell } from '../components/layout/PageShell';
 import { Button } from '../components/ui/button';
@@ -44,7 +45,6 @@ import {
   formatCurrency,
 } from '../utils/numberFormat';
 import { BudgetsTab } from './spending/BudgetsTab';
-import { KpisTab } from './spending/KpisTab';
 import { RecurringTab } from './spending/RecurringTab';
 import { AnalyticsTab } from './spending/AnalyticsTab';
 import {
@@ -57,7 +57,7 @@ import {
 
 const budgetFormSchema = z
   .object({
-    scope: z.enum(['category', 'group']),
+    scope: z.enum(['category', 'group', 'overall']),
     categoryId: z.string().optional(),
     groupId: z.string().optional(),
     startMonth: z.string().regex(/^\d{4}-\d{2}$/, 'Select a valid start month'),
@@ -148,7 +148,8 @@ const DEFAULT_PAGE_SIZE = 50;
 export const SpendingPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const inMoneyArea = location.pathname.startsWith('/money/');
 
   // Budgets state
   const [budgetsMonth, setBudgetsMonth] = useState(() => getCurrentMonthValue());
@@ -181,26 +182,49 @@ export const SpendingPage: React.FC = () => {
   // Analytics month
   const [analyticsMonth, setAnalyticsMonth] = useState(() => getCurrentMonthValue());
 
+  const requestedBill = searchParams.get('new') === 'bill';
+  useEffect(() => {
+    if (!inMoneyArea || !requestedBill) return;
+    setIsRecurringModalOpen(true);
+    setSearchParams(
+      (params) => {
+        const next = new URLSearchParams(params);
+        next.delete('new');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [inMoneyArea, requestedBill, setSearchParams]);
+
   const requestedLegacyTab = searchParams.get('tab');
-  const pathTab = SPENDING_ROUTE_TABS[location.pathname.slice('/spending/'.length)];
+  const pathTab = inMoneyArea
+    ? location.pathname === '/money/spending'
+      ? 'analytics'
+      : 'budgets'
+    : SPENDING_ROUTE_TABS[location.pathname.slice('/spending/'.length)];
   const legacyTab =
     requestedLegacyTab && requestedLegacyTab in SPENDING_TAB_ROUTES
       ? (requestedLegacyTab as SpendingTab)
       : null;
-  const activeTab: SpendingTab = pathTab ?? legacyTab ?? 'recurring';
+  const activeTab: SpendingTab = pathTab ?? legacyTab ?? (inMoneyArea ? 'budgets' : 'recurring');
 
   const setActiveTab = useCallback(
     (nextTab: SpendingTab) => {
+      if (inMoneyArea) {
+        navigate(nextTab === 'analytics' ? '/money/spending' : '/money/budget');
+        return;
+      }
       const params = new URLSearchParams(location.search);
       params.delete('tab');
       const query = params.toString();
       navigate(`/spending/${SPENDING_TAB_ROUTES[nextTab]}${query ? `?${query}` : ''}`);
     },
-    [location.search, navigate],
+    [inMoneyArea, location.search, navigate],
   );
 
   useEffect(() => {
-    // Redirect legacy routes to /money
+    if (inMoneyArea) return;
+    // Legacy paths now redirect in App.tsx. This remains for the old route during development.
     const subpath = location.pathname.slice('/spending/'.length);
     if (subpath === 'transactions' || subpath === 'account-activity') {
       navigate('/money', { replace: true });
@@ -218,7 +242,7 @@ export const SpendingPage: React.FC = () => {
     navigate(`/spending/${SPENDING_TAB_ROUTES[targetTab]}${query ? `?${query}` : ''}`, {
       replace: true,
     });
-  }, [legacyTab, location.pathname, location.search, navigate, pathTab]);
+  }, [inMoneyArea, legacyTab, location.pathname, location.search, navigate, pathTab]);
 
   const monthFilterOptions = useMemo(() => buildMonthOptions(), []);
   const budgetsRange = useMemo(() => monthValueToDateRange(budgetsMonth), [budgetsMonth]);
@@ -314,6 +338,12 @@ export const SpendingPage: React.FC = () => {
   });
   const budgetsResponse = budgetsQuery.data;
   const budgets = useMemo(() => budgetsResponse?.items ?? [], [budgetsResponse]);
+
+  const monthBudgetStatusQuery = useQuery({
+    queryKey: ['spending', 'month-budget-status', budgetsMonth],
+    queryFn: () => spendingService.getMonthBudgetStatus(`${budgetsMonth}-01`),
+    enabled: inMoneyArea && activeTab === 'budgets',
+  });
 
   // Query multi-month budget performance
   const budgetPerformanceQuery = useQuery({
@@ -698,7 +728,7 @@ export const SpendingPage: React.FC = () => {
   const openBudgetModalForEdit = (b: Budget) => {
     setEditingBudget(b);
     budgetForm.reset({
-      scope: b.category_group_id ? 'group' : 'category',
+      scope: b.category_group_id ? 'group' : b.category_id ? 'category' : 'overall',
       categoryId: b.category_id ?? '',
       groupId: b.category_group_id ?? '',
       // The API returns start_month/end_month as full dates; the form works
@@ -742,8 +772,18 @@ export const SpendingPage: React.FC = () => {
   return (
     <PageShell>
       <PageHero
-        title="Spending Command Center"
-        subtitle="Manage recurring rules, budget planning, spend pacing, and custom KPIs"
+        title={
+          inMoneyArea
+            ? activeTab === 'analytics'
+              ? 'Spending'
+              : 'Budget'
+            : 'Spending Command Center'
+        }
+        subtitle={
+          inMoneyArea
+            ? 'Plan budgets, recurring bills and spending.'
+            : 'Manage recurring rules, budget planning and spend pacing.'
+        }
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -790,6 +830,8 @@ export const SpendingPage: React.FC = () => {
           </div>
         }
       />
+
+      {inMoneyArea && <MoneyNavTabs />}
 
       {/* Summary KPI Cards */}
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
@@ -859,71 +901,62 @@ export const SpendingPage: React.FC = () => {
       </div>
 
       {/* 4-Tab Navigation Bar */}
-      <div className="relative mb-6 sticky top-0 z-20 bg-slate-950/95 backdrop-blur">
-        {tabOverflow.start && (
+      {!inMoneyArea && (
+        <div className="relative mb-6 sticky top-0 z-20 bg-slate-950/95 backdrop-blur">
+          {tabOverflow.start && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-slate-950 to-transparent"
+            />
+          )}
+          {tabOverflow.end && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 z-10 flex w-10 items-center justify-end bg-gradient-to-l from-slate-950 to-transparent pb-px"
+            >
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            </div>
+          )}
           <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-slate-950 to-transparent"
-          />
-        )}
-        {tabOverflow.end && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 right-0 z-10 flex w-10 items-center justify-end bg-gradient-to-l from-slate-950 to-transparent pb-px"
+            ref={tabStripRef}
+            className="flex gap-2 overflow-x-auto border-b border-slate-700/50 pb-px py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            <ChevronRight className="h-4 w-4 text-slate-400" />
+            <button
+              data-testid="spending-tab-recurring"
+              onClick={() => setActiveTab('recurring')}
+              className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === 'recurring'
+                  ? 'border-cyan-500 text-cyan-400'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Recurring rules
+            </button>
+            <button
+              data-testid="spending-tab-budgets"
+              onClick={() => setActiveTab('budgets')}
+              className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === 'budgets'
+                  ? 'border-cyan-500 text-cyan-400'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Budgets
+            </button>
+            <button
+              data-testid="spending-tab-analytics"
+              onClick={() => setActiveTab('analytics')}
+              className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === 'analytics'
+                  ? 'border-cyan-500 text-cyan-400'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Analytics
+            </button>
           </div>
-        )}
-        <div
-          ref={tabStripRef}
-          className="flex gap-2 overflow-x-auto border-b border-slate-700/50 pb-px py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <button
-            data-testid="spending-tab-recurring"
-            onClick={() => setActiveTab('recurring')}
-            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-              activeTab === 'recurring'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Recurring rules
-          </button>
-          <button
-            data-testid="spending-tab-budgets"
-            onClick={() => setActiveTab('budgets')}
-            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-              activeTab === 'budgets'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Budgets
-          </button>
-          <button
-            data-testid="spending-tab-kpis"
-            onClick={() => setActiveTab('kpis')}
-            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-              activeTab === 'kpis'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            KPIs
-          </button>
-          <button
-            data-testid="spending-tab-analytics"
-            onClick={() => setActiveTab('analytics')}
-            className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-              activeTab === 'analytics'
-                ? 'border-cyan-500 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Analytics
-          </button>
         </div>
-      </div>
+      )}
 
       {/* Tab Contents */}
       {recurringQuery.isLoading && activeTab === 'recurring' ? (
@@ -1011,14 +1044,99 @@ export const SpendingPage: React.FC = () => {
             isMultiMonth={budgetsDuration > 1}
             multiMonthBudgets={periodBudgets}
           />
+          {inMoneyArea && budgetsDuration === 1 && monthBudgetStatusQuery.data && (
+            <section
+              className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-4"
+              data-testid="budget-month-status"
+            >
+              {monthBudgetStatusQuery.data.overall && (
+                <div
+                  data-testid="budget-overall-limit"
+                  className="rounded-xl border border-cyan-900/70 bg-cyan-950/20 p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-semibold text-white">Overall monthly limit</h3>
+                    <span className="text-sm text-slate-300">
+                      {formatCurrency(
+                        Number(monthBudgetStatusQuery.data.overall.spent),
+                        displayCurrency,
+                        currencyDisplayPreference,
+                        displayLocale,
+                        decimalPlaces,
+                      )}
+                      {' / '}
+                      {formatCurrency(
+                        Number(monthBudgetStatusQuery.data.overall.limit),
+                        displayCurrency,
+                        currencyDisplayPreference,
+                        displayLocale,
+                        decimalPlaces,
+                      )}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-400">
+                    {monthBudgetStatusQuery.data.overall.status.replace('_', ' ')} ·{' '}
+                    {formatCurrency(
+                      Number(monthBudgetStatusQuery.data.overall.remaining),
+                      displayCurrency,
+                      currencyDisplayPreference,
+                      displayLocale,
+                      decimalPlaces,
+                    )}{' '}
+                    remaining
+                  </p>
+                </div>
+              )}
+              <div
+                data-testid="budget-uncovered-spend"
+                className="flex justify-between gap-3 text-sm"
+              >
+                <span className="text-slate-300">Not covered by a budget</span>
+                <span className="font-medium text-white">
+                  {formatCurrency(
+                    Number(monthBudgetStatusQuery.data.uncovered_spend),
+                    displayCurrency,
+                    currencyDisplayPreference,
+                    displayLocale,
+                    decimalPlaces,
+                  )}
+                </span>
+              </div>
+              {monthBudgetStatusQuery.data.lines.map((line) => (
+                <div
+                  key={
+                    line.category_id ??
+                    line.category_group_id ??
+                    line.category_name ??
+                    line.category_group_name
+                  }
+                  className="flex justify-between gap-3 border-t border-slate-800 pt-2 text-sm"
+                >
+                  <span className="text-slate-300">
+                    {line.category_group_name ?? line.category_name ?? 'Budget'}
+                  </span>
+                  <span className="text-slate-400">
+                    {formatCurrency(
+                      Number(line.spent),
+                      displayCurrency,
+                      currencyDisplayPreference,
+                      displayLocale,
+                      decimalPlaces,
+                    )}
+                    {' / '}
+                    {formatCurrency(
+                      Number(line.limit),
+                      displayCurrency,
+                      currencyDisplayPreference,
+                      displayLocale,
+                      decimalPlaces,
+                    )}
+                  </span>
+                </div>
+              ))}
+            </section>
+          )}
         </div>
-      ) : activeTab === 'kpis' ? (
-        <KpisTab
-          categoryOptions={categoryFilterOptions}
-          categoryGroupOptions={categoryGroupOptions}
-          accountOptions={accountOptions}
-          currencyDisplayPreference={currencyDisplayPreference}
-        />
       ) : activeTab === 'analytics' ? (
         <AnalyticsTab
           selectedMonth={analyticsMonth}
@@ -1280,6 +1398,7 @@ export const SpendingPage: React.FC = () => {
                     options={[
                       { value: 'category', label: 'Single Category' },
                       { value: 'group', label: 'Category Group' },
+                      { value: 'overall', label: 'Overall monthly limit' },
                     ]}
                     value={field.value}
                     onChange={field.onChange}
@@ -1313,7 +1432,7 @@ export const SpendingPage: React.FC = () => {
                   </p>
                 )}
               </div>
-            ) : (
+            ) : budgetForm.watch('scope') === 'group' ? (
               <div>
                 <Label className="text-slate-300 text-xs mb-1 block">Category Group *</Label>
                 <Controller
@@ -1335,7 +1454,7 @@ export const SpendingPage: React.FC = () => {
                   </p>
                 )}
               </div>
-            )}
+            ) : null}
 
             <div className="grid grid-cols-2 gap-3">
               <div>

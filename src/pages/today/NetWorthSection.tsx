@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { financeService } from '../../services/finance';
 import { queryKeys } from '../../lib/queryKeys';
@@ -43,7 +43,11 @@ export const NetWorthSection: React.FC<NetWorthSectionProps> = ({
   valuationStatus,
   snapshotDate,
 }) => {
-  const [period, setPeriod] = useState<SwitchPeriod>('week');
+  const [searchParams] = useSearchParams();
+  const requestedPeriod = searchParams.get('period');
+  const initialPeriod: SwitchPeriod =
+    requestedPeriod === 'day' || requestedPeriod === 'month' ? requestedPeriod : 'week';
+  const [period, setPeriod] = useState<SwitchPeriod>(initialPeriod);
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.finance.periodChange(period),
     queryFn: () => financeService.getPeriodChange(period),
