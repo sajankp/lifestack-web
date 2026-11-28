@@ -117,9 +117,11 @@ export const InvestingHeaderStrip: React.FC<InvestingHeaderStripProps> = ({
           <div
             data-testid="investing-period-change"
             className={`mt-1 text-lg font-bold ${
-              changeAmount != null && toNumber(changeAmount) < 0
-                ? 'text-rose-300'
-                : 'text-emerald-300'
+              changeAmount == null || change.isError
+                ? 'text-slate-400'
+                : toNumber(changeAmount) < 0
+                  ? 'text-rose-300'
+                  : 'text-emerald-300'
             }`}
           >
             {change.isError
