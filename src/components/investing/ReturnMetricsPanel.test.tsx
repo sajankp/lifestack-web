@@ -94,6 +94,58 @@ describe('ReturnMetricsPanel', () => {
     expect(screen.queryByText(/XIRR/)).not.toBeInTheDocument();
   });
 
+  it('labels the headline figure and the gain rows in plain words', async () => {
+    mockReturns({
+      currency: 'USD',
+      valuation_status: 'current',
+      overall: scope({
+        xirr: '0.1250',
+        annualized_return_pct: '12.10',
+        annualization_reliable: true,
+        holding_days: 730,
+        total_return_pct: '25.00',
+        open: positionBlock({
+          invested: '1000',
+          annualization_reliable: true,
+          xirr: '0.1250',
+          total_return_pct: '25.00',
+          holding_days: 730,
+          realized: '40',
+          unrealized: '210',
+        }),
+      }),
+      by_account: [],
+      by_currency: [],
+    });
+    renderWithQuery(<ReturnMetricsPanel currencyDisplayPreference="code" />);
+    expect(await screen.findByTestId('investing-return-label')).toHaveTextContent(
+      'Annualised return (XIRR)',
+    );
+    expect(screen.getByText('Gain on what you hold now')).toBeInTheDocument();
+    expect(screen.getByText('Gain already booked (sold)')).toBeInTheDocument();
+  });
+
+  it('says "not annualised" for a sub-year span and does not repeat the figure under the headline', async () => {
+    mockReturns({
+      currency: 'USD',
+      valuation_status: 'current',
+      overall: scope({
+        annualization_reliable: false,
+        holding_days: 20,
+        total_return_pct: '0.40',
+        open: positionBlock({ invested: '1000', total_return_pct: '0.40', holding_days: 20 }),
+      }),
+      by_account: [],
+      by_currency: [],
+    });
+    renderWithQuery(<ReturnMetricsPanel currencyDisplayPreference="code" />);
+    expect(await screen.findByTestId('investing-return-label')).toHaveTextContent(
+      'Return since you bought (not annualised)',
+    );
+    // The old nested block printed "0.4% · held 20d" a second time.
+    expect(screen.getAllByText(/0\.4%/)).toHaveLength(1);
+  });
+
   it('normalizes a rounded negative-zero XIRR display (#188)', async () => {
     mockReturns({
       currency: 'USD',

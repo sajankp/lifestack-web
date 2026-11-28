@@ -48,25 +48,84 @@ beforeAll(() => {
 });
 
 describe('InvestingPage', () => {
-  it('collapses the return metrics / valuation block behind a toggle (phones) and expands it on demand', async () => {
+  it('offers Holdings, Orders, Performance, Exposure and Tax & dates', async () => {
+    renderAtPath(<InvestingPage />, '/investing/holdings');
+    await screen.findByTestId('investing-header-strip');
+
+    const labels = screen.getAllByRole('tab').map((tab) => tab.textContent);
+    expect(labels).toEqual(['Holdings', 'Orders', 'Performance', 'Exposure', 'Tax & dates']);
+    expect(screen.queryByTestId('investing-tab-analytics')).not.toBeInTheDocument();
+  });
+
+  it('sends the old Analytics path to Performance', async () => {
+    renderAtPath(<InvestingPage />, '/investing/analytics');
+
+    expect(await screen.findByTestId('investing-performance')).toBeInTheDocument();
+    expect(screen.getByTestId('investing-tab-performance')).toHaveAttribute('data-state', 'active');
+  });
+
+  it('sends the old ?tab=analytics link to Performance', async () => {
+    renderAtPath(<InvestingPage />, '/investing/holdings?tab=analytics');
+
+    expect(await screen.findByTestId('investing-performance')).toBeInTheDocument();
+  });
+
+  it('opens Exposure on its own route', async () => {
+    renderAtPath(<InvestingPage />, '/investing/exposure');
+
+    expect(await screen.findByTestId('investing-exposure')).toBeInTheDocument();
+    expect(screen.queryByTestId('investing-performance')).not.toBeInTheDocument();
+  });
+
+  it('shows one header strip and keeps currency and FX detail behind a disclosure', async () => {
+    server.use(
+      http.get('*/v1/finance/period-change', ({ request }) =>
+        HttpResponse.json({
+          status: 'complete',
+          start_date: '2026-11-22',
+          end_date: '2026-11-29',
+          currency: 'USD',
+          net_worth: { start: null, end: null, change: null, saved: null, markets_and_other: null },
+          investments: {
+            start: '9000.00',
+            end: '10000.00',
+            change: new URL(request.url).searchParams.get('period') === 'day' ? '50.00' : '1000.00',
+            new_money: '400.00',
+            growth: '600.00',
+          },
+        }),
+      ),
+    );
     renderAtPath(<InvestingPage />, '/investing/holdings');
 
-    const toggle = await screen.findByTestId('investing-details-toggle');
-    const details = document.getElementById('investing-details');
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    // Hidden below lg, always shown from lg up (Tailwind classes; jsdom has no CSS).
-    expect(details).toHaveClass('hidden', 'lg:block');
+    const strip = await screen.findByTestId('investing-header-strip');
+    expect(within(strip).getByTestId('investing-portfolio-value')).toBeInTheDocument();
+    expect(within(strip).getByTestId('investing-total-gain-loss')).toBeInTheDocument();
+    expect(within(strip).getByTestId('investing-cash-total')).toBeInTheDocument();
+    expect(screen.getAllByTestId('investing-valuation-line')).toHaveLength(1);
 
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(details).toHaveClass('block');
-    expect(details).not.toHaveClass('hidden');
-    expect(
-      within(details as HTMLElement).getByTestId('investing-reporting-currency'),
-    ).toBeInTheDocument();
+    // Week is the default; the split is "new money" and "growth".
+    expect(screen.getByTestId('investing-period-week')).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() =>
+      expect(screen.getByTestId('investing-period-change')).toHaveTextContent('+$1,000.00'),
+    );
+    expect(screen.getByTestId('investing-period-split')).toHaveTextContent('$400.00 new money');
+    expect(screen.getByTestId('investing-period-split')).toHaveTextContent('$600.00 growth');
 
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(screen.getByTestId('investing-period-day'));
+    await waitFor(() =>
+      expect(screen.getByTestId('investing-period-change')).toHaveTextContent('+$50.00'),
+    );
+
+    // Currency and FX detail stays available, collapsed by default.
+    const details = screen.getByTestId('investing-currency-details');
+    expect(details).not.toHaveAttribute('open');
+    expect(within(details).getByTestId('investing-reporting-currency')).toBeInTheDocument();
+
+    // The old cards are gone.
+    expect(screen.queryByTestId('investing-invested-value')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('investing-daily-change')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('investing-details-toggle')).not.toBeInTheDocument();
   });
 
   it('shows valuation status and N/A totals for multi-currency unconverted summary', async () => {
@@ -145,10 +204,9 @@ describe('InvestingPage', () => {
     expect(screen.getByText(/Multiple currencies detected/)).toBeInTheDocument();
     expect(screen.getByText('Not configured')).toBeInTheDocument();
     expect(screen.getByTestId('investing-portfolio-value')).toHaveTextContent('N/A');
-    expect(screen.getByTestId('investing-daily-change')).toHaveTextContent('—');
-    expect(screen.getByTestId('investing-daily-change')).toHaveAttribute(
-      'title',
-      'Unavailable until a previous-day snapshot exists.',
+    // No period change could be loaded: the strip shows a dash, not a made-up zero.
+    await waitFor(() =>
+      expect(screen.getByTestId('investing-period-change')).toHaveTextContent('—'),
     );
 
     const holdingsHeading = screen.getByTestId('investing-holdings-heading');
@@ -162,12 +220,10 @@ describe('InvestingPage', () => {
       'sm:flex-row',
     );
 
-    const analyticsTab = screen.getByTestId('investing-tab-analytics');
-    analyticsTab.focus();
-    fireEvent.keyDown(analyticsTab, { key: 'Enter', code: 'Enter' });
-    // Create Instrument / Seed Constituents moved behind an Advanced
-    // disclosure (UX-REVIEW D5), so the heading row is just the title now.
-    expect(await screen.findByTestId('investing-analytics-heading')).toHaveTextContent('Analytics');
+    const performanceTab = screen.getByTestId('investing-tab-performance');
+    performanceTab.focus();
+    fireEvent.keyDown(performanceTab, { key: 'Enter', code: 'Enter' });
+    expect(await screen.findByTestId('investing-performance')).toBeInTheDocument();
 
     // First-run: empty Holdings links straight into the order flow instead
     // of leaving the user to hunt for "Place Order" on another tab.
@@ -434,9 +490,9 @@ describe('InvestingPage', () => {
     renderWithQuery(<InvestingPage />);
 
     await screen.findByText('Investing');
-    const analyticsTab = await screen.findByRole('tab', { name: 'Analytics' });
-    analyticsTab.focus();
-    fireEvent.keyDown(analyticsTab, { key: 'Enter', code: 'Enter' });
+    const exposureTab = await screen.findByRole('tab', { name: 'Exposure' });
+    exposureTab.focus();
+    fireEvent.keyDown(exposureTab, { key: 'Enter', code: 'Enter' });
 
     expect(await screen.findByText('Exposure (Look-through)')).toBeInTheDocument();
     expect(await screen.findByText('Overlap')).toBeInTheDocument();
@@ -1342,12 +1398,10 @@ describe('InvestingPage', () => {
     // Verify converted table footer totals:
     // Book Cost: 10 * 150 (USD) + 20 * 80 * 0.73 (CAD -> USD) = 1500 + 1168 = 2668.00 USD
     // Current Value: 10 * 180 (USD) + 20 * 90 * 0.73 (CAD -> USD) = 1800 + 1314 = 3114.00 USD
-    expect(screen.getByTestId('investing-invested-value')).toHaveTextContent('$2,668.00');
     expect(screen.getAllByText('$3,114.00').length).toBe(2);
 
-    // Verify Portfolio value card uses performance summary current market value and contains the snapshot date
-    const portfolioCardHeader = screen.getByText(/Portfolio value \(as of 2026-06-13\)/i);
-    expect(portfolioCardHeader).toBeInTheDocument();
+    // The strip's Value uses the performance summary's market value; the badge carries the date.
+    expect(screen.getByTestId('investing-valuation-line')).toHaveTextContent(/13-Jun-2026/);
 
     const portfolioCardValue = screen.getByTestId('investing-portfolio-value');
     expect(portfolioCardValue).toHaveTextContent('$3,114.00');
@@ -2213,7 +2267,7 @@ describe('InvestingPage', () => {
     expect(zerodhaRow).toHaveTextContent('Zerodha');
   });
 
-  it('surfaces dividend recording and history on the Analytics tab', async () => {
+  it('surfaces dividend recording and history on the Performance tab', async () => {
     server.use(
       http.get('*/v1/investing/holdings', () =>
         HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
@@ -2303,9 +2357,9 @@ describe('InvestingPage', () => {
       ),
     );
 
-    renderAtPath(<InvestingPage />, '/investing/analytics');
+    renderAtPath(<InvestingPage />, '/investing/performance');
 
-    expect(await screen.findByTestId('investing-analytics-heading')).toBeInTheDocument();
+    expect(await screen.findByTestId('investing-performance')).toBeInTheDocument();
     expect(await screen.findByText(/Dividends/)).toBeInTheDocument();
     expect(screen.getByText('TCS')).toBeInTheDocument();
   });

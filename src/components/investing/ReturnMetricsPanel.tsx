@@ -28,8 +28,6 @@ function formatHoldingPeriod(days: number | null | undefined): string {
 const PositionBlock: React.FC<{
   title: string;
   metrics: PositionMetrics;
-  annualizationReliable: boolean;
-  holdingDays: number | null;
   currency: string;
   currencyDisplayPreference: 'symbol' | 'code';
   locale: string;
@@ -38,8 +36,6 @@ const PositionBlock: React.FC<{
 }> = ({
   title,
   metrics,
-  annualizationReliable,
-  holdingDays,
   currency,
   currencyDisplayPreference,
   locale,
@@ -48,22 +44,9 @@ const PositionBlock: React.FC<{
 }) => (
   <div className="rounded-xl border border-slate-700/50 bg-slate-800/40 p-4">
     <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">{title}</p>
-    <p className="mt-2 text-xl font-bold text-white">
-      {annualizationReliable && metrics.annualized_return_pct != null
-        ? `${toNumber(metrics.annualized_return_pct).toFixed(1)}% p.a.`
-        : metrics.total_return_pct != null
-          ? `${toNumber(metrics.total_return_pct).toFixed(1)}%${
-              holdingDays != null ? ` · held ${formatHoldingPeriod(holdingDays)}` : ''
-            }`
-          : 'N/A'}
-    </p>
-    {/* XIRR is annualized by definition — suppressed for sub-year spans (INV-7). */}
-    {annualizationReliable && (
-      <p className="mt-1 text-xs text-slate-500">XIRR: {formatXirr(metrics.xirr)}</p>
-    )}
-    <div className="mt-3 space-y-1 text-sm">
+    <div className="mt-2 space-y-1 text-sm">
       <div className="flex justify-between">
-        <span className="text-slate-400">Realized</span>
+        <span className="text-slate-400">Gain already booked (sold)</span>
         <span className={toNumber(metrics.realized) >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
           {formatCurrency(
             metrics.realized,
@@ -76,7 +59,7 @@ const PositionBlock: React.FC<{
       </div>
       {showUnrealized && (
         <div className="flex justify-between">
-          <span className="text-slate-400">Unrealized</span>
+          <span className="text-slate-400">Gain on what you hold now</span>
           <span
             className={toNumber(metrics.unrealized) >= 0 ? 'text-emerald-400' : 'text-rose-400'}
           >
@@ -132,7 +115,12 @@ export const ReturnMetricsPanel: React.FC<ReturnMetricsPanelProps> = ({
           <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
             Portfolio returns (all positions)
           </h3>
-          <p className="mt-1 text-2xl font-bold text-white" data-testid="investing-xirr-overall">
+          <p className="mt-1 text-xs text-slate-400" data-testid="investing-return-label">
+            {overall.annualization_reliable && overall.annualized_return_pct != null
+              ? 'Annualised return (XIRR)'
+              : 'Return since you bought (not annualised)'}
+          </p>
+          <p className="mt-0.5 text-2xl font-bold text-white" data-testid="investing-xirr-overall">
             {overall.annualization_reliable && overall.annualized_return_pct != null
               ? `${toNumber(overall.annualized_return_pct).toFixed(1)}% p.a. (XIRR ${formatXirr(
                   overall.xirr,
@@ -185,8 +173,6 @@ export const ReturnMetricsPanel: React.FC<ReturnMetricsPanelProps> = ({
         <PositionBlock
           title={segment === 'open' ? 'Current holdings' : 'Exited positions'}
           metrics={segmentMetrics}
-          annualizationReliable={segmentMetrics.annualization_reliable}
-          holdingDays={segmentMetrics.holding_days}
           currency={currency}
           currencyDisplayPreference={currencyDisplayPreference}
           locale={locale}
