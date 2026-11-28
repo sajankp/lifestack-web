@@ -309,6 +309,98 @@ describe('DashboardPage', () => {
     expect(screen.queryByTestId('dashboard-cue-valuation-alert')).not.toBeInTheDocument();
   });
 
+  const summaryWithValuation = (status: string, snapshotDate: string | null) =>
+    http.get('*/v1/dashboard/summary', () =>
+      HttpResponse.json({
+        todos: {
+          open_count: 0,
+          overdue_count: 0,
+          next_due_items: [],
+          active_guardrail_todo_count: 0,
+        },
+        spending: { month_spent: '0.00', budget_spotlight: [], top_overspent_categories: [] },
+        investing: {
+          portfolio_value: '100.00',
+          daily_change: null,
+          holdings_count: 1,
+          valuation_status: status,
+          snapshot_date: snapshotDate,
+        },
+        system: { generated_at: '2026-05-24T10:00:00Z' },
+      }),
+    );
+
+  const quietPageRequests = () => [
+    http.get('*/v1/finance/settings/user', () =>
+      HttpResponse.json({
+        effective_locale: 'en-US',
+        effective_decimal_places: 2,
+        effective_currency_display_preference: 'symbol',
+      }),
+    ),
+    http.get('*/v1/finance/accounts', () =>
+      HttpResponse.json({ items: [], total: 0, limit: 1, offset: 0 }),
+    ),
+    http.get('*/v1/todo/', () => HttpResponse.json({ items: [], total: 0, limit: 1, offset: 0 })),
+    http.get('*/v1/spending/transactions', () =>
+      HttpResponse.json({ items: [], total: 0, limit: 1, offset: 0 }),
+    ),
+    http.get('*/v1/spending/kpis', () =>
+      HttpResponse.json({ items: [], total: 0, limit: 20, offset: 0 }),
+    ),
+    http.get('*/v1/notifications/push-subscriptions', () => HttpResponse.json([])),
+  ];
+
+  it('says "Some prices are estimates (updated <date>)" for an estimated valuation', async () => {
+    server.use(
+      emptyNotifications(),
+      allClearBriefing(),
+      summaryWithValuation('estimated', '2026-05-23'),
+      ...quietPageRequests(),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    const alert = await screen.findByTestId('dashboard-cue-valuation-alert');
+    expect(alert).toHaveTextContent('Some prices are estimates (updated 23-May-2026)');
+    expect(alert).not.toHaveTextContent(/valuation status is/i);
+    expect(alert).not.toHaveTextContent("'estimated'");
+  });
+
+  it('drops the date when the snapshot has none', async () => {
+    server.use(
+      emptyNotifications(),
+      allClearBriefing(),
+      summaryWithValuation('estimated', null),
+      ...quietPageRequests(),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    const alert = await screen.findByTestId('dashboard-cue-valuation-alert');
+    expect(alert).toHaveTextContent('Some prices are estimates.');
+    expect(alert).not.toHaveTextContent('updated');
+  });
+
+  it.each([
+    ['cost_basis_fallback', /shown at cost/i],
+    ['multi_currency_unconverted', /other currencies/i],
+    ['conversion_required', /other currencies/i],
+  ])('never shows the raw status "%s" to the user', async (status, wording) => {
+    server.use(
+      emptyNotifications(),
+      allClearBriefing(),
+      summaryWithValuation(status, '2026-05-23'),
+      ...quietPageRequests(),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    const alert = await screen.findByTestId('dashboard-cue-valuation-alert');
+    expect(alert).toHaveTextContent(wording);
+    expect(alert.textContent).not.toContain(status);
+  });
+
   it('renders the overspent-budgets cue from the real API shape (numeric category_id)', async () => {
     // The API returns top_overspent_categories as
     // { category_id: <int>, spent, budget, overspend, ratio } (workflows.py).

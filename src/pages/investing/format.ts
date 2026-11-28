@@ -1,5 +1,6 @@
 import { toNumber, formatCurrency } from '../../utils/numberFormat';
-import { formatDateInputValue, formatDateTimeInputValue } from '../../utils/dateFormat';
+import { formatDate, formatDateInputValue, formatDateTimeInputValue } from '../../utils/dateFormat';
+import { valuationNote } from '../../utils/valuationWording';
 import type { Holding, InstrumentType } from '../../types/investing';
 
 export const formatDateInput = formatDateInputValue;
@@ -76,3 +77,34 @@ export const instrumentTypeOptions = [
 ] as const;
 
 export type SortDir = 'asc' | 'desc';
+
+const NEEDS_CONVERSION = new Set(['multi_currency_unconverted', 'conversion_required']);
+
+/**
+ * The single valuation line on Investments (spec-113 §2.2). Two statuses feed it, the summary's
+ * currency-conversion state and the performance snapshot's price quality, and they are folded into
+ * one ladder so the page can never show "Converted totals available" next to "estimated".
+ *
+ * Precedence: nothing to value -> a conversion step the user must take -> estimated prices ->
+ * the as-of date.
+ */
+export const valuationLine = ({
+  summaryStatus,
+  performanceStatus,
+  snapshotDate,
+}: {
+  summaryStatus: string | undefined;
+  performanceStatus: string | undefined;
+  snapshotDate: string | null | undefined;
+}): string => {
+  if (summaryStatus === 'empty' || (performanceStatus === 'empty' && !snapshotDate)) {
+    return statusLabel('empty');
+  }
+  if (summaryStatus && NEEDS_CONVERSION.has(summaryStatus)) {
+    return statusLabel(summaryStatus);
+  }
+  const estimate = valuationNote(performanceStatus, snapshotDate);
+  if (estimate) return estimate;
+  const date = formatDate(snapshotDate, { fallback: '' });
+  return date ? `Valuation as of ${date}` : 'Valuation date unavailable';
+};

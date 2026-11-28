@@ -30,6 +30,7 @@ import {
   toNumber,
 } from '../utils/numberFormat';
 import { formatDateTime } from '../utils/dateFormat';
+import { valuationNote } from '../utils/valuationWording';
 import { queryKeys } from '../lib/queryKeys';
 import { useWorkspaceStore } from '../store/workspaceStore';
 
@@ -431,8 +432,10 @@ export const DashboardPage: React.FC = () => {
                     <div className="flex-1">
                       <p className="font-semibold text-blue-100">Valuation Alert</p>
                       <p className="mt-1 text-sm text-blue-300/90">
-                        Portfolio valuation status is '{data.investing.valuation_status}'. Some
-                        asset holdings or exchange rates may not reflect real-time prices.
+                        {valuationNote(
+                          data.investing.valuation_status,
+                          data.investing.snapshot_date,
+                        )}
                       </p>
                     </div>
                     <ArrowRight className="h-4 w-4 shrink-0 mt-0.5 text-blue-400" />

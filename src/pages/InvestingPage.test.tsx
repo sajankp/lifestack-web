@@ -2589,3 +2589,78 @@ describe('InvestingPage', () => {
     expect(rows[1]).toHaveTextContent('RELIANCE');
   });
 });
+
+describe('InvestingPage valuation line (spec-113 §2.2)', () => {
+  const useHandlers = (summaryStatus: string, performanceStatus: string, snapshotDate: string) =>
+    server.use(
+      http.get('*/v1/investing/holdings', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/investing/cash-balances', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/currencies', () => HttpResponse.json([])),
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          reporting_currency_override_code: null,
+          currency_display_preference_override: null,
+          workspace_reporting_currency_code: 'INR',
+          workspace_currency_display_preference: 'symbol',
+          effective_reporting_currency_code: 'INR',
+          effective_currency_display_preference: 'symbol',
+          updated_at: '2026-05-24T00:00:00Z',
+        }),
+      ),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: '1000.00',
+          holdings_count: 1,
+          cash_total: '0.00',
+          currency_breakdown: { INR: '1000.00' },
+          daily_change: null,
+          reporting_currency: 'INR',
+          valuation_status: summaryStatus,
+        }),
+      ),
+      http.get('*/v1/investing/performance/summary', () =>
+        HttpResponse.json({
+          total_value: '1000',
+          total_cost: '900',
+          total_gain_loss: '100',
+          total_gain_loss_pct: '11.1',
+          snapshot_date: snapshotDate,
+          currency: 'INR',
+          valuation_status: performanceStatus,
+        }),
+      ),
+      http.get('*/v1/investing/instruments', () => HttpResponse.json([])),
+    );
+
+  it('shows one line, so the status and the "estimated" note cannot contradict each other', async () => {
+    useHandlers('converted_available', 'estimated', '2026-05-24');
+
+    renderWithQuery(<InvestingPage />);
+
+    const line = await screen.findByText('Some prices are estimates (updated 24-May-2026).');
+    expect(line).toHaveAttribute('data-testid', 'investing-valuation-line');
+    expect(screen.getAllByTestId('investing-valuation-line')).toHaveLength(1);
+    expect(screen.queryByText(/Valuation status/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Converted totals available/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Valuation as of/)).not.toBeInTheDocument();
+  });
+
+  it('shows just the as-of date when the valuation is current', async () => {
+    useHandlers('single_currency_native', 'current', '2026-05-24');
+
+    renderWithQuery(<InvestingPage />);
+
+    expect(await screen.findByText('Valuation as of 24-May-2026')).toHaveAttribute(
+      'data-testid',
+      'investing-valuation-line',
+    );
+    expect(screen.queryByText(/Valuation status/)).not.toBeInTheDocument();
+  });
+});
