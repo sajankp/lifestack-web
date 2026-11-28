@@ -56,6 +56,9 @@ describe('MobileBottomNav', () => {
     expect(screen.getByTestId('nav-portfolio-mobile-bottom')).toHaveAttribute('href', '/portfolio');
     expect(screen.getByTestId('nav-todo-mobile-bottom')).toHaveAttribute('href', '/todo');
     expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument();
+    // Health lives under More, so the bar has exactly five items.
+    expect(screen.queryByTestId('nav-health-mobile-bottom')).not.toBeInTheDocument();
+    expect(screen.getByTestId('mobile-bottom-nav').children).toHaveLength(5);
   });
 });
 

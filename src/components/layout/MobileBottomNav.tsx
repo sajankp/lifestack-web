@@ -2,6 +2,9 @@ import { NavLink } from 'react-router';
 import { MoreHorizontal } from 'lucide-react';
 import { NAV_LINKS } from './constants';
 
+// Health and Settings sit under More on phones (spec-113 §4.3).
+const BOTTOM_LINKS = NAV_LINKS.filter((link) => link.to !== '/health');
+
 interface MobileBottomNavProps {
   onMore: () => void;
 }
@@ -11,9 +14,9 @@ export function MobileBottomNav({ onMore }: MobileBottomNavProps) {
     <nav
       aria-label="Primary navigation"
       data-testid="mobile-bottom-nav"
-      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-slate-800 bg-slate-950/95 px-1 pb-[env(safe-area-inset-bottom)] pt-1 backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-slate-800 bg-slate-950/95 px-1 pb-[env(safe-area-inset-bottom)] pt-1 backdrop-blur md:hidden"
     >
-      {NAV_LINKS.map(({ to, label, testId, icon: Icon }) => (
+      {BOTTOM_LINKS.map(({ to, label, testId, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}

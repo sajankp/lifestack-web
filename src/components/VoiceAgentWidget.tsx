@@ -147,6 +147,8 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
   // size in sync with the button's h-12/h-14 (sm) breakpoint below so the
   // drag-clamp math matches the rendered footprint.
   const launcherSize = isMobileViewport ? 48 : 56;
+  // spec-113 §4.3: on phones the bottom navigation bar (about 64px) must stay uncovered.
+  const bottomInset = isMobileViewport ? 72 : 0;
   const panelWidth = isMobileViewport ? Math.max(320, viewportWidth - viewportMargin * 2) : 384;
   const panelHeight = isMobileViewport ? Math.min(560, Math.max(420, viewportHeight * 0.72)) : 600;
   const launcherStorageKey = 'voice-agent-launcher-pos-v1';
@@ -161,11 +163,11 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
         ),
         y: Math.min(
           Math.max(viewportMargin, position.y),
-          window.innerHeight - launcherSize - viewportMargin,
+          window.innerHeight - launcherSize - viewportMargin - bottomInset,
         ),
       };
     },
-    [launcherSize, viewportMargin],
+    [bottomInset, launcherSize, viewportMargin],
   );
 
   const getDefaultLauncherPos = () =>
@@ -177,7 +179,7 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
       y:
         typeof window === 'undefined'
           ? viewportMargin
-          : window.innerHeight - launcherSize - viewportMargin,
+          : window.innerHeight - launcherSize - viewportMargin - bottomInset,
     });
 
   const snapLauncherPos = (position: { x: number; y: number }) => {
@@ -187,14 +189,17 @@ export const VoiceAgentWidget: React.FC<{ hidden?: boolean }> = ({ hidden = fals
     const left = clamped.x - viewportMargin;
     const right = window.innerWidth - launcherSize - viewportMargin - clamped.x;
     const top = clamped.y - viewportMargin;
-    const bottom = window.innerHeight - launcherSize - viewportMargin - clamped.y;
+    const bottom = window.innerHeight - launcherSize - viewportMargin - bottomInset - clamped.y;
 
     const nearest = Math.min(left, right, top, bottom);
     if (nearest === left) return { x: viewportMargin, y: clamped.y };
     if (nearest === right)
       return { x: window.innerWidth - launcherSize - viewportMargin, y: clamped.y };
     if (nearest === top) return { x: clamped.x, y: viewportMargin };
-    return { x: clamped.x, y: window.innerHeight - launcherSize - viewportMargin };
+    return {
+      x: clamped.x,
+      y: window.innerHeight - launcherSize - viewportMargin - bottomInset,
+    };
   };
 
   const [isRecording, setIsRecording] = useState(false);

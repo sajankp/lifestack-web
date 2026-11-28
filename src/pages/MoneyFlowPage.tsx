@@ -639,7 +639,6 @@ export const MoneyFlowPage: React.FC = () => {
         <div className="space-y-6">
           {isAccountsView && (
             <>
-              <h2 className="text-base font-semibold text-white">Accounts</h2>
               {/* Visual 3-Lane Account Map */}
               <AccountMap
                 accounts={accounts}
