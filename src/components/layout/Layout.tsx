@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Link, NavLink } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, Building2, ChevronDown, Menu, Plus, UserCircle2 } from 'lucide-react';
+import { Bell, Building2, ChevronDown, Plus, UserCircle2 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { authService } from '../../services/auth';
@@ -10,6 +10,7 @@ import { VoiceAgentWidget } from '../VoiceAgentWidget';
 import { useActiveWorkspace } from '../../hooks/useActiveWorkspace';
 import { resetAnalyticsIdentity } from '../../lib/analytics';
 import { Sidebar } from './Sidebar';
+import { MobileBottomNav } from './MobileBottomNav';
 import { MobileNavDrawer } from './MobileNavDrawer';
 import { ROLE_BADGE } from './constants';
 import { defaultSidebarCollapsed } from './sidebarDefault';
@@ -159,18 +160,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         {/* Top header */}
         <header className="border-b border-slate-800/60 py-3">
           <div className="mx-auto w-full max-w-[var(--max-content-width)] px-[var(--page-padding-x)] flex items-center justify-between gap-3">
-            {/* Left: hamburger (mobile) + workspace badge */}
             <div className="flex items-center gap-3 min-w-0">
-              {/* Mobile hamburger */}
-              <button
-                data-testid="nav-mobile-open"
-                onClick={() => setMobileNavOpen(true)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white md:hidden"
-                aria-label="Open navigation"
-              >
-                <Menu className="h-4 w-4" />
-              </button>
-
               {/* Workspace badge */}
               {workspace ? (
                 <div className="hidden min-w-0 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm sm:inline-flex">
@@ -323,6 +313,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         {/* Page content. Bottom padding keeps the last row clear of the floating capture button. */}
         <div className="min-w-0 flex-1 pb-20">{children}</div>
       </main>
+      <MobileBottomNav onMore={() => setMobileNavOpen(true)} />
       {/* Keyed by workspace so a switch remounts the widget and clears its
           WebSocket/message-history/resumption-handle state instead of leaking
           it into the new workspace (spec-079 Stage B review finding). */}

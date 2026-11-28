@@ -384,9 +384,12 @@ export const BudgetPerformanceResponseSchema = z.object({
 
 export type BudgetPerformanceResponse = z.infer<typeof BudgetPerformanceResponseSchema>;
 
+// A spotlight line is a category budget or a group budget (spec-115): the other side is null.
 export const BudgetSpotlightItemSchema = z.object({
-  category_group_id: z.string().default(''),
-  category_group_name: z.string().default(''),
+  category_group_id: z.string().nullable().default(null),
+  category_group_name: z.string().nullable().default(null),
+  category_id: z.string().nullable().default(null),
+  category_name: z.string().nullable().default(null),
   budget_amount: z.union([z.number(), z.string()]).default(0),
   actual_amount: z.union([z.number(), z.string()]).default(0),
   utilization_pct: z.number().default(0),
@@ -396,6 +399,35 @@ export const BudgetSpotlightItemSchema = z.object({
 });
 
 export type BudgetSpotlightItem = z.infer<typeof BudgetSpotlightItemSchema>;
+
+// The month's single budget answer (spec-115 §2.1), carried by the dashboard summary (spec-113 §3).
+export const MonthBudgetLineSchema = z.object({
+  kind: z.enum(['category', 'group', 'overall']).default('category'),
+  category_id: z.string().nullable().default(null),
+  category_name: z.string().nullable().default(null),
+  category_group_id: z.string().nullable().default(null),
+  category_group_name: z.string().nullable().default(null),
+  limit: z.union([z.number(), z.string()]).default(0),
+  spent: z.union([z.number(), z.string()]).default(0),
+  remaining: z.union([z.number(), z.string()]).default(0),
+  used_pct: z.number().nullable().default(null),
+  status: z.enum(['on_track', 'warning', 'exceeded']).default('on_track'),
+});
+
+export const MonthBudgetStatusSchema = z.object({
+  month: z.string().default(''),
+  as_of: z.string().default(''),
+  lines: z.array(MonthBudgetLineSchema).default([]),
+  overall: MonthBudgetLineSchema.nullable().default(null),
+  covered_spend: z.union([z.number(), z.string()]).default(0),
+  covered_limit: z.union([z.number(), z.string()]).default(0),
+  uncovered_spend: z.union([z.number(), z.string()]).default(0),
+  used_pct: z.number().nullable().default(null),
+  breached_count: z.number().default(0),
+  total_spend: z.union([z.number(), z.string()]).default(0),
+});
+
+export type MonthBudgetStatus = z.infer<typeof MonthBudgetStatusSchema>;
 
 export const SavingsRatePointSchema = z.object({
   month: z.string().default(''),
@@ -583,6 +615,11 @@ export const SpendPacingResponseSchema = z.object({
   discretionary_burn_rate: z.union([z.number(), z.string()]).optional(),
   total_budget: z.union([z.number(), z.string()]).nullable().default(null),
   budget_consumed_pct: z.union([z.number(), z.string()]).nullable().default(null),
+  // spec-115: consumed % compares covered spend with the covered limit; spend in categories
+  // without a budget is reported on its own.
+  covered_spend: z.union([z.number(), z.string()]).optional(),
+  uncovered_spend: z.union([z.number(), z.string()]).optional(),
+  breached_count: z.number().optional(),
   target_pace_pct: z.union([z.number(), z.string()]).optional(),
   pacing_status: z.string().optional(),
   status: z.string().optional(),
@@ -592,5 +629,3 @@ export const SpendPacingResponseSchema = z.object({
 });
 
 export type SpendPacingResponse = z.infer<typeof SpendPacingResponseSchema>;
-
-

@@ -47,6 +47,12 @@ export const InstrumentSchema = z.object({
   ticker: z.string().nullable().default(null),
   isin: z.string().nullable().default(null),
   exchange: z.string().nullable().default(null),
+  /** "IN" | "US" per-holding tax-regime override (spec-099), or null. */
+  exchange_country_override: z.string().nullable().catch(null).default(null),
+  /** Months each purchase stays locked (ELSS: 36); null = no lock-in (spec-113 §5.5). */
+  lock_in_months: z.number().nullable().catch(null).default(null),
+  /** 36 when the name says ELSS / Tax Saver and nothing is set yet. Suggested, never applied. */
+  lock_in_suggestion: z.number().nullable().catch(null).default(null),
   is_active: z.boolean().default(true),
   created_at: z.string().default(''),
   updated_at: z.string().default(''),
@@ -69,6 +75,8 @@ export interface InstrumentUpdate {
   ticker?: string;
   isin?: string;
   exchange?: string;
+  /** Months of lock-in per purchase, or null to clear it. */
+  lock_in_months?: number | null;
 }
 
 export interface InstrumentConstituentInput {
@@ -574,10 +582,6 @@ export const DividendHistoryResponseSchema = z
   });
 export type DividendHistoryResponse = z.infer<typeof DividendHistoryResponseSchema>;
 
-
-
-
-
 // ── Capital gains tax (spec-099) ─────────────────────────────────────────
 
 export const TaxBucketSchema = z.object({
@@ -592,8 +596,33 @@ export const TaxBucketSchema = z.object({
   tax: z.string().default('0'),
   sell_count: z.number().default(0),
   lot_count: z.number().default(0),
+  // spec-114: what loss set-off did to this bucket; taxable_inr is what the rate applies to.
+  set_off_inr: z.string().default('0'),
+  carry_forward_set_off_inr: z.string().default('0'),
+  taxable_inr: z.string().default('0'),
 });
 export type TaxBucket = z.infer<typeof TaxBucketSchema>;
+
+// spec-114: "₹X of <loss_from> set off against <applied_to> at <rate_pct> (a fraction)".
+export const TaxSetOffStepSchema = z.object({
+  loss_from: z.string().default(''),
+  applied_to: z.string().default(''),
+  amount_inr: z.string().default('0'),
+  rate_pct: z.string().default('0'),
+});
+export type TaxSetOffStep = z.infer<typeof TaxSetOffStepSchema>;
+
+export const TaxCarryForwardRowSchema = z.object({
+  public_id: z.string().nullable().catch(null).default(null),
+  applies_to_fy: z.string().default(''),
+  arising_fy: z.string().default(''),
+  term: z.string().default(''),
+  amount_inr: z.string().default('0'),
+  used_inr: z.string().default('0'),
+  remaining_inr: z.string().default('0'),
+  note: z.string().nullable().catch(null).default(null),
+});
+export type TaxCarryForwardRow = z.infer<typeof TaxCarryForwardRowSchema>;
 
 export const TaxFxRateSchema = z.object({
   month: z.string().default(''),
@@ -658,6 +687,17 @@ export const TaxSummarySchema = z.object({
     .array(z.object({ month: z.string().default(''), currency: z.string().default('') }))
     .default([]),
   message: z.string().nullable().catch(null).default(null),
+  unabsorbed_loss: z
+    .object({ short_term: z.string().default('0'), long_term: z.string().default('0') })
+    .default({ short_term: '0', long_term: '0' }),
+  set_off_steps: z.array(TaxSetOffStepSchema).default([]),
+  carry_forward: z
+    .object({
+      used: z.array(TaxCarryForwardRowSchema).default([]),
+      remaining: z.array(TaxCarryForwardRowSchema).default([]),
+      expired: z.array(TaxCarryForwardRowSchema).default([]),
+    })
+    .default({ used: [], remaining: [], expired: [] }),
 });
 export type TaxSummary = z.infer<typeof TaxSummarySchema>;
 

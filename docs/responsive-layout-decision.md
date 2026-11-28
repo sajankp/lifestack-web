@@ -2,8 +2,8 @@
 
 Lifestack uses viewport breakpoints rather than device or user-agent detection.
 
-- Below `768px` (`md`), the application uses the mobile navigation drawer.
-- At `768px` and above, it shows the sidebar and desktop header controls.
+- Below `768px` (`md`), the application uses the five-item bottom navigation: Today, Money, Investments, Tasks, More. More opens secondary destinations (Health and Settings).
+- At `768px` and above, it shows the sidebar and desktop header controls. Between `768px` and `1023px`, the sidebar starts as a five-icon rail; it expands on user request.
 - Below `1024px` (`lg`), wide spending tables use mobile/tablet cards.
 - At `1024px` and above, those tables use the full desktop presentation.
 

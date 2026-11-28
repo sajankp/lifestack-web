@@ -95,7 +95,7 @@ export const ExportsPage: React.FC = () => {
   return (
     <PageShell>
       <PageHero
-        title="Data Exports"
+        title="Export"
         subtitle="Create a workspace export, download it when ready, and delete the artifact when you are done."
         actions={
           <button

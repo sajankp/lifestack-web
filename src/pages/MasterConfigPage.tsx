@@ -276,6 +276,7 @@ export const MasterConfigPage: React.FC = () => {
   const [editingInstrumentTicker, setEditingInstrumentTicker] = useState('');
   const [editingInstrumentIsin, setEditingInstrumentIsin] = useState('');
   const [editingInstrumentExchange, setEditingInstrumentExchange] = useState('');
+  const [editingInstrumentLockIn, setEditingInstrumentLockIn] = useState('');
   const [editInstrumentError, setEditInstrumentError] = useState<string | null>(null);
 
   const [constituentsInstrument, setConstituentsInstrument] = useState<Instrument | null>(null);
@@ -519,6 +520,12 @@ export const MasterConfigPage: React.FC = () => {
     });
   }, [instruments, instrumentTypeFilter, instrumentSearch]);
 
+  const lockInValid =
+    editingInstrumentLockIn === '' ||
+    (/^\d+$/.test(editingInstrumentLockIn) &&
+      Number(editingInstrumentLockIn) >= 1 &&
+      Number(editingInstrumentLockIn) <= 120);
+
   const handleOpenEditInstrument = (inst: Instrument) => {
     setEditingInstrument(inst);
     setEditingInstrumentName(inst.name);
@@ -526,6 +533,7 @@ export const MasterConfigPage: React.FC = () => {
     setEditingInstrumentTicker(inst.ticker ?? '');
     setEditingInstrumentIsin(inst.isin ?? '');
     setEditingInstrumentExchange(inst.exchange ?? '');
+    setEditingInstrumentLockIn(inst.lock_in_months != null ? String(inst.lock_in_months) : '');
     setEditInstrumentError(null);
   };
 
@@ -2753,6 +2761,40 @@ export const MasterConfigPage: React.FC = () => {
                 placeholder="e.g. US78462F1030"
               />
             </div>
+            <div>
+              <Label className="text-xs text-slate-300">Lock-in (months)</Label>
+              <Input
+                data-testid="master-instrument-edit-lock-in"
+                inputMode="numeric"
+                value={editingInstrumentLockIn}
+                onChange={(e) => setEditingInstrumentLockIn(e.target.value.trim())}
+                placeholder="None. ELSS funds are 36"
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                Each purchase stays locked this many months. Locked units are left out of tax
+                harvesting and sale checks.
+              </p>
+              {editingInstrument?.lock_in_suggestion != null && editingInstrumentLockIn === '' && (
+                <button
+                  type="button"
+                  data-testid="master-instrument-lock-in-suggestion"
+                  className="mt-1 text-xs font-medium text-cyan-300 hover:text-cyan-200"
+                  onClick={() =>
+                    setEditingInstrumentLockIn(String(editingInstrument.lock_in_suggestion))
+                  }
+                >
+                  This looks like an ELSS fund. Use {editingInstrument.lock_in_suggestion} months
+                </button>
+              )}
+              {!lockInValid && (
+                <p
+                  className="mt-1 text-xs text-rose-400"
+                  data-testid="master-instrument-lock-in-error"
+                >
+                  Enter a whole number of months from 1 to 120, or leave it empty.
+                </p>
+              )}
+            </div>
             {editInstrumentError && (
               <p className="text-xs text-rose-400" data-testid="master-instrument-edit-error">
                 {editInstrumentError}
@@ -2766,7 +2808,9 @@ export const MasterConfigPage: React.FC = () => {
             <Button
               type="button"
               data-testid="master-instrument-edit-save"
-              disabled={updateInstrumentMutation.isPending || !editingInstrumentName.trim()}
+              disabled={
+                updateInstrumentMutation.isPending || !editingInstrumentName.trim() || !lockInValid
+              }
               onClick={() => {
                 if (!editingInstrument) return;
                 updateInstrumentMutation.mutate({
@@ -2777,6 +2821,8 @@ export const MasterConfigPage: React.FC = () => {
                     ticker: editingInstrumentTicker.trim() || undefined,
                     isin: editingInstrumentIsin.trim() || undefined,
                     exchange: editingInstrumentExchange.trim() || undefined,
+                    lock_in_months:
+                      editingInstrumentLockIn === '' ? null : Number(editingInstrumentLockIn),
                   },
                 });
               }}

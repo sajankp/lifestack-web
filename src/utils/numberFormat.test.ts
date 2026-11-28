@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatCompactNumber, formatCurrency, formatNumber, formatQuantity, normalizeToReportingCurrency } from './numberFormat';
+import {
+  formatCompactNumber,
+  formatCurrency,
+  formatNumber,
+  formatQuantity,
+  normalizeToReportingCurrency,
+} from './numberFormat';
 
 describe('formatCurrency', () => {
   it('defaults to a deterministic en-US locale, not the browser implicit locale', () => {

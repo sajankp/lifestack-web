@@ -12,7 +12,9 @@ const CANDIDATES: HarvestCandidate[] = [
 
 const renderCard = (harvestCandidates: HarvestCandidate[]) =>
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       <HarvestCandidatesCard harvestCandidates={harvestCandidates} />
     </QueryClientProvider>,
   );

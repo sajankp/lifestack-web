@@ -7,7 +7,9 @@ describe('Pagination Component', () => {
     const onPageChange = vi.fn();
     render(<Pagination total={100} limit={25} offset={0} onPageChange={onPageChange} />);
 
-    expect(screen.getByTestId('pagination-summary')).toHaveTextContent('Showing 1 to 25 of 100 results');
+    expect(screen.getByTestId('pagination-summary')).toHaveTextContent(
+      'Showing 1 to 25 of 100 results',
+    );
     expect(screen.getByText('Page 1 of 4')).toBeInTheDocument();
 
     const prevBtn = screen.getByTestId('pagination-prev-btn');
@@ -24,7 +26,9 @@ describe('Pagination Component', () => {
     const onPageChange = vi.fn();
     render(<Pagination total={100} limit={25} offset={50} onPageChange={onPageChange} />);
 
-    expect(screen.getByTestId('pagination-summary')).toHaveTextContent('Showing 51 to 75 of 100 results');
+    expect(screen.getByTestId('pagination-summary')).toHaveTextContent(
+      'Showing 51 to 75 of 100 results',
+    );
     expect(screen.getByText('Page 3 of 4')).toBeInTheDocument();
 
     const prevBtn = screen.getByTestId('pagination-prev-btn');
@@ -79,8 +83,9 @@ describe('Pagination Component', () => {
         onLimitChange={vi.fn()}
       />,
     );
-    expect(screen.getByTestId('pagination-summary')).toHaveTextContent('Showing 1 to 15 of 15 results');
+    expect(screen.getByTestId('pagination-summary')).toHaveTextContent(
+      'Showing 1 to 15 of 15 results',
+    );
     expect(screen.getByTestId('pagination-page-size-select')).toBeInTheDocument();
   });
 });
-

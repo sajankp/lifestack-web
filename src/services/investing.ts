@@ -25,6 +25,17 @@ import {
   PortfolioReportListSchema,
   PortfolioReportSchema,
 } from '../types/investing';
+import {
+  SaleSimulationSchema,
+  TaxDatesResponseSchema,
+  TaxOpportunitiesResponseSchema,
+} from '../types/taxPlanning';
+import type {
+  SaleSimulation,
+  SimulateSaleRequest,
+  TaxDatesResponse,
+  TaxOpportunitiesResponse,
+} from '../types/taxPlanning';
 import type {
   CashBalance,
   CashBalanceCreate,
@@ -274,6 +285,27 @@ export const investingService = {
       params: { fy: fy ?? undefined, account_id: accountId ?? undefined },
     });
     return TaxSummarySchema.parse(response.data);
+  },
+
+  // ── Tax planning (spec-113 §5.4): ways to pay less, dates, before you sell ──
+
+  getTaxOpportunities: async (limit?: number): Promise<TaxOpportunitiesResponse> => {
+    const response = await api.get('/investing/tax/opportunities', {
+      params: { limit: limit ?? undefined },
+    });
+    return TaxOpportunitiesResponseSchema.parse(response.data);
+  },
+
+  getTaxDates: async (horizonDays?: number): Promise<TaxDatesResponse> => {
+    const response = await api.get('/investing/tax/dates', {
+      params: { horizon_days: horizonDays ?? undefined },
+    });
+    return TaxDatesResponseSchema.parse(response.data);
+  },
+
+  simulateSale: async (request: SimulateSaleRequest): Promise<SaleSimulation> => {
+    const response = await api.post('/investing/tax/simulate-sale', request);
+    return SaleSimulationSchema.parse(response.data);
   },
 
   getTaxRegimes: async (): Promise<TaxRegime[]> => {

@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   ArrowRight,
-  ArrowRightLeft,
   Building2,
   ChevronRight,
   CreditCard,
@@ -25,7 +24,6 @@ interface AccountMapProps {
     { totalInvested: number; totalInvestedReporting?: number; holdingsCount: number }
   >;
   onSelectAccount: (accountId: string) => void;
-  onOpenTransfer: (fromAccountId?: string) => void;
   onOpenDividend: (brokerageAccountId?: string) => void;
   onOpenOrder: (brokerageAccountId?: string) => void;
   onOpenCreateAccount: () => void;
@@ -48,7 +46,6 @@ export const AccountMap: React.FC<AccountMapProps> = ({
   balancesReportingByAccountId,
   portfolioByAccountId = {},
   onSelectAccount,
-  onOpenTransfer,
   onOpenDividend,
   onOpenOrder,
   onOpenCreateAccount,
@@ -110,7 +107,7 @@ export const AccountMap: React.FC<AccountMapProps> = ({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h2 className="text-base font-bold text-white">Account Architecture</h2>
+          <h2 className="text-base font-bold text-white">Accounts</h2>
           <p className="text-xs text-slate-400">
             Interactive map of your liquid cash, brokerage balances, and investment holdings
           </p>
@@ -124,15 +121,6 @@ export const AccountMap: React.FC<AccountMapProps> = ({
           >
             <Plus className="h-3.5 w-3.5 text-cyan-400" />
             Add Account
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => onOpenTransfer()}
-            disabled={accounts.length < 2}
-            className="gap-1.5 text-xs bg-cyan-600 hover:bg-cyan-500 text-white shadow-sm"
-          >
-            <ArrowRightLeft className="h-3.5 w-3.5" />
-            Transfer Funds
           </Button>
         </div>
       </div>
@@ -272,17 +260,6 @@ export const AccountMap: React.FC<AccountMapProps> = ({
                     );
                   })
                 )}
-              </div>
-
-              <div className="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onOpenTransfer()}
-                  className="text-xs h-7 text-cyan-400 hover:text-cyan-300 p-0 hover:bg-transparent"
-                >
-                  Transfer between accounts →
-                </Button>
               </div>
             </div>
 

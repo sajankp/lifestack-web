@@ -88,9 +88,7 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
     let outflowSum = 0;
 
     // Filter items belonging to this account
-    const accountEvents = activityItems.filter(
-      (item) => item.account_id === account.public_id,
-    );
+    const accountEvents = activityItems.filter((item) => item.account_id === account.public_id);
 
     // Compute net preceding delta from transactions before current page offset
     let precedingDelta = 0;
@@ -110,7 +108,9 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
 
     // Step backwards from current balance adjusted by preceding delta
     let running = currentBalance - precedingDelta;
-    const withBalances: Array<ActivityFeedItem & { numAmount: number; isPositive: boolean; runningBalance: number }> = [];
+    const withBalances: Array<
+      ActivityFeedItem & { numAmount: number; isPositive: boolean; runningBalance: number }
+    > = [];
 
     for (const item of accountEvents) {
       const isPositive = item.amount.startsWith('+');
@@ -155,9 +155,7 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
   // entry immediately preceding it (newer, on an earlier page) falls on a
   // different calendar day.
   const dailyClosingIds = useMemo(() => {
-    const accountEvents = activityItems.filter(
-      (item) => item.account_id === account.public_id,
-    );
+    const accountEvents = activityItems.filter((item) => item.account_id === account.public_id);
     // The newest entry from the previous page, used only for the
     // page-boundary comparison.
     const precedingNewer = precedingEventsRes.data?.items?.find(
@@ -231,8 +229,7 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
                   onClick={() => onOpenDividend?.(account.public_id)}
                   className="h-9 gap-1.5 border border-slate-700 bg-slate-800/80 text-xs font-medium text-emerald-300 hover:bg-slate-700"
                 >
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  + Dividend
+                  <TrendingUp className="h-3.5 w-3.5" />+ Dividend
                 </Button>
                 <Button
                   variant="secondary"
@@ -240,8 +237,7 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
                   onClick={() => onOpenOrder?.(account.public_id)}
                   className="h-9 gap-1.5 border border-slate-700 bg-slate-800/80 text-xs font-medium text-violet-300 hover:bg-slate-700"
                 >
-                  <LineChart className="h-3.5 w-3.5" />
-                  + Trade
+                  <LineChart className="h-3.5 w-3.5" />+ Trade
                 </Button>
               </>
             ) : (
@@ -279,7 +275,8 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
               <TrendingUp className="h-4 w-4 text-emerald-400" />
             </div>
             <span className="mt-1 block font-mono text-xl font-bold text-emerald-400">
-              +{formatCurrency(
+              +
+              {formatCurrency(
                 totalInflow,
                 account.default_currency_code,
                 displayProfile.currencyDisplay,
@@ -295,7 +292,8 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
               <TrendingDown className="h-4 w-4 text-rose-400" />
             </div>
             <span className="mt-1 block font-mono text-xl font-bold text-slate-300">
-              -{formatCurrency(
+              -
+              {formatCurrency(
                 totalOutflow,
                 account.default_currency_code,
                 displayProfile.currencyDisplay,
@@ -312,12 +310,16 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
           <div>
             <h3 className="text-sm font-semibold text-white">Account Ledger & History</h3>
-            <p className="text-xs text-slate-400">Chronological activity with running balance verification</p>
+            <p className="text-xs text-slate-400">
+              Chronological activity with running balance verification
+            </p>
           </div>
           <span className="text-xs text-slate-500 font-mono">
             {total > limit
               ? `Showing ${offset + 1}-${Math.min(offset + limit, total)} of ${total} entries`
-              : `${itemsWithRunningBalance.length} ${itemsWithRunningBalance.length === 1 ? 'entry' : 'entries'}`}
+              : `${itemsWithRunningBalance.length} ${
+                  itemsWithRunningBalance.length === 1 ? 'entry' : 'entries'
+                }`}
           </span>
         </div>
 
@@ -344,108 +346,108 @@ export const AccountDetailView: React.FC<AccountDetailViewProps> = ({
                 {itemsWithRunningBalance.map((item) => {
                   const isDailyClosing = dailyClosingIds.has(item.id);
                   return (
-                  <tr
-                    key={item.id}
-                    data-daily-close={isDailyClosing ? 'true' : undefined}
-                    data-entry-id={item.id}
-                    className={`transition-colors ${
-                      isDailyClosing
-                        ? 'bg-teal-950/30 ring-1 ring-inset ring-teal-500/20 hover:bg-teal-950/40'
-                        : 'hover:bg-slate-800/30'
-                    }`}
-                  >
-                    <td className="px-4 py-3 whitespace-nowrap text-slate-300 font-mono text-[11px]">
-                      {formatDate(item.date)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-300">
-                        {item.event_type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-200">
-                      <div className="font-medium">{item.description}</div>
-                      {item.counterpart_account_name && (
-                        <div className="text-[11px] text-slate-400">
-                          Counterpart: {item.counterpart_account_name}
-                        </div>
-                      )}
-                    </td>
-                    <td
-                      className={`px-4 py-3 text-right font-mono font-medium whitespace-nowrap ${
-                        item.isPositive ? 'text-emerald-400' : 'text-slate-200'
-                      }`}
-                    >
-                      {item.isPositive ? '+' : '-'}
-                      {formatCurrency(
-                        item.numAmount,
-                        item.currency,
-                        displayProfile.currencyDisplay,
-                        displayProfile.locale,
-                        displayProfile.decimalPlaces,
-                      )}
-                    </td>
-                    <td
-                      className={`px-4 py-3 text-right font-mono font-bold whitespace-nowrap ${
+                    <tr
+                      key={item.id}
+                      data-daily-close={isDailyClosing ? 'true' : undefined}
+                      data-entry-id={item.id}
+                      className={`transition-colors ${
                         isDailyClosing
-                          ? 'text-teal-200 bg-teal-500/10'
-                          : 'text-slate-100 bg-slate-800/10'
+                          ? 'bg-teal-950/30 ring-1 ring-inset ring-teal-500/20 hover:bg-teal-950/40'
+                          : 'hover:bg-slate-800/30'
                       }`}
                     >
-                      <span className="inline-flex items-center gap-2">
+                      <td className="px-4 py-3 whitespace-nowrap text-slate-300 font-mono text-[11px]">
+                        {formatDate(item.date)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-300">
+                          {item.event_type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-200">
+                        <div className="font-medium">{item.description}</div>
+                        {item.counterpart_account_name && (
+                          <div className="text-[11px] text-slate-400">
+                            Counterpart: {item.counterpart_account_name}
+                          </div>
+                        )}
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-right font-mono font-medium whitespace-nowrap ${
+                          item.isPositive ? 'text-emerald-400' : 'text-slate-200'
+                        }`}
+                      >
+                        {item.isPositive ? '+' : '-'}
                         {formatCurrency(
-                          item.runningBalance,
-                          account.default_currency_code,
+                          item.numAmount,
+                          item.currency,
                           displayProfile.currencyDisplay,
                           displayProfile.locale,
                           displayProfile.decimalPlaces,
                         )}
-                        {isDailyClosing && (
-                          <span className="rounded bg-teal-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-teal-200 whitespace-nowrap">
-                            Daily close
-                          </span>
-                        )}
-                      </span>
-                    </td>
-                    {(onEditItem || onDeleteItem) && (
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1">
-                          {item.event_type === 'spend' && onEditItem && (
-                            <button
-                              type="button"
-                              onClick={() => onEditItem(item)}
-                              disabled={isDeletePending}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-cyan-500/10 hover:text-cyan-300 transition-colors disabled:opacity-50"
-                              title="Edit transaction"
-                              aria-label="Edit transaction"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </button>
+                      </td>
+                      <td
+                        className={`px-4 py-3 text-right font-mono font-bold whitespace-nowrap ${
+                          isDailyClosing
+                            ? 'text-teal-200 bg-teal-500/10'
+                            : 'text-slate-100 bg-slate-800/10'
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          {formatCurrency(
+                            item.runningBalance,
+                            account.default_currency_code,
+                            displayProfile.currencyDisplay,
+                            displayProfile.locale,
+                            displayProfile.decimalPlaces,
                           )}
-                          {(item.event_type === 'spend' || item.event_type === 'transfer') &&
-                            onDeleteItem && (
+                          {isDailyClosing && (
+                            <span className="rounded bg-teal-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-teal-200 whitespace-nowrap">
+                              Daily close
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      {(onEditItem || onDeleteItem) && (
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1">
+                            {item.event_type === 'spend' && onEditItem && (
                               <button
                                 type="button"
-                                onClick={() => onDeleteItem(item)}
+                                onClick={() => onEditItem(item)}
                                 disabled={isDeletePending}
-                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
-                                title={
-                                  item.event_type === 'transfer'
-                                    ? 'Delete transfer'
-                                    : 'Delete transaction'
-                                }
-                                aria-label={
-                                  item.event_type === 'transfer'
-                                    ? 'Delete transfer'
-                                    : 'Delete transaction'
-                                }
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-cyan-500/10 hover:text-cyan-300 transition-colors disabled:opacity-50"
+                                title="Edit transaction"
+                                aria-label="Edit transaction"
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Edit2 className="h-3.5 w-3.5" />
                               </button>
                             )}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
+                            {(item.event_type === 'spend' || item.event_type === 'transfer') &&
+                              onDeleteItem && (
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteItem(item)}
+                                  disabled={isDeletePending}
+                                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
+                                  title={
+                                    item.event_type === 'transfer'
+                                      ? 'Delete transfer'
+                                      : 'Delete transaction'
+                                  }
+                                  aria-label={
+                                    item.event_type === 'transfer'
+                                      ? 'Delete transfer'
+                                      : 'Delete transaction'
+                                  }
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
                   );
                 })}
               </tbody>

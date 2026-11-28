@@ -135,9 +135,7 @@ describe('AnalyticsTab', () => {
           return HttpResponse.json([]);
         },
       ),
-      http.get('*/v1/platform/workspaces/', () =>
-        HttpResponse.json({ items: [] }),
-      ),
+      http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [] })),
     );
 
     renderWithQuery(<AnalyticsTab currencyDisplayPreference="symbol" />);
@@ -190,9 +188,7 @@ describe('AnalyticsTab', () => {
       http.patch('*/v1/investing/instruments/instrument-etf-id', () =>
         HttpResponse.json({ detail: 'ticker: required for US ETF' }, { status: 422 }),
       ),
-      http.get('*/v1/platform/workspaces/', () =>
-        HttpResponse.json({ items: [] }),
-      ),
+      http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [] })),
     );
 
     renderWithQuery(<AnalyticsTab currencyDisplayPreference="symbol" />);
@@ -211,11 +207,7 @@ describe('AnalyticsTab', () => {
     // visibly show data -- the number was correct but unscoped (it measures
     // fund decomposition, not whether holdings have data at all).
     mockAnalyticsEndpoints([]);
-    server.use(
-      http.get('*/v1/platform/workspaces/', () =>
-        HttpResponse.json({ items: [] }),
-      ),
-    );
+    server.use(http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [] })));
 
     renderWithQuery(<AnalyticsTab currencyDisplayPreference="symbol" />);
 
@@ -272,9 +264,7 @@ describe('AnalyticsTab', () => {
 
   const mockReportEndpoints = () => {
     server.use(
-      http.get('*/v1/platform/workspaces/', () =>
-        HttpResponse.json({ items: [MOCK_WORKSPACE] }),
-      ),
+      http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [MOCK_WORKSPACE] })),
       http.get('*/v1/investing/portfolio-reports', () =>
         HttpResponse.json({ items: [MOCK_PORTFOLIO_REPORT], total: 1, next_cursor: null }),
       ),
@@ -290,7 +280,9 @@ describe('AnalyticsTab', () => {
     expect(await screen.findByText('Portfolio Report (Latest)')).toBeInTheDocument();
     expect(await screen.findByText('LRS Headroom')).toBeInTheDocument();
     // Currency formatting may vary by locale (en-US: ₹750,000.00 vs en-IN: ₹7,50,000.00)
-    expect(await screen.findByText((content) => content.includes('750') && content.includes('000'))).toBeInTheDocument();
+    expect(
+      await screen.findByText((content) => content.includes('750') && content.includes('000')),
+    ).toBeInTheDocument();
     expect(await screen.findByText('Tax Buckets')).toBeInTheDocument();
     expect(await screen.findByText('Theme Split')).toBeInTheDocument();
     expect(await screen.findByText('Country Split')).toBeInTheDocument();
@@ -300,9 +292,7 @@ describe('AnalyticsTab', () => {
   it('shows the empty state when no report exists yet', async () => {
     mockAnalyticsEndpoints([]);
     server.use(
-      http.get('*/v1/platform/workspaces/', () =>
-        HttpResponse.json({ items: [MOCK_WORKSPACE] }),
-      ),
+      http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [MOCK_WORKSPACE] })),
       http.get('*/v1/investing/portfolio-reports', () =>
         HttpResponse.json({ items: [], total: 0, next_cursor: null }),
       ),
@@ -317,9 +307,7 @@ describe('AnalyticsTab', () => {
   it('shows an error (not the empty state) when the reports request fails', async () => {
     mockAnalyticsEndpoints([]);
     server.use(
-      http.get('*/v1/platform/workspaces/', () =>
-        HttpResponse.json({ items: [MOCK_WORKSPACE] }),
-      ),
+      http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [MOCK_WORKSPACE] })),
       http.get('*/v1/investing/portfolio-reports', () =>
         HttpResponse.json({ detail: 'boom' }, { status: 500 }),
       ),

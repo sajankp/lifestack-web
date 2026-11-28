@@ -59,18 +59,27 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
 
   const currency = pacing.currency || displayCurrency;
   const dailyBurn = toNumber(pacing.daily_burn_rate);
-  const totalSpent = toNumber(pacing.actual_spend ?? pacing.total_spent ?? 0);
+  const allSpend = toNumber(pacing.actual_spend ?? pacing.total_spent ?? 0);
+  // spec-115: budget consumed compares the spend that budgets cover with the covered limit;
+  // spend in categories without a budget is its own line. Older responses carry no split.
+  const totalSpent = pacing.covered_spend != null ? toNumber(pacing.covered_spend) : allSpend;
+  const uncoveredSpend = pacing.uncovered_spend != null ? toNumber(pacing.uncovered_spend) : 0;
 
   const projectedSpend = toNumber(pacing.projected_month_end_spend ?? pacing.projected_spend ?? 0);
   const totalBudget = pacing.total_budget != null ? toNumber(pacing.total_budget) : null;
   const budgetConsumedPct =
     pacing.budget_consumed_pct != null ? toNumber(pacing.budget_consumed_pct) : null;
   const monthElapsedPct = toNumber(pacing.month_progress_pct ?? pacing.month_elapsed_pct ?? 0);
+  // Projection of the covered spend only, so the delta compares like with like.
+  const projectedCovered =
+    pacing.covered_spend != null && pacing.days_elapsed > 0
+      ? (totalSpent / pacing.days_elapsed) * pacing.days_in_month
+      : projectedSpend;
   const pacingDelta =
     pacing.pacing_delta != null
       ? toNumber(pacing.pacing_delta)
       : totalBudget !== null
-        ? projectedSpend - totalBudget
+        ? projectedCovered - totalBudget
         : null;
 
   // Safe daily spend for remaining days to stay on budget
@@ -271,20 +280,30 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
           )}
         </div>
 
+        {uncoveredSpend > 0 ? (
+          <p
+            data-testid="pacing-uncovered-spend"
+            className="mt-3 text-xs font-medium text-slate-300"
+          >
+            {formatCurrency(uncoveredSpend, currency, currencyDisplayPreference)} not covered by a
+            budget
+          </p>
+        ) : null}
+
         {/* Guidance / Actionable Advice Footer */}
         <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-400">
           {totalBudget !== null ? (
             isOverBudget ? (
               <span className="text-rose-300">
-                Runaway burn rate: At your current spend pace of{' '}
+                On pace to spend{' '}
                 <strong className="text-rose-200">
-                  {formatCurrency(dailyBurn, currency, currencyDisplayPreference)}/day
-                </strong>
-                , you are projected to exceed your budget by{' '}
+                  {formatCurrency(projectedSpend, currency, currencyDisplayPreference)}
+                </strong>{' '}
+                this month, which puts your budgeted categories{' '}
                 <strong className="text-rose-200">
                   {formatCurrency(pacingDelta ?? 0, currency, currencyDisplayPreference)}
-                </strong>
-                .
+                </strong>{' '}
+                over their limits.
                 {safeDailyRemaining !== null && safeDailyRemaining > 0 && (
                   <>
                     {' '}
@@ -325,7 +344,7 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
         <div className="mt-4 rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-              Burn Velocity Split
+              Fixed vs. flexible spending
             </span>
             <span className="text-xs text-slate-400">Survival vs Lifestyle</span>
           </div>

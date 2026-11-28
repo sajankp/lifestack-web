@@ -56,7 +56,8 @@ describe('ImportsPage', () => {
 
   it('renders the page and forms', async () => {
     renderWithQuery(<ImportsPage />);
-    expect(await screen.findByText('Bulk Imports')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Import' })).toBeInTheDocument();
+    expect(screen.queryByText('Bulk Imports')).not.toBeInTheDocument();
 
     // Open Modal
     fireEvent.click(screen.getByText('New Import'));
@@ -601,7 +602,9 @@ describe('ImportsPage', () => {
     server.use(
       http.get('*/v1/spending/categories', () =>
         HttpResponse.json({
-          items: [{ public_id: 'cat-food', name: 'Food', icon: null, color: '#64748b', is_system: false }],
+          items: [
+            { public_id: 'cat-food', name: 'Food', icon: null, color: '#64748b', is_system: false },
+          ],
           total: 1,
           limit: 500,
           offset: 0,
@@ -734,7 +737,9 @@ describe('ImportsPage', () => {
     const applyButton = await screen.findByTestId('imports-commit');
     const recoveryHeading = await screen.findByText('Recovery');
     expect(
-      Boolean(applyButton.compareDocumentPosition(recoveryHeading) & Node.DOCUMENT_POSITION_FOLLOWING),
+      Boolean(
+        applyButton.compareDocumentPosition(recoveryHeading) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
     ).toBe(true);
 
     fireEvent.click(applyButton);

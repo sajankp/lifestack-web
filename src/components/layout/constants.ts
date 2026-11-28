@@ -1,15 +1,10 @@
 import {
   LayoutDashboard,
   CheckSquare,
-  Mic,
-  ArrowRightLeft,
   Wallet,
   TrendingUp,
-  FileText,
-  Upload,
-  Download,
-  Settings,
   HeartPulse,
+  Settings,
 } from 'lucide-react';
 
 export const ROLE_BADGE: Record<string, string> = {
@@ -19,19 +14,33 @@ export const ROLE_BADGE: Record<string, string> = {
   viewer: 'bg-slate-700 text-slate-400 border-slate-600',
 };
 
-export type NavSection = 'Overview' | 'Life' | 'Money' | 'Tools';
+export type NavSection = 'Overview' | 'Life' | 'Money';
 
 export const NAV_LINKS = [
   {
     to: '/',
-    label: 'Dashboard',
+    label: 'Today',
     testId: 'nav-dashboard',
     icon: LayoutDashboard,
     section: 'Overview' as NavSection,
   },
   {
+    to: '/money',
+    label: 'Money',
+    testId: 'nav-money',
+    icon: Wallet,
+    section: 'Money' as NavSection,
+  },
+  {
+    to: '/portfolio',
+    label: 'Investments',
+    testId: 'nav-portfolio',
+    icon: TrendingUp,
+    section: 'Money' as NavSection,
+  },
+  {
     to: '/todo',
-    label: 'Todos',
+    label: 'Tasks',
     testId: 'nav-todo',
     icon: CheckSquare,
     section: 'Life' as NavSection,
@@ -43,58 +52,9 @@ export const NAV_LINKS = [
     icon: HeartPulse,
     section: 'Life' as NavSection,
   },
-  {
-    to: '/capture',
-    label: 'Capture',
-    testId: 'nav-capture',
-    icon: Mic,
-    section: 'Life' as NavSection,
-  },
-  {
-    to: '/money',
-    label: 'Money Flow',
-    testId: 'nav-money',
-    icon: ArrowRightLeft,
-    section: 'Money' as NavSection,
-  },
-  {
-    to: '/spending',
-    label: 'Spending',
-    testId: 'nav-spending',
-    icon: Wallet,
-    section: 'Money' as NavSection,
-  },
-  {
-    to: '/portfolio',
-    label: 'Portfolio',
-    testId: 'nav-portfolio',
-    icon: TrendingUp,
-    section: 'Money' as NavSection,
-  },
-  {
-    to: '/summaries',
-    label: 'Weekly Summaries',
-    testId: 'nav-summaries',
-    icon: FileText,
-    section: 'Tools' as NavSection,
-  },
-  {
-    to: '/imports',
-    label: 'Bulk Imports',
-    testId: 'nav-imports',
-    icon: Upload,
-    section: 'Tools' as NavSection,
-  },
-  {
-    to: '/exports',
-    label: 'Data Exports',
-    testId: 'nav-exports',
-    icon: Download,
-    section: 'Tools' as NavSection,
-  },
 ];
 
-export const NAV_SECTIONS: NavSection[] = ['Overview', 'Life', 'Money', 'Tools'];
+export const NAV_SECTIONS: NavSection[] = ['Overview', 'Money', 'Life'];
 
 export const SETTINGS_LINK = {
   to: '/settings',

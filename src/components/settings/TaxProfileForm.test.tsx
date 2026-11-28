@@ -37,9 +37,7 @@ const renderWithQuery = (ui: React.ReactNode) => {
   });
   return render(
     <QueryClientProvider client={client}>
-      <ToastProvider>
-        {ui}
-      </ToastProvider>
+      <ToastProvider>{ui}</ToastProvider>
     </QueryClientProvider>,
   );
 };
@@ -67,7 +65,9 @@ describe('TaxProfileForm', () => {
       expect(screen.getByTestId('tax-form-resident-status')).toHaveTextContent('Resident');
       expect(screen.getByTestId('tax-form-tax-regime')).toHaveTextContent('New (Sec 115BAC)');
       expect(screen.getByTestId('tax-form-other-income')).toHaveValue(0);
-      expect(screen.getByTestId('tax-form-explicit-regime')).toHaveTextContent('— (auto-classify from security master)');
+      expect(screen.getByTestId('tax-form-explicit-regime')).toHaveTextContent(
+        '— (auto-classify from security master)',
+      );
     });
   });
 

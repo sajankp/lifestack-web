@@ -7,14 +7,17 @@ import {
   ActivityFeedResponseSchema,
   CapitalTransferSchema,
   CurrencySchema,
+  LrsSummarySchema,
   NetWorthDataSchema,
   NetWorthHistoryItemSchema,
+  PeriodChangeResponseSchema,
   ReconciliationSummarySchema,
   UserFinanceSettingSchema,
   UserFxRateSchema,
   UserNetWorthPointSchema,
   WorkspaceFinanceSettingSchema,
 } from '../types/finance';
+import type { LrsSummary } from '../types/finance';
 import type {
   Account,
   AccountBalanceResponse,
@@ -27,6 +30,8 @@ import type {
   Currency,
   NetWorthData,
   NetWorthHistoryItem,
+  ChangePeriod,
+  PeriodChangeResponse,
   ReconciliationSummary,
   UserFinanceSetting,
   UserFinanceSettingUpdate,
@@ -40,6 +45,11 @@ const PaginatedUserFxRatesSchema = paginatedSchema(UserFxRateSchema);
 const PaginatedUserNetWorthPointsSchema = paginatedSchema(UserNetWorthPointSchema);
 
 export const financeService = {
+  getLrsSummary: async (fy?: string): Promise<LrsSummary> => {
+    const response = await api.get('/finance/lrs/summary', { params: { fy: fy ?? undefined } });
+    return LrsSummarySchema.parse(response.data);
+  },
+
   getCurrencies: async (): Promise<Currency[]> => {
     const response = await api.get('/finance/currencies');
     return z.array(CurrencySchema).parse(response.data);
@@ -75,6 +85,11 @@ export const financeService = {
   updateSettings: async (data: WorkspaceFinanceSettingUpdate): Promise<WorkspaceFinanceSetting> => {
     const response = await api.patch('/finance/settings', data);
     return WorkspaceFinanceSettingSchema.parse(response.data);
+  },
+
+  getPeriodChange: async (period: ChangePeriod): Promise<PeriodChangeResponse> => {
+    const response = await api.get('/finance/period-change', { params: { period } });
+    return PeriodChangeResponseSchema.parse(response.data);
   },
 
   getUserSettings: async (): Promise<UserFinanceSetting> => {

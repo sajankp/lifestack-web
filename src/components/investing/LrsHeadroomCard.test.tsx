@@ -6,7 +6,9 @@ import { server } from '../../test/setup';
 
 const renderCard = (props: Parameters<typeof LrsHeadroomCard>[0]) =>
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} >
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       <LrsHeadroomCard {...props} currencyDisplayPreference="symbol" />
     </QueryClientProvider>,
   );
@@ -29,7 +31,9 @@ describe('LrsHeadroomCard', () => {
     expect(screen.getByTestId('lrs-headroom-card')).toBeInTheDocument();
     expect(screen.getByText('LRS Headroom')).toBeInTheDocument();
     // Currency formatting may vary by locale
-    expect(screen.getByText((content) => content.includes('750') && content.includes('000'))).toBeInTheDocument();
+    expect(
+      screen.getByText((content) => content.includes('750') && content.includes('000')),
+    ).toBeInTheDocument();
     expect(screen.getByText('As of 2026-10-31')).toBeInTheDocument();
   });
 
@@ -37,7 +41,9 @@ describe('LrsHeadroomCard', () => {
     renderCard({ lrsHeadroom: null });
 
     expect(screen.getByText('No LRS headroom data')).toBeInTheDocument();
-    expect(screen.queryByText((content) => content.includes('750') && content.includes('000'))).not.toBeInTheDocument();
+    expect(
+      screen.queryByText((content) => content.includes('750') && content.includes('000')),
+    ).not.toBeInTheDocument();
   });
 
   it('treats a missing lrs_headroom object as empty', () => {

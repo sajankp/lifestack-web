@@ -79,13 +79,33 @@ const baseHandlers = [
   http.get('*/v1/spending/tags', () => HttpResponse.json(EMPTY_PAGE)),
   http.get('*/v1/spending/category-groups', () => HttpResponse.json(EMPTY_PAGE)),
   http.get('*/v1/spending/analytics/tag-breakdown', () =>
-    HttpResponse.json({ from: '2026-01-01', to: '2026-01-31', type: 'expense', total: 0, tags: [] }),
+    HttpResponse.json({
+      from: '2026-01-01',
+      to: '2026-01-31',
+      type: 'expense',
+      total: 0,
+      tags: [],
+    }),
   ),
   http.get('*/v1/finance/accounts', () =>
     HttpResponse.json({ items: [ACCOUNT], total: 1, limit: 200, offset: 0 }),
   ),
   http.get('*/v1/spending/transactions/summary', () => HttpResponse.json(EMPTY_SUMMARY)),
   http.get('*/v1/spending/budgets', () => HttpResponse.json(EMPTY_PAGE)),
+  http.get('*/v1/spending/budgets/month-status', () =>
+    HttpResponse.json({
+      month: '2026-11',
+      as_of: '2026-11-28',
+      overall: null,
+      lines: [],
+      covered_spend: '0.00',
+      covered_limit: '0.00',
+      uncovered_spend: '0.00',
+      used_pct: null,
+      breached_count: 0,
+      total_spend: '0.00',
+    }),
+  ),
   http.get('*/v1/spending/recurring', () => HttpResponse.json(EMPTY_PAGE)),
   http.get('*/v1/finance/settings/user', () => HttpResponse.json(USER_SETTINGS)),
   http.get('*/v1/finance/settings', () => HttpResponse.json(WORKSPACE_SETTINGS)),
@@ -108,7 +128,13 @@ const baseHandlers = [
     }),
   ),
   http.get('*/v1/spending/analytics/breakdown', () =>
-    HttpResponse.json({ from: '2026-10-01', to: '2026-10-31', type: 'expense', total: '0.00', categories: [] }),
+    HttpResponse.json({
+      from: '2026-10-01',
+      to: '2026-10-31',
+      type: 'expense',
+      total: '0.00',
+      categories: [],
+    }),
   ),
   http.get('*/v1/spending/analytics/trends', () =>
     HttpResponse.json({ from: '2026-04-01', to: '2026-10-01', points: [] }),
@@ -193,7 +219,7 @@ describe('SpendingPage', () => {
     expect(await screen.findByText('Streaming Sub')).toBeInTheDocument();
   });
 
-  it('switches between 4 core planning tabs', async () => {
+  it('switches between the remaining planning tabs after the KPI tab is removed', async () => {
     renderWithQuery(
       <>
         <LocationProbe />
@@ -204,7 +230,7 @@ describe('SpendingPage', () => {
 
     expect(await screen.findByTestId('spending-tab-recurring')).toBeInTheDocument();
     expect(screen.getByTestId('spending-tab-budgets')).toBeInTheDocument();
-    expect(screen.getByTestId('spending-tab-kpis')).toBeInTheDocument();
+    expect(screen.queryByTestId('spending-tab-kpis')).not.toBeInTheDocument();
     expect(screen.getByTestId('spending-tab-analytics')).toBeInTheDocument();
 
     // Switch to Budgets
@@ -213,17 +239,51 @@ describe('SpendingPage', () => {
       expect(screen.getByTestId('route-location')).toHaveTextContent('/spending/budgets');
     });
 
-    // Switch to KPIs
-    fireEvent.click(screen.getByTestId('spending-tab-kpis'));
-    await waitFor(() => {
-      expect(screen.getByTestId('route-location')).toHaveTextContent('/spending/kpis');
-    });
-
     // Switch to Analytics
     fireEvent.click(screen.getByTestId('spending-tab-analytics'));
     await waitFor(() => {
       expect(screen.getByTestId('route-location')).toHaveTextContent('/spending/analytics');
     });
+  });
+
+  it('shows the overall limit and uncovered spend on the Money Budget tab', async () => {
+    server.use(
+      http.get('*/v1/spending/budgets/month-status', () =>
+        HttpResponse.json({
+          month: '2026-11',
+          as_of: '2026-11-28',
+          overall: {
+            kind: 'overall',
+            category_id: null,
+            category_name: null,
+            category_group_id: null,
+            category_group_name: null,
+            limit: '500.00',
+            spent: '450.00',
+            remaining: '50.00',
+            used_pct: 90,
+            status: 'warning',
+          },
+          lines: [],
+          covered_spend: '325.00',
+          covered_limit: '400.00',
+          uncovered_spend: '125.00',
+          used_pct: 81.25,
+          breached_count: 0,
+          total_spend: '450.00',
+        }),
+      ),
+    );
+
+    renderWithQuery(<SpendingPage />, '/money/budget');
+
+    expect(await screen.findByRole('heading', { name: 'Budget' })).toBeInTheDocument();
+    const overall = await screen.findByTestId('budget-overall-limit');
+    expect(overall).toHaveTextContent('$450.00');
+    expect(overall).toHaveTextContent('$500.00');
+    expect(overall).toHaveTextContent('$50.00 remaining');
+    expect(screen.getByTestId('budget-uncovered-spend')).toHaveTextContent('$125.00');
+    expect(screen.getByTestId('money-tab-budget')).toHaveAttribute('aria-current', 'page');
   });
 
   it('creates a recurring rule and displays it in the list', async () => {

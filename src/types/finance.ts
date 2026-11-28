@@ -313,6 +313,9 @@ export const ActivityFeedItemSchema = z.object({
   order_type: z.string().nullable().optional(),
   quantity: z.string().nullable().optional(),
   price_per_unit: z.string().nullable().optional(),
+  // The received side of a one-row transfer ("All accounts" feed only).
+  amount_in: z.string().nullable().optional(),
+  currency_in: z.string().nullable().optional(),
   fx_rate: z.string().nullable().optional(),
   fx_display: z.string().nullable().optional(),
   income_type: z.string().nullable().optional(),
@@ -327,3 +330,51 @@ export const ActivityFeedResponseSchema = z.object({
   offset: z.number().default(0),
 });
 export type ActivityFeedResponse = z.infer<typeof ActivityFeedResponseSchema>;
+
+// GET /finance/period-change (spec-115 §2.4): net worth and investments over a period, with the
+// saved / markets split. Money fields are decimal strings; a split that could not be computed is null.
+const NullableMoneySchema = z.union([z.number(), z.string()]).nullable().default(null);
+
+export const PeriodChangeResponseSchema = z.object({
+  status: z.enum(['complete', 'partial', 'unavailable']),
+  start_date: z.string().default(''),
+  end_date: z.string().default(''),
+  currency: z.string().nullable().default(null),
+  net_worth: z
+    .object({
+      start: NullableMoneySchema,
+      end: NullableMoneySchema,
+      change: NullableMoneySchema,
+      saved: NullableMoneySchema,
+      markets_and_other: NullableMoneySchema,
+    })
+    .default({ start: null, end: null, change: null, saved: null, markets_and_other: null }),
+  investments: z
+    .object({
+      start: NullableMoneySchema,
+      end: NullableMoneySchema,
+      change: NullableMoneySchema,
+      new_money: NullableMoneySchema,
+      growth: NullableMoneySchema,
+    })
+    .default({ start: null, end: null, change: null, new_money: null, growth: null }),
+});
+export type PeriodChangeResponse = z.infer<typeof PeriodChangeResponseSchema>;
+export type ChangePeriod = 'day' | 'week' | 'month' | 'year';
+
+// GET /finance/lrs/summary: Liberalised Remittance Scheme headroom for a financial year.
+export const LrsSummarySchema = z.object({
+  fy_label: z.string().default(''),
+  transfer_count: z.number().default(0),
+  total_usd: z.string().default('0'),
+  cap_usd: z.string().default('250000'),
+  cap_remaining_usd: z.string().default('0'),
+  cap_exceeded: z.boolean().default(false),
+  pct_of_cap: z.string().default('0'),
+  total_inr: z.string().default('0'),
+  tcs_threshold_inr: z.string().default('0'),
+  tcs_applicable: z.boolean().default(false),
+  tcs_amount_inr: z.string().default('0'),
+  assumptions: z.array(z.string()).default([]),
+});
+export type LrsSummary = z.infer<typeof LrsSummarySchema>;

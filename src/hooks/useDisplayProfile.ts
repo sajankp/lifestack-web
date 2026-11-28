@@ -49,14 +49,7 @@ export const useCurrencyFormatter = () => {
       amount: NumericValue,
       currency: string | null | undefined = 'USD',
       currencyDisplay: CurrencyDisplay = profile.currencyDisplay,
-    ) =>
-      formatCurrency(
-        amount,
-        currency,
-        currencyDisplay,
-        profile.locale,
-        profile.decimalPlaces,
-      ),
+    ) => formatCurrency(amount, currency, currencyDisplay, profile.locale, profile.decimalPlaces),
     [profile.currencyDisplay, profile.decimalPlaces, profile.locale],
   );
 };

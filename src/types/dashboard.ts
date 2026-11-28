@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BudgetSpotlightItemSchema } from './spending';
+import { BudgetSpotlightItemSchema, MonthBudgetStatusSchema } from './spending';
 
 export const DashboardTodoItemSchema = z.object({
   public_id: z.string().optional(),
@@ -32,6 +32,8 @@ export type BriefingSource = z.infer<typeof BriefingSourceSchema>;
 export const BriefingLineSchema = z.object({
   severity: z.enum(['critical', 'warning', 'info']),
   text: z.string(),
+  // true = the owner can act on it; info lines are shown but never push (spec-115 §2.2)
+  actionable: z.boolean().default(false),
   source: BriefingSourceSchema,
 });
 export type BriefingLine = z.infer<typeof BriefingLineSchema>;
@@ -56,6 +58,8 @@ export const DashboardSummarySchema = z.object({
     status: z.string().default(''),
     month_spent: z.union([z.number(), z.string()]).default(0),
     budget_spotlight: z.array(BudgetSpotlightItemSchema).default([]),
+    budgets_tracked: z.number().default(0),
+    uncovered_spend: z.union([z.number(), z.string()]).default(0),
     top_overspent_categories: z.array(DashboardOverspentCategorySchema).default([]),
   }),
   investing: z.object({
@@ -75,5 +79,8 @@ export const DashboardSummarySchema = z.object({
   system: z.object({
     generated_at: z.string().default(''),
   }),
+  // The month's budget answer for Today; null when spending is unavailable or the cached entry
+  // predates the field.
+  month_budget: MonthBudgetStatusSchema.nullable().default(null),
 });
 export type DashboardSummary = z.infer<typeof DashboardSummarySchema>;

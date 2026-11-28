@@ -38,6 +38,14 @@ const readyExport = {
 };
 
 describe('ExportsPage', () => {
+  it('is titled "Export" (spec-113 §2.2)', async () => {
+    server.use(http.get('*/v1/exports', () => HttpResponse.json({ items: [], total: 0 })));
+    renderWithQuery(<ExportsPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Export' })).toBeInTheDocument();
+    expect(screen.queryByText('Data Exports')).not.toBeInTheDocument();
+  });
+
   it('creates an export and shows lifecycle controls', async () => {
     let createdPayload: unknown = null;
 

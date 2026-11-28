@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRightLeft, PieChart, Plus, RefreshCw, Wallet } from 'lucide-react';
+import { PieChart, Plus, RefreshCw, Wallet } from 'lucide-react';
 import { PageShell } from '../components/layout/PageShell';
 import { PageHero } from '../components/layout/PageHero';
 import { Button } from '../components/ui/button';
@@ -19,6 +19,7 @@ import { TransferModal } from '../components/finance/TransferModal';
 import { DividendModal } from '../components/finance/DividendModal';
 import { HistoricalDataPanel } from '../components/finance/HistoricalDataPanel';
 import { NetWorthHistoryChart, StatusBanner } from '../components/finance/NetWorthHistoryChart';
+import { MoneyNavTabs } from '../components/finance/MoneyNavTabs';
 import { financeService } from '../services/finance';
 import { spendingService } from '../services/spending';
 import { investingService } from '../services/investing';
@@ -29,6 +30,8 @@ import { useDisplayProfile } from '../hooks/useDisplayProfile';
 import type { Account, AccountType, ActivityFeedItem } from '../types/finance';
 
 export const MoneyFlowPage: React.FC = () => {
+  const location = useLocation();
+  const isAccountsView = location.pathname.startsWith('/money/accounts');
   const displayProfile = useDisplayProfile();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -43,6 +46,9 @@ export const MoneyFlowPage: React.FC = () => {
   const [isDividendModalOpen, setIsDividendModalOpen] = useState(false);
   const [isCreateAccountModalOpen, setIsCreateAccountModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [transactionInitialType, setTransactionInitialType] = useState<'expense' | 'income'>(
+    'expense',
+  );
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -378,9 +384,13 @@ export const MoneyFlowPage: React.FC = () => {
     setIsDividendModalOpen(true);
   };
 
-  const handleOpenAddTransaction = (accountId?: string) => {
+  const handleOpenAddTransaction = (
+    accountId?: string,
+    initialType: 'expense' | 'income' = 'expense',
+  ) => {
     setEditingFeedItem(null);
     setTransactionDefaultAccountId(accountId || selectedAccountId || undefined);
+    setTransactionInitialType(initialType);
     setIsTransactionModalOpen(true);
   };
 
@@ -463,32 +473,70 @@ export const MoneyFlowPage: React.FC = () => {
   return (
     <PageShell>
       <PageHero
-        title="Money Flow & Architecture"
-        subtitle="Unified financial ecosystem mapping your capital across cash accounts, trading balances, and invested portfolio."
+        title="Money"
+        subtitle="Your accounts, balances and activity."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleOpenAddTransaction()}
-              className="h-9 gap-1.5 border border-slate-700 bg-slate-800/80 text-xs font-medium text-slate-200 hover:bg-slate-700"
-            >
-              <Plus className="h-3.5 w-3.5 text-emerald-400" />
-              Add transaction
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleOpenTransfer()}
-              className="h-9 gap-1.5 border border-slate-700 bg-slate-800/80 text-xs font-medium text-slate-200 hover:bg-slate-700"
-            >
-              <ArrowRightLeft className="h-3.5 w-3.5 text-cyan-400" />
-              Transfer
-            </Button>
-            <HistoricalDataPanel />
+            <details className="relative">
+              <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 text-xs font-medium text-slate-100 hover:bg-slate-700">
+                <Plus className="h-3.5 w-3.5 text-emerald-400" /> Add ▾
+              </summary>
+              <div className="absolute left-0 z-30 mt-2 grid min-w-44 gap-1 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-xl">
+                <button
+                  type="button"
+                  data-testid="header-quick-spending"
+                  onClick={() => handleOpenAddTransaction(undefined, 'expense')}
+                  className="rounded-lg px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  Expense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenAddTransaction(undefined, 'income')}
+                  className="rounded-lg px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  Income
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenTransfer()}
+                  className="rounded-lg px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  Transfer
+                </button>
+                <Link
+                  to="/portfolio?order=1"
+                  className="rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  Buy/Sell
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => handleOpenDividend()}
+                  className="rounded-lg px-3 py-2 text-left text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  Dividend
+                </button>
+                <Link
+                  to="/money/budget?new=bill"
+                  className="rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  Bill
+                </Link>
+                <Link
+                  to="/settings/data"
+                  className="rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                >
+                  Import
+                </Link>
+              </div>
+            </details>
+            <HistoricalDataPanel buttonLabel="Past data" />
           </div>
         }
       />
+
+      <MoneyNavTabs />
 
       <StatusBanner
         status={netWorthRes.data?.valuation_status ?? ''}
@@ -589,82 +637,87 @@ export const MoneyFlowPage: React.FC = () => {
       ) : (
         /* Account Map + Historical Net Worth Chart + Unified Activity Feed */
         <div className="space-y-6">
-          {/* Visual 3-Lane Account Map */}
-          <AccountMap
-            accounts={accounts}
-            balancesByAccountId={balancesByAccountId}
-            balancesReportingByAccountId={balancesReportingByAccountId}
-            portfolioByAccountId={portfolioByAccountId}
-            reportingCurrency={reportingCurrency}
-            fxRates={fxRates}
-            totalSpendingCash={totalSpendingCash}
-            totalInvestingCash={totalInvestingCash}
-            totalInvestedPortfolio={totalInvestedPortfolio}
-            onSelectAccount={handleSelectAccount}
-            onOpenTransfer={handleOpenTransfer}
-            onOpenDividend={handleOpenDividend}
-            onOpenOrder={() => navigate('/portfolio')}
-            onOpenCreateAccount={() => setIsCreateAccountModalOpen(true)}
-            selectedAccountId={selectedAccountId}
-            isLoading={isArchitectureLoading}
-          />
-
-          {/* Historical Net Worth Trend Chart */}
-          {reportingCurrency && (
-            <div className="pt-2">
-              <NetWorthHistoryChart
-                history={historyRes.data}
-                currency={reportingCurrency}
-                displayProfile={displayProfile}
+          {isAccountsView && (
+            <>
+              {/* Visual 3-Lane Account Map */}
+              <AccountMap
+                accounts={accounts}
+                balancesByAccountId={balancesByAccountId}
+                balancesReportingByAccountId={balancesReportingByAccountId}
+                portfolioByAccountId={portfolioByAccountId}
+                reportingCurrency={reportingCurrency}
+                fxRates={fxRates}
+                totalSpendingCash={totalSpendingCash}
+                totalInvestingCash={totalInvestingCash}
+                totalInvestedPortfolio={totalInvestedPortfolio}
+                onSelectAccount={handleSelectAccount}
+                onOpenDividend={handleOpenDividend}
+                onOpenOrder={() => navigate('/portfolio')}
+                onOpenCreateAccount={() => setIsCreateAccountModalOpen(true)}
+                selectedAccountId={selectedAccountId}
+                isLoading={isArchitectureLoading}
               />
-            </div>
+
+              {/* Historical Net Worth Trend Chart */}
+              {reportingCurrency && (
+                <div className="pt-2">
+                  <NetWorthHistoryChart
+                    history={historyRes.data}
+                    currency={reportingCurrency}
+                    displayProfile={displayProfile}
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {/* Unified Activity Feed Section */}
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-white">Unified Activity Stream</h3>
-                <p className="text-xs text-slate-400">
-                  Real-time timeline of spending transactions, capital transfers, trades, and
-                  dividends
-                </p>
+          {!isAccountsView && (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-white">Activity</h3>
+                  <p className="text-xs text-slate-400">
+                    Real-time timeline of spending transactions, capital transfers, trades, and
+                    dividends
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => activityFeedRes.refetch()}
+                  className="h-8 gap-1 text-xs text-slate-400 hover:text-white"
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${activityFeedRes.isFetching ? 'animate-spin' : ''}`}
+                  />
+                  Refresh
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => activityFeedRes.refetch()}
-                className="h-8 gap-1 text-xs text-slate-400 hover:text-white"
-              >
-                <RefreshCw
-                  className={`h-3.5 w-3.5 ${activityFeedRes.isFetching ? 'animate-spin' : ''}`}
-                />
-                Refresh
-              </Button>
-            </div>
 
-            <ActivityFeedTimeline
-              items={activityFeedRes.data?.items ?? []}
-              total={activityFeedRes.data?.total ?? 0}
-              limit={activityFeedRes.data?.limit ?? 50}
-              offset={activityFeedRes.data?.offset ?? 0}
-              onPageChange={setFeedOffset}
-              accounts={accounts}
-              selectedAccountId={selectedAccountId}
-              onSelectAccount={handleSelectAccount}
-              selectedEventType={selectedEventType}
-              onSelectEventType={handleSelectEventType}
-              categoryOptions={categoryOptions}
-              selectedCategoryId={selectedCategoryId}
-              onSelectCategory={handleSelectCategory}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              isLoading={activityFeedRes.isLoading}
-              onEditItem={handleEditItem}
-              onDeleteItem={handleDeleteItem}
-              isDeletePending={isDeletePending}
-            />
-          </div>
+              <ActivityFeedTimeline
+                items={activityFeedRes.data?.items ?? []}
+                total={activityFeedRes.data?.total ?? 0}
+                limit={activityFeedRes.data?.limit ?? 50}
+                offset={activityFeedRes.data?.offset ?? 0}
+                onPageChange={setFeedOffset}
+                accounts={accounts}
+                selectedAccountId={selectedAccountId}
+                onSelectAccount={handleSelectAccount}
+                selectedEventType={selectedEventType}
+                onSelectEventType={handleSelectEventType}
+                categoryOptions={categoryOptions}
+                selectedCategoryId={selectedCategoryId}
+                onSelectCategory={handleSelectCategory}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                isLoading={activityFeedRes.isLoading}
+                onEditItem={handleEditItem}
+                onDeleteItem={handleDeleteItem}
+                isDeletePending={isDeletePending}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -678,6 +731,7 @@ export const MoneyFlowPage: React.FC = () => {
         accounts={accounts}
         defaultAccountId={transactionDefaultAccountId}
         initialFeedItem={editingFeedItem}
+        initialType={transactionInitialType}
         onCreateAccount={() => {
           setIsTransactionModalOpen(false);
           setIsCreateAccountModalOpen(true);

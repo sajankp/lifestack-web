@@ -62,11 +62,4 @@ const CardFooter: React.FC<CardFooterProps> = ({ className, ...props }) => (
 );
 CardFooter.displayName = 'CardFooter';
 
-export {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-};
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter };

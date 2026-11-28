@@ -8,10 +8,7 @@ const renderComponent = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <DividendTrajectoryCard
-        displayCurrency="USD"
-        currencyDisplayPreference="symbol"
-      />
+      <DividendTrajectoryCard displayCurrency="USD" currencyDisplayPreference="symbol" />
     </QueryClientProvider>,
   );
 };

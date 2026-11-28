@@ -48,7 +48,11 @@ import { AnalyticsTab } from './investing/AnalyticsTab';
 import { TaxTab } from './investing/TaxTab';
 import { SummaryCard } from './investing/components';
 import { ReturnMetricsPanel } from '../components/investing/ReturnMetricsPanel';
-import { formatDateTimeLocalInput, formatPerformanceMetric, statusLabel } from './investing/format';
+import {
+  formatDateTimeLocalInput,
+  formatPerformanceMetric,
+  valuationLine,
+} from './investing/format';
 import { mutationInvalidations, queryKeys } from '../lib/queryKeys';
 
 const refreshKeys = mutationInvalidations.order;
@@ -623,14 +627,12 @@ export const InvestingPage: React.FC = () => {
               ))}
             </div>
           ) : null}
-          <p className="mt-1">
-            <span className="font-semibold text-slate-100">Valuation status:</span>{' '}
-            {statusLabel(summary.data?.valuation_status)}
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            {performanceSummary.data?.snapshot_date
-              ? `Valuation as of ${performanceSummary.data.snapshot_date} · ${performanceSummary.data.valuation_status}`
-              : 'Valuation date unavailable'}
+          <p className="mt-1" data-testid="investing-valuation-line">
+            {valuationLine({
+              summaryStatus: summary.data?.valuation_status,
+              performanceStatus: performanceSummary.data?.valuation_status,
+              snapshotDate: performanceSummary.data?.snapshot_date,
+            })}
           </p>
           {summary.data?.valuation_status === 'converted_available' &&
           summary.data?.fx_rates_used &&

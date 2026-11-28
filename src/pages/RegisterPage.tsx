@@ -80,9 +80,9 @@ export const RegisterPage: React.FC = () => {
           }
         }
         setFieldErrors(nextFieldErrors);
-        invalidFields = (Object.keys(nextFieldErrors) as Array<'email' | 'username' | 'password'>).filter(
-          (field) => nextFieldErrors[field]
-        );
+        invalidFields = (
+          Object.keys(nextFieldErrors) as Array<'email' | 'username' | 'password'>
+        ).filter((field) => nextFieldErrors[field]);
       }
 
       // Normalize 409 / 422 errors to prevent username/email enumeration
@@ -183,7 +183,11 @@ export const RegisterPage: React.FC = () => {
                     setFieldErrors((prev) => ({ ...prev, email: false }));
                   }
                 }}
-                className={`w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border focus:border-transparent transition-all ${fieldErrors.email ? 'border-red-500 focus:ring-red-500' : 'border-slate-600 focus:ring-cyan-500'}`}
+                className={`w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border focus:border-transparent transition-all ${
+                  fieldErrors.email
+                    ? 'border-red-500 focus:ring-red-500'
+                    : 'border-slate-600 focus:ring-cyan-500'
+                }`}
               />
             </div>
             <div>
@@ -206,7 +210,11 @@ export const RegisterPage: React.FC = () => {
                     setFieldErrors((prev) => ({ ...prev, username: false }));
                   }
                 }}
-                className={`w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border focus:border-transparent transition-all ${fieldErrors.username ? 'border-red-500 focus:ring-red-500' : 'border-slate-600 focus:ring-cyan-500'}`}
+                className={`w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border focus:border-transparent transition-all ${
+                  fieldErrors.username
+                    ? 'border-red-500 focus:ring-red-500'
+                    : 'border-slate-600 focus:ring-cyan-500'
+                }`}
               />
             </div>
             <div>
@@ -226,7 +234,11 @@ export const RegisterPage: React.FC = () => {
                     setFieldErrors((prev) => ({ ...prev, password: false }));
                   }
                 }}
-                className={`w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border focus:border-transparent transition-all ${fieldErrors.password ? 'border-red-500 focus:ring-red-500' : 'border-slate-600 focus:ring-cyan-500'}`}
+                className={`w-full rounded-lg bg-slate-700/50 p-3.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 border focus:border-transparent transition-all ${
+                  fieldErrors.password
+                    ? 'border-red-500 focus:ring-red-500'
+                    : 'border-slate-600 focus:ring-cyan-500'
+                }`}
               />
               <div className="mt-2 space-y-2">
                 <p className="text-xs text-slate-400">

@@ -43,4 +43,3 @@ describe('describeRecurrenceHelp', () => {
     expect(help).toContain('Expected next due: 4-Sep-2026.');
   });
 });
-

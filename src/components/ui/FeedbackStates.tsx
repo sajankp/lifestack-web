@@ -10,7 +10,9 @@ export const SkeletonLine: React.FC<{ className?: string }> = ({ className = '' 
 );
 
 export const SkeletonCard: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div className={`animate-pulse rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur ${className}`}>
+  <div
+    className={`animate-pulse rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur ${className}`}
+  >
     <div className="flex items-center justify-between mb-3">
       <SkeletonLine className="h-3.5 w-24" />
       <SkeletonLine className="h-7 w-7 rounded-lg" />
@@ -26,7 +28,10 @@ export const SkeletonList: React.FC<{ rows?: number; className?: string }> = ({
 }) => (
   <div className={`space-y-3 ${className}`}>
     {[...Array(rows)].map((_, i) => (
-      <div key={i} className="animate-pulse rounded-xl border border-slate-800/80 bg-slate-900/60 p-4">
+      <div
+        key={i}
+        className="animate-pulse rounded-xl border border-slate-800/80 bg-slate-900/60 p-4"
+      >
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <SkeletonLine className="h-9 w-9 rounded-xl shrink-0" />
@@ -61,7 +66,9 @@ export const SkeletonTable: React.FC<{ rows?: number; cols?: number; className?:
   cols = 4,
   className = '',
 }) => (
-  <div className={`rounded-2xl border border-slate-800/80 bg-slate-900/60 overflow-hidden backdrop-blur ${className}`}>
+  <div
+    className={`rounded-2xl border border-slate-800/80 bg-slate-900/60 overflow-hidden backdrop-blur ${className}`}
+  >
     <div className="border-b border-slate-800/80 bg-slate-950/40 p-3.5 flex items-center justify-between gap-4">
       {[...Array(cols)].map((_, i) => (
         <SkeletonLine key={i} className={`h-3.5 ${i === 0 ? 'w-32' : 'w-20'}`} />
@@ -89,7 +96,9 @@ export const LoadingSpinner: React.FC<{
 }> = ({ label = 'Loading...', size = 'md', className = '' }) => {
   const iconSize = size === 'sm' ? 'h-4 w-4' : size === 'lg' ? 'h-8 w-8' : 'h-5 w-5';
   return (
-    <div className={`flex flex-col items-center justify-center p-8 text-center gap-2.5 ${className}`}>
+    <div
+      className={`flex flex-col items-center justify-center p-8 text-center gap-2.5 ${className}`}
+    >
       <Loader2 className={`${iconSize} animate-spin text-cyan-400`} />
       {label && <span className="text-xs font-medium text-slate-400 animate-pulse">{label}</span>}
     </div>

@@ -87,4 +87,3 @@ export const summariesService = {
     return WorkspaceSummarySettingSchema.parse(res.data);
   },
 };
-

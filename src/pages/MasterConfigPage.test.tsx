@@ -770,7 +770,9 @@ describe('MasterConfigPage', () => {
     const categoriesTab = await screen.findByTestId('settings-tab-categories');
     categoriesTab.focus();
     fireEvent.keyDown(categoriesTab, { key: 'Enter', code: 'Enter' });
-    expect(screen.queryByTestId('master-category-delete-cat-uncategorized')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('master-category-delete-cat-uncategorized'),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Protected')).toBeInTheDocument();
   });
 
@@ -922,6 +924,89 @@ describe('MasterConfigPage', () => {
         instrument_type: 'stock',
         ticker: 'MSFT',
       });
+    });
+  });
+
+  describe('ELSS lock-in on an instrument (spec-113 section 5.5)', () => {
+    const elssFund = (overrides: Record<string, unknown> = {}) => ({
+      public_id: 'inst-elss',
+      symbol: 'ELSSFND',
+      name: 'Quant ELSS Tax Saver Fund',
+      instrument_type: 'mutual_fund',
+      is_active: true,
+      lock_in_months: null,
+      lock_in_suggestion: 36,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      ...overrides,
+    });
+
+    const openEdit = async (instrument: Record<string, unknown>) => {
+      const workspaceId = '77777777-7777-7777-7777-777777777777';
+      useWorkspaceStore.getState().setActiveWorkspaceId(workspaceId);
+      let patched: Record<string, unknown> | null = null;
+      server.use(
+        http.get('*/v1/investing/instruments', () => HttpResponse.json([instrument])),
+        http.patch('*/v1/investing/instruments/inst-elss', async ({ request }) => {
+          patched = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ ...instrument, ...patched });
+        }),
+        ...commonHandlers(workspaceId, 'Alpha Workspace'),
+      );
+      renderWithQuery(<MasterConfigPage />, ['/settings/instruments']);
+      fireEvent.click(await screen.findByTestId('master-instrument-edit-inst-elss'));
+      return () => patched;
+    };
+
+    it('offers 36 months when the name looks like ELSS, and applies it on request', async () => {
+      const patched = await openEdit(elssFund());
+
+      const field = (await screen.findByTestId(
+        'master-instrument-edit-lock-in',
+      )) as HTMLInputElement;
+      expect(field.value).toBe('');
+      const suggestion = screen.getByTestId('master-instrument-lock-in-suggestion');
+      expect(suggestion).toHaveTextContent('36');
+
+      fireEvent.click(suggestion);
+      expect(field.value).toBe('36');
+
+      fireEvent.click(screen.getByTestId('master-instrument-edit-save'));
+      await waitFor(() => expect(patched()).toMatchObject({ lock_in_months: 36 }));
+    });
+
+    it('never applies the suggestion on its own', async () => {
+      const patched = await openEdit(elssFund());
+      await screen.findByTestId('master-instrument-edit-lock-in');
+
+      fireEvent.click(screen.getByTestId('master-instrument-edit-save'));
+      await waitFor(() => expect(patched()).not.toBeNull());
+      expect(patched()?.lock_in_months).toBeNull();
+    });
+
+    it('shows a saved lock-in without a suggestion, and clearing it sends null', async () => {
+      const patched = await openEdit(elssFund({ lock_in_months: 36, lock_in_suggestion: null }));
+
+      const field = (await screen.findByTestId(
+        'master-instrument-edit-lock-in',
+      )) as HTMLInputElement;
+      expect(field.value).toBe('36');
+      expect(screen.queryByTestId('master-instrument-lock-in-suggestion')).not.toBeInTheDocument();
+
+      fireEvent.change(field, { target: { value: '' } });
+      fireEvent.click(screen.getByTestId('master-instrument-edit-save'));
+      await waitFor(() => expect(patched()).not.toBeNull());
+      expect(patched()?.lock_in_months).toBeNull();
+    });
+
+    it('refuses a lock-in outside 1-120 months', async () => {
+      const patched = await openEdit(elssFund());
+      const field = await screen.findByTestId('master-instrument-edit-lock-in');
+
+      fireEvent.change(field, { target: { value: '500' } });
+      expect(screen.getByTestId('master-instrument-edit-save')).toBeDisabled();
+      expect(screen.getByTestId('master-instrument-lock-in-error')).toBeInTheDocument();
+      expect(patched()).toBeNull();
     });
   });
 

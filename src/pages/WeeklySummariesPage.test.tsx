@@ -704,4 +704,3 @@ describe('WeeklySummariesPage', () => {
     expect(payload.spending_summary?.total_income).toBe('5500.00');
   });
 });
-
