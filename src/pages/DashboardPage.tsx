@@ -94,6 +94,8 @@ export const DashboardPage: React.FC = () => {
     ? formatDateTime(data.system.generated_at, { utc: false, fallback: '' }) || null
     : null;
   const budgetSpotlight = data?.spending.budget_spotlight ?? [];
+  const budgetsTracked = data?.spending.budgets_tracked ?? 0;
+  const uncoveredSpend = toNumber(data?.spending.uncovered_spend ?? 0);
   const portfolioGainLabel =
     data?.investing.total_gain_loss != null
       ? formatPerformanceMetric(
@@ -208,11 +210,25 @@ export const DashboardPage: React.FC = () => {
                 decimalPlaces,
               )}
               note={
-                budgetSpotlight.length > 0
-                  ? `${budgetSpotlight.length} group budget${
-                      budgetSpotlight.length > 1 ? 's' : ''
-                    } tracked below`
-                  : 'No group budgets set'
+                <>
+                  <span>
+                    {budgetsTracked > 0
+                      ? `${budgetsTracked} budget${budgetsTracked > 1 ? 's' : ''} tracked`
+                      : 'No budgets set'}
+                  </span>
+                  {budgetsTracked > 0 && uncoveredSpend > 0 ? (
+                    <span data-testid="dashboard-uncovered-spend" className="mt-0.5 block">
+                      {formatCurrency(
+                        uncoveredSpend,
+                        displayCurrency,
+                        currencyDisplayPreference,
+                        displayLocale,
+                        decimalPlaces,
+                      )}{' '}
+                      not covered by a budget
+                    </span>
+                  ) : null}
+                </>
               }
               icon={<PiggyBank className="h-5 w-5" />}
               accent="from-emerald-500/25 to-teal-500/10"
@@ -269,12 +285,14 @@ export const DashboardPage: React.FC = () => {
                           : 'bg-emerald-500';
                     return (
                       <div
-                        key={item.category_group_id}
+                        key={item.category_group_id ?? item.category_id ?? item.category_name}
                         data-testid="dashboard-budget-spotlight-card"
                         className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4"
                       >
                         <div className="flex items-center justify-between">
-                          <p className="font-semibold text-white">{item.category_group_name}</p>
+                          <p className="font-semibold text-white">
+                            {item.category_group_name ?? item.category_name}
+                          </p>
                           <span className="text-xs text-slate-400">
                             {item.utilization_pct.toFixed(0)}%
                           </span>
@@ -520,7 +538,7 @@ type MetricCardProps = {
   to: string;
   label: string;
   value: string;
-  note: string;
+  note: React.ReactNode;
   icon: React.ReactNode;
   accent: string;
   testId?: string;

@@ -384,9 +384,12 @@ export const BudgetPerformanceResponseSchema = z.object({
 
 export type BudgetPerformanceResponse = z.infer<typeof BudgetPerformanceResponseSchema>;
 
+// A spotlight line is a category budget or a group budget (spec-115): the other side is null.
 export const BudgetSpotlightItemSchema = z.object({
-  category_group_id: z.string().default(''),
-  category_group_name: z.string().default(''),
+  category_group_id: z.string().nullable().default(null),
+  category_group_name: z.string().nullable().default(null),
+  category_id: z.string().nullable().default(null),
+  category_name: z.string().nullable().default(null),
   budget_amount: z.union([z.number(), z.string()]).default(0),
   actual_amount: z.union([z.number(), z.string()]).default(0),
   utilization_pct: z.number().default(0),
@@ -583,6 +586,11 @@ export const SpendPacingResponseSchema = z.object({
   discretionary_burn_rate: z.union([z.number(), z.string()]).optional(),
   total_budget: z.union([z.number(), z.string()]).nullable().default(null),
   budget_consumed_pct: z.union([z.number(), z.string()]).nullable().default(null),
+  // spec-115: consumed % compares covered spend with the covered limit; spend in categories
+  // without a budget is reported on its own.
+  covered_spend: z.union([z.number(), z.string()]).optional(),
+  uncovered_spend: z.union([z.number(), z.string()]).optional(),
+  breached_count: z.number().optional(),
   target_pace_pct: z.union([z.number(), z.string()]).optional(),
   pacing_status: z.string().optional(),
   status: z.string().optional(),
@@ -592,5 +600,3 @@ export const SpendPacingResponseSchema = z.object({
 });
 
 export type SpendPacingResponse = z.infer<typeof SpendPacingResponseSchema>;
-
-

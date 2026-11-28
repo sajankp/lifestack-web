@@ -36,7 +36,136 @@ const allClearBriefing = () =>
     }),
   );
 
+const summaryWithBudgets = (spending: Record<string, unknown>, valuationStatus = 'current') =>
+  http.get('*/v1/dashboard/summary', () =>
+    HttpResponse.json({
+      todos: {
+        open_count: 0,
+        overdue_count: 0,
+        next_due_items: [],
+        active_guardrail_todo_count: 0,
+      },
+      spending: { month_spent: '750.04', top_overspent_categories: [], ...spending },
+      investing: {
+        portfolio_value: '100.00',
+        daily_change: null,
+        holdings_count: 1,
+        valuation_status: valuationStatus,
+      },
+      system: { generated_at: '2026-05-24T10:00:00Z' },
+    }),
+  );
+
 describe('DashboardPage', () => {
+  it('shows a category-only budget in the spotlight and what no budget covers (spec-115)', async () => {
+    server.use(
+      emptyNotifications(),
+      allClearBriefing(),
+      summaryWithBudgets({
+        budgets_tracked: 1,
+        uncovered_spend: '692.05',
+        budget_spotlight: [
+          {
+            category_group_id: null,
+            category_group_name: null,
+            category_id: 'cat-1',
+            category_name: 'Entertainment',
+            budget_amount: '120.00',
+            actual_amount: '57.99',
+            utilization_pct: 48.3,
+            remaining: '62.01',
+            status: 'on_track',
+            daily_amount_left: '2.58',
+          },
+        ],
+      }),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByText('Entertainment')).toBeInTheDocument();
+    expect(screen.getByText('$57.99 of $120.00')).toBeInTheDocument();
+    expect(screen.getByText('1 budget tracked')).toBeInTheDocument();
+    expect(screen.getByTestId('dashboard-uncovered-spend')).toHaveTextContent(
+      '$692.05 not covered by a budget',
+    );
+    expect(screen.queryByText(/No group budgets set/)).not.toBeInTheDocument();
+  });
+
+  it('gives group and category spotlight cards distinct keys and pluralises the count', async () => {
+    server.use(
+      emptyNotifications(),
+      allClearBriefing(),
+      summaryWithBudgets({
+        budgets_tracked: 3,
+        uncovered_spend: '0',
+        budget_spotlight: [
+          {
+            category_group_id: 'group-1',
+            category_group_name: 'Household',
+            category_id: null,
+            category_name: null,
+            budget_amount: '100.00',
+            actual_amount: '95.00',
+            utilization_pct: 95,
+            remaining: '5.00',
+            status: 'warning',
+            daily_amount_left: '1.00',
+          },
+          {
+            category_group_id: null,
+            category_group_name: null,
+            category_id: 'cat-1',
+            category_name: 'Gym',
+            budget_amount: '50.00',
+            actual_amount: '10.00',
+            utilization_pct: 20,
+            remaining: '40.00',
+            status: 'on_track',
+            daily_amount_left: '1.50',
+          },
+        ],
+      }),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByText('Household')).toBeInTheDocument();
+    expect(screen.getByText('Gym')).toBeInTheDocument();
+    expect(screen.getAllByTestId('dashboard-budget-spotlight-card')).toHaveLength(2);
+    expect(screen.getByText('3 budgets tracked')).toBeInTheDocument();
+    // nothing uncovered -> no "not covered" line
+    expect(screen.queryByTestId('dashboard-uncovered-spend')).not.toBeInTheDocument();
+  });
+
+  it('keeps showing All clear above a degraded-valuation note: the valuation card is information', async () => {
+    server.use(
+      emptyNotifications(),
+      http.get('*/v1/dashboard/briefing', () =>
+        HttpResponse.json({
+          generated_at: '2026-05-24T10:00:00Z',
+          all_clear: true,
+          reporting_currency: 'USD',
+          // info-only lines no longer make the briefing "not clear" (spec-115 §2.2)
+          lines: [
+            {
+              severity: 'warning',
+              actionable: false,
+              text: 'Portfolio +1.00 (+0.10%) today (as of 10:00 UTC) — valuation partial',
+              source: { route: '/investing' },
+            },
+          ],
+        }),
+      ),
+      summaryWithBudgets({ budget_spotlight: [] }, 'estimated'),
+    );
+
+    renderWithQuery(<DashboardPage />);
+
+    expect(await screen.findByTestId('dashboard-briefing-all-clear')).toBeInTheDocument();
+    expect(await screen.findByTestId('dashboard-cue-valuation-alert')).toBeInTheDocument();
+  });
+
   it('shows the budget spotlight when a group budget covers the current month', async () => {
     server.use(
       emptyNotifications(),
@@ -128,7 +257,8 @@ describe('DashboardPage', () => {
     renderWithQuery(<DashboardPage />);
 
     expect(await screen.findByText('Dashboard')).toBeInTheDocument();
-    expect(await screen.findByText('No group budgets set')).toBeInTheDocument();
+    expect(await screen.findByText('No budgets set')).toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-uncovered-spend')).not.toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-budget-spotlight')).not.toBeInTheDocument();
   });
 
