@@ -56,10 +56,7 @@ const numericConstraintMessage = (
  * it exposes a plain decimal string so editing and existing form parsers keep
  * working. On blur it applies the effective US/Indian digit grouping.
  */
-export const FormattedNumberInput = React.forwardRef<
-  HTMLInputElement,
-  FormattedNumberInputProps
->(
+export const FormattedNumberInput = React.forwardRef<HTMLInputElement, FormattedNumberInputProps>(
   (
     {
       value,

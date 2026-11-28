@@ -14,6 +14,8 @@ repos:
         args: ['--maxkb=1000']
       - id: check-merge-conflict
       - id: check-json
+        # tsconfig*.json are JSONC (comments), which strict JSON parsing rejects.
+        exclude: ^tsconfig.*\.json$
       - id: mixed-line-ending
 
   - repo: https://github.com/pre-commit/mirrors-prettier

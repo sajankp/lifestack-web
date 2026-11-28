@@ -84,10 +84,7 @@ export const calendarDayUtcRange = (
   return { from: start.toISOString(), to: new Date(followingStart.getTime() - 1).toISOString() };
 };
 
-export const calendarDateKey = (
-  value: Date | string | number,
-  timezone: string,
-): string | null => {
+export const calendarDateKey = (value: Date | string | number, timezone: string): string | null => {
   const parts = datePartsInTimezone(value, timezone);
   if (!parts?.year || !parts.month || !parts.day) return null;
   const month = new Intl.DateTimeFormat('en-US', {

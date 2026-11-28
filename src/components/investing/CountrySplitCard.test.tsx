@@ -50,7 +50,10 @@ describe('extractCountryWeights', () => {
   });
 
   it('extracts from country_weights record', () => {
-    const foundationJson = { country_weights: { US: '55', IN: '30' } } as unknown as Record<string, string>;
+    const foundationJson = { country_weights: { US: '55', IN: '30' } } as unknown as Record<
+      string,
+      string
+    >;
 
     expect(extractCountryWeights(foundationJson)).toEqual([
       { country: 'US', weight: 55 },

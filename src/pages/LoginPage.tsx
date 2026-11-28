@@ -29,7 +29,8 @@ export const LoginPage: React.FC = () => {
         identifyUser(user.public_id);
       }
       trackEvent('login');
-      const safeNext = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '/';
+      const safeNext =
+        nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '/';
       navigate(safeNext, { replace: true });
     } catch (err: unknown) {
       // Always show a generic message to prevent username/email enumeration

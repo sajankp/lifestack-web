@@ -8,10 +8,7 @@ const renderComponent = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <PortfolioAllocationCard
-        displayCurrency="USD"
-        currencyDisplayPreference="symbol"
-      />
+      <PortfolioAllocationCard displayCurrency="USD" currencyDisplayPreference="symbol" />
     </QueryClientProvider>,
   );
 };
@@ -83,9 +80,7 @@ describe('PortfolioAllocationCard', () => {
           total_portfolio_value: '1000.00',
           holdings_value: '0.00',
           cash_value: '1000.00',
-          asset_classes: [
-            { key: 'cash', label: 'Cash', value: '1000.00', pct: 100.0, count: 1 },
-          ],
+          asset_classes: [{ key: 'cash', label: 'Cash', value: '1000.00', pct: 100.0, count: 1 }],
           sectors: [],
         }),
       ),
@@ -114,6 +109,8 @@ describe('PortfolioAllocationCard', () => {
 
     renderComponent();
 
-    expect(await screen.findByText(/No holdings recorded for asset class allocation/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/No holdings recorded for asset class allocation/),
+    ).toBeInTheDocument();
   });
 });

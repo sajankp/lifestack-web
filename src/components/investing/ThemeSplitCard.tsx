@@ -2,13 +2,7 @@ import React from 'react';
 import { PieChart } from 'lucide-react';
 import { toNumber } from '../../utils/numberFormat';
 import type { ThemeWeight } from '../../types/investing';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 
 const ALLOCATION_COLORS = [
   '#3b82f6', // blue
@@ -97,9 +91,7 @@ export const ThemeSplitCard: React.FC<ThemeSplitCardProps> = ({ themeWeights }) 
           <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
             Total weight
           </div>
-          <div className="text-xl font-bold text-white">
-            {totalWeight.toFixed(1)}%
-          </div>
+          <div className="text-xl font-bold text-white">{totalWeight.toFixed(1)}%</div>
         </div>
       </CardHeader>
       <CardContent className="pt-3">
@@ -119,22 +111,20 @@ export const ThemeSplitCard: React.FC<ThemeSplitCardProps> = ({ themeWeights }) 
                     return {
                       circles: [
                         ...acc.circles,
-                        (
-                          <circle
-                            key={slice.theme}
-                            cx={80}
-                            cy={80}
-                            r={DONUT_RADIUS}
-                            fill="transparent"
-                            stroke={slice.color}
-                            strokeWidth="16"
-                            strokeDasharray={`${dash} ${CIRCUMFERENCE}`}
-                            strokeDashoffset={offset}
-                            transform="rotate(-90 80 80)"
-                          >
-                            <title>{`${slice.theme}: ${slice.pct.toFixed(1)}%`}</title>
-                          </circle>
-                        ),
+                        <circle
+                          key={slice.theme}
+                          cx={80}
+                          cy={80}
+                          r={DONUT_RADIUS}
+                          fill="transparent"
+                          stroke={slice.color}
+                          strokeWidth="16"
+                          strokeDasharray={`${dash} ${CIRCUMFERENCE}`}
+                          strokeDashoffset={offset}
+                          transform="rotate(-90 80 80)"
+                        >
+                          <title>{`${slice.theme}: ${slice.pct.toFixed(1)}%`}</title>
+                        </circle>,
                       ],
                       accumulatedPct: acc.accumulatedPct + slicePct,
                     };
@@ -179,4 +169,3 @@ export const ThemeSplitCard: React.FC<ThemeSplitCardProps> = ({ themeWeights }) 
     </Card>
   );
 };
-

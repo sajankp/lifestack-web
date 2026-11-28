@@ -141,4 +141,3 @@ export const WorkspaceSummarySettingSchema = z.object({
   updated_at: z.string().default(''),
 });
 export type WorkspaceSummarySetting = z.infer<typeof WorkspaceSummarySettingSchema>;
-

@@ -111,7 +111,6 @@ Today the web app focuses on the personal OS foundation:
 - PWA/installable shell with push notifications: service worker (`public/sw.js`), web app manifest (`public/manifest.webmanifest`), and push subscription management (`PushSubscriptionSettings`, wired into the Notifications page)
 - Page decomposition: focused modular components with centralized cascading cache invalidations (`mutationInvalidations`)
 
-
 The current implementation is intentionally centered on a single-user personal workflow before expanding into later-stage domains.
 
 ---

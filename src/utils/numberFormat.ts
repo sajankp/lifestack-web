@@ -87,10 +87,7 @@ export const formatNumber = (
 ): string => {
   const numericValue = toNumber(value);
   const parsedDecimals = clampDecimalPlaces(decimalPlaces);
-  const parsedMinimumDecimals = Math.min(
-    parsedDecimals,
-    clampDecimalPlaces(minimumFractionDigits),
-  );
+  const parsedMinimumDecimals = Math.min(parsedDecimals, clampDecimalPlaces(minimumFractionDigits));
   try {
     return new Intl.NumberFormat(locale, {
       minimumFractionDigits: parsedMinimumDecimals,

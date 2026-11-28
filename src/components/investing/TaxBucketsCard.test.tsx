@@ -19,9 +19,14 @@ const BUCKET: TaxBucket = {
   lot_count: 2,
 };
 
-const renderCard = (taxBuckets: TaxBucket[], currencyDisplayPreference: 'symbol' | 'code' = 'symbol') =>
+const renderCard = (
+  taxBuckets: TaxBucket[],
+  currencyDisplayPreference: 'symbol' | 'code' = 'symbol',
+) =>
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       <TaxBucketsCard
         taxBuckets={taxBuckets}
         currencyDisplayPreference={currencyDisplayPreference}
@@ -42,7 +47,17 @@ describe('TaxBucketsCard', () => {
   });
 
   it('renders buckets with totals', () => {
-    renderCard([BUCKET, { ...BUCKET, regime: 'domestic', section: '112A', rate_pct: '10', gain_inr: '150000.00', tax: '2500.00' }]);
+    renderCard([
+      BUCKET,
+      {
+        ...BUCKET,
+        regime: 'domestic',
+        section: '112A',
+        rate_pct: '10',
+        gain_inr: '150000.00',
+        tax: '2500.00',
+      },
+    ]);
 
     expect(screen.getByTestId('tax-buckets-card')).toBeInTheDocument();
     expect(screen.getByText('Tax Buckets')).toBeInTheDocument();

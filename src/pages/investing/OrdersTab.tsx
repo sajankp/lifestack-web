@@ -4,7 +4,12 @@ import { Edit2, Trash2 } from 'lucide-react';
 import { financeService } from '../../services/finance';
 import { investingService } from '../../services/investing';
 import type { InvestingOrder } from '../../services/investing';
-import { formatCurrency, formatQuantity, normalizeToReportingCurrency, toNumber } from '../../utils/numberFormat';
+import {
+  formatCurrency,
+  formatQuantity,
+  normalizeToReportingCurrency,
+  toNumber,
+} from '../../utils/numberFormat';
 import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { formatDate } from '../../utils/dateFormat';
 import { CompactFilterBar, CompactFilterField } from '../../components/filters/CompactFilterBar';
@@ -52,7 +57,12 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   );
 
   const ordersRes = useQuery({
-    queryKey: queryKeys.investing.orders(ordersOffset, ordersLimit, orderSymbolFilter, orderTypeFilter),
+    queryKey: queryKeys.investing.orders(
+      ordersOffset,
+      ordersLimit,
+      orderSymbolFilter,
+      orderTypeFilter,
+    ),
     queryFn: () =>
       investingService.getOrders(ordersLimit, ordersOffset, {
         search: orderSymbolFilter || undefined,
@@ -89,34 +99,84 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
         case 'price_per_unit':
           return (
             dir *
-            (normalizeToReportingCurrency(a.price_per_unit, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
-              normalizeToReportingCurrency(b.price_per_unit, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
+            (normalizeToReportingCurrency(
+              a.price_per_unit,
+              a.currency,
+              summary.data?.reporting_currency,
+              summary.data?.fx_rates_used,
+            ) -
+              normalizeToReportingCurrency(
+                b.price_per_unit,
+                b.currency,
+                summary.data?.reporting_currency,
+                summary.data?.fx_rates_used,
+              ))
           );
         case 'gross_amount':
           return (
             dir *
-            (normalizeToReportingCurrency(a.gross_amount, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
-              normalizeToReportingCurrency(b.gross_amount, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
+            (normalizeToReportingCurrency(
+              a.gross_amount,
+              a.currency,
+              summary.data?.reporting_currency,
+              summary.data?.fx_rates_used,
+            ) -
+              normalizeToReportingCurrency(
+                b.gross_amount,
+                b.currency,
+                summary.data?.reporting_currency,
+                summary.data?.fx_rates_used,
+              ))
           );
         case 'fees': {
           const feesA = toNumber(a.brokerage_fee) + toNumber(a.tax_amount) + toNumber(a.other_fees);
           const feesB = toNumber(b.brokerage_fee) + toNumber(b.tax_amount) + toNumber(b.other_fees);
           return (
             dir *
-            (normalizeToReportingCurrency(feesA, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
-              normalizeToReportingCurrency(feesB, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
+            (normalizeToReportingCurrency(
+              feesA,
+              a.currency,
+              summary.data?.reporting_currency,
+              summary.data?.fx_rates_used,
+            ) -
+              normalizeToReportingCurrency(
+                feesB,
+                b.currency,
+                summary.data?.reporting_currency,
+                summary.data?.fx_rates_used,
+              ))
           );
         }
         case 'net_amount': {
-          const valA = normalizeToReportingCurrency(a.net_amount, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used);
-          const valB = normalizeToReportingCurrency(b.net_amount, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used);
+          const valA = normalizeToReportingCurrency(
+            a.net_amount,
+            a.currency,
+            summary.data?.reporting_currency,
+            summary.data?.fx_rates_used,
+          );
+          const valB = normalizeToReportingCurrency(
+            b.net_amount,
+            b.currency,
+            summary.data?.reporting_currency,
+            summary.data?.fx_rates_used,
+          );
           return dir * (valA - valB);
         }
         case 'realized_gain_loss':
           return (
             dir *
-            (normalizeToReportingCurrency(a.realized_gain_loss ?? 0, a.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used) -
-              normalizeToReportingCurrency(b.realized_gain_loss ?? 0, b.currency, summary.data?.reporting_currency, summary.data?.fx_rates_used))
+            (normalizeToReportingCurrency(
+              a.realized_gain_loss ?? 0,
+              a.currency,
+              summary.data?.reporting_currency,
+              summary.data?.fx_rates_used,
+            ) -
+              normalizeToReportingCurrency(
+                b.realized_gain_loss ?? 0,
+                b.currency,
+                summary.data?.reporting_currency,
+                summary.data?.fx_rates_used,
+              ))
           );
         default:
           return 0;
@@ -439,17 +499,39 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
             {ordersRes.isLoading ? (
               [...Array(5)].map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  <td className="px-4 py-3"><SkeletonLine className="h-3.5 w-20" /></td>
-                  <td className="px-4 py-3"><SkeletonLine className="h-3.5 w-14" /></td>
-                  <td className="px-4 py-3"><SkeletonLine className="h-3.5 w-16" /></td>
-                  <td className="px-4 py-3"><SkeletonLine className="h-3.5 w-24" /></td>
-                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-12 ml-auto" /></td>
-                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-16" /></td>
-                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-16" /></td>
-                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-12" /></td>
-                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-16" /></td>
-                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-14" /></td>
-                  <td className="px-4 py-3 text-right"><SkeletonLine className="h-3.5 w-8" /></td>
+                  <td className="px-4 py-3">
+                    <SkeletonLine className="h-3.5 w-20" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <SkeletonLine className="h-3.5 w-14" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <SkeletonLine className="h-3.5 w-16" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <SkeletonLine className="h-3.5 w-24" />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <SkeletonLine className="h-3.5 w-12 ml-auto" />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <SkeletonLine className="h-3.5 w-16" />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <SkeletonLine className="h-3.5 w-16" />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <SkeletonLine className="h-3.5 w-12" />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <SkeletonLine className="h-3.5 w-16" />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <SkeletonLine className="h-3.5 w-14" />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <SkeletonLine className="h-3.5 w-8" />
+                  </td>
                 </tr>
               ))
             ) : visibleOrders.length === 0 ? (

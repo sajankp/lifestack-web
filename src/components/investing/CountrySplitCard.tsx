@@ -1,21 +1,13 @@
 import React from 'react';
 import { Globe } from 'lucide-react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import type { CountryWeight } from '../../utils/portfolioReport';
 
 interface CountrySplitCardProps {
   countryWeights: CountryWeight[];
 }
 
-export const CountrySplitCard: React.FC<CountrySplitCardProps> = ({
-  countryWeights,
-}) => {
+export const CountrySplitCard: React.FC<CountrySplitCardProps> = ({ countryWeights }) => {
   const totalWeight = countryWeights.reduce((acc, c) => acc + c.weight, 0);
   const hasData = totalWeight > 0;
 
@@ -63,9 +55,7 @@ export const CountrySplitCard: React.FC<CountrySplitCardProps> = ({
               className="flex items-center gap-3"
               data-testid={`country-row-${c.country.replace(/\s+/g, '-')}`}
             >
-              <span className="shrink-0 text-xs font-medium text-slate-200 w-16">
-                {c.country}
-              </span>
+              <span className="shrink-0 text-xs font-medium text-slate-200 w-16">{c.country}</span>
               <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
                 <div
                   className="h-full bg-cyan-500/80"

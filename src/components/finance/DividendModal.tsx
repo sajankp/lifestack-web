@@ -44,7 +44,8 @@ export const DividendModal: React.FC<DividendModalProps> = ({
 
   const brokerageAccounts = accounts.filter((a) => a.account_type === 'brokerage');
   const creditEligibleAccounts = accounts.filter(
-    (a) => a.account_type === 'bank' || a.account_type === 'wallet' || a.account_type === 'brokerage',
+    (a) =>
+      a.account_type === 'bank' || a.account_type === 'wallet' || a.account_type === 'brokerage',
   );
 
   const selectedHoldingAccount = accounts.find((a) => a.public_id === holdingAccountId);
@@ -87,7 +88,11 @@ export const DividendModal: React.FC<DividendModalProps> = ({
       label: `Brokerage Cash (${selectedHoldingAccount?.name ?? 'Same Account'})`,
     },
     ...creditEligibleAccounts
-      .filter((a) => !selectedHoldingAccount || a.default_currency_code === selectedHoldingAccount.default_currency_code)
+      .filter(
+        (a) =>
+          !selectedHoldingAccount ||
+          a.default_currency_code === selectedHoldingAccount.default_currency_code,
+      )
       .filter((a) => a.public_id !== holdingAccountId)
       .map((a) => ({
         value: a.public_id,
@@ -139,7 +144,9 @@ export const DividendModal: React.FC<DividendModalProps> = ({
               <Coins className="h-5 w-5" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-semibold text-white">Record Dividend / Income</DialogTitle>
+              <DialogTitle className="text-lg font-semibold text-white">
+                Record Dividend / Income
+              </DialogTitle>
               <p className="text-xs text-slate-400">
                 Record dividend or coupon distribution with optional direct bank credit
               </p>
@@ -189,8 +196,13 @@ export const DividendModal: React.FC<DividendModalProps> = ({
 
           <div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-medium text-slate-300">Credited To (Destination)</Label>
-              <span className="flex items-center gap-1 text-[11px] text-slate-400" title="Indian market dividends often credit the linked bank account directly instead of brokerage cash.">
+              <Label className="text-xs font-medium text-slate-300">
+                Credited To (Destination)
+              </Label>
+              <span
+                className="flex items-center gap-1 text-[11px] text-slate-400"
+                title="Indian market dividends often credit the linked bank account directly instead of brokerage cash."
+              >
                 <HelpCircle className="h-3 w-3 text-slate-400" />
                 Direct bank credit?
               </span>
@@ -212,7 +224,9 @@ export const DividendModal: React.FC<DividendModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs font-medium text-slate-300">Gross Amount ({currency})</Label>
+              <Label className="text-xs font-medium text-slate-300">
+                Gross Amount ({currency})
+              </Label>
               <FormattedNumberInput
                 value={grossAmount}
                 onChange={(e) => setGrossAmount(e.target.value)}
@@ -222,7 +236,9 @@ export const DividendModal: React.FC<DividendModalProps> = ({
               />
             </div>
             <div>
-              <Label className="text-xs font-medium text-slate-300">Tax Withheld ({currency})</Label>
+              <Label className="text-xs font-medium text-slate-300">
+                Tax Withheld ({currency})
+              </Label>
               <FormattedNumberInput
                 value={taxWithheld}
                 onChange={(e) => setTaxWithheld(e.target.value)}

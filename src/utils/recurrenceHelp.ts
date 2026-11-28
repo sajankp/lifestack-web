@@ -10,7 +10,15 @@ type RecurrenceHelpInput = {
   today?: Date;
 };
 
-const WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const WEEKDAY_NAMES = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
 const ORDINAL_NAMES: Record<number, string> = {
   1: 'first',
   2: 'second',
@@ -44,10 +52,21 @@ const nthWeekdayOfMonth = (year: number, month: number, weekday: number, ordinal
   return new Date(year, month, 1 + offset + (ordinal - 1) * 7);
 };
 
-const addMonths = (date: Date, interval: number, mode: string, anchorDay: number, weekday: number | null, ordinal: number | null) => {
+const addMonths = (
+  date: Date,
+  interval: number,
+  mode: string,
+  anchorDay: number,
+  weekday: number | null,
+  ordinal: number | null,
+) => {
   const target = new Date(date.getFullYear(), date.getMonth() + interval, 1);
   if (mode === 'last_day') {
-    return new Date(target.getFullYear(), target.getMonth(), daysInMonth(target.getFullYear(), target.getMonth()));
+    return new Date(
+      target.getFullYear(),
+      target.getMonth(),
+      daysInMonth(target.getFullYear(), target.getMonth()),
+    );
   }
   if (mode === 'nth_weekday' && weekday != null && ordinal != null) {
     return nthWeekdayOfMonth(target.getFullYear(), target.getMonth(), weekday, ordinal);
@@ -68,14 +87,23 @@ const nextDueDate = (input: RecurrenceHelpInput): Date | null => {
   let due = new Date(anchor);
 
   if (input.frequency === 'monthly' && mode === 'last_day') {
-    due = new Date(anchor.getFullYear(), anchor.getMonth(), daysInMonth(anchor.getFullYear(), anchor.getMonth()));
+    due = new Date(
+      anchor.getFullYear(),
+      anchor.getMonth(),
+      daysInMonth(anchor.getFullYear(), anchor.getMonth()),
+    );
   } else if (
     input.frequency === 'monthly' &&
     mode === 'nth_weekday' &&
     input.byWeekday != null &&
     input.byOrdinal != null
   ) {
-    due = nthWeekdayOfMonth(anchor.getFullYear(), anchor.getMonth(), input.byWeekday, input.byOrdinal);
+    due = nthWeekdayOfMonth(
+      anchor.getFullYear(),
+      anchor.getMonth(),
+      input.byWeekday,
+      input.byOrdinal,
+    );
   }
 
   if (due < anchor) {
@@ -97,11 +125,21 @@ const advanceDueDate = (current: Date, input: RecurrenceHelpInput, anchorDay: nu
     return new Date(current.getFullYear(), current.getMonth(), current.getDate() + input.interval);
   }
   if (input.frequency === 'weekly') {
-    return new Date(current.getFullYear(), current.getMonth(), current.getDate() + input.interval * 7);
+    return new Date(
+      current.getFullYear(),
+      current.getMonth(),
+      current.getDate() + input.interval * 7,
+    );
   }
   if (input.frequency === 'yearly') {
     const year = current.getFullYear() + input.interval;
-    return new Date(year, current.getMonth(), current.getDate() === 29 && current.getMonth() === 1 && !isLeapYear(year) ? 28 : current.getDate());
+    return new Date(
+      year,
+      current.getMonth(),
+      current.getDate() === 29 && current.getMonth() === 1 && !isLeapYear(year)
+        ? 28
+        : current.getDate(),
+    );
   }
   return addMonths(
     current,
@@ -116,7 +154,14 @@ const advanceDueDate = (current: Date, input: RecurrenceHelpInput, anchorDay: nu
 const isLeapYear = (year: number) => year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
 
 const intervalLabel = (frequency: string, interval: number) => {
-  const unit = frequency === 'weekly' ? 'week' : frequency === 'monthly' ? 'month' : frequency === 'yearly' ? 'year' : 'day';
+  const unit =
+    frequency === 'weekly'
+      ? 'week'
+      : frequency === 'monthly'
+        ? 'month'
+        : frequency === 'yearly'
+          ? 'year'
+          : 'day';
   return `${interval} ${unit}${interval === 1 ? '' : 's'}`;
 };
 
@@ -127,19 +172,39 @@ export const describeRecurrenceHelp = (input: RecurrenceHelpInput): string => {
 
   if (input.frequency === 'monthly') {
     if (input.monthlyMode === 'last_day') {
-      return `Runs every ${intervalLabel('monthly', interval)} on the last calendar day. The Start Date only sets when the rule can begin.${nextDueText}`;
+      return `Runs every ${intervalLabel(
+        'monthly',
+        interval,
+      )} on the last calendar day. The Start Date only sets when the rule can begin.${nextDueText}`;
     }
     if (input.monthlyMode === 'nth_weekday') {
       const ordinal = ORDINAL_NAMES[input.byOrdinal ?? 1] ?? 'selected';
       const weekday = WEEKDAY_NAMES[input.byWeekday ?? 0] ?? 'weekday';
-      return `Runs every ${intervalLabel('monthly', interval)} on the ${ordinal} ${weekday}. Start Date sets the earliest allowed date; Occurrence + Weekday choose the monthly pattern.${nextDueText}`;
+      return `Runs every ${intervalLabel(
+        'monthly',
+        interval,
+      )} on the ${ordinal} ${weekday}. Start Date sets the earliest allowed date; Occurrence + Weekday choose the monthly pattern.${nextDueText}`;
     }
     const day = parseCalendarDate(input.anchorDate)?.getDate();
-    const dayText = day ? ` (currently the ${day}${day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th'})` : '';
-    return `Runs every ${intervalLabel('monthly', interval)} on the day from Start Date${dayText}. For the 15th of every month, choose Monthly, Every N months = 1, and a Start Date on the 15th.${nextDueText}`;
+    const dayText = day
+      ? ` (currently the ${day}${day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th'})`
+      : '';
+    return `Runs every ${intervalLabel(
+      'monthly',
+      interval,
+    )} on the day from Start Date${dayText}. For the 15th of every month, choose Monthly, Every N months = 1, and a Start Date on the 15th.${nextDueText}`;
   }
 
-  const unit = input.frequency === 'weekly' ? 'weekday' : input.frequency === 'yearly' ? 'month and day' : input.frequency === 'daily' ? 'calendar day' : 'selected period';
-  return `Runs every ${intervalLabel(input.frequency, interval)}. Start Date is the first allowed date and fixes the ${unit}.${nextDueText}`;
+  const unit =
+    input.frequency === 'weekly'
+      ? 'weekday'
+      : input.frequency === 'yearly'
+        ? 'month and day'
+        : input.frequency === 'daily'
+          ? 'calendar day'
+          : 'selected period';
+  return `Runs every ${intervalLabel(
+    input.frequency,
+    interval,
+  )}. Start Date is the first allowed date and fixes the ${unit}.${nextDueText}`;
 };
-

@@ -30,8 +30,7 @@ export const describeMedicationSchedule = (schedule: MedicationScheduleLike): st
   if (schedule.schedule_mode === 'interval_from_last_dose') {
     const step = schedule.interval === 1 ? `Every ${unit}` : `Every ${schedule.interval} ${unit}s`;
     let intervalSummary = `${step} from your last dose`;
-    const times =
-      schedule.times && schedule.times.length > 0 ? schedule.times.join(', ') : null;
+    const times = schedule.times && schedule.times.length > 0 ? schedule.times.join(', ') : null;
     if (times) intervalSummary += `, ${times}`;
     if (schedule.end_date) intervalSummary += ` — until ${formatShortDate(schedule.end_date)}`;
     return intervalSummary;

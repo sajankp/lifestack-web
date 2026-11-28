@@ -2,13 +2,7 @@ import React from 'react';
 import { useCurrencyFormatter } from '../../hooks/useDisplayProfile';
 import { toNumber } from '../../utils/numberFormat';
 import type { TaxBucket } from '../../types/investing';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../ui/Card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
@@ -25,11 +19,14 @@ export const TaxBucketsCard: React.FC<TaxBucketsCardProps> = ({
   currencyDisplayPreference = 'symbol',
 }) => {
   const formatCurrency = useCurrencyFormatter();
-  
+
   // Convert to array if it's a record
   const bucketsArray = Array.isArray(taxBuckets)
     ? taxBuckets
-    : Object.entries(taxBuckets).map(([key, bucket]) => ({ ...bucket, section: bucket.section || key }));
+    : Object.entries(taxBuckets).map(([key, bucket]) => ({
+        ...bucket,
+        section: bucket.section || key,
+      }));
 
   const buckets = bucketsArray.filter((b) => toNumber(b.gain_inr) !== 0 || toNumber(b.tax) !== 0);
 
@@ -90,9 +87,7 @@ export const TaxBucketsCard: React.FC<TaxBucketsCardProps> = ({
                       {bucket.regime.charAt(0).toUpperCase() + bucket.regime.slice(1)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-slate-300">
-                    {bucket.section || '—'}
-                  </TableCell>
+                  <TableCell className="text-slate-300">{bucket.section || '—'}</TableCell>
                   <TableCell align="right" className="font-mono text-slate-200">
                     {bucket.rate_pct || '0'}%
                   </TableCell>
@@ -110,10 +105,16 @@ export const TaxBucketsCard: React.FC<TaxBucketsCardProps> = ({
         <div className="mt-3 flex justify-between text-xs">
           <div className="text-slate-500">Totals</div>
           <div className="flex gap-4 text-right">
-            <span className="font-mono font-semibold text-white" data-testid="tax-buckets-total-gain">
+            <span
+              className="font-mono font-semibold text-white"
+              data-testid="tax-buckets-total-gain"
+            >
               {formatCurrency(String(totals.gain), 'INR', currencyDisplayPreference)}
             </span>
-            <span className="font-mono font-semibold text-white" data-testid="tax-buckets-total-tax">
+            <span
+              className="font-mono font-semibold text-white"
+              data-testid="tax-buckets-total-tax"
+            >
               {formatCurrency(String(totals.tax), 'INR', currencyDisplayPreference)}
             </span>
           </div>

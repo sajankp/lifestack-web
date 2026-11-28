@@ -770,7 +770,9 @@ describe('MasterConfigPage', () => {
     const categoriesTab = await screen.findByTestId('settings-tab-categories');
     categoriesTab.focus();
     fireEvent.keyDown(categoriesTab, { key: 'Enter', code: 'Enter' });
-    expect(screen.queryByTestId('master-category-delete-cat-uncategorized')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('master-category-delete-cat-uncategorized'),
+    ).not.toBeInTheDocument();
     expect(screen.getByText('Protected')).toBeInTheDocument();
   });
 

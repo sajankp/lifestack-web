@@ -118,11 +118,7 @@ describe('FormattedNumberInput', () => {
 
   it('does not visually round high-precision values when configured to preserve them', () => {
     render(
-      <FormattedNumberInput
-        aria-label="Unit price"
-        value="0.000001"
-        maximumFractionDigits={6}
-      />,
+      <FormattedNumberInput aria-label="Unit price" value="0.000001" maximumFractionDigits={6} />,
     );
 
     expect(screen.getByRole('spinbutton', { name: 'Unit price' })).toHaveValue('0.000001');

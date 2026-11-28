@@ -574,10 +574,6 @@ export const DividendHistoryResponseSchema = z
   });
 export type DividendHistoryResponse = z.infer<typeof DividendHistoryResponseSchema>;
 
-
-
-
-
 // ── Capital gains tax (spec-099) ─────────────────────────────────────────
 
 export const TaxBucketSchema = z.object({

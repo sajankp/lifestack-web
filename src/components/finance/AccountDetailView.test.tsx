@@ -83,7 +83,7 @@ const closingRows = (container: HTMLElement) =>
   );
 
 describe('AccountDetailView daily closing highlight', () => {
-  it('marks only the newest entry of a day as that day\'s close', () => {
+  it("marks only the newest entry of a day as that day's close", () => {
     // Newest first: two entries on 2026-02-02, one on 2026-02-01.
     const { container } = renderView([
       item({ id: 'a', date: '2026-02-02T09:00:00Z', description: 'newest of day 2' }),
@@ -147,7 +147,10 @@ describe('AccountDetailView daily closing highlight', () => {
     );
 
     const { container } = renderView(
-      [item({ id: 'a', date: '2026-02-02T05:00:00Z' }), item({ id: 'b', date: '2026-02-01T10:00:00Z' })],
+      [
+        item({ id: 'a', date: '2026-02-02T05:00:00Z' }),
+        item({ id: 'b', date: '2026-02-01T10:00:00Z' }),
+      ],
       1,
     );
 

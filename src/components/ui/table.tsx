@@ -18,7 +18,10 @@ Table.displayName = 'Table';
 
 type TableHeaderProps = React.HTMLAttributes<HTMLTableSectionElement>;
 const TableHeader: React.FC<TableHeaderProps> = ({ className, ...props }) => (
-  <thead className={cn('bg-slate-900/40 text-xs text-slate-400 uppercase tracking-wider', className)} {...props} />
+  <thead
+    className={cn('bg-slate-900/40 text-xs text-slate-400 uppercase tracking-wider', className)}
+    {...props}
+  />
 );
 TableHeader.displayName = 'TableHeader';
 
@@ -38,10 +41,7 @@ type TableHeadProps = React.HTMLAttributes<HTMLTableCellElement> & {
   align?: TableAlign;
 };
 const TableHead: React.FC<TableHeadProps> = ({ className, align = 'left', ...props }) => (
-  <th
-    className={cn('px-3 py-2 font-medium', alignClasses[align], className)}
-    {...props}
-  />
+  <th className={cn('px-3 py-2 font-medium', alignClasses[align], className)} {...props} />
 );
 TableHead.displayName = 'TableHead';
 

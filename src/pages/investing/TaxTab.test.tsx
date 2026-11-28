@@ -212,9 +212,7 @@ describe('TaxTab', () => {
     await waitFor(() => {
       expect(screen.getByTestId('tax-disclaimers')).toBeInTheDocument();
     });
-    expect(
-      screen.getByText(/Regime foreign applied to 5 of 7 sells/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Regime foreign applied to 5 of 7 sells/)).toBeInTheDocument();
   });
 
   it('explains the estimate with an information affordance', async () => {

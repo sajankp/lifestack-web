@@ -47,7 +47,10 @@ export const Pagination: React.FC<PaginationProps> = ({
       <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
         {onLimitChange && (
           <div className="flex items-center gap-2">
-            <label htmlFor="pagination-page-size" className="text-xs text-slate-400 whitespace-nowrap">
+            <label
+              htmlFor="pagination-page-size"
+              className="text-xs text-slate-400 whitespace-nowrap"
+            >
               Rows per page:
             </label>
             <select
