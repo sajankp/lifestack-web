@@ -120,7 +120,7 @@ export function MobileNavDrawer({
                 {section}
               </p>
               <ul className="space-y-1">
-                {NAV_LINKS.filter((link) => link.section === section).map(
+                {NAV_LINKS.filter((link) => link.to === '/health' && link.section === section).map(
                   ({ to, label, testId }) => (
                     <li key={to}>
                       <NavLink

@@ -168,8 +168,11 @@ export const ImportsPage: React.FC = () => {
   const { showToast } = useToast();
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [searchParams] = useSearchParams();
-  const routeModule = location.pathname.startsWith('/imports/')
-    ? location.pathname.slice('/imports/'.length)
+  const importBasePath = location.pathname.startsWith('/settings/data/imports')
+    ? '/settings/data/imports'
+    : '/imports';
+  const routeModule = location.pathname.startsWith(`${importBasePath}/`)
+    ? location.pathname.slice(`${importBasePath}/`.length)
     : '';
   const legacyModule = searchParams.get('module') ?? '';
   const initialModule = (
@@ -217,16 +220,18 @@ export const ImportsPage: React.FC = () => {
   }, [initialModule, targetAccountParam, shouldOpenUpload]);
 
   useEffect(() => {
-    const isImportsRoot = location.pathname === '/imports' || location.pathname === '/imports/';
+    const isImportsRoot =
+      location.pathname === importBasePath || location.pathname === `${importBasePath}/`;
     const isUnknownImportBranch =
-      location.pathname.startsWith('/imports/') && !IMPORT_MODULES.has(routeModule as ImportModule);
+      location.pathname.startsWith(`${importBasePath}/`) &&
+      !IMPORT_MODULES.has(routeModule as ImportModule);
     if (!isImportsRoot && !isUnknownImportBranch) return;
     if (legacyModule && IMPORT_MODULES.has(legacyModule as ImportModule)) {
-      navigate(`/imports/${legacyModule}`, { replace: true });
+      navigate(`${importBasePath}/${legacyModule}`, { replace: true });
     } else if (isUnknownImportBranch) {
-      navigate('/imports', { replace: true });
+      navigate(importBasePath, { replace: true });
     }
-  }, [legacyModule, location.pathname, navigate, routeModule]);
+  }, [importBasePath, legacyModule, location.pathname, navigate, routeModule]);
 
   const { data: accountsResponse } = useQuery({
     queryKey: ['finance', 'accounts', 'imports'],
@@ -570,7 +575,7 @@ export const ImportsPage: React.FC = () => {
                   onChange={(e) => {
                     const nextModule = e.target.value as ImportModule;
                     setModule(nextModule);
-                    navigate(`/imports/${nextModule}`);
+                    navigate(`${importBasePath}/${nextModule}`);
                     setTargetAccountId('');
                     setFilePassword('');
                     setDateFormat(nextModule === 'finance-account-statement' ? 'yyyy-MM-dd' : '');

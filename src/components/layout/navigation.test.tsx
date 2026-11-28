@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { NAV_LINKS } from './constants';
 import { Sidebar } from './Sidebar';
 import { MobileNavDrawer } from './MobileNavDrawer';
+import { MobileBottomNav } from './MobileBottomNav';
 
-// spec-113 §2.2: Capture leaves the sidebar and the drawer (the floating mic button stays), and the
-// two tools read "Import" and "Export".
+// spec-113 §4.3: five primary destinations, with Health and Settings under More on phones.
 
 describe('navigation links', () => {
   it('no longer has a Capture entry', () => {
@@ -15,32 +15,52 @@ describe('navigation links', () => {
     expect(NAV_LINKS.some((link) => link.label === 'Capture')).toBe(false);
   });
 
-  it('labels the tools Import and Export, with their routes and test ids unchanged', () => {
-    const imports = NAV_LINKS.find((link) => link.to === '/imports');
-    const exports_ = NAV_LINKS.find((link) => link.to === '/exports');
-
-    expect(imports).toMatchObject({ label: 'Import', testId: 'nav-imports' });
-    expect(exports_).toMatchObject({ label: 'Export', testId: 'nav-exports' });
+  it('has exactly the five primary destinations and removes tool links', () => {
+    expect(NAV_LINKS.map(({ to, label, testId }) => ({ to, label, testId }))).toEqual([
+      { to: '/', label: 'Today', testId: 'nav-dashboard' },
+      { to: '/money', label: 'Money', testId: 'nav-money' },
+      { to: '/portfolio', label: 'Investments', testId: 'nav-portfolio' },
+      { to: '/todo', label: 'Tasks', testId: 'nav-todo' },
+      { to: '/health', label: 'Health', testId: 'nav-health' },
+    ]);
   });
 });
 
 describe('Sidebar', () => {
-  it('renders no Capture item and the new tool labels', () => {
+  it('renders the five primary destinations and Settings', () => {
     render(
       <MemoryRouter>
         <Sidebar collapsed={false} onToggle={() => {}} />
       </MemoryRouter>,
     );
 
-    expect(screen.queryByTestId('nav-capture')).not.toBeInTheDocument();
-    expect(screen.queryByText('Capture')).not.toBeInTheDocument();
-    expect(within(screen.getByTestId('nav-imports')).getByText('Import')).toBeInTheDocument();
-    expect(within(screen.getByTestId('nav-exports')).getByText('Export')).toBeInTheDocument();
+    expect(screen.queryByTestId('nav-spending')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('nav-summaries')).not.toBeInTheDocument();
+    expect(screen.getByTestId('nav-money')).toHaveTextContent('Money');
+    expect(screen.getByTestId('nav-portfolio')).toHaveTextContent('Investments');
+    expect(screen.getByTestId('nav-todo')).toHaveTextContent('Tasks');
+    expect(screen.getByTestId('nav-settings')).toBeInTheDocument();
+  });
+});
+
+describe('MobileBottomNav', () => {
+  it('shows Today, Money, Investments, Tasks and More', () => {
+    render(
+      <MemoryRouter initialEntries={['/money']}>
+        <MobileBottomNav onMore={() => {}} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('nav-dashboard-mobile-bottom')).toHaveAttribute('href', '/');
+    expect(screen.getByTestId('nav-money-mobile-bottom')).toHaveAttribute('href', '/money');
+    expect(screen.getByTestId('nav-portfolio-mobile-bottom')).toHaveAttribute('href', '/portfolio');
+    expect(screen.getByTestId('nav-todo-mobile-bottom')).toHaveAttribute('href', '/todo');
+    expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument();
   });
 });
 
 describe('MobileNavDrawer', () => {
-  it('renders no Capture item either', () => {
+  it('keeps the More destinations secondary to the bottom navigation', () => {
     render(
       <MemoryRouter>
         <MobileNavDrawer
@@ -56,9 +76,7 @@ describe('MobileNavDrawer', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.queryByTestId('nav-capture-mobile')).not.toBeInTheDocument();
-    expect(screen.queryByText('Capture')).not.toBeInTheDocument();
-    expect(screen.getByTestId('nav-imports-mobile')).toHaveTextContent('Import');
-    expect(screen.getByTestId('nav-exports-mobile')).toHaveTextContent('Export');
+    expect(screen.getByTestId('nav-health-mobile')).toHaveTextContent('Health');
+    expect(screen.getByTestId('nav-settings-mobile')).toHaveTextContent('Settings');
   });
 });
