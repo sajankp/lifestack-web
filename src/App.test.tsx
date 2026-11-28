@@ -61,6 +61,23 @@ const defaultHandlers = [
   http.get('*/v1/auth/me', () => HttpResponse.json(user)),
   http.get('*/v1/notifications/unread-count', () => HttpResponse.json({ count: 0 })),
   http.get('*/v1/dashboard/summary', () => HttpResponse.json(dashboardSummary)),
+  http.get('*/v1/dashboard/briefing', () => HttpResponse.json({ lines: [], all_clear: true })),
+  http.get('*/v1/notifications', () => HttpResponse.json({ items: [], total: 0 })),
+  http.get('*/v1/notifications/push-subscriptions', () => HttpResponse.json([])),
+  http.get('*/v1/finance/accounts', () => HttpResponse.json({ items: [], total: 0 })),
+  http.get('*/v1/finance/period-change', () =>
+    HttpResponse.json({
+      status: 'unavailable',
+      start_date: '2026-11-21',
+      end_date: '2026-11-28',
+      currency: null,
+      net_worth: {},
+      investments: {},
+    }),
+  ),
+  http.get('*/v1/todo/', () => HttpResponse.json({ items: [], total: 0 })),
+  http.get('*/v1/spending/transactions', () => HttpResponse.json({ items: [], total: 0 })),
+  http.get('*/v1/health/medications/schedule', () => HttpResponse.json({ items: [] })),
   http.get('*/v1/summaries/weekly/latest', () =>
     HttpResponse.json({ detail: 'No weekly summary found' }, { status: 404 }),
   ),
@@ -107,7 +124,70 @@ describe('App shell', () => {
     document.body.style.overflow = '';
   });
 
-  it('opens and closes mobile navigation without losing the active route', async () => {
+  it('redirects legacy routes to the reshaped pages', async () => {
+    server.use(
+      ...defaultHandlers,
+      http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [workspaceA] })),
+    );
+
+    window.history.pushState({}, '', '/summaries');
+    renderApp();
+
+    expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname).toBe('/'));
+  });
+
+  it('resolves every current API-emitted deep link to a page instead of the fallback', async () => {
+    const emittedRoutes = [
+      '/money/budget',
+      '/money/spending',
+      '/portfolio',
+      '/todo',
+      '/health',
+      '/settings/data',
+      '/notifications',
+    ];
+    server.use(
+      ...defaultHandlers,
+      http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [workspaceA] })),
+    );
+
+    for (const route of emittedRoutes) {
+      window.history.pushState({}, '', route);
+      const app = renderApp();
+      await waitFor(() => expect(window.location.pathname).toBe(route));
+      app.unmount();
+    }
+  });
+
+  it('redirects every legacy product route to its replacement', async () => {
+    const redirects: Array<[string, string]> = [
+      ['/spending', '/money/budget'],
+      ['/spending?tab=budgets', '/money/budget'],
+      ['/spending?tab=recurring', '/money/budget'],
+      ['/spending/budgets', '/money/budget'],
+      ['/spending/recurring', '/money/budget'],
+      ['/spending/kpis', '/money/budget'],
+      ['/spending/analytics', '/money/spending'],
+      ['/summaries', '/'],
+      ['/imports/finance-account-statement', '/settings/data'],
+      ['/exports', '/settings/data'],
+      ['/net-worth', '/money/accounts'],
+    ];
+    server.use(
+      ...defaultHandlers,
+      http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [workspaceA] })),
+    );
+
+    for (const [legacy, target] of redirects) {
+      window.history.pushState({}, '', legacy);
+      const app = renderApp();
+      await waitFor(() => expect(window.location.pathname).toBe(target));
+      app.unmount();
+    }
+  });
+
+  it('opens More from the bottom bar without losing the active route', async () => {
     server.use(
       ...defaultHandlers,
       http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [workspaceA] })),
@@ -118,12 +198,12 @@ describe('App shell', () => {
     expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
     expect((await screen.findAllByText('Alpha Workspace')).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByTestId('nav-mobile-open'));
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
 
     await waitFor(() => {
       expect(document.body.style.overflow).toBe('hidden');
     });
-    expect(screen.getByTestId('nav-dashboard-mobile')).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('nav-health-mobile')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Close navigation'));
 
@@ -177,7 +257,7 @@ describe('App shell', () => {
     );
   });
 
-  it('gives header icon buttons a >=44px touch target (web#202)', async () => {
+  it('gives bottom navigation and header icon buttons a >=44px touch target (web#202)', async () => {
     server.use(
       ...defaultHandlers,
       http.get('*/v1/platform/workspaces/', () => HttpResponse.json({ items: [workspaceA] })),
@@ -186,7 +266,7 @@ describe('App shell', () => {
     renderApp();
 
     await screen.findByRole('heading', { name: 'Today' });
-    expect(screen.getByTestId('nav-mobile-open')).toHaveClass('h-11', 'w-11');
+    expect(screen.getByTestId('nav-dashboard-mobile-bottom')).toHaveClass('min-h-14');
     expect(screen.getByTestId('header-notifications')).toHaveClass('h-11', 'w-11');
   });
 
