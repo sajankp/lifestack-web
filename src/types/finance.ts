@@ -330,3 +330,34 @@ export const ActivityFeedResponseSchema = z.object({
   offset: z.number().default(0),
 });
 export type ActivityFeedResponse = z.infer<typeof ActivityFeedResponseSchema>;
+
+// GET /finance/period-change (spec-115 §2.4): net worth and investments over a period, with the
+// saved / markets split. Money fields are decimal strings; a split that could not be computed is null.
+const NullableMoneySchema = z.union([z.number(), z.string()]).nullable().default(null);
+
+export const PeriodChangeResponseSchema = z.object({
+  status: z.enum(['complete', 'partial', 'unavailable']),
+  start_date: z.string().default(''),
+  end_date: z.string().default(''),
+  currency: z.string().nullable().default(null),
+  net_worth: z
+    .object({
+      start: NullableMoneySchema,
+      end: NullableMoneySchema,
+      change: NullableMoneySchema,
+      saved: NullableMoneySchema,
+      markets_and_other: NullableMoneySchema,
+    })
+    .default({ start: null, end: null, change: null, saved: null, markets_and_other: null }),
+  investments: z
+    .object({
+      start: NullableMoneySchema,
+      end: NullableMoneySchema,
+      change: NullableMoneySchema,
+      new_money: NullableMoneySchema,
+      growth: NullableMoneySchema,
+    })
+    .default({ start: null, end: null, change: null, new_money: null, growth: null }),
+});
+export type PeriodChangeResponse = z.infer<typeof PeriodChangeResponseSchema>;
+export type ChangePeriod = 'day' | 'week' | 'month' | 'year';

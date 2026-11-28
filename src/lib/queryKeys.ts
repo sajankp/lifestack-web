@@ -205,6 +205,7 @@ export const queryKeys = {
     transfers: <T extends unknown[]>(...params: T) => ['finance', 'transfers', ...params] as const,
     activityFeed: <T extends unknown[]>(...params: T) =>
       ['finance', 'activity-feed', ...params] as const,
+    periodChange: (period: string) => ['finance', 'period-change', period] as const,
     reconciliation: <T extends unknown[]>(...params: T) =>
       ['finance', 'reconciliation', ...params] as const,
   },

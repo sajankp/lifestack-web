@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BudgetSpotlightItemSchema } from './spending';
+import { BudgetSpotlightItemSchema, MonthBudgetStatusSchema } from './spending';
 
 export const DashboardTodoItemSchema = z.object({
   public_id: z.string().optional(),
@@ -79,5 +79,8 @@ export const DashboardSummarySchema = z.object({
   system: z.object({
     generated_at: z.string().default(''),
   }),
+  // The month's budget answer for Today; null when spending is unavailable or the cached entry
+  // predates the field.
+  month_budget: MonthBudgetStatusSchema.nullable().default(null),
 });
 export type DashboardSummary = z.infer<typeof DashboardSummarySchema>;

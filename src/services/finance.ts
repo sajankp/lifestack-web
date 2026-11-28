@@ -9,6 +9,7 @@ import {
   CurrencySchema,
   NetWorthDataSchema,
   NetWorthHistoryItemSchema,
+  PeriodChangeResponseSchema,
   ReconciliationSummarySchema,
   UserFinanceSettingSchema,
   UserFxRateSchema,
@@ -27,6 +28,8 @@ import type {
   Currency,
   NetWorthData,
   NetWorthHistoryItem,
+  ChangePeriod,
+  PeriodChangeResponse,
   ReconciliationSummary,
   UserFinanceSetting,
   UserFinanceSettingUpdate,
@@ -75,6 +78,11 @@ export const financeService = {
   updateSettings: async (data: WorkspaceFinanceSettingUpdate): Promise<WorkspaceFinanceSetting> => {
     const response = await api.patch('/finance/settings', data);
     return WorkspaceFinanceSettingSchema.parse(response.data);
+  },
+
+  getPeriodChange: async (period: ChangePeriod): Promise<PeriodChangeResponse> => {
+    const response = await api.get('/finance/period-change', { params: { period } });
+    return PeriodChangeResponseSchema.parse(response.data);
   },
 
   getUserSettings: async (): Promise<UserFinanceSetting> => {

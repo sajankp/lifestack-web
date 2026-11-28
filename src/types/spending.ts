@@ -400,6 +400,34 @@ export const BudgetSpotlightItemSchema = z.object({
 
 export type BudgetSpotlightItem = z.infer<typeof BudgetSpotlightItemSchema>;
 
+// The month's single budget answer (spec-115 §2.1), carried by the dashboard summary (spec-113 §3).
+export const MonthBudgetLineSchema = z.object({
+  kind: z.enum(['category', 'group']).default('category'),
+  category_id: z.string().nullable().default(null),
+  category_name: z.string().nullable().default(null),
+  category_group_id: z.string().nullable().default(null),
+  category_group_name: z.string().nullable().default(null),
+  limit: z.union([z.number(), z.string()]).default(0),
+  spent: z.union([z.number(), z.string()]).default(0),
+  remaining: z.union([z.number(), z.string()]).default(0),
+  used_pct: z.number().nullable().default(null),
+  status: z.enum(['on_track', 'warning', 'exceeded']).default('on_track'),
+});
+
+export const MonthBudgetStatusSchema = z.object({
+  month: z.string().default(''),
+  as_of: z.string().default(''),
+  lines: z.array(MonthBudgetLineSchema).default([]),
+  covered_spend: z.union([z.number(), z.string()]).default(0),
+  covered_limit: z.union([z.number(), z.string()]).default(0),
+  uncovered_spend: z.union([z.number(), z.string()]).default(0),
+  used_pct: z.number().nullable().default(null),
+  breached_count: z.number().default(0),
+  total_spend: z.union([z.number(), z.string()]).default(0),
+});
+
+export type MonthBudgetStatus = z.infer<typeof MonthBudgetStatusSchema>;
+
 export const SavingsRatePointSchema = z.object({
   month: z.string().default(''),
   income: z.union([z.number(), z.string()]).default(0),
