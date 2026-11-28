@@ -23,7 +23,7 @@ export type NavSection = 'Overview' | 'Life' | 'Money' | 'Tools';
 export const NAV_LINKS = [
   {
     to: '/',
-    label: 'Dashboard',
+    label: 'Today',
     testId: 'nav-dashboard',
     icon: LayoutDashboard,
     section: 'Overview' as NavSection,

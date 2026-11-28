@@ -115,7 +115,7 @@ describe('App shell', () => {
 
     renderApp();
 
-    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
     expect((await screen.findAllByText('Alpha Workspace')).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByTestId('nav-mobile-open'));
@@ -169,7 +169,7 @@ describe('App shell', () => {
 
     renderApp();
 
-    expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Add todo' })).toHaveAttribute('href', '/todo?new=1');
     expect(screen.getByRole('link', { name: 'Add expense' })).toHaveAttribute(
       'href',
@@ -185,7 +185,7 @@ describe('App shell', () => {
 
     renderApp();
 
-    await screen.findByRole('heading', { name: 'Dashboard' });
+    await screen.findByRole('heading', { name: 'Today' });
     expect(screen.getByTestId('nav-mobile-open')).toHaveClass('h-11', 'w-11');
     expect(screen.getByTestId('header-notifications')).toHaveClass('h-11', 'w-11');
   });
@@ -201,7 +201,7 @@ describe('App shell', () => {
     try {
       renderApp();
       expect(await screen.findByTestId('offline-mode-banner')).toBeInTheDocument();
-      expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
     } finally {
       Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
     }
