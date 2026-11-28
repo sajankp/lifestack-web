@@ -313,6 +313,9 @@ export const ActivityFeedItemSchema = z.object({
   order_type: z.string().nullable().optional(),
   quantity: z.string().nullable().optional(),
   price_per_unit: z.string().nullable().optional(),
+  // The received side of a one-row transfer ("All accounts" feed only).
+  amount_in: z.string().nullable().optional(),
+  currency_in: z.string().nullable().optional(),
   fx_rate: z.string().nullable().optional(),
   fx_display: z.string().nullable().optional(),
   income_type: z.string().nullable().optional(),

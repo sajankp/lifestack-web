@@ -12,7 +12,7 @@ import {
   Trash2,
   Wallet,
 } from 'lucide-react';
-import { formatCurrency } from '../../utils/numberFormat';
+import { formatCurrency, formatQuantity } from '../../utils/numberFormat';
 import { formatDate } from '../../utils/dateFormat';
 import { useDisplayProfile } from '../../hooks/useDisplayProfile';
 import { DropdownSelect } from '../DropdownSelect';
@@ -42,6 +42,13 @@ interface ActivityFeedTimelineProps {
   onDeleteItem?: (item: ActivityFeedItem) => void;
   isDeletePending?: boolean;
 }
+
+/** One row for both sides of a transfer ("All accounts"); the API sets amount_in on it only. */
+const isCombinedTransfer = (item: ActivityFeedItem): boolean =>
+  item.event_type === 'transfer' && item.amount_in != null;
+
+const isFiniteNumberString = (value: string | null | undefined): value is string =>
+  value != null && value.trim() !== '' && Number.isFinite(Number(value));
 
 export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
   items,
@@ -106,6 +113,15 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
         };
       }
       case 'transfer': {
+        if (isCombinedTransfer(item)) {
+          return {
+            icon: ArrowRightLeft,
+            iconBg: 'bg-blue-500/10 text-blue-400',
+            badgeText: 'Transfer',
+            badgeBg: 'bg-blue-500/10 text-blue-300 border-blue-500/20',
+            amountColor: 'text-slate-200',
+          };
+        }
         const isReceive = amtStr.startsWith('+');
         return {
           icon: ArrowRightLeft,
@@ -145,6 +161,32 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
           amountColor: 'text-slate-200',
         };
     }
+  };
+
+  const money = (value: number, currency: string) =>
+    formatCurrency(
+      value,
+      currency,
+      displayProfile.currencyDisplay,
+      displayProfile.locale,
+      displayProfile.decimalPlaces,
+    );
+
+  // "Bought 6 VTI @ $265.00" instead of the server's "BUY VTI (6.00000000 @ 265.000000)".
+  const describeItem = (item: ActivityFeedItem): string => {
+    if (
+      item.event_type === 'order' &&
+      item.symbol &&
+      (item.order_type === 'buy' || item.order_type === 'sell') &&
+      isFiniteNumberString(item.quantity) &&
+      isFiniteNumberString(item.price_per_unit)
+    ) {
+      const verb = item.order_type === 'buy' ? 'Bought' : 'Sold';
+      return `${verb} ${formatQuantity(item.quantity, 8, displayProfile.locale)} ${
+        item.symbol
+      } @ ${money(Number(item.price_per_unit), item.currency)}`;
+    }
+    return item.description;
   };
 
   const totalPages = Math.ceil(total / limit) || 1;
@@ -246,10 +288,14 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
               const amtStr = String(item.amount ?? '0');
               const numAmt = parseFloat(amtStr.replace('+', '')) || 0;
               const isPositive = amtStr.startsWith('+');
+              const combined = isCombinedTransfer(item);
+              const twoCurrencies =
+                combined && !!item.currency_in && item.currency_in !== item.currency;
 
               return (
                 <div
                   key={item.id}
+                  data-testid={`activity-row-${item.id}`}
                   className="group flex items-start justify-between gap-3 p-3.5 hover:bg-slate-800/40 transition-colors sm:items-center"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-3.5">
@@ -260,7 +306,7 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="line-clamp-2 break-words text-xs font-semibold text-white sm:max-w-md sm:truncate">
-                          {item.description}
+                          {describeItem(item)}
                         </span>
                         <span
                           className={`rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${visuals.badgeBg}`}
@@ -289,17 +335,22 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
 
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400">
                         <span className="whitespace-nowrap">{formatDate(item.date)}</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Building2 className="h-3 w-3 text-slate-500" />
-                          {item.account_name}
-                        </span>
-                        {item.counterpart_account_name && (
+                        {/* A one-row transfer already says "From → To" in its title. */}
+                        {!combined && (
                           <>
-                            <span>→</span>
-                            <span className="text-slate-300 font-medium">
-                              {item.counterpart_account_name}
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3 text-slate-500" />
+                              {item.account_name}
                             </span>
+                            {item.counterpart_account_name && (
+                              <>
+                                <span>→</span>
+                                <span className="text-slate-300 font-medium">
+                                  {item.counterpart_account_name}
+                                </span>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
@@ -308,18 +359,28 @@ export const ActivityFeedTimeline: React.FC<ActivityFeedTimelineProps> = ({
 
                   <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3 sm:pl-3">
                     <div className="text-right">
-                      <span className={`block font-mono text-xs sm:text-sm ${visuals.amountColor}`}>
-                        {isPositive ? '+' : ''}
-                        {formatCurrency(
-                          numAmt,
-                          item.currency,
-                          displayProfile.currencyDisplay,
-                          displayProfile.locale,
-                          displayProfile.decimalPlaces,
+                      <span
+                        data-testid="activity-amount"
+                        className={`block font-mono text-xs sm:text-sm ${visuals.amountColor}`}
+                      >
+                        {combined ? (
+                          <>
+                            {money(Math.abs(numAmt), item.currency)}
+                            {twoCurrencies &&
+                              ` → ${money(
+                                Math.abs(parseFloat(String(item.amount_in).replace('+', '')) || 0),
+                                item.currency_in as string,
+                              )}`}
+                          </>
+                        ) : (
+                          <>
+                            {isPositive ? '+' : ''}
+                            {money(numAmt, item.currency)}
+                          </>
                         )}
                       </span>
                       <span className="text-[10px] font-mono text-slate-500 uppercase">
-                        {item.currency}
+                        {twoCurrencies ? `${item.currency} → ${item.currency_in}` : item.currency}
                       </span>
                     </div>
 
