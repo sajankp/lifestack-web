@@ -1,15 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import {
-  ArrowUpDown,
-  ChartNoAxesCombined,
-  ChevronDown,
-  Landmark,
-  PiggyBank,
-  Plus,
-  WalletCards,
-} from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { financeService } from '../services/finance';
 import { useInvalidatingMutation } from '../hooks/useInvalidatingMutation';
 import { investingService } from '../services/investing';
@@ -44,32 +36,35 @@ import {
 } from '../components/ui/dialog';
 import { HoldingsTab } from './investing/HoldingsTab';
 import { OrdersTab } from './investing/OrdersTab';
-import { AnalyticsTab } from './investing/AnalyticsTab';
+import { PerformanceTab } from './investing/PerformanceTab';
+import { ExposureTab } from './investing/ExposureTab';
 import { TaxTab } from './investing/TaxTab';
-import { SummaryCard } from './investing/components';
-import { ReturnMetricsPanel } from '../components/investing/ReturnMetricsPanel';
-import {
-  formatDateTimeLocalInput,
-  formatPerformanceMetric,
-  valuationLine,
-} from './investing/format';
+import { InvestingHeaderStrip } from '../components/investing/InvestingHeaderStrip';
+import { formatDateTimeLocalInput } from './investing/format';
 import { mutationInvalidations, queryKeys } from '../lib/queryKeys';
 
 const refreshKeys = mutationInvalidations.order;
 
-type InvestingTab = 'holdings' | 'orders' | 'analytics' | 'tax';
+type InvestingTab = 'holdings' | 'orders' | 'performance' | 'exposure' | 'tax';
 const INVESTING_TAB_ROUTES: Record<InvestingTab, string> = {
   holdings: 'holdings',
   orders: 'orders',
-  analytics: 'analytics',
+  performance: 'performance',
+  exposure: 'exposure',
   tax: 'tax',
 };
-const INVESTING_ROUTE_TABS: Record<string, InvestingTab> = Object.fromEntries(
-  Object.entries(INVESTING_TAB_ROUTES).map(([tab, route]) => [route, tab]),
-) as Record<string, InvestingTab>;
+// The old Analytics tab was split into Performance and Exposure (spec-113 §5.1); its URLs and
+// ?tab=analytics links land on Performance. Looked up through a Map because the key comes from
+// the URL.
+const LEGACY_TAB_ALIASES = new Map<string, InvestingTab>([['analytics', 'performance']]);
+const INVESTING_ROUTE_TABS = new Map<string, InvestingTab>([
+  ...(Object.entries(INVESTING_TAB_ROUTES).map(([tab, route]) => [route, tab]) as Array<
+    [string, InvestingTab]
+  >),
+  ...LEGACY_TAB_ALIASES,
+]);
 
 export const InvestingPage: React.FC = () => {
-  const [showDetails, setShowDetails] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -77,10 +72,19 @@ export const InvestingPage: React.FC = () => {
   const basePath = location.pathname.startsWith('/investing') ? '/investing' : '/portfolio';
   const cleanPath = location.pathname.replace(/^\/(portfolio|investing)\/?/, '');
   const tabSegment = cleanPath.split('/')[0];
-  const pathTab = INVESTING_ROUTE_TABS[tabSegment];
-  const legacyTab =
-    requestedTab && requestedTab in INVESTING_TAB_ROUTES ? (requestedTab as InvestingTab) : null;
+  const pathTab = INVESTING_ROUTE_TABS.get(tabSegment ?? '');
+  const legacyTab: InvestingTab | null = requestedTab
+    ? INVESTING_ROUTE_TABS.get(requestedTab) ?? null
+    : null;
   const tab = pathTab ?? legacyTab ?? 'holdings';
+  React.useEffect(() => {
+    const canonical = LEGACY_TAB_ALIASES.get(tabSegment ?? '');
+    if (canonical) {
+      navigate(`${basePath}/${INVESTING_TAB_ROUTES[canonical]}${location.search}`, {
+        replace: true,
+      });
+    }
+  }, [tabSegment, basePath, location.search, navigate]);
 
   // The Holdings empty state deep-links here as ?tab=orders&order=1 to open
   // the Place Order flow directly; consume the params once, then strip them.
@@ -454,14 +458,6 @@ export const InvestingPage: React.FC = () => {
     deleteOrderMutation.mutate(pendingDeleteOrder.public_id);
   };
 
-  const performancePctRaw =
-    performanceSummary.data?.total_gain_loss_pct != null
-      ? Number(performanceSummary.data.total_gain_loss_pct)
-      : Number.NaN;
-  const performancePctLabel = Number.isNaN(performancePctRaw)
-    ? 'N/A'
-    : `${performancePctRaw.toFixed(2)}%`;
-
   return (
     <PageShell>
       <PageHero
@@ -480,129 +476,23 @@ export const InvestingPage: React.FC = () => {
         }
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5 xl:gap-6">
-        <SummaryCard
-          label={`Portfolio value${
-            performanceSummary.data?.snapshot_date
-              ? ` (as of ${performanceSummary.data.snapshot_date})`
-              : ''
-          }`}
-          value={
-            summary.data?.valuation_status === 'multi_currency_unconverted'
-              ? 'N/A'
-              : performanceSummary.data
-                ? formatCurrency(
-                    performanceSummary.data.portfolio_value ?? performanceSummary.data.total_value,
-                    performanceSummary.data.currency,
-                    currencyDisplayPreference,
-                    displayLocale,
-                    decimalPlaces,
-                  )
-                : summary.data?.portfolio_value != null
-                  ? formatCurrency(
-                      summary.data.portfolio_value,
-                      summary.data.reporting_currency ?? preferredWorkspaceCurrency,
-                      currencyDisplayPreference,
-                      displayLocale,
-                      decimalPlaces,
-                    )
-                  : 'N/A'
-          }
-          icon={<PiggyBank className="h-5 w-5" />}
-          testId="investing-portfolio-value"
-        />
-        <SummaryCard
-          label="Invested"
-          value={
-            performanceSummary.data
-              ? formatCurrency(
-                  performanceSummary.data.invested_value ?? performanceSummary.data.total_cost,
-                  performanceSummary.data.currency,
-                  currencyDisplayPreference,
-                  displayLocale,
-                  decimalPlaces,
-                )
-              : 'N/A'
-          }
-          icon={<ChartNoAxesCombined className="h-5 w-5" />}
-          testId="investing-invested-value"
-        />
-        <SummaryCard
-          label="Total gain/loss"
-          value={
-            performanceSummary.data
-              ? formatPerformanceMetric(
-                  performanceSummary.data.total_gain_loss,
-                  performanceSummary.data.total_gain_loss_pct,
-                  performanceSummary.data.currency,
-                  currencyDisplayPreference,
-                  displayLocale,
-                  decimalPlaces,
-                )
-              : 'N/A'
-          }
-          icon={<Landmark className="h-5 w-5" />}
-          className="col-span-2 xl:col-span-1"
-          testId="investing-total-gain-loss"
-        />
-        <SummaryCard
-          label="Daily change"
-          value={
-            performanceSummary.data?.daily_change != null
-              ? formatPerformanceMetric(
-                  performanceSummary.data.daily_change,
-                  performanceSummary.data.daily_change_pct,
-                  performanceSummary.data.currency,
-                  currencyDisplayPreference,
-                  displayLocale,
-                  decimalPlaces,
-                )
-              : '—'
-          }
-          valueTitle="Unavailable until a previous-day snapshot exists."
-          icon={<ArrowUpDown className="h-5 w-5" />}
-          testId="investing-daily-change"
-        />
-        <SummaryCard
-          label="Cash total"
-          value={
-            performanceSummary.data?.cash_total != null
-              ? formatCurrency(
-                  performanceSummary.data.cash_total,
-                  performanceSummary.data.currency,
-                  currencyDisplayPreference,
-                  displayLocale,
-                  decimalPlaces,
-                )
-              : 'N/A'
-          }
-          icon={<WalletCards className="h-5 w-5" />}
-          testId="investing-cash-total"
-        />
-      </div>
+      <InvestingHeaderStrip
+        summary={summary.data}
+        performance={performanceSummary.data}
+        fallbackCurrency={preferredWorkspaceCurrency}
+        currencyDisplayPreference={currencyDisplayPreference}
+        locale={displayLocale}
+        decimalPlaces={decimalPlaces}
+      />
 
-      {/* On phones the return metrics + valuation notes push the tabs ~1,000px down
-          the page, so they collapse behind a toggle; from lg up they are always shown. */}
-      <button
-        type="button"
-        data-testid="investing-details-toggle"
-        aria-expanded={showDetails}
-        aria-controls="investing-details"
-        onClick={() => setShowDetails((open) => !open)}
-        className="mb-4 flex min-h-11 w-full items-center justify-between rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 text-sm font-medium text-slate-200 lg:hidden"
+      <details
+        data-testid="investing-currency-details"
+        className="mb-6 rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300"
       >
-        <span>Return metrics &amp; valuation details</span>
-        <ChevronDown
-          className={`h-4 w-4 transition-transform ${showDetails ? 'rotate-180' : ''}`}
-        />
-      </button>
-
-      <div id="investing-details" className={showDetails ? 'block' : 'hidden lg:block'}>
-        <div className="mb-6">
-          <ReturnMetricsPanel currencyDisplayPreference={currencyDisplayPreference} />
-        </div>
-
-        <div className="mb-6 rounded-xl border border-slate-700/50 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
+        <summary className="cursor-pointer text-xs font-medium text-slate-400">
+          Currency and rates
+        </summary>
+        <div className="mt-2">
           <p data-testid="investing-reporting-currency">
             <span className="font-semibold text-slate-100">Reporting currency:</span>{' '}
             {summary.data?.reporting_currency ?? 'Not configured'}
@@ -627,13 +517,6 @@ export const InvestingPage: React.FC = () => {
               ))}
             </div>
           ) : null}
-          <p className="mt-1" data-testid="investing-valuation-line">
-            {valuationLine({
-              summaryStatus: summary.data?.valuation_status,
-              performanceStatus: performanceSummary.data?.valuation_status,
-              snapshotDate: performanceSummary.data?.snapshot_date,
-            })}
-          </p>
           {summary.data?.valuation_status === 'converted_available' &&
           summary.data?.fx_rates_used &&
           Object.keys(summary.data.fx_rates_used).length > 0 ? (
@@ -652,22 +535,8 @@ export const InvestingPage: React.FC = () => {
               ))}
             </div>
           ) : null}
-          <p className="mt-1">
-            <span className="font-semibold text-slate-100">Performance (gain/loss):</span>{' '}
-            {performanceSummary.isLoading
-              ? 'Loading...'
-              : performanceSummary.data
-                ? `${formatCurrency(
-                    performanceSummary.data.total_gain_loss,
-                    performanceSummary.data.currency,
-                    currencyDisplayPreference,
-                    displayLocale,
-                    decimalPlaces,
-                  )} (${performancePctLabel})`
-                : 'N/A'}
-          </p>
         </div>
-      </div>
+      </details>
 
       <Tabs
         value={tab}
@@ -695,10 +564,18 @@ export const InvestingPage: React.FC = () => {
 
             <TabsTrigger
               className="min-w-fit sm:min-w-[6rem] xl:min-w-[8rem]"
-              data-testid="investing-tab-analytics"
-              value="analytics"
+              data-testid="investing-tab-performance"
+              value="performance"
             >
-              Analytics
+              Performance
+            </TabsTrigger>
+
+            <TabsTrigger
+              className="min-w-fit sm:min-w-[6rem] xl:min-w-[8rem]"
+              data-testid="investing-tab-exposure"
+              value="exposure"
+            >
+              Exposure
             </TabsTrigger>
 
             <TabsTrigger
@@ -706,7 +583,7 @@ export const InvestingPage: React.FC = () => {
               data-testid="investing-tab-tax"
               value="tax"
             >
-              Tax
+              Tax &amp; dates
             </TabsTrigger>
           </TabsList>
         </div>
@@ -731,8 +608,12 @@ export const InvestingPage: React.FC = () => {
           />
         </TabsContent>
 
-        <TabsContent value="analytics">
-          <AnalyticsTab currencyDisplayPreference={currencyDisplayPreference} />
+        <TabsContent value="performance">
+          <PerformanceTab currencyDisplayPreference={currencyDisplayPreference} />
+        </TabsContent>
+
+        <TabsContent value="exposure">
+          <ExposureTab currencyDisplayPreference={currencyDisplayPreference} />
         </TabsContent>
 
         <TabsContent value="tax">

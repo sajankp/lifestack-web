@@ -44,4 +44,24 @@ describe('ThemeSplitCard', () => {
     expect(screen.queryByText('Empty')).not.toBeInTheDocument();
     expect(screen.getByTestId('theme-total-pct')).toHaveTextContent('100.0%');
   });
+
+  it('shows readable theme names for machine keys', () => {
+    render(<ThemeSplitCard themeWeights={{ semis_ai: 30, clean_energy: 20 }} />);
+
+    expect(screen.getAllByText('Semis & AI').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Clean energy').length).toBeGreaterThan(0);
+    expect(screen.queryByText('semis_ai')).not.toBeInTheDocument();
+  });
+
+  it('explains the gap when the themes do not add up to the whole portfolio', () => {
+    render(<ThemeSplitCard themeWeights={{ semis_ai: 50, gold: 34 }} />);
+
+    expect(screen.getByTestId('theme-gap')).toHaveTextContent('84% grouped, 16% not itemised');
+  });
+
+  it('shows no gap line when the themes cover the portfolio', () => {
+    renderCard(WEIGHTS);
+
+    expect(screen.queryByTestId('theme-gap')).not.toBeInTheDocument();
+  });
 });

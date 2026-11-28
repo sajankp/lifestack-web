@@ -2,6 +2,7 @@ import React from 'react';
 import { PieChart } from 'lucide-react';
 import { toNumber } from '../../utils/numberFormat';
 import type { ThemeWeight } from '../../types/investing';
+import { themeLabel } from '../../utils/themeLabel';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 
 const ALLOCATION_COLORS = [
@@ -50,7 +51,7 @@ export const ThemeSplitCard: React.FC<ThemeSplitCardProps> = ({ themeWeights }) 
         .map((t, idx) => {
           const weight = toNumber(t.weight);
           return {
-            theme: t.theme || 'Unclassified',
+            theme: themeLabel(t.theme || ''),
             weight,
             pct: (weight / totalWeight) * 100,
             color: ALLOCATION_COLORS[idx % ALLOCATION_COLORS.length],
@@ -95,6 +96,11 @@ export const ThemeSplitCard: React.FC<ThemeSplitCardProps> = ({ themeWeights }) 
         </div>
       </CardHeader>
       <CardContent className="pt-3">
+        {totalWeight < 99.5 ? (
+          <p className="mb-3 text-xs text-slate-400" data-testid="theme-gap">
+            {totalWeight.toFixed(0)}% grouped, {(100 - totalWeight).toFixed(0)}% not itemised
+          </p>
+        ) : null}
         <div className="flex flex-col md:flex-row items-center gap-6">
           {/* Donut Chart */}
           <div className="relative flex-shrink-0 h-44 w-44">
