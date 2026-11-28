@@ -7,6 +7,7 @@ import {
   ActivityFeedResponseSchema,
   CapitalTransferSchema,
   CurrencySchema,
+  LrsSummarySchema,
   NetWorthDataSchema,
   NetWorthHistoryItemSchema,
   PeriodChangeResponseSchema,
@@ -16,6 +17,7 @@ import {
   UserNetWorthPointSchema,
   WorkspaceFinanceSettingSchema,
 } from '../types/finance';
+import type { LrsSummary } from '../types/finance';
 import type {
   Account,
   AccountBalanceResponse,
@@ -43,6 +45,11 @@ const PaginatedUserFxRatesSchema = paginatedSchema(UserFxRateSchema);
 const PaginatedUserNetWorthPointsSchema = paginatedSchema(UserNetWorthPointSchema);
 
 export const financeService = {
+  getLrsSummary: async (fy?: string): Promise<LrsSummary> => {
+    const response = await api.get('/finance/lrs/summary', { params: { fy: fy ?? undefined } });
+    return LrsSummarySchema.parse(response.data);
+  },
+
   getCurrencies: async (): Promise<Currency[]> => {
     const response = await api.get('/finance/currencies');
     return z.array(CurrencySchema).parse(response.data);

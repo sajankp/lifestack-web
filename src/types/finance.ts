@@ -361,3 +361,20 @@ export const PeriodChangeResponseSchema = z.object({
 });
 export type PeriodChangeResponse = z.infer<typeof PeriodChangeResponseSchema>;
 export type ChangePeriod = 'day' | 'week' | 'month' | 'year';
+
+// GET /finance/lrs/summary: Liberalised Remittance Scheme headroom for a financial year.
+export const LrsSummarySchema = z.object({
+  fy_label: z.string().default(''),
+  transfer_count: z.number().default(0),
+  total_usd: z.string().default('0'),
+  cap_usd: z.string().default('250000'),
+  cap_remaining_usd: z.string().default('0'),
+  cap_exceeded: z.boolean().default(false),
+  pct_of_cap: z.string().default('0'),
+  total_inr: z.string().default('0'),
+  tcs_threshold_inr: z.string().default('0'),
+  tcs_applicable: z.boolean().default(false),
+  tcs_amount_inr: z.string().default('0'),
+  assumptions: z.array(z.string()).default([]),
+});
+export type LrsSummary = z.infer<typeof LrsSummarySchema>;
