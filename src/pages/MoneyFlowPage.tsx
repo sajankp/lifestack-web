@@ -481,7 +481,7 @@ export const MoneyFlowPage: React.FC = () => {
               <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 text-xs font-medium text-slate-100 hover:bg-slate-700">
                 <Plus className="h-3.5 w-3.5 text-emerald-400" /> Add ▾
               </summary>
-              <div className="absolute right-0 z-30 mt-2 grid min-w-44 gap-1 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-xl">
+              <div className="absolute left-0 z-30 mt-2 grid min-w-44 gap-1 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-xl">
                 <button
                   type="button"
                   data-testid="header-quick-spending"
