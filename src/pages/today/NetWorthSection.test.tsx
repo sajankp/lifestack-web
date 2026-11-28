@@ -55,7 +55,7 @@ const renderSection = (props: Partial<React.ComponentProps<typeof NetWorthSectio
           currencyDisplay="symbol"
           locale="en-IN"
           decimalPlaces={2}
-          portfolioValue={null}
+          investmentsValue={null}
           valuationStatus=""
           snapshotDate={null}
           {...props}
@@ -232,7 +232,7 @@ describe('NetWorthSection', () => {
         investments: { start: null, end: null, change: null, new_money: null, growth: null },
       }),
     );
-    renderSection({ portfolioValue: '5000.00' });
+    renderSection({ investmentsValue: '5000.00' });
 
     expect(await screen.findByTestId('today-net-worth-value')).toHaveTextContent('—');
     expect(screen.getByTestId('today-period-note')).toHaveTextContent(/not enough history/i);

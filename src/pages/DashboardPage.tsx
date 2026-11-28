@@ -15,7 +15,7 @@ import { NeedsYouSection } from './today/NeedsYouSection';
 import { NetWorthSection } from './today/NetWorthSection';
 import { NextUpSection } from './today/NextUpSection';
 import { ThisMonthSection } from './today/ThisMonthSection';
-import { DEFAULT_DECIMAL_PLACES, DEFAULT_DISPLAY_LOCALE } from '../utils/numberFormat';
+import { DEFAULT_DECIMAL_PLACES, DEFAULT_DISPLAY_LOCALE, toNumber } from '../utils/numberFormat';
 import { formatDateTime } from '../utils/dateFormat';
 import { queryKeys } from '../lib/queryKeys';
 import { useWorkspaceStore } from '../store/workspaceStore';
@@ -77,6 +77,11 @@ export const DashboardPage: React.FC = () => {
   const generatedAt = data?.system.generated_at
     ? formatDateTime(data.system.generated_at, { utc: false, fallback: '' }) || null
     : null;
+  // Holdings plus investing cash, the measure the period change reports (null = not valued).
+  const investmentsValue =
+    data?.investing.portfolio_value != null
+      ? toNumber(data.investing.portfolio_value) + toNumber(data.investing.cash_total)
+      : null;
   const briefingLines = briefingData?.lines ?? [];
   const informationLines = briefingLines.filter((line) => !line.actionable);
 
@@ -156,7 +161,7 @@ export const DashboardPage: React.FC = () => {
               currencyDisplay={currencyDisplayPreference}
               locale={displayLocale}
               decimalPlaces={decimalPlaces}
-              portfolioValue={data.investing.portfolio_value}
+              investmentsValue={investmentsValue}
               valuationStatus={data.investing.valuation_status}
               snapshotDate={data.investing.snapshot_date}
             />

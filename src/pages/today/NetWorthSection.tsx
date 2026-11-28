@@ -24,8 +24,12 @@ interface NetWorthSectionProps {
   currencyDisplay: 'symbol' | 'code';
   locale: string;
   decimalPlaces: number;
-  /** The dashboard summary's portfolio value: used when the period has none of its own. */
-  portfolioValue: NumericValue;
+  /**
+   * Holdings plus investing cash from the dashboard summary: the same measure the period change
+   * reports, used when the period has no value of its own, so the number keeps its meaning when
+   * the period changes.
+   */
+  investmentsValue: NumericValue;
   valuationStatus: string;
   snapshotDate: string | null;
 }
@@ -35,7 +39,7 @@ export const NetWorthSection: React.FC<NetWorthSectionProps> = ({
   currencyDisplay,
   locale,
   decimalPlaces,
-  portfolioValue,
+  investmentsValue,
   valuationStatus,
   snapshotDate,
 }) => {
@@ -64,7 +68,7 @@ export const NetWorthSection: React.FC<NetWorthSectionProps> = ({
     period !== 'day' && complete && netWorth?.saved != null && netWorth?.markets_and_other != null;
   const showInvestmentSplit =
     complete && investments?.new_money != null && investments?.growth != null;
-  const investmentValue = investments?.end ?? portfolioValue;
+  const investmentValue = investments?.end ?? investmentsValue;
   const note = valuationNote(valuationStatus, snapshotDate);
 
   return (

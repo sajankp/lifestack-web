@@ -395,6 +395,64 @@ describe('DashboardPage (Today)', () => {
     });
   });
 
+  describe('investments value', () => {
+    it('falls back to holdings plus investing cash, the same measure the period change uses', async () => {
+      use(
+        http.get('*/v1/finance/period-change', () =>
+          HttpResponse.json({
+            status: 'unavailable',
+            start_date: '2026-05-17',
+            end_date: '2026-05-24',
+            currency: null,
+            net_worth: {
+              start: null,
+              end: null,
+              change: null,
+              saved: null,
+              markets_and_other: null,
+            },
+            investments: { start: null, end: null, change: null, new_money: null, growth: null },
+          }),
+        ),
+        summary({
+          investing: {
+            portfolio_value: '4000.00',
+            cash_total: '300.00',
+            holdings_count: 1,
+            valuation_status: 'current',
+            snapshot_date: '2026-05-23',
+          },
+        }),
+      );
+      renderWithQuery(<DashboardPage />);
+
+      await screen.findByTestId('today-period-note');
+      // Holdings alone ($4,000.00) would change meaning between Week and Month.
+      expect(screen.getByTestId('dashboard-portfolio-value')).toHaveTextContent('$4,300.00');
+    });
+
+    it('shows a dash when the portfolio could not be valued', async () => {
+      use(
+        http.get('*/v1/finance/period-change', () =>
+          HttpResponse.json({
+            status: 'unavailable',
+            start_date: '2026-05-17',
+            end_date: '2026-05-24',
+            net_worth: {},
+            investments: {},
+          }),
+        ),
+        summary({
+          investing: { portfolio_value: null, cash_total: '300.00', holdings_count: 2 },
+        }),
+      );
+      renderWithQuery(<DashboardPage />);
+
+      await screen.findByTestId('today-period-note');
+      expect(screen.getByTestId('dashboard-portfolio-value')).toHaveTextContent('—');
+    });
+  });
+
   describe('valuation wording', () => {
     it('says some prices are estimates under Investments, instead of a separate alert', async () => {
       use(
