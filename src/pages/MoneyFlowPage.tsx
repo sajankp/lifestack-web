@@ -463,8 +463,8 @@ export const MoneyFlowPage: React.FC = () => {
   return (
     <PageShell>
       <PageHero
-        title="Money Flow & Architecture"
-        subtitle="Unified financial ecosystem mapping your capital across cash accounts, trading balances, and invested portfolio."
+        title="Money"
+        subtitle="Your accounts, balances and activity."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -601,7 +601,6 @@ export const MoneyFlowPage: React.FC = () => {
             totalInvestingCash={totalInvestingCash}
             totalInvestedPortfolio={totalInvestedPortfolio}
             onSelectAccount={handleSelectAccount}
-            onOpenTransfer={handleOpenTransfer}
             onOpenDividend={handleOpenDividend}
             onOpenOrder={() => navigate('/portfolio')}
             onOpenCreateAccount={() => setIsCreateAccountModalOpen(true)}
@@ -624,7 +623,7 @@ export const MoneyFlowPage: React.FC = () => {
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-white">Unified Activity Stream</h3>
+                <h3 className="text-base font-bold text-white">Activity</h3>
                 <p className="text-xs text-slate-400">
                   Real-time timeline of spending transactions, capital transfers, trades, and
                   dividends

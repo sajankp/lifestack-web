@@ -130,7 +130,8 @@ describe('SpendPacingCard', () => {
 
     renderComponent();
 
-    expect(await screen.findByText('Burn Velocity Split')).toBeInTheDocument();
+    expect(await screen.findByText('Fixed vs. flexible spending')).toBeInTheDocument();
+    expect(screen.queryByText('Burn Velocity Split')).not.toBeInTheDocument();
     expect(screen.getByText('Fixed (Committed)')).toBeInTheDocument();
     expect(screen.getByText('$1,400.00')).toBeInTheDocument();
     expect(screen.getByText('Discretionary (Lifestyle)')).toBeInTheDocument();

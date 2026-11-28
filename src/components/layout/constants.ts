@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   CheckSquare,
-  Mic,
   ArrowRightLeft,
   Wallet,
   TrendingUp,
@@ -44,13 +43,6 @@ export const NAV_LINKS = [
     section: 'Life' as NavSection,
   },
   {
-    to: '/capture',
-    label: 'Capture',
-    testId: 'nav-capture',
-    icon: Mic,
-    section: 'Life' as NavSection,
-  },
-  {
     to: '/money',
     label: 'Money Flow',
     testId: 'nav-money',
@@ -80,14 +72,14 @@ export const NAV_LINKS = [
   },
   {
     to: '/imports',
-    label: 'Bulk Imports',
+    label: 'Import',
     testId: 'nav-imports',
     icon: Upload,
     section: 'Tools' as NavSection,
   },
   {
     to: '/exports',
-    label: 'Data Exports',
+    label: 'Export',
     testId: 'nav-exports',
     icon: Download,
     section: 'Tools' as NavSection,

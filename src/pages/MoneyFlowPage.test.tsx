@@ -1023,3 +1023,132 @@ describe('MoneyFlowPage category filter', () => {
     expect(feedRequests.every((u) => !u.searchParams.has('category_id'))).toBe(true);
   });
 });
+
+describe('MoneyFlowPage plain wording and a single Transfer button (spec-113 §2.2)', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    server.use(
+      http.get('*/v1/finance/settings/user', () =>
+        HttpResponse.json({
+          effective_locale: 'en-US',
+          effective_decimal_places: 2,
+          effective_currency_display_preference: 'symbol',
+        }),
+      ),
+      http.get('*/v1/finance/accounts', () =>
+        HttpResponse.json({
+          items: [
+            {
+              public_id: 'acc-bank-inr',
+              name: 'HDFC Savings',
+              account_type: 'bank',
+              default_currency_code: 'INR',
+              is_active: true,
+            },
+            {
+              public_id: 'acc-groww',
+              name: 'Groww',
+              account_type: 'brokerage',
+              default_currency_code: 'INR',
+              is_active: true,
+            },
+          ],
+          total: 2,
+          limit: 200,
+          offset: 0,
+        }),
+      ),
+      http.get('*/v1/finance/net-worth', () =>
+        HttpResponse.json({
+          reporting_currency: 'INR',
+          spending_accounts: [],
+          total_net_worth: '0.00',
+          valuation_status: 'ok',
+        }),
+      ),
+      http.get('*/v1/finance/net-worth/history', () => HttpResponse.json([])),
+      http.get('*/v1/investing/holdings', () => HttpResponse.json({ items: [], total: 0 })),
+      http.get('*/v1/investing/summary', () =>
+        HttpResponse.json({
+          portfolio_value: '0.00',
+          reporting_currency: 'INR',
+          valuation_status: 'ok',
+        }),
+      ),
+      http.get('*/v1/spending/categories', () =>
+        HttpResponse.json({ items: [], total: 0, limit: 200, offset: 0 }),
+      ),
+      http.get('*/v1/finance/activity-feed', () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'feed-tf-1',
+              event_type: 'transfer',
+              date: '2026-07-02T10:00:00Z',
+              description: 'HDFC Savings → Groww',
+              amount: '-5000.00',
+              currency: 'INR',
+              amount_in: '+5000.00',
+              currency_in: 'INR',
+              account_id: 'acc-bank-inr',
+              account_name: 'HDFC Savings',
+              account_type: 'bank',
+              counterpart_account_id: 'acc-groww',
+              counterpart_account_name: 'Groww',
+              source_ref: 'tf-public-id',
+            },
+          ],
+          total: 1,
+          limit: 50,
+          offset: 0,
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('uses the plain page, section and activity headings', async () => {
+    renderMoneyFlow();
+
+    expect(await screen.findByRole('heading', { name: 'Money' })).toBeInTheDocument();
+    expect(screen.getByText('Your accounts, balances and activity.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Accounts' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Activity' })).toBeInTheDocument();
+
+    expect(screen.queryByText(/Money Flow & Architecture/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Unified financial ecosystem/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Account Architecture')).not.toBeInTheDocument();
+    expect(screen.queryByText('Unified Activity Stream')).not.toBeInTheDocument();
+  });
+
+  it('has exactly one Transfer button (the header one)', async () => {
+    renderMoneyFlow();
+    await screen.findByRole('heading', { name: 'Accounts' });
+
+    expect(screen.queryByText('Transfer Funds')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Transfer between accounts/)).not.toBeInTheDocument();
+    // The one-row transfer in the feed also has a "Delete transfer" button, so match the label
+    // exactly.
+    expect(screen.getAllByRole('button', { name: 'Transfer' })).toHaveLength(1);
+  });
+
+  it('shows a transfer from the API as one "From → To" row with one amount', async () => {
+    renderMoneyFlow();
+
+    const row = await screen.findByTestId('activity-row-feed-tf-1');
+    expect(row).toHaveTextContent('HDFC Savings → Groww');
+    expect(row.textContent?.match(/HDFC Savings → Groww/g)).toHaveLength(1);
+    expect(screen.getByTestId('activity-amount')).toHaveTextContent('₹5,000.00');
+  });
+});

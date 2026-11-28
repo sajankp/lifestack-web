@@ -344,7 +344,7 @@ export const SpendPacingCard: React.FC<SpendPacingCardProps> = ({
         <div className="mt-4 rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-              Burn Velocity Split
+              Fixed vs. flexible spending
             </span>
             <span className="text-xs text-slate-400">Survival vs Lifestyle</span>
           </div>

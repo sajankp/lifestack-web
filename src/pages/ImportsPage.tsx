@@ -538,7 +538,7 @@ export const ImportsPage: React.FC = () => {
   return (
     <PageShell>
       <PageHero
-        title="Bulk Imports"
+        title="Import"
         subtitle="Upload CSV templates for transactions, budgets, holdings, and constituents."
         actions={
           <button
